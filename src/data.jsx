@@ -76,7 +76,7 @@ export function statusPill(status) {
 
 /* ------------------------------- teacher ------------------------------- */
 
-export const TEACHER = { name: "Leyla Qasimova", initials: "LQ", role: "Vetted teacher", since: "2024" };
+export const TEACHER = { name: "Maryam Bayramova", initials: "LQ", role: "Vetted teacher", since: "2024" };
 
 /* ------------------------------- courses / lessons / parts ------------------------------- */
 
