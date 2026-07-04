@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, Lock, ArrowUp, ArrowDown, Trash2, Pencil, GripVertical,
-  Send, Eye, Sparkles,
+  Send, Eye, Sparkles, Radio,
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -103,7 +103,7 @@ export function CourseView() {
 
 export function LessonBuilderView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
+  const { route, go, startLive } = useNav();
   const [addOpen, setAddOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -139,7 +139,11 @@ export function LessonBuilderView() {
         { label: `Lesson ${lesson.n}` },
       ]} />
       <PageHead title={lesson.title} sub={`${parts.length} parts · lesson builder · drag or use arrows to reorder`}
-        right={<div className="flex gap-2"><Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign</Btn><Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add part</Btn></div>} />
+        right={<div className="flex gap-2">
+          <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300"><Radio size={14} /> Go live</Btn>
+          <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign</Btn>
+          <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add part</Btn>
+        </div>} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* pathway builder */}

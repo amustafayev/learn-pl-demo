@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Home, LayoutGrid, Library as LibraryIcon, BarChart3, Users, Sparkles, Bell } from "lucide-react";
+import { Home, LayoutGrid, Library as LibraryIcon, BarChart3, Users, Sparkles, Bell, Radio } from "lucide-react";
 import { StoreProvider, NavProvider } from "./store.jsx";
 import { ToastHost } from "./ui.jsx";
 import { TEACHER } from "./data.jsx";
@@ -9,6 +9,7 @@ import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
 import Statistics from "./views/Statistics.jsx";
+import LiveSession from "./views/LiveSession.jsx";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: Home },
@@ -21,6 +22,7 @@ const NAV = [
 export default function App() {
   // one shared route object drives every view
   const [route, setRoute] = useState({ tab: "dashboard", courseId: null, lessonId: null, partId: null, studentId: null });
+  const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
 
   const go = useCallback((patch) => {
     setRoute((r) => {
@@ -29,18 +31,21 @@ export default function App() {
       return { ...r, ...patch };
     });
   }, []);
+  const startLive = useCallback((ctx) => setLive(ctx || {}), []);
+  const endLive = useCallback(() => setLive(null), []);
 
   return (
     <StoreProvider>
-      <NavProvider value={{ route, go }}>
+      <NavProvider value={{ route, go, startLive }}>
         <div className="min-h-screen bg-slate-50 text-slate-900 flex" style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
           <Sidebar route={route} go={go} />
           <main className="flex-1 overflow-y-auto h-screen">
-            <TopBar route={route} />
+            <TopBar route={route} onStartLive={() => startLive()} />
             <Content route={route} />
           </main>
           <ToastHost />
         </div>
+        {live && <LiveSession context={live} onEnd={endLive} />}
       </NavProvider>
     </StoreProvider>
   );
@@ -78,13 +83,16 @@ function Sidebar({ route, go }) {
   );
 }
 
-function TopBar({ route }) {
+function TopBar({ route, onStartLive }) {
   const titles = { dashboard: "Dashboard", courses: "Courses", library: "Library", students: "Students", stats: "Statistics" };
   return (
     <div className="h-16 border-b border-slate-100 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8">
       <div className="text-sm text-slate-400 font-mono uppercase tracking-widest">{titles[route.tab]}</div>
       <div className="flex items-center gap-3">
         <span className="text-xs text-slate-400 hidden sm:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500" /> Interface: Azerbaijani</span>
+        <button onClick={onStartLive} className="inline-flex items-center gap-1.5 text-sm font-semibold rounded-lg px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white">
+          <Radio size={15} /> <span className="hidden sm:inline">Start lesson</span>
+        </button>
         <button className="relative text-slate-400 hover:text-slate-700"><Bell size={18} /><span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500" /></button>
       </div>
     </div>
