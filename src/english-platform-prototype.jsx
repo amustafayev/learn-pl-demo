@@ -5,6 +5,7 @@ import { ToastHost } from "./ui.jsx";
 import { TEACHER } from "./data.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
+import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
 import Statistics from "./views/Statistics.jsx";
@@ -19,12 +20,12 @@ const NAV = [
 
 export default function App() {
   // one shared route object drives every view
-  const [route, setRoute] = useState({ tab: "dashboard", courseId: null, lessonId: null, studentId: null });
+  const [route, setRoute] = useState({ tab: "dashboard", courseId: null, lessonId: null, partId: null, studentId: null });
 
   const go = useCallback((patch) => {
     setRoute((r) => {
       // switching top-level tab resets deep selection
-      if (patch.tab && patch.tab !== r.tab) return { tab: patch.tab, courseId: null, lessonId: null, studentId: null, ...patch };
+      if (patch.tab && patch.tab !== r.tab) return { tab: patch.tab, courseId: null, lessonId: null, partId: null, studentId: null, ...patch };
       return { ...r, ...patch };
     });
   }, []);
@@ -93,6 +94,7 @@ function TopBar({ route }) {
 function Content({ route }) {
   if (route.tab === "dashboard") return <Dashboard />;
   if (route.tab === "courses") {
+    if (route.partId) return <PartStudio />;
     if (route.lessonId) return <LessonBuilderView />;
     if (route.courseId) return <CourseView />;
     return <CoursesView />;

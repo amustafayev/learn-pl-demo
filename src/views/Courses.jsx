@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, Lock, ArrowUp, ArrowDown, Trash2, Pencil, GripVertical,
-  Send, Eye, Sparkles, BookOpen,
+  Send, Eye, Sparkles,
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -106,7 +106,6 @@ export function LessonBuilderView() {
   const { route, go } = useNav();
   const [addOpen, setAddOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [preview, setPreview] = useState(null); // part id being previewed
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
 
@@ -153,13 +152,14 @@ export function LessonBuilderView() {
                 <div key={p.id} className="relative pl-10 pb-2.5">
                   {i < parts.length - 1 && <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200" />}
                   <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs font-mono text-slate-400">{i + 1}</div>
-                  <div className={`group bg-white rounded-xl border p-3.5 transition-colors ${preview === p.id ? "border-indigo-300 ring-1 ring-indigo-100" : "border-slate-200"}`}>
-                    <div className="flex items-center gap-3">
+                  <div className="group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 p-3.5 transition-colors flex items-center gap-3">
+                    <button onClick={() => go({ partId: p.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left">
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${P.tone}`}><I size={17} /></span>
                       <div className="min-w-0 flex-1">
                         <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{P.label}</div>
                         {editing === p.id ? (
                           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                             onBlur={() => saveTitle(p)} onKeyDown={(e) => e.key === "Enter" && saveTitle(p)}
                             className="w-full text-sm font-medium border-b border-indigo-300 focus:outline-none" />
                         ) : (
@@ -167,23 +167,15 @@ export function LessonBuilderView() {
                         )}
                         {p.meta && p.meta !== "—" && <div className="text-xs text-slate-400 truncate">{p.meta}</div>}
                       </div>
-                      <div className="flex items-center gap-0.5 text-slate-300">
-                        {(p.type === "grammar" || p.type === "passage") && (
-                          <button title="Preview" onClick={() => setPreview(preview === p.id ? null : p.id)} className={`hover:text-indigo-600 p-1 ${preview === p.id ? "text-indigo-600" : ""}`}><Eye size={15} /></button>
-                        )}
-                        <button title="Rename" onClick={() => { setEditing(p.id); setDraft(p.title || P.label); }} className="hover:text-slate-500 p-1"><Pencil size={14} /></button>
-                        <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: -1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                        <button title="Move down" disabled={i === parts.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: 1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                        <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id }); toast("Part removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
-                        <GripVertical size={14} className="cursor-grab" />
-                      </div>
+                    </button>
+                    <div className="flex items-center gap-0.5 text-slate-300">
+                      <button title="Open (view & edit)" onClick={() => go({ partId: p.id })} className="hover:text-indigo-600 p-1"><Eye size={15} /></button>
+                      <button title="Rename" onClick={() => { setEditing(p.id); setDraft(p.title || P.label); }} className="hover:text-slate-500 p-1"><Pencil size={14} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: -1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
+                      <button title="Move down" disabled={i === parts.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: 1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
+                      <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id }); toast("Part removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                      <GripVertical size={14} className="cursor-grab" />
                     </div>
-                    {preview === p.id && (
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        {p.type === "grammar" ? <GrammarBlock kind={p.grammar || "sentence"} />
-                          : <PassagePreview textId={p.textId} />}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -237,20 +229,5 @@ export function LessonBuilderView() {
       <AddPartModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addPart} />
       <AssignModal open={assignOpen} onClose={() => setAssignOpen(false)} what={`${course.title} — Lesson ${lesson.n}: ${lesson.title}`} kind="lesson" />
     </Page>
-  );
-}
-
-function PassagePreview({ textId }) {
-  const { state } = useStore();
-  const text = state.texts.find((t) => t.id === textId) || state.texts[0];
-  if (!text) return <p className="text-sm text-slate-400">No text linked.</p>;
-  return (
-    <div className="text-sm">
-      <div className="flex items-center gap-2 text-slate-400 mb-2"><BookOpen size={14} /> {text.title} · {text.level}</div>
-      <p className="text-slate-600 leading-relaxed">
-        {text.body.slice(0, 8).map((tok, i) => <span key={i} className={tok.term ? "text-indigo-600 font-medium" : ""}>{tok.term || tok.text}</span>)}…
-      </p>
-      <p className="text-[11px] text-slate-400 mt-2">Open the Library to read with tap-to-translate.</p>
-    </div>
   );
 }
