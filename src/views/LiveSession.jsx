@@ -2,10 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Mic, MicOff, Video, VideoOff, Monitor, ShieldCheck, Users, Copy, Check, Clock,
   Hand, ArrowRight, PhoneOff, CircleDot, Activity, GraduationCap, Sparkles, Radio, Bell,
+  ChevronLeft, ChevronRight, UsersRound, UserRound,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore } from "../store.jsx";
 import { initials, PART_TYPES } from "../data.jsx";
+import { PartStudentView } from "./parts.jsx";
+
+// Parts the class does together (teacher leads, everyone on the same page)
+// vs. individually (each learner at their own pace) — the gamifications.
+const TOGETHER = new Set(["passage", "video", "listening", "grammar"]);
 
 /* =========================================================================
    Live lesson (Google-Meet style, but self-paced). The teacher picks the
@@ -161,19 +167,23 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
   const seed = useMemo(() => roster.map((s, i) => ({
     id: s.id, name: s.name, joined: i === 0, presence: i === 0 ? "active" : "offline", idx: 0,
   })), [roster]);
+  const nParts = parts.length || 1;
 
   const [people, setPeople] = useState(seed);
   const [elapsed, setElapsed] = useState(0);
   const [rec, setRec] = useState({ voice: false, screen: false });
   const [consent, setConsent] = useState(false);
-  const [focus, setFocus] = useState(null); // part index the class is asked to be on
+  const [focus, setFocus] = useState(0); // the part the teacher is teaching (the stage)
   const [feed, setFeed] = useState([{ t: 0, text: "Session started — students are joining" }]);
   const [phase, setPhase] = useState("live");
 
   const peopleRef = useRef(seed);
   const elapsedRef = useRef(0);
-  const focusRef = useRef(null);
-  const nParts = parts.length || 1;
+  const focusRef = useRef(0);
+  const togetherRef = useRef(TOGETHER.has(parts[0]?.type));
+
+  const current = parts[focus];
+  const together = TOGETHER.has(current?.type);
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -181,26 +191,29 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
     return () => clearInterval(id);
   }, [phase]);
 
-  // simulation: students join, then progress through the real lesson parts
+  // simulation: students join; on "together" parts they follow the teacher's
+  // page, on individual parts they progress through the pathway at their pace.
   useEffect(() => {
     if (phase !== "live") return;
     const id = setInterval(() => {
+      const tog = togetherRef.current; const f = focusRef.current;
       const next = peopleRef.current.map((p) => ({ ...p }));
       let msg = null;
       const un = next.filter((p) => !p.joined);
       if (un.length && Math.random() < 0.5) {
-        const p = pick(un); p.joined = true; p.presence = "active"; p.idx = 0;
-        msg = `${first(p)} joined`;
+        const p = pick(un); p.joined = true; p.presence = "active"; p.idx = f; msg = `${first(p)} joined`;
       } else {
         const jn = next.filter((p) => p.joined && p.presence !== "done");
         if (jn.length) {
           const p = pick(jn); const r = Math.random();
-          if (p.presence === "idle" && r < 0.6) { p.presence = "active"; msg = `${first(p)} is active again`; }
-          else if (p.presence === "active" && r < 0.2) { p.presence = "idle"; msg = `${first(p)} went idle`; }
-          else {
-            // advance — biased toward the part the class was asked to be on
-            const target = focusRef.current != null ? focusRef.current : nParts;
-            if (p.idx < target || focusRef.current == null) {
+          if (tog) {
+            if (p.idx !== f) { p.idx = f; p.presence = "active"; msg = `${first(p)} is following along`; }
+            else if (p.presence === "idle" && r < 0.6) { p.presence = "active"; msg = `${first(p)} is active again`; }
+            else if (p.presence === "active" && r < 0.15) { p.presence = "idle"; msg = `${first(p)} went idle`; }
+          } else {
+            if (p.presence === "idle" && r < 0.6) { p.presence = "active"; msg = `${first(p)} is active again`; }
+            else if (p.presence === "active" && r < 0.15) { p.presence = "idle"; msg = `${first(p)} went idle`; }
+            else {
               p.idx = Math.min(p.idx + 1, nParts);
               if (p.idx >= nParts) { p.presence = "done"; msg = `${first(p)} finished the lesson`; }
               else msg = `${first(p)} → ${parts[p.idx]?.title}`;
@@ -209,7 +222,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
         }
       }
       peopleRef.current = next; setPeople(next);
-      if (msg) setFeed((f) => [{ t: elapsedRef.current, text: msg }, ...f].slice(0, 40));
+      if (msg) setFeed((fd) => [{ t: elapsedRef.current, text: msg }, ...fd].slice(0, 40));
     }, 3000);
     return () => clearInterval(id);
   }, [phase, nParts, parts]);
@@ -219,18 +232,24 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
   const idle = joined.filter((p) => p.presence === "idle");
   const done = joined.filter((p) => p.presence === "done");
   const notJoined = people.filter((p) => !p.joined);
-  const countOnPart = (i) => joined.filter((p) => p.presence !== "done" && p.idx === i).length;
+  const here = joined.filter((p) => p.idx === focus && p.presence !== "done");
 
   function toggleRec(kind) {
     if (!consent) return toast("Get learners' consent before recording", "err");
     setRec((r) => ({ ...r, [kind]: !r[kind] }));
     setFeed((f) => [{ t: elapsedRef.current, text: `${rec[kind] ? "Stopped" : "Started"} ${kind} recording` }, ...f].slice(0, 40));
   }
-  function askFocus(i) {
-    setFocus(i); focusRef.current = i;
-    const label = i == null ? "free / self-paced" : parts[i]?.title;
-    setFeed((f) => [{ t: elapsedRef.current, text: i == null ? "Class set to self-paced" : `You asked the class to open: ${label}` }, ...f].slice(0, 40));
-    if (i != null) toast(`Asked everyone to open “${label}”`);
+  function goPart(i) {
+    if (i < 0 || i >= nParts) return;
+    const p = parts[i]; const tog = TOGETHER.has(p.type);
+    setFocus(i); focusRef.current = i; togetherRef.current = tog;
+    setPeople((prev) => {
+      const next = prev.map((x) => ({ ...x }));
+      next.forEach((x) => { if (x.joined && x.presence !== "done") { x.idx = i; if (x.presence !== "idle") x.presence = "active"; } });
+      peopleRef.current = next; return next;
+    });
+    setFeed((fd) => [{ t: elapsedRef.current, text: tog ? `Now doing “${p.title}” together` : `Everyone: work on “${p.title}” at your own pace` }, ...fd].slice(0, 40));
+    toast(tog ? `Doing “${p.title}” together` : `Class working on “${p.title}”`);
   }
   function nudge(p) {
     setFeed((f) => [{ t: elapsedRef.current, text: `Nudged ${first(p)} — “still with us?”` }, ...f].slice(0, 40));
@@ -258,69 +277,78 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
         ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} parts={parts} onEnd={onEnd} />
         : (
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
-            <div className="lg:col-span-2 overflow-y-auto p-5 sm:p-8 space-y-6">
-              {/* class focus — point everyone at a part */}
-              <div>
-                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">Guide the class · ask everyone to do a part</div>
-                <Card className="p-4">
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => askFocus(null)} className={`text-sm rounded-lg px-3 py-1.5 border ${focus == null ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>Self-paced</button>
-                    {parts.map((p, i) => { const P = PART_TYPES[p.type]; const I = P?.icon || GraduationCap; return (
-                      <button key={p.id} onClick={() => askFocus(i)} className={`text-sm rounded-lg pl-2 pr-3 py-1.5 border inline-flex items-center gap-1.5 ${focus === i ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
-                        <span className={`w-5 h-5 rounded flex items-center justify-center ${P?.tone || "bg-slate-100"}`}><I size={12} /></span>{p.title}
-                        <span className="text-[10px] font-mono text-slate-400">{countOnPart(i)}</span>
-                      </button>
-                    ); })}
-                  </div>
-                  {focus != null && <div className="mt-3 text-sm text-indigo-700 inline-flex items-center gap-1.5"><ArrowRight size={14} /> Class asked to open <b>{parts[focus]?.title}</b> — students still move at their own pace.</div>}
-                </Card>
+            {/* STAGE — the lesson content the teacher teaches from (what students see) */}
+            <div className="lg:col-span-2 overflow-y-auto">
+              {/* pathway strip */}
+              <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200 px-5 sm:px-8 py-3">
+                <div className="flex items-center gap-2 overflow-x-auto">
+                  <button onClick={() => goPart(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronLeft size={16} /></button>
+                  {parts.map((p, i) => { const P = PART_TYPES[p.type]; const I = P?.icon || GraduationCap; return (
+                    <button key={p.id} onClick={() => goPart(i)} title={p.title}
+                      className={`shrink-0 inline-flex items-center gap-1.5 text-sm rounded-lg pl-1.5 pr-2.5 py-1 border transition-colors ${focus === i ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      <span className={`w-5 h-5 rounded flex items-center justify-center ${P?.tone || "bg-slate-100"}`}><I size={12} /></span>
+                      {i + 1}
+                    </button>
+                  ); })}
+                  <button onClick={() => goPart(focus + 1)} disabled={focus >= nParts - 1} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronRight size={16} /></button>
+                </div>
               </div>
 
-              {/* recording */}
-              <div>
-                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">Session tracking</div>
-                <Card className="p-5">
-                  <label className={`flex items-start gap-3 rounded-xl border p-3.5 mb-4 cursor-pointer ${consent ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/50"}`}>
-                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-indigo-600" />
-                    <span className="text-sm"><span className="font-semibold inline-flex items-center gap-1.5"><ShieldCheck size={15} className={consent ? "text-emerald-600" : "text-amber-600"} /> Learners consented to recording</span>
-                      <span className="block text-slate-500 text-xs mt-0.5">Required before any recording. Some learners may be minors — consent is built in, not retrofitted.</span></span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <RecToggle on={rec.voice} disabled={!consent} onClick={() => toggleRec("voice")} iconOn={Mic} iconOff={MicOff} label="Voice recording" hint="For AI lesson notes" />
-                    <RecToggle on={rec.screen} disabled={!consent} onClick={() => toggleRec("screen")} iconOn={Video} iconOff={VideoOff} label="Screen / video" hint="Captures the shared screen" />
+              <div className="p-5 sm:p-8">
+                {/* stage header: what we're on, together/individual, who's here */}
+                <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                  <div>
+                    <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Part {focus + 1} of {nParts} · you're teaching</div>
+                    <h2 className="text-xl font-bold tracking-tight">{current?.title}</h2>
                   </div>
-                  {rec.voice && (
-                    <div className="mt-4 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 text-rose-600 text-sm font-medium"><CircleDot size={14} /> Recording</span>
-                      <div className="flex items-end gap-0.5 h-6 flex-1">
-                        {Array.from({ length: 40 }).map((_, i) => <span key={i} className="flex-1 bg-rose-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + elapsed)) * 80}%` }} />)}
-                      </div>
-                      <span className="font-mono text-xs text-slate-400">{clock(elapsed)}</span>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-slate-400 mt-3">Also logged automatically: attendance, who's active, and each learner's progress through the lesson.</p>
-                </Card>
-              </div>
+                  {together
+                    ? <Pill className="bg-emerald-50 text-emerald-700"><UsersRound size={12} /> Together · the class is on this page</Pill>
+                    : <Pill className="bg-indigo-50 text-indigo-700"><UserRound size={12} /> Individual · each learner at their own pace</Pill>}
+                </div>
 
-              {/* feed */}
-              <div>
-                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1.5"><Activity size={13} /> Live activity</div>
-                <Card className="p-2 max-h-72 overflow-y-auto divide-y divide-slate-50">
-                  {feed.map((e, i) => (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <span className="font-mono text-[11px] text-slate-300 w-10 shrink-0">{clock(e.t)}</span>
-                      <span className="text-slate-600">{e.text}</span>
-                    </div>
-                  ))}
-                </Card>
+                {/* shared presence — you + who's viewing this with you */}
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="flex -space-x-2">
+                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold ring-2 ring-white">You</div>
+                    {here.slice(0, 6).map((p) => <div key={p.id} className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-semibold ring-2 ring-white">{initials(p.name)}</div>)}
+                  </div>
+                  <span className="text-xs text-slate-400">{together ? `You + ${here.length} here — everyone sees this same page` : `${here.length} learner${here.length === 1 ? "" : "s"} working on this now`}</span>
+                </div>
+
+                {/* the actual content, exactly as a learner sees it */}
+                {current ? <PartStudentView part={current} /> : <Card className="p-8 text-center text-slate-400 text-sm">This lesson has no parts yet.</Card>}
               </div>
             </div>
 
-            {/* participants */}
+            {/* right rail — tracking, participants, feed */}
             <div className="border-l border-slate-200 bg-white overflow-y-auto flex flex-col">
-              <div className="p-5 border-b border-slate-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold flex items-center gap-2"><Users size={16} /> Participants</div>
+              {/* tracking */}
+              <div className="p-4 border-b border-slate-100">
+                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">Session tracking</div>
+                <label className={`flex items-start gap-2.5 rounded-xl border p-3 mb-3 cursor-pointer ${consent ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/50"}`}>
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-indigo-600" />
+                  <span className="text-xs"><span className="font-semibold inline-flex items-center gap-1.5"><ShieldCheck size={14} className={consent ? "text-emerald-600" : "text-amber-600"} /> Consented to recording</span>
+                    <span className="block text-slate-500 mt-0.5">Required first — some learners may be minors.</span></span>
+                </label>
+                <div className="space-y-2">
+                  <RecToggle on={rec.voice} disabled={!consent} onClick={() => toggleRec("voice")} iconOn={Mic} iconOff={MicOff} label="Voice recording" hint="For AI lesson notes" />
+                  <RecToggle on={rec.screen} disabled={!consent} onClick={() => toggleRec("screen")} iconOn={Video} iconOff={VideoOff} label="Screen / video" hint="Captures the shared stage" />
+                </div>
+                {rec.voice && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-rose-600 text-xs font-medium"><CircleDot size={12} /> rec</span>
+                    <div className="flex items-end gap-0.5 h-5 flex-1">
+                      {Array.from({ length: 28 }).map((_, i) => <span key={i} className="flex-1 bg-rose-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + elapsed)) * 80}%` }} />)}
+                    </div>
+                    <span className="font-mono text-[11px] text-slate-400">{clock(elapsed)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* participants */}
+              <div className="p-4 border-b border-slate-100">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="font-semibold flex items-center gap-2 text-sm"><Users size={15} /> Participants</div>
                   <RoomCode />
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs">
@@ -330,19 +358,20 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                   <Pill className="bg-slate-100 text-slate-400">{notJoined.length} not joined</Pill>
                 </div>
               </div>
-              <div className="flex-1 divide-y divide-slate-50">
+              <div className="divide-y divide-slate-50">
                 {[...joined, ...notJoined].map((p) => {
                   const pr = PRESENCE[p.presence];
+                  const onFocus = p.joined && p.idx === focus && p.presence !== "done";
                   const label = !p.joined ? "not joined" : p.presence === "done" ? "finished all parts" : p.presence === "idle" ? "idle" : `on ${parts[p.idx]?.title || "…"}`;
                   return (
-                    <div key={p.id} className="px-5 py-3">
+                    <div key={p.id} className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-semibold">{initials(p.name)}</div>
                           <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white ${pr.dot}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm truncate">{p.name}</div>
+                          <div className="font-medium text-sm truncate flex items-center gap-1.5">{p.name}{onFocus && <span title="on your page" className="text-emerald-500"><CircleDot size={11} /></span>}</div>
                           <div className={`text-xs ${pr.text}`}>{label}</div>
                         </div>
                         {p.presence === "idle" && <button onClick={() => nudge(p)} title="Nudge" className="text-amber-500 hover:text-amber-600 p-1"><Hand size={16} /></button>}
@@ -357,6 +386,19 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* feed */}
+              <div className="p-4 border-t border-slate-100">
+                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5"><Activity size={13} /> Live activity</div>
+                <div className="space-y-1 max-h-52 overflow-y-auto">
+                  {feed.map((e, i) => (
+                    <div key={i} className="flex items-center gap-2.5 py-1 text-sm">
+                      <span className="font-mono text-[11px] text-slate-300 w-9 shrink-0">{clock(e.t)}</span>
+                      <span className="text-slate-600">{e.text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

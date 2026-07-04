@@ -107,6 +107,10 @@ export function defaultContent(partType, texts = []) {
   return { blocks: kinds.map((k) => defaultBlock(k, texts)) };
 }
 
+// blocks for a part (content if present, else migrated / default) — used by
+// the studio and by the live-lesson stage so both show the same thing.
+export function partBlocks(part, texts = []) { return toBlocks(part, texts).blocks; }
+
 // migrate any pre-nesting content into the blocks model
 function toBlocks(part, texts) {
   const c = part.content;
@@ -246,6 +250,30 @@ export default function PartStudio() {
 }
 
 /* ============================== block: student ============================== */
+
+// Renders a whole part exactly as a learner sees it (all activity blocks).
+// Shared by the Part Studio's "As student" view and the live-lesson stage.
+export function PartStudentView({ part }) {
+  const { state } = useStore();
+  const blocks = partBlocks(part, state.texts);
+  if (!blocks.length) return <Card className="p-8 text-center text-slate-400 text-sm">No activities in this part yet.</Card>;
+  return (
+    <div className="space-y-8">
+      {blocks.map((b, i) => {
+        const M = BLOCK_META[b.kind]; const BI = M.icon;
+        return (
+          <div key={b.id}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><BI size={15} /></span>
+              <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Activity {i + 1} · {M.label}</span>
+            </div>
+            <BlockStudent block={b} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function BlockStudent({ block }) {
   switch (block.kind) {
