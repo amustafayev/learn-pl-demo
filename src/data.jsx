@@ -254,6 +254,24 @@ export const SEED_STUDENTS = [
       act("lesson", "Reached checkpoint 2 of Lesson 4", "1d ago"),
     ],
     hesitation: "high on present-perfect items (avg 9s, changed answer 3×)",
+    tracking: {
+      dwellByType: { grammar: 42, vocabulary: 18, reading: 25, listening: 15, speaking: 8, writing: 6 },
+      stuckPoints: [
+        { concept: "Present perfect", activity: "Fill the gaps", retries: 4, avgDwellSec: 38, revisits: 3, when: "2d ago" },
+        { concept: "Articles", activity: "Quiz", retries: 3, avgDwellSec: 22, revisits: 2, when: "5d ago" },
+      ],
+      responseSpeed: [
+        { concept: "Present perfect", avgSecToCorrect: 14, firstTryAccuracy: 42 },
+        { concept: "Past simple", avgSecToCorrect: 6, firstTryAccuracy: 81 },
+        { concept: "Word order", avgSecToCorrect: 5, firstTryAccuracy: 88 },
+      ],
+      rhythm: { avgSessionMin: 18, sessionsPerWeek: 5, commonTimeOfDay: "evenings (7–9pm)", avgGapHours: 30 },
+      reading: { paceWpm: 95, rereads: 2, wordsTappedPerText: 6 },
+      listening: { avgReplays: 2.4, struggle: "standup recording replayed 3× around “already resolved”" },
+      hints: { used: 5, mostUsedOn: "Present perfect" },
+      abandonment: [{ lesson: "Lesson 5 — Code-review comments", part: "Grammar", when: "4d ago" }],
+    },
+    lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
     id: "s_nigar", name: "Nigar Mammadova", courseId: "it", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
@@ -273,6 +291,20 @@ export const SEED_STUDENTS = [
     notes: [],
     activity: [act("word", "Moved 3 words to “known”", "20m ago"), act("test", "Test · Word order — 10/10", "20m ago")],
     hesitation: "low — fast, confident answers",
+    tracking: {
+      dwellByType: { grammar: 20, vocabulary: 15, reading: 22, listening: 18, speaking: 10, writing: 5 },
+      stuckPoints: [],
+      responseSpeed: [
+        { concept: "Word order", avgSecToCorrect: 3, firstTryAccuracy: 95 },
+        { concept: "Present perfect", avgSecToCorrect: 4, firstTryAccuracy: 90 },
+      ],
+      rhythm: { avgSessionMin: 25, sessionsPerWeek: 6, commonTimeOfDay: "mornings (7–8am)", avgGapHours: 18 },
+      reading: { paceWpm: 140, rereads: 0, wordsTappedPerText: 2 },
+      listening: { avgReplays: 0.8, struggle: null },
+      hints: { used: 0, mostUsedOn: null },
+      abandonment: [],
+    },
+    lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
     id: "s_elvin", name: "Elvin Huseynov", courseId: "it", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
@@ -291,6 +323,17 @@ export const SEED_STUDENTS = [
     notes: [],
     activity: [act("reading", "Tapped 9 words in “At the café”", "1d ago")],
     hesitation: "medium — many hints used on grammar",
+    tracking: {
+      dwellByType: { grammar: 10, vocabulary: 6, reading: 12, listening: 4, speaking: 0, writing: 0 },
+      stuckPoints: [{ concept: "Word order", activity: "Practice", retries: 5, avgDwellSec: 50, revisits: 4, when: "1d ago" }],
+      responseSpeed: [{ concept: "Word order", avgSecToCorrect: 21, firstTryAccuracy: 30 }],
+      rhythm: { avgSessionMin: 9, sessionsPerWeek: 2, commonTimeOfDay: "late nights (11pm+)", avgGapHours: 60 },
+      reading: { paceWpm: 60, rereads: 4, wordsTappedPerText: 9 },
+      listening: { avgReplays: 3.1, struggle: "café audio replayed 4× on “grab a sandwich”" },
+      hints: { used: 8, mostUsedOn: "Word order" },
+      abandonment: [{ lesson: "Lesson 1 — Introducing yourself", part: "Grammar", when: "2d ago" }],
+    },
+    lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
     id: "s_leyla", name: "Leyla Qasimova (demo)", courseId: "it", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
@@ -304,6 +347,17 @@ export const SEED_STUDENTS = [
     words: [], notes: [],
     activity: [act("lesson", "Completed Lesson 4 — Tense forms", "3h ago")],
     hesitation: "low",
+    tracking: {
+      dwellByType: { grammar: 30, vocabulary: 20, reading: 28, listening: 20, speaking: 12, writing: 8 },
+      stuckPoints: [],
+      responseSpeed: [{ concept: "Word order", avgSecToCorrect: 3, firstTryAccuracy: 97 }],
+      rhythm: { avgSessionMin: 22, sessionsPerWeek: 6, commonTimeOfDay: "evenings", avgGapHours: 20 },
+      reading: { paceWpm: 150, rereads: 0, wordsTappedPerText: 1 },
+      listening: { avgReplays: 0.5, struggle: null },
+      hints: { used: 0, mostUsedOn: null },
+      abandonment: [],
+    },
+    lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
     id: "s_kamran", name: "Kamran Safarov", courseId: "it", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
@@ -318,6 +372,17 @@ export const SEED_STUDENTS = [
     words: [], notes: [],
     activity: [act("lesson", "Signed up, took placement test", "6d ago")],
     hesitation: "n/a — hasn't started lessons",
+    tracking: {
+      dwellByType: { grammar: 0, vocabulary: 0, reading: 2, listening: 0, speaking: 0, writing: 0 },
+      stuckPoints: [],
+      responseSpeed: [],
+      rhythm: { avgSessionMin: 4, sessionsPerWeek: 0, commonTimeOfDay: "—", avgGapHours: 144 },
+      reading: { paceWpm: 0, rereads: 0, wordsTappedPerText: 0 },
+      listening: { avgReplays: 0, struggle: null },
+      hints: { used: 0, mostUsedOn: null },
+      abandonment: [{ lesson: "Placement follow-up", part: "Reading", when: "6d ago" }],
+    },
+    lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
     id: "s_aysel", name: "Aysel Rahimli", courseId: "ielts", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
@@ -337,6 +402,23 @@ export const SEED_STUDENTS = [
     notes: [],
     activity: [act("test", "Conditionals practice — 4/10 twice", "5h ago"), act("word", "Saved 2 linkers", "5h ago")],
     hesitation: "high on conditionals — repeated retries, no improvement",
+    tracking: {
+      dwellByType: { grammar: 55, vocabulary: 20, reading: 15, listening: 20, speaking: 5, writing: 10 },
+      stuckPoints: [
+        { concept: "Conditionals", activity: "Practice", retries: 6, avgDwellSec: 62, revisits: 5, when: "5h ago" },
+        { concept: "Conditionals", activity: "Quiz", retries: 4, avgDwellSec: 48, revisits: 2, when: "1d ago" },
+      ],
+      responseSpeed: [
+        { concept: "Conditionals", avgSecToCorrect: 28, firstTryAccuracy: 25 },
+        { concept: "Word order", avgSecToCorrect: 7, firstTryAccuracy: 80 },
+      ],
+      rhythm: { avgSessionMin: 30, sessionsPerWeek: 7, commonTimeOfDay: "evenings (8–10pm)", avgGapHours: 16 },
+      reading: { paceWpm: 105, rereads: 3, wordsTappedPerText: 5 },
+      listening: { avgReplays: 1.5, struggle: null },
+      hints: { used: 12, mostUsedOn: "Conditionals" },
+      abandonment: [{ lesson: "Part 2 — the long turn", part: "Grammar", when: "3d ago" }],
+    },
+    lastRecording: { date: null, durationMin: 0, summary: null },
   },
 ];
 

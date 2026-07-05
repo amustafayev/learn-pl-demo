@@ -136,6 +136,14 @@ function reducer(state, action) {
       });
       return { ...state, students };
     }
+    case "SET_RECORDING_SUMMARY": {
+      // written when a teacher ends a recorded live lesson and drafts notes —
+      // an AI-generated summary of that session, surfaced in the student's
+      // AI Insights tab.
+      const { studentId, recording } = action;
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, lastRecording: recording } : s));
+      return { ...state, students };
+    }
     case "PUSH_TOAST":
       return { ...state, toasts: [...state.toasts, { id: action.id, text: action.text, tone: action.tone || "ok" }] };
     case "DISMISS_TOAST":

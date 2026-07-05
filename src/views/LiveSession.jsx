@@ -274,7 +274,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
       </div>
 
       {phase === "ended"
-        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} onEnd={onEnd} />
+        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} lesson={lesson} onEnd={onEnd} />
         : (
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
             {/* STAGE — the lesson content the teacher teaches from (what students see) */}
@@ -424,10 +424,20 @@ function RoomCode() {
   );
 }
 
-function Ended({ elapsed, rec, joined, total, blocks, onEnd }) {
-  const { toast } = useStore();
+function Ended({ elapsed, rec, joined, total, blocks, lesson, onEnd }) {
+  const { dispatch, toast } = useStore();
   const [drafted, setDrafted] = useState(false);
   const nBlocks = blocks.length || 1;
+
+  function draftNotes() {
+    setDrafted(true);
+    joined.forEach((p) => {
+      const reached = blocks[Math.min(p.idx, blocks.length - 1)];
+      const summary = `${clock(elapsed)} session${lesson ? ` on ${lesson.title}` : ""}. Reached “${reached?.title || "the start"}” by the end — audio captured for AI notes.`;
+      dispatch({ type: "SET_RECORDING_SUMMARY", studentId: p.id, recording: { date: "today", durationMin: Math.round(elapsed / 60), summary } });
+    });
+    toast(`Draft notes created for ${joined.length} students`);
+  }
   return (
     <div className="flex-1 overflow-y-auto p-5 sm:p-8">
       <div className="max-w-2xl mx-auto">
@@ -457,7 +467,7 @@ function Ended({ elapsed, rec, joined, total, blocks, onEnd }) {
         )}
         <div className="flex justify-end gap-2 mt-6">
           <Btn variant="outline" onClick={onEnd}>Close</Btn>
-          {rec.voice && <Btn onClick={() => { setDrafted(true); toast(`Draft notes created for ${joined.length} students`); }} disabled={drafted}>{drafted ? <><Check size={15} /> Notes drafted</> : <><ArrowRight size={15} /> Draft lesson notes ({joined.length})</>}</Btn>}
+          {rec.voice && <Btn onClick={draftNotes} disabled={drafted}>{drafted ? <><Check size={15} /> Notes drafted</> : <><ArrowRight size={15} /> Draft lesson notes ({joined.length})</>}</Btn>}
         </div>
       </div>
     </div>

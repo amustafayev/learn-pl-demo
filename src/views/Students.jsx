@@ -16,6 +16,7 @@ import { useStore, useNav } from "../store.jsx";
 import { statusPill } from "../data.jsx";
 import { AssignModal } from "../components/modals.jsx";
 import { WordStatusPill } from "./grammar.jsx";
+import StudentInsights from "./StudentInsights.jsx";
 
 const weakest = (c) => Object.entries(c).sort((a, b) => a[1] - b[1])[0];
 
@@ -84,7 +85,7 @@ export function StudentDetail() {
   const s = state.students.find((x) => x.id === route.studentId);
   if (!s) return null;
 
-  const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["notes", "Lesson notes"], ["path", "Learning path"]];
+  const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
 
   return (
     <Page>
@@ -110,6 +111,7 @@ export function StudentDetail() {
       {tab === "overview" && <Overview s={s} />}
       {tab === "words" && <Words s={s} />}
       {tab === "activity" && <Activity s={s} />}
+      {tab === "insights" && <StudentInsights s={s} />}
       {tab === "notes" && <Notes s={s} />}
       {tab === "path" && <PathView s={s} />}
 
