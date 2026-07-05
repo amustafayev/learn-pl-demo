@@ -32,7 +32,7 @@ function trendDirection(values) {
 }
 
 // per-student trajectory from their CEFR-level series (0-4ish scale)
-function studentTrajectory(s) {
+export function studentTrajectory(s) {
   const cefr = s.cefr || [];
   if (cefr.length < 2) return { label: "just started", icon: Minus, tone: "text-slate-400 bg-slate-100" };
   const recent = cefr.slice(-3).map((c) => c.v);

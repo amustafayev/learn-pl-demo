@@ -240,7 +240,7 @@ export const SEED_STUDENTS = [
     adjustLog: [{ when: "2d ago", dir: "easier", concept: "Present perfect", reason: "3 misses in a row — added a re-explanation step" }],
     words: [
       { term: "deploy", az: "yerləşdirmək", def: "put software on a server", example: "We deploy every Friday.", status: "medium", source: "A morning standup", daysAgo: 2, dueInDays: 1 },
-      { term: "overcome", az: "öhdəsindən gəlmək", def: "to succeed in dealing with a problem", example: "She overcame her fear of meetings.", status: "weak", source: "Explaining a decision", daysAgo: 6, dueInDays: 0 },
+      { term: "overcome", az: "öhdəsindən gəlmək", def: "to succeed in dealing with a problem", example: "She overcame her fear of meetings.", status: "weak", source: "Explaining a decision", daysAgo: 6, dueInDays: 0, loopStage: 1 },
       { term: "release", az: "buraxılış", def: "a new version for users", example: "The release ships Monday.", status: "strong", source: "A morning standup", daysAgo: 9, dueInDays: 4 },
       { term: "blocking", az: "maneə törədən", def: "stopping progress", example: "Nothing is blocking me.", status: "weak", source: "A morning standup", daysAgo: 1, dueInDays: 0 },
     ],
@@ -270,6 +270,10 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 2.4, struggle: "standup recording replayed 3× around “already resolved”" },
       hints: { used: 5, mostUsedOn: "Present perfect" },
       abandonment: [{ lesson: "Lesson 5 — Code-review comments", part: "Grammar", when: "4d ago" }],
+      confidence: [
+        { concept: "Present perfect", predicted: 75, actual: 42 },
+        { concept: "Word order", predicted: 85, actual: 88 },
+      ],
     },
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
@@ -417,6 +421,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 1.5, struggle: null },
       hints: { used: 12, mostUsedOn: "Conditionals" },
       abandonment: [{ lesson: "Part 2 — the long turn", part: "Grammar", when: "3d ago" }],
+      confidence: [{ concept: "Conditionals", predicted: 40, actual: 25 }],
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
   },

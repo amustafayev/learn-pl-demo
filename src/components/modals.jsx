@@ -83,7 +83,7 @@ export function AddTextModal({ open, onClose }) {
       <div className="grid grid-cols-2 gap-3">
         <Field label="Topic">
           <select className={inputCls} value={topic} onChange={(e) => setTopic(e.target.value)}>
-            {["Everyday", "IT", "Business", "Travel", "IELTS", "Academic"].map((t) => <option key={t}>{t}</option>)}
+            {["Everyday", "IT", "Business", "Medical", "Travel", "IELTS", "Academic"].map((t) => <option key={t}>{t}</option>)}
           </select>
         </Field>
         <Field label="Level">
