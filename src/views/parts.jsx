@@ -4,11 +4,16 @@ import {
   GraduationCap, Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
+  MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
+  Trophy,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
 import { PART_TYPES, ROLE } from "../data.jsx";
-import { Reader, RoleLegend, ColorSentence, TenseTimeline } from "./grammar.jsx";
+import {
+  Reader, RoleLegend, ColorSentence, TenseTimeline,
+  PrepositionScene, ConjugationWheel, ConditionalFlow, ComparisonLadder, WordWeb,
+} from "./grammar.jsx";
 
 /* =========================================================================
    Part Studio — a part is a CONTAINER of activity blocks. Each part type
@@ -32,6 +37,14 @@ export const BLOCK_META = {
   gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50" },
   timeline:   { label: "Tense timeline",        icon: Shapes,            tone: "text-emerald-600 bg-emerald-50" },
   sentence:   { label: "Colour-coded sentence", icon: Shapes,            tone: "text-emerald-600 bg-emerald-50" },
+  preposition:{ label: "Preposition scene",     icon: MapPin,            tone: "text-sky-600 bg-sky-50" },
+  conjugation:{ label: "Conjugation wheel",     icon: RotateCw,          tone: "text-blue-600 bg-blue-50" },
+  conditional:{ label: "Conditional flow",      icon: GitBranch,         tone: "text-amber-600 bg-amber-50" },
+  comparison: { label: "Comparison ladder",     icon: TrendingUp,        tone: "text-lime-600 bg-lime-50" },
+  wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50" },
+  memory:     { label: "Memory match",          icon: Grid2x2,           tone: "text-pink-600 bg-pink-50" },
+  scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50" },
+  speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50" },
   video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50" },
   listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50" },
   scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50" },
@@ -41,11 +54,11 @@ export const BLOCK_META = {
 // which block kinds each part type can hold (the "Add activity" palette)
 const PALETTE = {
   passage:   ["passage"],
-  words:     ["wordlist", "flashcards", "match", "quiz"],
-  cards:     ["match"],
-  grammar:   ["timeline", "sentence"],
-  practice:  ["gapfill", "match", "quiz", "flashcards", "scenario", "listening"],
-  test:      ["quiz", "gapfill"],
+  words:     ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb"],
+  cards:     ["match", "memory"],
+  grammar:   ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"],
+  practice:  ["gapfill", "match", "quiz", "flashcards", "scenario", "listening", "memory", "scramble", "speedround"],
+  test:      ["quiz", "gapfill", "speedround"],
   video:     ["video"],
   listening: ["listening"],
   scenario:  ["scenario"],
@@ -79,6 +92,36 @@ function defaultBlock(kind, texts = []) {
     case "sentence":   return { ...base, sentence: [
       { w: "The team", role: "subject" }, { w: "shipped", role: "verb" }, { w: "the login screen", role: "object" },
       { w: "yesterday", role: "time" }, { w: "." },
+    ] };
+    case "preposition": return { ...base, object: "🐈", anchor: "🗄️", subject: "the cat", place: "the cupboard",
+      options: ["in", "on", "under", "next to", "behind"], answer: "on" };
+    case "conjugation": return { ...base, verb: "go", tenses: {
+      "Present simple": { I: "go", You: "go", "He/She/It": "goes", We: "go", They: "go" },
+      "Past simple": { I: "went", You: "went", "He/She/It": "went", We: "went", They: "went" },
+    } };
+    case "conditional": return { ...base, type: "first", branches: [
+      { condition: "It rains", result: "we will stay home" },
+      { condition: "It doesn't rain", result: "we will go to the beach" },
+    ] };
+    case "comparison": return { ...base,
+      forms: { positive: "big", comparative: "bigger", superlative: "biggest" },
+      examples: { positive: "A cat is big.", comparative: "A dog is bigger.", superlative: "An elephant is the biggest." } };
+    case "wordweb":    return { ...base, center: "meeting", branches: [
+      { label: "schedule a meeting" }, { label: "team meeting" }, { label: "cancel a meeting" },
+      { label: "attend a meeting" }, { label: "virtual meeting" }, { label: "kick-off meeting" },
+    ] };
+    case "memory":     return { ...base, pairs: [
+      { term: "hello", az: "salam" }, { term: "thanks", az: "təşəkkür" },
+      { term: "coffee", az: "qəhvə" }, { term: "friend", az: "dost" },
+    ] };
+    case "scramble":   return { ...base, items: [
+      { sentence: "She has already finished the report.", why: "Present perfect: subject + has/have + past participle." },
+      { sentence: "We are meeting the client tomorrow.", why: "Present continuous for a fixed future plan." },
+    ] };
+    case "speedround": return { ...base, seconds: 30, items: [
+      { q: "I ___ to work every morning.", options: ["go", "goes", "going"], answer: 0, why: "" },
+      { q: "She ___ here since 2020.", options: ["lives", "has lived", "lived"], answer: 1, why: "" },
+      { q: "They ___ the bug yesterday.", options: ["fix", "fixed", "have fixed"], answer: 1, why: "" },
     ] };
     case "video":      return { ...base, title: "Small talk basics", duration: "2:45", transcript: "Hi, how are you? — I'm good, thanks. How was your weekend? — Really nice, I visited my family." };
     case "listening":  return { ...base, title: "At the reception", duration: "1:30", transcript: "Good morning, do you have an appointment? — Yes, at ten, with Ms. Aliyeva." };
@@ -275,7 +318,7 @@ export function PartStudentView({ part }) {
   );
 }
 
-function BlockStudent({ block }) {
+export function BlockStudent({ block }) {
   switch (block.kind) {
     case "passage":    return <PassageBlock block={block} />;
     case "wordlist":   return <WordListBlock block={block} />;
@@ -285,6 +328,14 @@ function BlockStudent({ block }) {
     case "gapfill":    return <GapFillBlock block={block} />;
     case "timeline":   return <Card className="p-6"><TenseTimeline /></Card>;
     case "sentence":   return <SentenceBlock block={block} />;
+    case "preposition":return <Card className="p-6"><PrepositionScene {...block} /></Card>;
+    case "conjugation":return <Card className="p-6"><ConjugationWheel verb={block.verb} tenses={block.tenses} /></Card>;
+    case "conditional":return <Card className="p-6"><ConditionalFlow type={block.type} branches={block.branches} /></Card>;
+    case "comparison": return <Card className="p-6"><ComparisonLadder forms={block.forms} examples={block.examples} /></Card>;
+    case "wordweb":    return <Card className="p-6 overflow-x-auto"><WordWeb center={block.center} branches={block.branches} /></Card>;
+    case "memory":     return <MemoryBlock block={block} />;
+    case "scramble":   return <ScrambleBlock block={block} />;
+    case "speedround": return <SpeedRoundBlock block={block} />;
     case "video":      return <MediaBlock block={block} kind="video" />;
     case "listening":  return <MediaBlock block={block} kind="listening" />;
     case "scenario":   return <ScenarioBlock block={block} />;
@@ -526,6 +577,167 @@ function HomeworkBlock({ block }) {
   );
 }
 
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ---- Memory match — flip-card concentration game ---- */
+function MemoryBlock({ block }) {
+  const pairs = block.pairs || [];
+  const [cards] = useState(() => shuffled(pairs.flatMap((p, i) => [
+    { id: `${i}t`, pairId: i, text: p.term }, { id: `${i}a`, pairId: i, text: p.az },
+  ])));
+  const [flipped, setFlipped] = useState([]);
+  const [matched, setMatched] = useState({});
+  const [moves, setMoves] = useState(0);
+
+  function flip(card) {
+    if (flipped.length === 2 || flipped.some((c) => c.id === card.id) || matched[card.pairId]) return;
+    const next = [...flipped, card];
+    setFlipped(next);
+    if (next.length === 2) {
+      setMoves((m) => m + 1);
+      if (next[0].pairId === next[1].pairId) {
+        setTimeout(() => { setMatched((m) => ({ ...m, [next[0].pairId]: true })); setFlipped([]); }, 350);
+      } else {
+        setTimeout(() => setFlipped([]), 700);
+      }
+    }
+  }
+  const done = Object.keys(matched).length === pairs.length && pairs.length > 0;
+
+  return (
+    <div className="max-w-lg">
+      <div className="flex items-center justify-between mb-3 text-xs text-slate-400">
+        <span>{Object.keys(matched).length}/{pairs.length} pairs found</span>
+        <span className="font-mono">{moves} moves</span>
+      </div>
+      <div className="grid grid-cols-4 gap-2.5">
+        {cards.map((c) => {
+          const isFlipped = flipped.some((f) => f.id === c.id) || matched[c.pairId];
+          return (
+            <button key={c.id} onClick={() => flip(c)} disabled={isFlipped}
+              className={`h-16 rounded-xl border text-xs font-semibold flex items-center justify-center text-center px-1.5 transition-all ${
+                matched[c.pairId] ? "border-emerald-300 bg-emerald-50 text-emerald-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-slate-200 bg-slate-800 text-slate-800 hover:border-pink-300"}`}>
+              {isFlipped ? c.text : ""}
+            </button>
+          );
+        })}
+      </div>
+      {done && <div className="mt-4"><AiNote icon={Trophy} tone="emerald">All pairs matched in {moves} moves — great memory! 🎉</AiNote></div>}
+    </div>
+  );
+}
+
+/* ---- Sentence scramble — tap word chips into the right order ---- */
+function ScrambleBlock({ block }) {
+  const items = block.items || [];
+  return <div className="space-y-6 max-w-xl">{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function ScrambleItem({ item, n, total }) {
+  const words = item.sentence.replace(/[.!?]$/, "").split(" ");
+  const [pool] = useState(() => shuffled(words.map((w, i) => ({ id: i, w }))));
+  const [built, setBuilt] = useState([]);
+  const [checked, setChecked] = useState(false);
+  const remaining = pool.filter((p) => !built.some((b) => b.id === p.id));
+  const ok = built.map((b) => b.w).join(" ") === words.join(" ");
+
+  return (
+    <Card className="p-5">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Sentence scramble · {n} of {total}</div>
+      <div className="min-h-12 rounded-xl border-2 border-dashed border-slate-200 p-2.5 flex flex-wrap gap-2 mb-3">
+        {built.map((b) => (
+          <button key={b.id} onClick={() => { setBuilt((v) => v.filter((x) => x.id !== b.id)); setChecked(false); }}
+            className="text-sm font-medium rounded-lg px-2.5 py-1.5 bg-cyan-100 text-cyan-800 hover:bg-cyan-200">{b.w}</button>
+        ))}
+        {!built.length && <span className="text-xs text-slate-300 py-1.5">Tap words below to build the sentence…</span>}
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {remaining.map((p) => (
+          <button key={p.id} onClick={() => { setBuilt((v) => [...v, p]); setChecked(false); }}
+            className="text-sm font-medium rounded-lg px-2.5 py-1.5 border border-slate-200 hover:border-cyan-300">{p.w}</button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Btn size="sm" onClick={() => setChecked(true)} disabled={!built.length}>Check</Btn>
+        <Btn size="sm" variant="outline" onClick={() => { setBuilt([]); setChecked(false); }}>Clear</Btn>
+      </div>
+      {checked && (
+        <div className="mt-3"><AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>
+          {ok ? "Düzdür! Correct word order." : <>Not quite — correct order: <b>{item.sentence}</b>{item.why ? <> · {item.why}</> : null}</>}
+        </AiNote></div>
+      )}
+    </Card>
+  );
+}
+
+/* ---- Speed round — timed quiz blitz, encourage-don't-punish scoring ---- */
+function SpeedRoundBlock({ block }) {
+  const seconds = block.seconds || 30;
+  const items = block.items || [];
+  const [state, setState] = useState("idle"); // idle | running | done
+  const [time, setTime] = useState(seconds);
+  const [qi, setQi] = useState(0);
+  const [score, setScore] = useState(0);
+  const [flash, setFlash] = useState(null); // 'ok' | 'no'
+
+  useEffect(() => {
+    if (state !== "running") return;
+    if (time <= 0) { setState("done"); return; }
+    const id = setTimeout(() => setTime((t) => t - 1), 1000);
+    return () => clearTimeout(id);
+  }, [state, time]);
+
+  function start() { setState("running"); setTime(seconds); setQi(0); setScore(0); }
+  function answer(oi) {
+    const correct = oi === items[qi % items.length].answer;
+    setFlash(correct ? "ok" : "no");
+    if (correct) setScore((s) => s + 10);
+    setTimeout(() => { setFlash(null); setQi((i) => i + 1); }, 450);
+  }
+
+  if (!items.length) return <Card className="p-6 text-sm text-slate-400">Add at least one question to enable the speed round.</Card>;
+  if (state === "idle") {
+    return (
+      <Card className="p-6 max-w-md text-center">
+        <Timer size={28} className="mx-auto text-red-500 mb-2" />
+        <div className="font-semibold mb-1">{seconds}-second speed round</div>
+        <p className="text-sm text-slate-500 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
+        <Btn onClick={start}>Start</Btn>
+      </Card>
+    );
+  }
+  if (state === "done") {
+    return (
+      <Card className="p-6 max-w-md text-center">
+        <Trophy size={28} className="mx-auto text-amber-500 mb-2" />
+        <div className="text-3xl font-bold font-mono mb-1">{score}</div>
+        <p className="text-sm text-slate-500 mb-4">points — nice pace! Try again to beat it.</p>
+        <Btn onClick={start}><RotateCcw size={14} /> Play again</Btn>
+      </Card>
+    );
+  }
+  const q = items[qi % items.length];
+  return (
+    <Card className={`p-5 max-w-md transition-colors ${flash === "ok" ? "border-emerald-300 bg-emerald-50/40" : flash === "no" ? "border-rose-300 bg-rose-50/40" : ""}`}>
+      <div className="flex items-center justify-between mb-3">
+        <Pill className="bg-red-50 text-red-700 font-mono">{time}s</Pill>
+        <span className="font-mono text-sm text-slate-500">{score} pts</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-4"><div className="h-full bg-red-400 transition-all" style={{ width: `${(time / seconds) * 100}%` }} /></div>
+      <div className="text-lg font-semibold mb-3">{q.q}</div>
+      <div className="space-y-2">
+        {q.options.map((o, oi) => <button key={oi} onClick={() => answer(oi)} className="w-full rounded-lg border border-slate-200 hover:border-red-300 p-3 text-sm text-left transition-colors">{o}</button>)}
+      </div>
+    </Card>
+  );
+}
+
 /* ============================== block: editors ============================== */
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
@@ -540,6 +752,14 @@ function BlockEditor({ block, onChange }) {
     case "gapfill":    return <RowsEditor block={block} onChange={onChange} fields={[["text", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["why", "Why (Azerbaijani)"]]} blank={{ text: "", answer: "", why: "" }} label="item" wide={["text", "why"]} />;
     case "timeline":   return <AiNote icon={Sparkles} tone="emerald">The tense timeline is a ready interactive block — no setup. Switch to “As student” to try it.</AiNote>;
     case "sentence":   return <SentenceEditor block={block} onChange={onChange} />;
+    case "preposition":return <PrepositionEditor block={block} onChange={onChange} />;
+    case "conjugation":return <ConjugationEditor block={block} onChange={onChange} />;
+    case "conditional":return <ConditionalEditor block={block} onChange={onChange} />;
+    case "comparison": return <ComparisonEditor block={block} onChange={onChange} />;
+    case "wordweb":    return <WordWebEditor block={block} onChange={onChange} />;
+    case "memory":     return <MemoryEditor block={block} onChange={onChange} />;
+    case "scramble":   return <RowsEditor block={block} onChange={onChange} fields={[["sentence", "Correct sentence"], ["why", "Why (Azerbaijani) — optional"]]} blank={{ sentence: "", why: "" }} label="sentence" wide={["sentence", "why"]} />;
+    case "speedround": return <SpeedRoundEditor block={block} onChange={onChange} />;
     case "video":      return <MediaEditor block={block} onChange={onChange} />;
     case "listening":  return <MediaEditor block={block} onChange={onChange} />;
     case "scenario":   return <ScenarioEditor block={block} onChange={onChange} />;
@@ -694,6 +914,164 @@ function HomeworkEditor({ block, onChange }) {
     <div>
       <Field label="Prompt"><textarea className={`${inputCls} h-24 resize-none`} value={block.prompt} onChange={(e) => onChange({ prompt: e.target.value })} /></Field>
       <Field label="Minimum sentences"><input type="number" className={`${inputCls} w-24`} value={block.minSentences} onChange={(e) => onChange({ minSentences: Number(e.target.value) || 1 })} /></Field>
+    </div>
+  );
+}
+
+function PrepositionEditor({ block, onChange }) {
+  const options = block.options || [];
+  const setOpt = (i, v) => onChange({ options: options.map((o, j) => (j === i ? v : o)) });
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Object emoji"><input className={inputCls} value={block.object} onChange={(e) => onChange({ object: e.target.value })} /></Field>
+        <Field label="Anchor emoji (the box/shelf)"><input className={inputCls} value={block.anchor} onChange={(e) => onChange({ anchor: e.target.value })} /></Field>
+        <Field label="Subject (e.g. the cat)"><input className={inputCls} value={block.subject} onChange={(e) => onChange({ subject: e.target.value })} /></Field>
+        <Field label="Place (e.g. the cupboard)"><input className={inputCls} value={block.place} onChange={(e) => onChange({ place: e.target.value })} /></Field>
+      </div>
+      <div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-1.5">Prepositions to offer</div>
+        <div className="space-y-2">
+          {options.map((o, i) => (
+            <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
+              <input className={inputCls} value={o} onChange={(e) => setOpt(i, e.target.value)} />
+              <button onClick={() => onChange({ options: options.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            </div>
+          ))}
+          <Btn variant="outline" size="sm" onClick={() => onChange({ options: [...options, "near"] })}><Plus size={14} /> Add preposition</Btn>
+        </div>
+      </div>
+      <Field label="Correct answer (for the check button)">
+        <select className={inputCls} value={block.answer || ""} onChange={(e) => onChange({ answer: e.target.value })}>
+          <option value="">— no check, free explore —</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </Field>
+    </div>
+  );
+}
+
+const CONJ_PRONOUNS = ["I", "You", "He/She/It", "We", "They"];
+function ConjugationEditor({ block, onChange }) {
+  const tenses = block.tenses || {};
+  const setForm = (tense, pronoun, v) => onChange({ tenses: { ...tenses, [tense]: { ...tenses[tense], [pronoun]: v } } });
+  const renameTense = (oldName, newName) => {
+    if (!newName || tenses[newName]) return;
+    const next = {}; Object.entries(tenses).forEach(([k, v]) => { next[k === oldName ? newName : k] = v; }); onChange({ tenses: next });
+  };
+  const addTense = () => { const name = `Tense ${Object.keys(tenses).length + 1}`; onChange({ tenses: { ...tenses, [name]: Object.fromEntries(CONJ_PRONOUNS.map((p) => [p, ""])) } }); };
+  const removeTense = (name) => { const next = { ...tenses }; delete next[name]; onChange({ tenses: next }); };
+  return (
+    <div className="space-y-4">
+      <Field label="Verb (base form)"><input className={inputCls} value={block.verb} onChange={(e) => onChange({ verb: e.target.value })} /></Field>
+      {Object.entries(tenses).map(([tense, forms], idx) => (
+        // keyed by position, not name — the name is edited character-by-character
+        // below, and keying by name would remount the input on every keystroke.
+        <div key={idx} className="rounded-xl border border-slate-100 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <input className={`${inputCls} flex-1 font-semibold`} value={tense} onChange={(e) => renameTense(tense, e.target.value)} />
+            <button onClick={() => removeTense(tense)} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CONJ_PRONOUNS.map((p) => (
+              <label key={p} className="block">
+                <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400">{p}</span>
+                <input className={`${inputCls} mt-1`} value={forms[p] || ""} onChange={(e) => setForm(tense, p, e.target.value)} />
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={addTense}><Plus size={14} /> Add tense</Btn>
+    </div>
+  );
+}
+
+const CONDITIONAL_TYPES = ["zero", "first", "second", "third"];
+function ConditionalEditor({ block, onChange }) {
+  const branches = block.branches || [];
+  const setBranch = (i, k, v) => onChange({ branches: branches.map((b, j) => (j === i ? { ...b, [k]: v } : b)) });
+  return (
+    <div className="space-y-3">
+      <Field label="Conditional type">
+        <div className="flex flex-wrap gap-2">
+          {CONDITIONAL_TYPES.map((t) => (
+            <button key={t} onClick={() => onChange({ type: t })} className={`text-sm rounded-lg px-3 py-1.5 border capitalize ${block.type === t ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      {branches.map((b, i) => (
+        <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+          <input className={inputCls} value={b.condition} onChange={(e) => setBranch(i, "condition", e.target.value)} placeholder="Condition (if…)" />
+          <input className={inputCls} value={b.result} onChange={(e) => setBranch(i, "result", e.target.value)} placeholder="Result" />
+          <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { condition: "", result: "" }] })}><Plus size={14} /> Add branch</Btn>
+    </div>
+  );
+}
+
+function ComparisonEditor({ block, onChange }) {
+  const forms = block.forms || {}; const examples = block.examples || {};
+  const steps = [["positive", "Positive"], ["comparative", "Comparative"], ["superlative", "Superlative"]];
+  return (
+    <div className="space-y-3">
+      {steps.map(([key, label]) => (
+        <div key={key} className="rounded-xl border border-slate-100 p-3">
+          <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">{label}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input className={inputCls} value={forms[key] || ""} onChange={(e) => onChange({ forms: { ...forms, [key]: e.target.value } })} placeholder="word form" />
+            <input className={inputCls} value={examples[key] || ""} onChange={(e) => onChange({ examples: { ...examples, [key]: e.target.value } })} placeholder="example sentence" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WordWebEditor({ block, onChange }) {
+  const branches = block.branches || [];
+  const setLabel = (i, v) => onChange({ branches: branches.map((b, j) => (j === i ? { ...b, label: v } : b)) });
+  return (
+    <div className="space-y-3">
+      <Field label="Central word"><input className={inputCls} value={block.center} onChange={(e) => onChange({ center: e.target.value })} /></Field>
+      <div className="space-y-2">
+        {branches.map((b, i) => (
+          <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
+            <input className={inputCls} value={b.label} onChange={(e) => setLabel(i, e.target.value)} placeholder="collocation / related word" />
+            <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+          </div>
+        ))}
+        <Btn variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { label: "" }] })}><Plus size={14} /> Add branch</Btn>
+      </div>
+    </div>
+  );
+}
+
+function MemoryEditor({ block, onChange }) {
+  const pairs = block.pairs || [];
+  const setPair = (i, k, v) => onChange({ pairs: pairs.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
+  return (
+    <div className="space-y-2">
+      {pairs.map((p, i) => (
+        <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
+          <input className={inputCls} value={p.term} onChange={(e) => setPair(i, "term", e.target.value)} placeholder="word" />
+          <input className={inputCls} value={p.az} onChange={(e) => setPair(i, "az", e.target.value)} placeholder="azerbaijani" />
+          <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ pairs: [...pairs, { term: "", az: "" }] })}><Plus size={14} /> Add pair</Btn>
+      <p className="text-xs text-slate-400">4–6 pairs work best — more gets hard to hold in view.</p>
+    </div>
+  );
+}
+
+function SpeedRoundEditor({ block, onChange }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Round length (seconds)"><input type="number" className={`${inputCls} w-24`} value={block.seconds} onChange={(e) => onChange({ seconds: Number(e.target.value) || 10 })} /></Field>
+      <QuizEditor block={block} onChange={onChange} />
     </div>
   );
 }

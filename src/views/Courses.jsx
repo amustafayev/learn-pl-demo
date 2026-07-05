@@ -7,7 +7,7 @@ import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar } fr
 import { useStore, useNav } from "../store.jsx";
 import { HUE_SOFT, PART_TYPES } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddPartModal, AssignModal } from "../components/modals.jsx";
-import { GrammarBlock } from "./grammar.jsx";
+import { BlockStudent, BLOCK_META, partBlocks } from "./parts.jsx";
 
 /* ----------------------------- courses list ----------------------------- */
 
@@ -221,12 +221,21 @@ export function LessonBuilderView() {
             <p className="text-sm text-indigo-900/70">This same lesson works as your <b>teaching aid</b>, a <b>self-study</b> product, and something a stranger can <b>buy</b> — built once.</p>
           </div>
 
-          {grammarPart && (
-            <div>
-              <SectionLabel>Signature: visual grammar</SectionLabel>
-              <Card className="p-4"><GrammarBlock kind={grammarPart.grammar || "timeline"} /></Card>
-            </div>
-          )}
+          {grammarPart && (() => {
+            const gBlocks = partBlocks(grammarPart, state.texts);
+            const first = gBlocks[0];
+            return (
+              <div>
+                <SectionLabel>Signature: visual grammar · {gBlocks.length} {gBlocks.length === 1 ? "visualization" : "visualizations"}</SectionLabel>
+                {first ? (
+                  <>
+                    <div className="text-xs text-slate-400 mb-2">{BLOCK_META[first.kind]?.label}</div>
+                    <Card className="p-4 overflow-x-auto"><BlockStudent block={first} /></Card>
+                  </>
+                ) : <Card className="p-4 text-sm text-slate-400">No visualization added yet — open the part to add one.</Card>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
