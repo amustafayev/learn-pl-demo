@@ -1,6 +1,5 @@
 import {
-  BookOpen, Layers, Video, Headphones, Shapes, PenTool, ClipboardList,
-  MousePointerClick, Briefcase, FileQuestion,
+  BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail,
 } from "lucide-react";
 
 /* =========================================================================
@@ -18,20 +17,46 @@ export const HUE_SOFT = {
   amber: "bg-amber-50 text-amber-700", rose: "bg-rose-50 text-rose-700", sky: "bg-sky-50 text-sky-700",
 };
 
-// Lesson part types — a lesson is assembled from these blocks.
-export const PART_TYPES = {
-  passage:   { label: "Reading passage", icon: BookOpen,          tone: "text-sky-600 bg-sky-50" },
-  words:     { label: "Vocabulary",      icon: Layers,            tone: "text-indigo-600 bg-indigo-50" },
-  cards:     { label: "Drag & drop",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50" },
-  grammar:   { label: "Grammar (visual)",icon: Shapes,            tone: "text-emerald-600 bg-emerald-50" },
-  video:     { label: "Video",           icon: Video,             tone: "text-rose-600 bg-rose-50" },
-  listening: { label: "Listening",       icon: Headphones,        tone: "text-violet-600 bg-violet-50" },
-  scenario:  { label: "Scenario task",   icon: Briefcase,         tone: "text-teal-600 bg-teal-50" },
-  practice:  { label: "Practice",        icon: PenTool,           tone: "text-amber-600 bg-amber-50" },
-  test:      { label: "Test",            icon: FileQuestion,      tone: "text-orange-600 bg-orange-50" },
-  homework:  { label: "Homework",        icon: ClipboardList,     tone: "text-slate-600 bg-slate-100" },
+/* =========================================================================
+   Blocks & templates — two-level content model.
+     Block      = a skill-level container in the lesson pathway
+                  (Reading, Listening, Grammar, IELTS Writing Task 2 …)
+     Component  = an activity inside a Block (passage, quiz, timeline,
+                  scramble, memory match … see parts.jsx COMPONENT_META)
+   Which Block types a teacher can add is NOT fixed — it's read off the
+   course's lesson TEMPLATE, so different course types (General English,
+   IELTS, Business English …) offer different Block catalogs. `components`
+   is the full palette a Block type accepts; `starter` is what a freshly
+   added Block opens with.
+   ========================================================================= */
+export const BLOCK_TYPES = {
+  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "quiz", "gapfill", "scramble", "wordweb"], starter: ["passage"] },
+  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "quiz", "gapfill"], starter: ["listening"] },
+  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video"], starter: ["scenario"] },
+  writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "gapfill", "scramble"], starter: ["homework"] },
+  grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill"], starter: ["wordlist", "flashcards"] },
+  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround"], starter: ["gapfill", "match"] },
+  // IELTS-specific: writing and speaking split by task/part, since each
+  // has its own timing, rubric and structure — unlike General English.
+  ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "quiz", "gapfill"], starter: ["listening"] },
+  ieltsReading:   { label: "Reading",            icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "quiz", "gapfill"], starter: ["passage"] },
+  ieltsWriting1:  { label: "Writing Task 1",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework"], starter: ["homework"], description: "Describe visual data (graph, chart, process) in 150+ words." },
+  ieltsWriting2:  { label: "Writing Task 2",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework"], starter: ["homework"], description: "Essay responding to a prompt, 250+ words." },
+  ieltsSpeaking1: { label: "Speaking Part 1",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "Short interview questions about familiar topics." },
+  ieltsSpeaking2: { label: "Speaking Part 2",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "The long turn — speak for 2 minutes on a cue-card topic." },
+  ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
+  // Business English: swaps generic Writing for correspondence practice.
+  businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
 };
-export const PART_ORDER = ["passage", "words", "cards", "grammar", "video", "listening", "scenario", "practice", "test", "homework"];
+
+// A lesson template is just a named list of Block-type ids — new course
+// types are added here, not by touching the pathway UI or the editors.
+export const LESSON_TEMPLATES = {
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary"] },
+};
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the
 // same colour, everywhere in the app, so learners build visual intuition.
@@ -85,42 +110,45 @@ const P = (type, title, meta, extra = {}) => ({ id: `p${++pid}`, type, title, me
 
 // Full authored content for the flagship "Tense forms" lesson (IT English · L4)
 const TENSE_PARTS = [
-  P("passage",   "How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
-  P("words",     "12 tense & time words",          "deploy · ship · release · by then …"),
-  P("grammar",   "Tenses on a timeline",           "Interactive visual block", { grammar: "timeline" }),
-  P("video",     "Past simple vs present perfect", "3:10 · subtitled"),
-  P("listening", "A real standup recording",       "1:45 · with transcript"),
-  P("scenario",  "Give your status in standup",    "Work situation · 4 turns"),
-  P("practice",  "Fill the gaps · 10 items",       "Auto-graded · instant feedback in AZ"),
-  P("test",      "Quick check · 6 items",          "Encourage-don't-punish · retry allowed"),
-  P("homework",  "Write 5 sentences about your week", "You review before it's marked done"),
+  P("reading",    "How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
+  P("vocabulary", "12 tense & time words",          "deploy · ship · release · by then …"),
+  P("grammar",    "Tenses on a timeline",           "Interactive visual block"),
+  P("listening",  "Past simple vs present perfect", "3:10 · subtitled"),
+  P("listening",  "A real standup recording",       "1:45 · with transcript"),
+  P("speaking",   "Give your status in standup",    "Work situation · 4 turns"),
+  P("practice",   "Fill the gaps · 10 items",       "Auto-graded · instant feedback in AZ"),
+  P("practice",   "Quick check · 6 items",          "Encourage-don't-punish · retry allowed"),
+  P("writing",    "Write 5 sentences about your week", "You review before it's marked done"),
 ];
 
 export const SEED_COURSES = [
-  { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, completion: 78 },
-  { id: "it",    title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, completion: 62 },
-  { id: "ielts", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  completion: 41 },
+  { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, completion: 78, templateId: "general" },
+  { id: "it",    title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, completion: 62, templateId: "general" },
+  { id: "ielts", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  completion: 41, templateId: "ielts" },
 ];
 
 // lessons keyed by course
 export const SEED_LESSONS = {
   it: [
-    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["passage", "words", "listening", "grammar", "practice"],                    active: 14, progress: 100 },
-    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["passage", "words", "video", "grammar", "homework"],                        active: 14, progress: 88 },
-    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["passage", "words", "listening", "grammar", "scenario", "homework"],        active: 13, progress: 64 },
-    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["passage", "words", "grammar", "video", "listening", "scenario", "practice", "test", "homework"], active: 11, progress: 29, current: true },
-    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["passage", "words", "grammar", "practice"],                                  active: 4,  progress: 6,  locked: true },
-    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["passage", "words", "video", "grammar", "homework"],                        active: 0,  progress: 0,  locked: true },
+    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["reading", "vocabulary", "listening", "grammar", "practice"],                    active: 14, progress: 100 },
+    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["reading", "vocabulary", "listening", "grammar", "writing"],                    active: 14, progress: 88 },
+    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["reading", "vocabulary", "listening", "grammar", "speaking", "writing"],        active: 13, progress: 64 },
+    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["reading", "vocabulary", "grammar", "listening", "listening", "speaking", "practice", "practice", "writing"], active: 11, progress: 29, current: true },
+    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["reading", "vocabulary", "grammar", "practice"],                                  active: 4,  progress: 6,  locked: true },
+    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "grammar", "writing"],                     active: 0,  progress: 0,  locked: true },
   ],
   every: [
-    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["passage", "words", "cards", "grammar", "practice"], active: 21, progress: 96 },
-    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["passage", "words", "cards", "listening", "test"],   active: 20, progress: 84 },
-    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["passage", "words", "grammar", "scenario", "test"],  active: 18, progress: 71, current: true },
-    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["passage", "words", "cards", "practice"],            active: 9,  progress: 22, locked: true },
+    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice"],        active: 21, progress: 96 },
+    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice"],      active: 20, progress: 84 },
+    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "grammar", "speaking", "practice"], active: 18, progress: 71, current: true },
+    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice"],                   active: 9,  progress: 22, locked: true },
   ],
+  // IELTS Speaking course — note the template gives this course a DIFFERENT
+  // Block catalog (ieltsSpeaking1/2/3, ieltsListening, ieltsWriting1/2 …)
+  // than the General English courses above.
   ielts: [
-    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["passage", "words", "video", "practice"],            active: 9,  progress: 55 },
-    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["passage", "words", "scenario", "homework"],         active: 7,  progress: 38, current: true },
+    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar"],  active: 9,  progress: 55 },
+    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary"], active: 7,  progress: 38, current: true },
   ],
 };
 

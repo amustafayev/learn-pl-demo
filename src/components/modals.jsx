@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Check } from "lucide-react";
 import { Modal, Field, inputCls, Btn, Avatar } from "../ui.jsx";
 import { useStore } from "../store.jsx";
-import { PART_TYPES, PART_ORDER } from "../data.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 
 const HUES = ["indigo", "emerald", "amber", "rose", "sky"];
 const HUE_SWATCH = { indigo: "bg-indigo-500", emerald: "bg-emerald-500", amber: "bg-amber-500", rose: "bg-rose-500", sky: "bg-sky-500" };
@@ -13,9 +13,10 @@ export function NewCourseModal({ open, onClose }) {
   const [title, setTitle] = useState("");
   const [level, setLevel] = useState("A2 → B1");
   const [hue, setHue] = useState("indigo");
+  const [templateId, setTemplateId] = useState("general");
   function create() {
     if (!title.trim()) return toast("Give the course a title", "err");
-    dispatch({ type: "ADD_COURSE", title: title.trim(), level, hue });
+    dispatch({ type: "ADD_COURSE", title: title.trim(), level, hue, templateId });
     toast("Course created");
     setTitle(""); onClose();
   }
@@ -24,6 +25,12 @@ export function NewCourseModal({ open, onClose }) {
       footer={<><Btn variant="outline" onClick={onClose}>Cancel</Btn><Btn onClick={create}>Create course</Btn></>}>
       <Field label="Title"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Business Emails" autoFocus /></Field>
       <Field label="Level range"><input className={inputCls} value={level} onChange={(e) => setLevel(e.target.value)} /></Field>
+      <Field label="Lesson template">
+        <select className={inputCls} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+          {Object.values(LESSON_TEMPLATES).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+        <p className="text-xs text-slate-400 mt-1.5">Sets which block types this course's lessons can use — e.g. IELTS Prep offers Writing Task 1/2 and Speaking Part 1/2/3 instead of generic Writing/Speaking.</p>
+      </Field>
       <Field label="Accent">
         <div className="flex gap-2">
           {HUES.map((h) => (
@@ -91,18 +98,23 @@ export function AddTextModal({ open, onClose }) {
   );
 }
 
-/* Add a part to a lesson (lesson builder) */
-export function AddPartModal({ open, onClose, onPick }) {
+/* Add a block to a lesson (lesson builder) — the offered types come from the
+   course's lesson template, not a fixed list, so IELTS/Business/etc. courses
+   see a different catalog than General English ones. */
+export function AddBlockModal({ open, onClose, onPick, types }) {
   return (
-    <Modal open={open} onClose={onClose} title="Add a part" sub="A lesson is built from these blocks">
+    <Modal open={open} onClose={onClose} title="Add a block" sub="A lesson is built from skill blocks — each can hold several components">
       <div className="grid grid-cols-2 gap-2">
-        {PART_ORDER.map((type) => {
-          const P = PART_TYPES[type]; const I = P.icon;
+        {types.map((type) => {
+          const BT = BLOCK_TYPES[type]; const I = BT.icon;
           return (
             <button key={type} onClick={() => { onPick(type); onClose(); }}
-              className="flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
-              <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${P.tone}`}><I size={17} /></span>
-              <span className="text-sm font-medium">{P.label}</span>
+              className="flex items-start gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
+              <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
+              <span>
+                <span className="text-sm font-medium block">{BT.label}</span>
+                {BT.description && <span className="text-[11px] text-slate-400 block mt-0.5">{BT.description}</span>}
+              </span>
             </button>
           );
         })}

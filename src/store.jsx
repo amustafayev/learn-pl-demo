@@ -9,18 +9,19 @@ import {
    words + notes + assignments). No backend — pure in-memory React state.
    ========================================================================= */
 
-import { PART_TYPES } from "./data.jsx";
+import { BLOCK_TYPES } from "./data.jsx";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 let seq = 1000;
 const uid = (p) => `${p}${++seq}`;
 
-// Ensure a lesson has an editable `built` array (hydrate from the shorthand
-// `parts` list the first time a lesson is edited in the builder).
+// Ensure a lesson has an editable `built` array of Blocks (hydrate from the
+// shorthand `parts` list — an array of Block-type ids — the first time a
+// lesson is edited in the builder).
 const built = (l) =>
   l.built && l.built.length
     ? l.built
-    : l.parts.map((t) => ({ id: uid("p"), type: t, title: PART_TYPES[t].label, meta: "—" }));
+    : l.parts.map((t) => ({ id: uid("p"), type: t, title: BLOCK_TYPES[t].label, meta: "—" }));
 
 const initialState = {
   courses: clone(SEED_COURSES),
@@ -34,11 +35,11 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case "ADD_COURSE": {
-      const { title, level, hue } = action;
+      const { title, level, hue, templateId } = action;
       const id = uid("c");
       return {
         ...state,
-        courses: [...state.courses, { id, title, level, hue, students: 0, completion: 0 }],
+        courses: [...state.courses, { id, title, level, hue, templateId: templateId || "general", students: 0, completion: 0 }],
         lessons: { ...state.lessons, [id]: [] },
       };
     }

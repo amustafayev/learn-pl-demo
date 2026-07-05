@@ -9,26 +9,29 @@ import {
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
-import { PART_TYPES, ROLE } from "../data.jsx";
+import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
   PrepositionScene, ConjugationWheel, ConditionalFlow, ComparisonLadder, WordWeb,
 } from "./grammar.jsx";
 
 /* =========================================================================
-   Part Studio — a part is a CONTAINER of activity blocks. Each part type
-   offers a palette of block kinds the teacher can add, reorder and edit;
-   e.g. a Practice part mixes gap-fill + drag-&-drop + quiz + scenario, a
-   Vocabulary part stacks a word list + flashcards + match + quiz, a Reading
-   part can hold several passages. Every block has a student renderer and an
-   editor. Content shape:  part.content = { blocks: [ {id, kind, ...data} ] }
+   Block Studio — a Block (Reading, Grammar, IELTS Writing Task 2 …) is a
+   CONTAINER of Components: visualizations, gamifications, simulations. A
+   Vocabulary Block might stack a word list + flashcards + a drag-&-drop
+   match + a quiz; a Reading Block can hold several passages. Which
+   Components a Block accepts comes from its BLOCK_TYPES entry (data.jsx),
+   which itself is only reachable if the course's lesson TEMPLATE includes
+   that Block type — nothing here is hardcoded to one curriculum shape.
+   Every Component has a student renderer and a teacher editor.
+   Content shape:  block.content = { components: [ {id, kind, ...data} ] }
    ========================================================================= */
 
-let blockSeq = 0;
-const bid = () => `b${Date.now()}_${++blockSeq}`;
+let compSeq = 0;
+const cid = () => `c${Date.now()}_${++compSeq}`;
 
-/* ---- block-kind registry: label, icon, tone, default data ---- */
-export const BLOCK_META = {
+/* ---- component-kind registry: label, icon, tone, default data ---- */
+export const COMPONENT_META = {
   passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50" },
   wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50" },
   flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50" },
@@ -51,28 +54,14 @@ export const BLOCK_META = {
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100" },
 };
 
-// which block kinds each part type can hold (the "Add activity" palette)
-const PALETTE = {
-  passage:   ["passage"],
-  words:     ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb"],
-  cards:     ["match", "memory"],
-  grammar:   ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"],
-  practice:  ["gapfill", "match", "quiz", "flashcards", "scenario", "listening", "memory", "scramble", "speedround"],
-  test:      ["quiz", "gapfill", "speedround"],
-  video:     ["video"],
-  listening: ["listening"],
-  scenario:  ["scenario"],
-  homework:  ["homework"],
-};
-
 const SAMPLE_WORDS = [
   { term: "introduce", az: "təqdim etmək", def: "to present someone or yourself", example: "Let me introduce myself." },
   { term: "colleague", az: "həmkar", def: "a person you work with", example: "She is my colleague." },
   { term: "available", az: "əlçatan", def: "free to be used or seen", example: "I'm available after lunch." },
 ];
 
-function defaultBlock(kind, texts = []) {
-  const base = { id: bid(), kind };
+function defaultComponent(kind, texts = []) {
+  const base = { id: cid(), kind };
   switch (kind) {
     case "passage":    return { ...base, textId: texts[0]?.id || null };
     case "wordlist":   return { ...base, items: SAMPLE_WORDS.map((w) => ({ ...w })) };
@@ -134,71 +123,61 @@ function defaultBlock(kind, texts = []) {
   }
 }
 
-export function defaultContent(partType, texts = []) {
-  const kinds = {
-    passage:   ["passage"],
-    words:     ["wordlist", "flashcards", "match", "quiz"],
-    cards:     ["match"],
-    grammar:   ["timeline"],
-    practice:  ["gapfill", "match"],
-    test:      ["quiz"],
-    video:     ["video"],
-    listening: ["listening"],
-    scenario:  ["scenario"],
-    homework:  ["homework"],
-  }[partType] || [];
-  return { blocks: kinds.map((k) => defaultBlock(k, texts)) };
+// A freshly added Block opens with its BLOCK_TYPES entry's `starter` components.
+export function defaultContent(blockTypeId, texts = []) {
+  const starter = BLOCK_TYPES[blockTypeId]?.starter || [];
+  return { components: starter.map((k) => defaultComponent(k, texts)) };
 }
 
-// blocks for a part (content if present, else migrated / default) — used by
-// the studio and by the live-lesson stage so both show the same thing.
-export function partBlocks(part, texts = []) { return toBlocks(part, texts).blocks; }
+// Components for a Block (content if present, else migrated / default) —
+// used by the studio and by the live-lesson stage so both show the same thing.
+export function blockComponents(block, texts = []) { return toComponents(block, texts).components; }
 
-// migrate any pre-nesting content into the blocks model
-function toBlocks(part, texts) {
-  const c = part.content;
-  if (c?.blocks) return c;
-  if (!c) return defaultContent(part.type, texts);
-  if (c.textId) return { blocks: [{ id: bid(), kind: "passage", textId: c.textId }] };
-  if (c.pairs) return { blocks: [{ id: bid(), kind: "match", mode: c.mode || "az", pairs: c.pairs }] };
-  if (c.sentence || c.kind) return { blocks: [c.kind === "sentence" ? { id: bid(), kind: "sentence", sentence: c.sentence || [] } : { id: bid(), kind: "timeline" }] };
-  if (c.items) return { blocks: [{ id: bid(), kind: part.type === "test" ? "quiz" : part.type === "words" ? "wordlist" : "gapfill", items: c.items }] };
-  return defaultContent(part.type, texts);
+// migrate any pre-nesting / pre-rename content shape into the components model
+function toComponents(block, texts) {
+  const c = block.content;
+  if (c?.components) return c;
+  if (!c) return defaultContent(block.type, texts);
+  if (c.textId) return { components: [{ id: cid(), kind: "passage", textId: c.textId }] };
+  if (c.pairs) return { components: [{ id: cid(), kind: "match", mode: c.mode || "az", pairs: c.pairs }] };
+  if (c.sentence || c.kind) return { components: [c.kind === "sentence" ? { id: cid(), kind: "sentence", sentence: c.sentence || [] } : { id: cid(), kind: "timeline" }] };
+  if (c.items) return { components: [{ id: cid(), kind: block.type === "vocabulary" ? "wordlist" : "gapfill", items: c.items }] };
+  return defaultContent(block.type, texts);
 }
 
 /* ============================== studio shell ============================== */
 
-export default function PartStudio() {
+export default function BlockStudio() {
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
   const [adding, setAdding] = useState(false);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
-  const part = (lesson?.built || []).find((p) => p.id === route.partId);
+  const block = (lesson?.built || []).find((p) => p.id === route.partId);
 
   useEffect(() => {
-    if (part && !part.content?.blocks) {
-      dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: part.id,
-        patch: { content: toBlocks(part, state.texts) } });
+    if (block && !block.content?.components) {
+      dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id,
+        patch: { content: toComponents(block, state.texts) } });
     }
-  }, [part, route.courseId, route.lessonId, dispatch, state.texts]);
+  }, [block, route.courseId, route.lessonId, dispatch, state.texts]);
 
-  if (!part) return null;
-  const content = part.content?.blocks ? part.content : toBlocks(part, state.texts);
-  const blocks = content.blocks;
-  const P = PART_TYPES[part.type]; const I = P.icon;
-  const palette = PALETTE[part.type] || [];
+  if (!block) return null;
+  const content = block.content?.components ? block.content : toComponents(block, state.texts);
+  const components = content.components;
+  const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
+  const palette = BT.components || [];
 
-  const setBlocks = (next) =>
-    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: part.id, patch: { content: { ...content, blocks: next } } });
-  const updateBlock = (i, patch) => setBlocks(blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)));
-  const removeBlock = (i) => setBlocks(blocks.filter((_, j) => j !== i));
-  const moveBlock = (i, dir) => {
-    const j = i + dir; if (j < 0 || j >= blocks.length) return;
-    const next = [...blocks]; [next[i], next[j]] = [next[j], next[i]]; setBlocks(next);
+  const setComponents = (next) =>
+    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id, patch: { content: { ...content, components: next } } });
+  const updateComponent = (i, patch) => setComponents(components.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const removeComponent = (i) => setComponents(components.filter((_, j) => j !== i));
+  const moveComponent = (i, dir) => {
+    const j = i + dir; if (j < 0 || j >= components.length) return;
+    const next = [...components]; [next[i], next[j]] = [next[j], next[i]]; setComponents(next);
   };
-  const addBlock = (kind) => { setBlocks([...blocks, defaultBlock(kind, state.texts)]); setAdding(false); toast(`Added ${BLOCK_META[kind].label}`); };
+  const addComponent = (kind) => { setComponents([...components, defaultComponent(kind, state.texts)]); setAdding(false); toast(`Added ${COMPONENT_META[kind].label}`); };
 
   return (
     <div className="p-5 sm:p-8 max-w-5xl mx-auto">
@@ -208,10 +187,10 @@ export default function PartStudio() {
 
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div className="flex items-center gap-3">
-          <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${P.tone}`}><I size={20} /></span>
+          <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${BT.tone}`}><I size={20} /></span>
           <div>
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">{P.label} · {blocks.length} {blocks.length === 1 ? "activity" : "activities"}</div>
-            <h1 className="text-xl font-bold tracking-tight">{part.title || P.label}</h1>
+            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
+            <h1 className="text-xl font-bold tracking-tight">{block.title || BT.label}</h1>
           </div>
         </div>
         <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
@@ -222,57 +201,57 @@ export default function PartStudio() {
 
       {mode === "student" ? (
         <div>
-          <div className="mb-4 flex items-center gap-2 text-xs text-slate-400"><GraduationCap size={14} /> This is exactly what the learner sees — {blocks.length} {blocks.length === 1 ? "activity" : "activities"} in order.</div>
+          <div className="mb-4 flex items-center gap-2 text-xs text-slate-400"><GraduationCap size={14} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
           <div className="space-y-8">
-            {blocks.map((b, i) => {
-              const M = BLOCK_META[b.kind]; const BI = M.icon;
+            {components.map((c, i) => {
+              const M = COMPONENT_META[c.kind]; const CI = M.icon;
               return (
-                <div key={b.id}>
+                <div key={c.id}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><BI size={15} /></span>
-                    <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Activity {i + 1} · {M.label}</span>
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
                   </div>
-                  <BlockStudent block={b} />
+                  <ComponentStudent component={c} />
                 </div>
               );
             })}
-            {!blocks.length && <Card className="p-8 text-center text-slate-400 text-sm">No activities yet — switch to Edit to add some.</Card>}
+            {!components.length && <Card className="p-8 text-center text-slate-400 text-sm">No components yet — switch to Edit to add some.</Card>}
           </div>
         </div>
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Activities · add, reorder, edit</div>
-            <Btn size="sm" variant="soft" onClick={() => { toast("Part saved"); go({ partId: null }); }}><Check size={14} /> Save & close</Btn>
+            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Components · add, reorder, edit</div>
+            <Btn size="sm" variant="soft" onClick={() => { toast("Block saved"); go({ partId: null }); }}><Check size={14} /> Save & close</Btn>
           </div>
           <div className="space-y-4">
-            {blocks.map((b, i) => {
-              const M = BLOCK_META[b.kind]; const BI = M.icon;
+            {components.map((c, i) => {
+              const M = COMPONENT_META[c.kind]; const CI = M.icon;
               return (
-                <Card key={b.id} className="p-4">
+                <Card key={c.id} className="p-4">
                   <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-slate-100">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><BI size={16} /></span>
-                    <div className="flex-1"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Activity {i + 1}</span><div className="font-semibold text-sm">{M.label}</div></div>
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
+                    <div className="flex-1"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}</span><div className="font-semibold text-sm">{M.label}</div></div>
                     <div className="flex items-center gap-0.5 text-slate-300">
-                      <button title="Move up" disabled={i === 0} onClick={() => moveBlock(i, -1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => moveBlock(i, 1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { removeBlock(i); toast("Activity removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
+                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
+                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <BlockEditor block={b} onChange={(patch) => updateBlock(i, patch)} />
+                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} />
                 </Card>
               );
             })}
 
-            {/* add-activity palette */}
+            {/* add-component palette — comes from this Block type's own catalog entry */}
             {adding ? (
               <Card className="p-4">
-                <div className="flex items-center justify-between mb-3"><span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick an activity</span><button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button></div>
+                <div className="flex items-center justify-between mb-3"><span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick a component</span><button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button></div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {palette.map((k) => {
-                    const M = BLOCK_META[k]; const KI = M.icon;
+                    const M = COMPONENT_META[k]; const KI = M.icon;
                     return (
-                      <button key={k} onClick={() => addBlock(k)} className="flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
+                      <button key={k} onClick={() => addComponent(k)} className="flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={16} /></span>
                         <span className="text-sm font-medium">{M.label}</span>
                       </button>
@@ -282,7 +261,7 @@ export default function PartStudio() {
               </Card>
             ) : (
               <button onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 text-sm font-medium">
-                <Plus size={16} className="inline mr-1" /> Add activity
+                <Plus size={16} className="inline mr-1" /> Add component
               </button>
             )}
           </div>
@@ -292,25 +271,25 @@ export default function PartStudio() {
   );
 }
 
-/* ============================== block: student ============================== */
+/* ============================== component: student ============================== */
 
-// Renders a whole part exactly as a learner sees it (all activity blocks).
-// Shared by the Part Studio's "As student" view and the live-lesson stage.
-export function PartStudentView({ part }) {
+// Renders a whole Block exactly as a learner sees it (all its components).
+// Shared by Block Studio's "As student" view and the live-lesson stage.
+export function BlockStudentView({ block }) {
   const { state } = useStore();
-  const blocks = partBlocks(part, state.texts);
-  if (!blocks.length) return <Card className="p-8 text-center text-slate-400 text-sm">No activities in this part yet.</Card>;
+  const components = blockComponents(block, state.texts);
+  if (!components.length) return <Card className="p-8 text-center text-slate-400 text-sm">No components in this block yet.</Card>;
   return (
     <div className="space-y-8">
-      {blocks.map((b, i) => {
-        const M = BLOCK_META[b.kind]; const BI = M.icon;
+      {components.map((c, i) => {
+        const M = COMPONENT_META[c.kind]; const CI = M.icon;
         return (
-          <div key={b.id}>
+          <div key={c.id}>
             <div className="flex items-center gap-2 mb-3">
-              <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><BI size={15} /></span>
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Activity {i + 1} · {M.label}</span>
+              <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
+              <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
             </div>
-            <BlockStudent block={b} />
+            <ComponentStudent component={c} />
           </div>
         );
       })}
@@ -318,35 +297,35 @@ export function PartStudentView({ part }) {
   );
 }
 
-export function BlockStudent({ block }) {
-  switch (block.kind) {
-    case "passage":    return <PassageBlock block={block} />;
-    case "wordlist":   return <WordListBlock block={block} />;
-    case "flashcards": return <FlashcardsBlock block={block} />;
-    case "match":      return <MatchBlock block={block} />;
-    case "quiz":       return <QuizBlock block={block} />;
-    case "gapfill":    return <GapFillBlock block={block} />;
+export function ComponentStudent({ component }) {
+  switch (component.kind) {
+    case "passage":    return <PassageComponent component={component} />;
+    case "wordlist":   return <WordListComponent component={component} />;
+    case "flashcards": return <FlashcardsComponent component={component} />;
+    case "match":      return <MatchComponent component={component} />;
+    case "quiz":       return <QuizComponent component={component} />;
+    case "gapfill":    return <GapFillComponent component={component} />;
     case "timeline":   return <Card className="p-6"><TenseTimeline /></Card>;
-    case "sentence":   return <SentenceBlock block={block} />;
-    case "preposition":return <Card className="p-6"><PrepositionScene {...block} /></Card>;
-    case "conjugation":return <Card className="p-6"><ConjugationWheel verb={block.verb} tenses={block.tenses} /></Card>;
-    case "conditional":return <Card className="p-6"><ConditionalFlow type={block.type} branches={block.branches} /></Card>;
-    case "comparison": return <Card className="p-6"><ComparisonLadder forms={block.forms} examples={block.examples} /></Card>;
-    case "wordweb":    return <Card className="p-6 overflow-x-auto"><WordWeb center={block.center} branches={block.branches} /></Card>;
-    case "memory":     return <MemoryBlock block={block} />;
-    case "scramble":   return <ScrambleBlock block={block} />;
-    case "speedround": return <SpeedRoundBlock block={block} />;
-    case "video":      return <MediaBlock block={block} kind="video" />;
-    case "listening":  return <MediaBlock block={block} kind="listening" />;
-    case "scenario":   return <ScenarioBlock block={block} />;
-    case "homework":   return <HomeworkBlock block={block} />;
+    case "sentence":   return <SentenceComponent component={component} />;
+    case "preposition":return <Card className="p-6"><PrepositionScene {...component} /></Card>;
+    case "conjugation":return <Card className="p-6"><ConjugationWheel verb={component.verb} tenses={component.tenses} /></Card>;
+    case "conditional":return <Card className="p-6"><ConditionalFlow type={component.type} branches={component.branches} /></Card>;
+    case "comparison": return <Card className="p-6"><ComparisonLadder forms={component.forms} examples={component.examples} /></Card>;
+    case "wordweb":    return <Card className="p-6 overflow-x-auto"><WordWeb center={component.center} branches={component.branches} /></Card>;
+    case "memory":     return <MemoryComponent component={component} />;
+    case "scramble":   return <ScrambleComponent component={component} />;
+    case "speedround": return <SpeedRoundComponent component={component} />;
+    case "video":      return <MediaComponent component={component} kind="video" />;
+    case "listening":  return <MediaComponent component={component} kind="listening" />;
+    case "scenario":   return <ScenarioComponent component={component} />;
+    case "homework":   return <HomeworkComponent component={component} />;
     default:           return null;
   }
 }
 
-function PassageBlock({ block }) {
+function PassageComponent({ component }) {
   const { state, toast } = useStore();
-  const text = state.texts.find((t) => t.id === block.textId) || state.texts[0];
+  const text = state.texts.find((t) => t.id === component.textId) || state.texts[0];
   if (!text) return <Card className="p-6 text-slate-400 text-sm">No reading text linked. Edit to choose one.</Card>;
   return (
     <Card className="p-6">
@@ -356,8 +335,8 @@ function PassageBlock({ block }) {
   );
 }
 
-function WordListBlock({ block }) {
-  const items = block.items || [];
+function WordListComponent({ component }) {
+  const items = component.items || [];
   return (
     <Card className="divide-y divide-slate-100">
       {items.map((w, i) => (
@@ -372,8 +351,8 @@ function WordListBlock({ block }) {
   );
 }
 
-function FlashcardsBlock({ block }) {
-  const items = block.items || [];
+function FlashcardsComponent({ component }) {
+  const items = component.items || [];
   const [i, setI] = useState(0);
   const [flip, setFlip] = useState(false);
   if (!items.length) return <Card className="p-6 text-slate-400 text-sm">No words.</Card>;
@@ -393,10 +372,10 @@ function FlashcardsBlock({ block }) {
   );
 }
 
-function MatchBlock({ block }) {
+function MatchComponent({ component }) {
   const { toast } = useStore();
-  const mode = block.mode || "az";
-  const pairs = (block.pairs || []).slice(0, 5);
+  const mode = component.mode || "az";
+  const pairs = (component.pairs || []).slice(0, 5);
   if (mode === "theme") return <ThemeGroup pairs={pairs} />;
   return <MatchBoard pairs={pairs} showEmoji={mode === "picture"} onDone={() => toast("Matched — great work! 🎉")} />;
 }
@@ -454,18 +433,18 @@ function ThemeGroup({ pairs }) {
   );
 }
 
-function SentenceBlock({ block }) {
+function SentenceComponent({ component }) {
   return (
     <Card className="p-6">
       <div className="mb-3"><RoleLegend /></div>
-      <ColorSentence tokens={block.sentence || []} />
+      <ColorSentence tokens={component.sentence || []} />
       <p className="text-xs text-slate-400 mt-3">Same colour, same grammar role — everywhere in the app.</p>
     </Card>
   );
 }
 
-function QuizBlock({ block }) {
-  const items = block.items || [];
+function QuizComponent({ component }) {
+  const items = component.items || [];
   return <div className="space-y-4 max-w-xl">{items.map((it, i) => <QuizQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function QuizQ({ item, n, total }) {
@@ -491,8 +470,8 @@ function QuizQ({ item, n, total }) {
   );
 }
 
-function GapFillBlock({ block }) {
-  const items = block.items || [];
+function GapFillComponent({ component }) {
+  const items = component.items || [];
   return <div className="space-y-4 max-w-xl">{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function GapFill({ item, n, total }) {
@@ -514,7 +493,7 @@ function GapFill({ item, n, total }) {
   );
 }
 
-function MediaBlock({ block, kind }) {
+function MediaComponent({ component, kind }) {
   const [replays, setReplays] = useState(0);
   const [showT, setShowT] = useState(false);
   return (
@@ -524,26 +503,26 @@ function MediaBlock({ block, kind }) {
           <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-slate-900">
             {kind === "video" ? <Play size={26} className="ml-1" /> : <Volume2 size={26} />}
           </button>
-          <span className="absolute bottom-3 right-3 text-xs text-white/80 font-mono">{block.duration}</span>
+          <span className="absolute bottom-3 right-3 text-xs text-white/80 font-mono">{component.duration}</span>
         </div>
         <div className="p-4">
-          <div className="font-semibold">{block.title}</div>
+          <div className="font-semibold">{component.title}</div>
           <div className="text-xs text-slate-400 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
           <button onClick={() => setShowT((s) => !s)} className="text-sm text-indigo-600 hover:text-indigo-700 mt-2 inline-flex items-center gap-1">{showT ? "Hide" : "Show"} transcript <ChevronRight size={13} className={showT ? "rotate-90 transition-transform" : "transition-transform"} /></button>
-          {showT && <p className="text-sm text-slate-600 mt-2 leading-relaxed">{block.transcript}</p>}
+          {showT && <p className="text-sm text-slate-600 mt-2 leading-relaxed">{component.transcript}</p>}
         </div>
       </Card>
     </div>
   );
 }
 
-function ScenarioBlock({ block }) {
+function ScenarioComponent({ component }) {
   const [revealed, setRevealed] = useState({});
   return (
     <div className="max-w-xl">
-      <AiNote icon={Sparkles} tone="teal" title="Real situation">{block.situation}</AiNote>
+      <AiNote icon={Sparkles} tone="teal" title="Real situation">{component.situation}</AiNote>
       <div className="space-y-3 mt-4">
-        {(block.turns || []).map((t, i) => (
+        {(component.turns || []).map((t, i) => (
           <div key={i}>
             <div className="bg-slate-100 rounded-2xl rounded-tl-sm p-3 text-sm text-slate-700 max-w-[85%]">{t.prompt}</div>
             <div className="flex justify-end mt-1.5">
@@ -558,19 +537,19 @@ function ScenarioBlock({ block }) {
   );
 }
 
-function HomeworkBlock({ block }) {
+function HomeworkComponent({ component }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const count = text.trim() ? text.trim().split(/[.!?]+/).filter((x) => x.trim()).length : 0;
   return (
     <div className="max-w-xl">
       <Card className="p-5">
-        <p className="text-slate-600 text-sm mb-3">{block.prompt}</p>
+        <p className="text-slate-600 text-sm mb-3">{component.prompt}</p>
         <textarea value={text} onChange={(e) => setText(e.target.value)} disabled={sent} className={`${inputCls} h-28 resize-none`} placeholder="Write here…" />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-slate-400 font-mono">{count}/{block.minSentences} sentences</span>
+          <span className="text-xs text-slate-400 font-mono">{count}/{component.minSentences} sentences</span>
           {sent ? <Pill className="bg-amber-50 text-amber-700">Sent — waiting for review</Pill>
-            : <Btn size="sm" disabled={count < block.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
+            : <Btn size="sm" disabled={count < component.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
         </div>
       </Card>
     </div>
@@ -587,8 +566,8 @@ function shuffled(arr) {
 }
 
 /* ---- Memory match — flip-card concentration game ---- */
-function MemoryBlock({ block }) {
-  const pairs = block.pairs || [];
+function MemoryComponent({ component }) {
+  const pairs = component.pairs || [];
   const [cards] = useState(() => shuffled(pairs.flatMap((p, i) => [
     { id: `${i}t`, pairId: i, text: p.term }, { id: `${i}a`, pairId: i, text: p.az },
   ])));
@@ -635,8 +614,8 @@ function MemoryBlock({ block }) {
 }
 
 /* ---- Sentence scramble — tap word chips into the right order ---- */
-function ScrambleBlock({ block }) {
-  const items = block.items || [];
+function ScrambleComponent({ component }) {
+  const items = component.items || [];
   return <div className="space-y-6 max-w-xl">{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function ScrambleItem({ item, n, total }) {
@@ -677,9 +656,9 @@ function ScrambleItem({ item, n, total }) {
 }
 
 /* ---- Speed round — timed quiz blitz, encourage-don't-punish scoring ---- */
-function SpeedRoundBlock({ block }) {
-  const seconds = block.seconds || 30;
-  const items = block.items || [];
+function SpeedRoundComponent({ component }) {
+  const seconds = component.seconds || 30;
+  const items = component.items || [];
   const [state, setState] = useState("idle"); // idle | running | done
   const [time, setTime] = useState(seconds);
   const [qi, setQi] = useState(0);
@@ -738,41 +717,41 @@ function SpeedRoundBlock({ block }) {
   );
 }
 
-/* ============================== block: editors ============================== */
+/* ============================== component: editors ============================== */
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function BlockEditor({ block, onChange }) {
-  switch (block.kind) {
-    case "passage":    return <PassageEditor block={block} onChange={onChange} />;
-    case "wordlist":   return <RowsEditor block={block} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
-    case "flashcards": return <RowsEditor block={block} onChange={onChange} fields={[["term", "Front (word)"], ["az", "Back (Azerbaijani)"], ["example", "Example"]]} blank={{ term: "", az: "", example: "" }} label="card" wide={["example"]} />;
-    case "match":      return <MatchEditor block={block} onChange={onChange} />;
-    case "quiz":       return <QuizEditor block={block} onChange={onChange} />;
-    case "gapfill":    return <RowsEditor block={block} onChange={onChange} fields={[["text", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["why", "Why (Azerbaijani)"]]} blank={{ text: "", answer: "", why: "" }} label="item" wide={["text", "why"]} />;
-    case "timeline":   return <AiNote icon={Sparkles} tone="emerald">The tense timeline is a ready interactive block — no setup. Switch to “As student” to try it.</AiNote>;
-    case "sentence":   return <SentenceEditor block={block} onChange={onChange} />;
-    case "preposition":return <PrepositionEditor block={block} onChange={onChange} />;
-    case "conjugation":return <ConjugationEditor block={block} onChange={onChange} />;
-    case "conditional":return <ConditionalEditor block={block} onChange={onChange} />;
-    case "comparison": return <ComparisonEditor block={block} onChange={onChange} />;
-    case "wordweb":    return <WordWebEditor block={block} onChange={onChange} />;
-    case "memory":     return <MemoryEditor block={block} onChange={onChange} />;
-    case "scramble":   return <RowsEditor block={block} onChange={onChange} fields={[["sentence", "Correct sentence"], ["why", "Why (Azerbaijani) — optional"]]} blank={{ sentence: "", why: "" }} label="sentence" wide={["sentence", "why"]} />;
-    case "speedround": return <SpeedRoundEditor block={block} onChange={onChange} />;
-    case "video":      return <MediaEditor block={block} onChange={onChange} />;
-    case "listening":  return <MediaEditor block={block} onChange={onChange} />;
-    case "scenario":   return <ScenarioEditor block={block} onChange={onChange} />;
-    case "homework":   return <HomeworkEditor block={block} onChange={onChange} />;
+function ComponentEditor({ component, onChange }) {
+  switch (component.kind) {
+    case "passage":    return <PassageEditor component={component} onChange={onChange} />;
+    case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
+    case "flashcards": return <RowsEditor component={component} onChange={onChange} fields={[["term", "Front (word)"], ["az", "Back (Azerbaijani)"], ["example", "Example"]]} blank={{ term: "", az: "", example: "" }} label="card" wide={["example"]} />;
+    case "match":      return <MatchEditor component={component} onChange={onChange} />;
+    case "quiz":       return <QuizEditor component={component} onChange={onChange} />;
+    case "gapfill":    return <RowsEditor component={component} onChange={onChange} fields={[["text", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["why", "Why (Azerbaijani)"]]} blank={{ text: "", answer: "", why: "" }} label="item" wide={["text", "why"]} />;
+    case "timeline":   return <AiNote icon={Sparkles} tone="emerald">The tense timeline is a ready interactive component — no setup. Switch to “As student” to try it.</AiNote>;
+    case "sentence":   return <SentenceEditor component={component} onChange={onChange} />;
+    case "preposition":return <PrepositionEditor component={component} onChange={onChange} />;
+    case "conjugation":return <ConjugationEditor component={component} onChange={onChange} />;
+    case "conditional":return <ConditionalEditor component={component} onChange={onChange} />;
+    case "comparison": return <ComparisonEditor component={component} onChange={onChange} />;
+    case "wordweb":    return <WordWebEditor component={component} onChange={onChange} />;
+    case "memory":     return <MemoryEditor component={component} onChange={onChange} />;
+    case "scramble":   return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Correct sentence"], ["why", "Why (Azerbaijani) — optional"]]} blank={{ sentence: "", why: "" }} label="sentence" wide={["sentence", "why"]} />;
+    case "speedround": return <SpeedRoundEditor component={component} onChange={onChange} />;
+    case "video":      return <MediaEditor component={component} onChange={onChange} />;
+    case "listening":  return <MediaEditor component={component} onChange={onChange} />;
+    case "scenario":   return <ScenarioEditor component={component} onChange={onChange} />;
+    case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
     default:           return null;
   }
 }
 
-function PassageEditor({ block, onChange }) {
+function PassageEditor({ component, onChange }) {
   const { state } = useStore();
   return (
     <Field label="Reading text (from Library)">
-      <select className={inputCls} value={block.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
+      <select className={inputCls} value={component.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
         {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {t.topic} · {t.level}</option>)}
       </select>
     </Field>
@@ -780,8 +759,8 @@ function PassageEditor({ block, onChange }) {
 }
 
 // generic rows-of-fields editor
-function RowsEditor({ block, onChange, fields, blank, label, wide = [] }) {
-  const items = block.items || [];
+function RowsEditor({ component, onChange, fields, blank, label, wide = [] }) {
+  const items = component.items || [];
   const setItem = (i, k, v) => onChange({ items: items.map((it, j) => (j === i ? { ...it, [k]: v } : it)) });
   return (
     <div className="space-y-3">
@@ -804,14 +783,14 @@ function RowsEditor({ block, onChange, fields, blank, label, wide = [] }) {
   );
 }
 
-function MatchEditor({ block, onChange }) {
-  const pairs = block.pairs || [];
+function MatchEditor({ component, onChange }) {
+  const pairs = component.pairs || [];
   const setPair = (i, k, v) => onChange({ pairs: pairs.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
   return (
     <div className="space-y-3">
       <div className="flex gap-2 flex-wrap">
         {[["az", "Word → Azerbaijani"], ["picture", "Word → picture"], ["theme", "Group by theme"]].map(([id, lbl]) => (
-          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${block.mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${component.mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
         ))}
       </div>
       <div className="space-y-2">
@@ -829,8 +808,8 @@ function MatchEditor({ block, onChange }) {
   );
 }
 
-function SentenceEditor({ block, onChange }) {
-  const tokens = block.sentence || [];
+function SentenceEditor({ component, onChange }) {
+  const tokens = component.sentence || [];
   const setTok = (i, k, v) => onChange({ sentence: tokens.map((t, j) => (j === i ? { ...t, [k]: v } : t)) });
   return (
     <div className="space-y-3">
@@ -852,8 +831,8 @@ function SentenceEditor({ block, onChange }) {
   );
 }
 
-function QuizEditor({ block, onChange }) {
-  const items = block.items || [];
+function QuizEditor({ component, onChange }) {
+  const items = component.items || [];
   const setItem = (i, patch) => onChange({ items: items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
   return (
     <div className="space-y-3">
@@ -880,22 +859,22 @@ function QuizEditor({ block, onChange }) {
   );
 }
 
-function MediaEditor({ block, onChange }) {
+function MediaEditor({ component, onChange }) {
   return (
     <div>
-      <Field label="Title"><input className={inputCls} value={block.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
-      <Field label="Duration"><input className={inputCls} value={block.duration} onChange={(e) => onChange({ duration: e.target.value })} /></Field>
-      <Field label="Transcript"><textarea className={`${inputCls} h-24 resize-none`} value={block.transcript} onChange={(e) => onChange({ transcript: e.target.value })} /></Field>
+      <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
+      <Field label="Duration"><input className={inputCls} value={component.duration} onChange={(e) => onChange({ duration: e.target.value })} /></Field>
+      <Field label="Transcript"><textarea className={`${inputCls} h-24 resize-none`} value={component.transcript} onChange={(e) => onChange({ transcript: e.target.value })} /></Field>
     </div>
   );
 }
 
-function ScenarioEditor({ block, onChange }) {
-  const turns = block.turns || [];
+function ScenarioEditor({ component, onChange }) {
+  const turns = component.turns || [];
   const setTurn = (i, k, v) => onChange({ turns: turns.map((t, j) => (j === i ? { ...t, [k]: v } : t)) });
   return (
     <div className="space-y-3">
-      <Field label="Situation"><input className={inputCls} value={block.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
+      <Field label="Situation"><input className={inputCls} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
       {turns.map((t, i) => (
         <div key={i} className="rounded-xl border border-slate-100 p-3">
           <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">Turn {i + 1}</span>
@@ -909,25 +888,25 @@ function ScenarioEditor({ block, onChange }) {
   );
 }
 
-function HomeworkEditor({ block, onChange }) {
+function HomeworkEditor({ component, onChange }) {
   return (
     <div>
-      <Field label="Prompt"><textarea className={`${inputCls} h-24 resize-none`} value={block.prompt} onChange={(e) => onChange({ prompt: e.target.value })} /></Field>
-      <Field label="Minimum sentences"><input type="number" className={`${inputCls} w-24`} value={block.minSentences} onChange={(e) => onChange({ minSentences: Number(e.target.value) || 1 })} /></Field>
+      <Field label="Prompt"><textarea className={`${inputCls} h-24 resize-none`} value={component.prompt} onChange={(e) => onChange({ prompt: e.target.value })} /></Field>
+      <Field label="Minimum sentences"><input type="number" className={`${inputCls} w-24`} value={component.minSentences} onChange={(e) => onChange({ minSentences: Number(e.target.value) || 1 })} /></Field>
     </div>
   );
 }
 
-function PrepositionEditor({ block, onChange }) {
-  const options = block.options || [];
+function PrepositionEditor({ component, onChange }) {
+  const options = component.options || [];
   const setOpt = (i, v) => onChange({ options: options.map((o, j) => (j === i ? v : o)) });
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Object emoji"><input className={inputCls} value={block.object} onChange={(e) => onChange({ object: e.target.value })} /></Field>
-        <Field label="Anchor emoji (the box/shelf)"><input className={inputCls} value={block.anchor} onChange={(e) => onChange({ anchor: e.target.value })} /></Field>
-        <Field label="Subject (e.g. the cat)"><input className={inputCls} value={block.subject} onChange={(e) => onChange({ subject: e.target.value })} /></Field>
-        <Field label="Place (e.g. the cupboard)"><input className={inputCls} value={block.place} onChange={(e) => onChange({ place: e.target.value })} /></Field>
+        <Field label="Object emoji"><input className={inputCls} value={component.object} onChange={(e) => onChange({ object: e.target.value })} /></Field>
+        <Field label="Anchor emoji (the box/shelf)"><input className={inputCls} value={component.anchor} onChange={(e) => onChange({ anchor: e.target.value })} /></Field>
+        <Field label="Subject (e.g. the cat)"><input className={inputCls} value={component.subject} onChange={(e) => onChange({ subject: e.target.value })} /></Field>
+        <Field label="Place (e.g. the cupboard)"><input className={inputCls} value={component.place} onChange={(e) => onChange({ place: e.target.value })} /></Field>
       </div>
       <div>
         <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-1.5">Prepositions to offer</div>
@@ -942,7 +921,7 @@ function PrepositionEditor({ block, onChange }) {
         </div>
       </div>
       <Field label="Correct answer (for the check button)">
-        <select className={inputCls} value={block.answer || ""} onChange={(e) => onChange({ answer: e.target.value })}>
+        <select className={inputCls} value={component.answer || ""} onChange={(e) => onChange({ answer: e.target.value })}>
           <option value="">— no check, free explore —</option>
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -952,8 +931,8 @@ function PrepositionEditor({ block, onChange }) {
 }
 
 const CONJ_PRONOUNS = ["I", "You", "He/She/It", "We", "They"];
-function ConjugationEditor({ block, onChange }) {
-  const tenses = block.tenses || {};
+function ConjugationEditor({ component, onChange }) {
+  const tenses = component.tenses || {};
   const setForm = (tense, pronoun, v) => onChange({ tenses: { ...tenses, [tense]: { ...tenses[tense], [pronoun]: v } } });
   const renameTense = (oldName, newName) => {
     if (!newName || tenses[newName]) return;
@@ -963,7 +942,7 @@ function ConjugationEditor({ block, onChange }) {
   const removeTense = (name) => { const next = { ...tenses }; delete next[name]; onChange({ tenses: next }); };
   return (
     <div className="space-y-4">
-      <Field label="Verb (base form)"><input className={inputCls} value={block.verb} onChange={(e) => onChange({ verb: e.target.value })} /></Field>
+      <Field label="Verb (base form)"><input className={inputCls} value={component.verb} onChange={(e) => onChange({ verb: e.target.value })} /></Field>
       {Object.entries(tenses).map(([tense, forms], idx) => (
         // keyed by position, not name — the name is edited character-by-character
         // below, and keying by name would remount the input on every keystroke.
@@ -988,15 +967,15 @@ function ConjugationEditor({ block, onChange }) {
 }
 
 const CONDITIONAL_TYPES = ["zero", "first", "second", "third"];
-function ConditionalEditor({ block, onChange }) {
-  const branches = block.branches || [];
+function ConditionalEditor({ component, onChange }) {
+  const branches = component.branches || [];
   const setBranch = (i, k, v) => onChange({ branches: branches.map((b, j) => (j === i ? { ...b, [k]: v } : b)) });
   return (
     <div className="space-y-3">
       <Field label="Conditional type">
         <div className="flex flex-wrap gap-2">
           {CONDITIONAL_TYPES.map((t) => (
-            <button key={t} onClick={() => onChange({ type: t })} className={`text-sm rounded-lg px-3 py-1.5 border capitalize ${block.type === t ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{t}</button>
+            <button key={t} onClick={() => onChange({ type: t })} className={`text-sm rounded-lg px-3 py-1.5 border capitalize ${component.type === t ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{t}</button>
           ))}
         </div>
       </Field>
@@ -1012,8 +991,8 @@ function ConditionalEditor({ block, onChange }) {
   );
 }
 
-function ComparisonEditor({ block, onChange }) {
-  const forms = block.forms || {}; const examples = block.examples || {};
+function ComparisonEditor({ component, onChange }) {
+  const forms = component.forms || {}; const examples = component.examples || {};
   const steps = [["positive", "Positive"], ["comparative", "Comparative"], ["superlative", "Superlative"]];
   return (
     <div className="space-y-3">
@@ -1030,12 +1009,12 @@ function ComparisonEditor({ block, onChange }) {
   );
 }
 
-function WordWebEditor({ block, onChange }) {
-  const branches = block.branches || [];
+function WordWebEditor({ component, onChange }) {
+  const branches = component.branches || [];
   const setLabel = (i, v) => onChange({ branches: branches.map((b, j) => (j === i ? { ...b, label: v } : b)) });
   return (
     <div className="space-y-3">
-      <Field label="Central word"><input className={inputCls} value={block.center} onChange={(e) => onChange({ center: e.target.value })} /></Field>
+      <Field label="Central word"><input className={inputCls} value={component.center} onChange={(e) => onChange({ center: e.target.value })} /></Field>
       <div className="space-y-2">
         {branches.map((b, i) => (
           <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
@@ -1049,8 +1028,8 @@ function WordWebEditor({ block, onChange }) {
   );
 }
 
-function MemoryEditor({ block, onChange }) {
-  const pairs = block.pairs || [];
+function MemoryEditor({ component, onChange }) {
+  const pairs = component.pairs || [];
   const setPair = (i, k, v) => onChange({ pairs: pairs.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
   return (
     <div className="space-y-2">
@@ -1067,11 +1046,11 @@ function MemoryEditor({ block, onChange }) {
   );
 }
 
-function SpeedRoundEditor({ block, onChange }) {
+function SpeedRoundEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
-      <Field label="Round length (seconds)"><input type="number" className={`${inputCls} w-24`} value={block.seconds} onChange={(e) => onChange({ seconds: Number(e.target.value) || 10 })} /></Field>
-      <QuizEditor block={block} onChange={onChange} />
+      <Field label="Round length (seconds)"><input type="number" className={`${inputCls} w-24`} value={component.seconds} onChange={(e) => onChange({ seconds: Number(e.target.value) || 10 })} /></Field>
+      <QuizEditor component={component} onChange={onChange} />
     </div>
   );
 }

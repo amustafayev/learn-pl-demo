@@ -98,7 +98,7 @@ export function TenseTimeline() {
    spatial prepositions (Murphy's classic box diagrams), a conjugation
    wheel, branching conditional logic, a comparison "ladder", and a
    vocabulary word-web for collocations. Each is a teacher-constructed
-   block (see parts.jsx BLOCK_META) with its own editor.
+   component (see parts.jsx COMPONENT_META) with its own editor.
    ========================================================================= */
 
 /* ---- Preposition scene — spatial diagram, tap a preposition to move the object ---- */

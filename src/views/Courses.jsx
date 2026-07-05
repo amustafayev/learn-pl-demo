@@ -5,9 +5,9 @@ import {
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
-import { HUE_SOFT, PART_TYPES } from "../data.jsx";
-import { NewCourseModal, NewLessonModal, AddPartModal, AssignModal } from "../components/modals.jsx";
-import { BlockStudent, BLOCK_META, partBlocks } from "./parts.jsx";
+import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
+import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
+import { ComponentStudent, COMPONENT_META, blockComponents } from "./parts.jsx";
 
 /* ----------------------------- courses list ----------------------------- */
 
@@ -30,7 +30,8 @@ export function CoursesView() {
                 <ChevronRight size={16} className="text-slate-300" />
               </div>
               <div className="text-lg font-bold mb-1">{c.title}</div>
-              <div className="text-sm text-slate-400 mb-4">{count} lessons · {c.students} students</div>
+              <div className="text-sm text-slate-400 mb-1">{count} lessons · {c.students} students</div>
+              <div className="text-[11px] text-slate-400 mb-3">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
               <div className="flex items-center justify-between text-xs text-slate-400 mb-1"><span>Avg completion</span><span className="font-mono">{c.completion}%</span></div>
               <Bar pct={c.completion} hue={c.hue} />
             </button>
@@ -54,7 +55,7 @@ export function CourseView() {
   return (
     <Page>
       <Crumbs items={[{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
-      <PageHead title={course.title} sub={`${course.level} · ${course.students} students · ${lessons.length} lessons`}
+      <PageHead title={course.title} sub={`${course.level} · ${course.students} students · ${lessons.length} lessons · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"}`}
         right={<Btn onClick={() => setModal(true)}><Plus size={16} /> New lesson</Btn>} />
 
       <SectionLabel>Lesson pathway · ordered</SectionLabel>
@@ -78,10 +79,10 @@ export function CourseView() {
               </div>
               <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                 {l.parts.map((p, k) => {
-                  const P = PART_TYPES[p]; const I = P.icon;
-                  return <span key={k} title={P.label} className={`w-7 h-7 rounded-md flex items-center justify-center ${P.tone}`}><I size={14} /></span>;
+                  const BT = BLOCK_TYPES[p]; const I = BT.icon;
+                  return <span key={k} title={BT.label} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT.tone}`}><I size={14} /></span>;
                 })}
-                {!l.parts.length && <span className="text-xs text-slate-400">No parts yet — open to build</span>}
+                {!l.parts.length && <span className="text-xs text-slate-400">No blocks yet — open to build</span>}
               </div>
               {!l.locked && l.parts.length > 0 && (
                 <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
@@ -117,17 +118,19 @@ export function LessonBuilderView() {
   }, [route.courseId, route.lessonId, dispatch]);
 
   if (!lesson) return null;
-  const parts = lesson.built || [];
-  const grammarPart = parts.find((p) => p.type === "grammar");
+  const blocks = lesson.built || [];
+  const grammarBlock = blocks.find((b) => b.type === "grammar");
+  // which Block types this course's lesson template offers — not a fixed list
+  const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
 
-  function addPart(type) {
-    const P = PART_TYPES[type];
+  function addBlock(type) {
+    const BT = BLOCK_TYPES[type];
     dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId,
-      part: { id: `p${Date.now()}`, type, title: P.label, meta: "—", grammar: type === "grammar" ? "timeline" : undefined } });
-    toast(`Added ${P.label}`);
+      part: { id: `p${Date.now()}`, type, title: BT.label, meta: "—" } });
+    toast(`Added ${BT.label} block`);
   }
-  function saveTitle(p) {
-    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, patch: { title: draft } });
+  function saveTitle(b) {
+    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, patch: { title: draft } });
     setEditing(null);
   }
 
@@ -138,11 +141,11 @@ export function LessonBuilderView() {
         { label: course.title, onClick: () => go({ lessonId: null }) },
         { label: `Lesson ${lesson.n}` },
       ]} />
-      <PageHead title={lesson.title} sub={`${parts.length} parts · lesson builder · drag or use arrows to reorder`}
+      <PageHead title={lesson.title} sub={`${blocks.length} blocks · lesson builder · drag or use arrows to reorder`}
         right={<div className="flex gap-2">
           <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300"><Radio size={14} /> Go live</Btn>
           <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign</Btn>
-          <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add part</Btn>
+          <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add block</Btn>
         </div>} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -150,43 +153,43 @@ export function LessonBuilderView() {
         <div className="lg:col-span-3">
           <SectionLabel>Lesson content · pathway</SectionLabel>
           <div className="relative">
-            {parts.map((p, i) => {
-              const P = PART_TYPES[p.type]; const I = P.icon;
+            {blocks.map((b, i) => {
+              const BT = BLOCK_TYPES[b.type]; const I = BT.icon;
               return (
-                <div key={p.id} className="relative pl-10 pb-2.5">
-                  {i < parts.length - 1 && <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200" />}
+                <div key={b.id} className="relative pl-10 pb-2.5">
+                  {i < blocks.length - 1 && <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200" />}
                   <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs font-mono text-slate-400">{i + 1}</div>
                   <div className="group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 p-3.5 transition-colors flex items-center gap-3">
-                    <button onClick={() => go({ partId: p.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${P.tone}`}><I size={17} /></span>
+                    <button onClick={() => go({ partId: b.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{P.label}</div>
-                        {editing === p.id ? (
+                        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{BT.label}</div>
+                        {editing === b.id ? (
                           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            onBlur={() => saveTitle(p)} onKeyDown={(e) => e.key === "Enter" && saveTitle(p)}
+                            onBlur={() => saveTitle(b)} onKeyDown={(e) => e.key === "Enter" && saveTitle(b)}
                             className="w-full text-sm font-medium border-b border-indigo-300 focus:outline-none" />
                         ) : (
-                          <div className="font-medium truncate">{p.title || P.label}</div>
+                          <div className="font-medium truncate">{b.title || BT.label}</div>
                         )}
-                        {p.meta && p.meta !== "—" && <div className="text-xs text-slate-400 truncate">{p.meta}</div>}
+                        {b.meta && b.meta !== "—" && <div className="text-xs text-slate-400 truncate">{b.meta}</div>}
                       </div>
                     </button>
                     <div className="flex items-center gap-0.5 text-slate-300">
-                      <button title="Open (view & edit)" onClick={() => go({ partId: p.id })} className="hover:text-indigo-600 p-1"><Eye size={15} /></button>
-                      <button title="Rename" onClick={() => { setEditing(p.id); setDraft(p.title || P.label); }} className="hover:text-slate-500 p-1"><Pencil size={14} /></button>
-                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: -1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === parts.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id, dir: 1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: p.id }); toast("Part removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                      <button title="Open (view & edit)" onClick={() => go({ partId: b.id })} className="hover:text-indigo-600 p-1"><Eye size={15} /></button>
+                      <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-slate-500 p-1"><Pencil size={14} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
+                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
+                      <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Block removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
                       <GripVertical size={14} className="cursor-grab" />
                     </div>
                   </div>
                 </div>
               );
             })}
-            {!parts.length && (
+            {!blocks.length && (
               <button onClick={() => setAddOpen(true)} className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 text-sm">
-                <Plus size={16} className="inline mr-1" /> Add the first part
+                <Plus size={16} className="inline mr-1" /> Add the first block
               </button>
             )}
           </div>
@@ -198,14 +201,14 @@ export function LessonBuilderView() {
             <SectionLabel>Students on this lesson</SectionLabel>
             <Card className="divide-y divide-slate-100">
               {state.students.slice(0, 5).map((s) => {
-                const on = s.step >= 0 && s.step < parts.length;
+                const on = s.step >= 0 && s.step < blocks.length;
                 return (
                   <button key={s.id} onClick={() => go({ tab: "students", studentId: s.id })} className="w-full text-left p-3.5 hover:bg-slate-50 flex items-center gap-3">
                     <Avatar name={s.name} />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm truncate">{s.name}</div>
                       <div className="text-xs text-slate-400">
-                        {s.step === -1 ? "not started" : on ? `on ${PART_TYPES[parts[s.step].type].label}` : "finished"} · {s.last}
+                        {s.step === -1 ? "not started" : on ? `on ${BLOCK_TYPES[blocks[s.step].type].label}` : "finished"} · {s.last}
                       </div>
                     </div>
                     <span className="font-mono text-xs text-slate-400">{s.progress}%</span>
@@ -221,25 +224,25 @@ export function LessonBuilderView() {
             <p className="text-sm text-indigo-900/70">This same lesson works as your <b>teaching aid</b>, a <b>self-study</b> product, and something a stranger can <b>buy</b> — built once.</p>
           </div>
 
-          {grammarPart && (() => {
-            const gBlocks = partBlocks(grammarPart, state.texts);
-            const first = gBlocks[0];
+          {grammarBlock && (() => {
+            const comps = blockComponents(grammarBlock, state.texts);
+            const first = comps[0];
             return (
               <div>
-                <SectionLabel>Signature: visual grammar · {gBlocks.length} {gBlocks.length === 1 ? "visualization" : "visualizations"}</SectionLabel>
+                <SectionLabel>Signature: visual grammar · {comps.length} {comps.length === 1 ? "visualization" : "visualizations"}</SectionLabel>
                 {first ? (
                   <>
-                    <div className="text-xs text-slate-400 mb-2">{BLOCK_META[first.kind]?.label}</div>
-                    <Card className="p-4 overflow-x-auto"><BlockStudent block={first} /></Card>
+                    <div className="text-xs text-slate-400 mb-2">{COMPONENT_META[first.kind]?.label}</div>
+                    <Card className="p-4 overflow-x-auto"><ComponentStudent component={first} /></Card>
                   </>
-                ) : <Card className="p-4 text-sm text-slate-400">No visualization added yet — open the part to add one.</Card>}
+                ) : <Card className="p-4 text-sm text-slate-400">No visualization added yet — open the block to add one.</Card>}
               </div>
             );
           })()}
         </div>
       </div>
 
-      <AddPartModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addPart} />
+      <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes} />
       <AssignModal open={assignOpen} onClose={() => setAssignOpen(false)} what={`${course.title} — Lesson ${lesson.n}: ${lesson.title}`} kind="lesson" />
     </Page>
   );

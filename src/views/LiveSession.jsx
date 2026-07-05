@@ -6,19 +6,19 @@ import {
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore } from "../store.jsx";
-import { initials, PART_TYPES } from "../data.jsx";
-import { PartStudentView } from "./parts.jsx";
+import { initials, BLOCK_TYPES } from "../data.jsx";
+import { BlockStudentView } from "./parts.jsx";
 
-// Parts the class does together (teacher leads, everyone on the same page)
-// vs. individually (each learner at their own pace) — the gamifications.
-const TOGETHER = new Set(["passage", "video", "listening", "grammar"]);
+// Block types the class does together (teacher leads, everyone on the same
+// page) vs. individually (each learner at their own pace) — the gamifications.
+const TOGETHER = new Set(["reading", "listening", "grammar", "ieltsListening", "ieltsReading"]);
 
 /* =========================================================================
    Live lesson (Google-Meet style, but self-paced). The teacher picks the
    material (course → lesson), invites/notifies students, and they join. The
    material lives in the platform, so each student works through the lesson's
-   parts individually while the teacher watches per-student progress and can
-   point the whole class at a specific part ("everyone read the passage now").
+   Blocks individually while the teacher watches per-student progress and can
+   point the whole class at a specific Block ("everyone read the passage now").
    Voice/screen recording is opt-in behind explicit consent.
    ========================================================================= */
 
@@ -33,12 +33,12 @@ const PRESENCE = {
   offline: { dot: "bg-slate-300",   text: "text-slate-400" },
 };
 
-function lessonParts(lesson) {
+function lessonBlocks(lesson) {
   if (!lesson) return [];
   const built = lesson.built && lesson.built.length
     ? lesson.built
-    : (lesson.parts || []).map((t, i) => ({ id: `t${i}`, type: t, title: PART_TYPES[t]?.label }));
-  return built.map((p) => ({ id: p.id || p.type, type: p.type, title: p.title || PART_TYPES[p.type]?.label || p.type }));
+    : (lesson.parts || []).map((t, i) => ({ id: `t${i}`, type: t, title: BLOCK_TYPES[t]?.label }));
+  return built.map((b) => ({ id: b.id || b.type, type: b.type, title: b.title || BLOCK_TYPES[b.type]?.label || b.type }));
 }
 
 export default function LiveSession({ context, onEnd }) {
@@ -62,7 +62,7 @@ export default function LiveSession({ context, onEnd }) {
       />
     );
   }
-  return <LiveRoom course={course} lesson={lesson} parts={lessonParts(lesson)} invitedIds={invited} onEnd={onEnd} />;
+  return <LiveRoom course={course} lesson={lesson} blocks={lessonBlocks(lesson)} invitedIds={invited} onEnd={onEnd} />;
 }
 
 /* ------------------------------- setup ------------------------------- */
@@ -115,10 +115,10 @@ function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, l
             </div>
             {lesson && (
               <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                {lessonParts(lesson).map((p) => { const P = PART_TYPES[p.type]; const I = P?.icon || GraduationCap; return (
-                  <span key={p.id} title={p.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${P?.tone || "bg-slate-100"}`}><I size={14} /></span>
+                {lessonBlocks(lesson).map((b) => { const BT = BLOCK_TYPES[b.type]; const I = BT?.icon || GraduationCap; return (
+                  <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT?.tone || "bg-slate-100"}`}><I size={14} /></span>
                 ); })}
-                <span className="text-xs text-slate-400 ml-1">{lessonParts(lesson).length} parts students will work through</span>
+                <span className="text-xs text-slate-400 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
               </div>
             )}
           </Card>
@@ -161,28 +161,28 @@ function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, l
 
 /* ------------------------------- live room ------------------------------- */
 
-function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
+function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
   const { state, toast } = useStore();
   const roster = useMemo(() => state.students.filter((s) => invitedIds.includes(s.id)), [state.students, invitedIds]);
   const seed = useMemo(() => roster.map((s, i) => ({
     id: s.id, name: s.name, joined: i === 0, presence: i === 0 ? "active" : "offline", idx: 0,
   })), [roster]);
-  const nParts = parts.length || 1;
+  const nBlocks = blocks.length || 1;
 
   const [people, setPeople] = useState(seed);
   const [elapsed, setElapsed] = useState(0);
   const [rec, setRec] = useState({ voice: false, screen: false });
   const [consent, setConsent] = useState(false);
-  const [focus, setFocus] = useState(0); // the part the teacher is teaching (the stage)
+  const [focus, setFocus] = useState(0); // the block the teacher is teaching (the stage)
   const [feed, setFeed] = useState([{ t: 0, text: "Session started — students are joining" }]);
   const [phase, setPhase] = useState("live");
 
   const peopleRef = useRef(seed);
   const elapsedRef = useRef(0);
   const focusRef = useRef(0);
-  const togetherRef = useRef(TOGETHER.has(parts[0]?.type));
+  const togetherRef = useRef(TOGETHER.has(blocks[0]?.type));
 
-  const current = parts[focus];
+  const current = blocks[focus];
   const together = TOGETHER.has(current?.type);
 
   useEffect(() => {
@@ -191,8 +191,8 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
     return () => clearInterval(id);
   }, [phase]);
 
-  // simulation: students join; on "together" parts they follow the teacher's
-  // page, on individual parts they progress through the pathway at their pace.
+  // simulation: students join; on "together" blocks they follow the teacher's
+  // page, on individual blocks they progress through the pathway at their pace.
   useEffect(() => {
     if (phase !== "live") return;
     const id = setInterval(() => {
@@ -214,9 +214,9 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
             if (p.presence === "idle" && r < 0.6) { p.presence = "active"; msg = `${first(p)} is active again`; }
             else if (p.presence === "active" && r < 0.15) { p.presence = "idle"; msg = `${first(p)} went idle`; }
             else {
-              p.idx = Math.min(p.idx + 1, nParts);
-              if (p.idx >= nParts) { p.presence = "done"; msg = `${first(p)} finished the lesson`; }
-              else msg = `${first(p)} → ${parts[p.idx]?.title}`;
+              p.idx = Math.min(p.idx + 1, nBlocks);
+              if (p.idx >= nBlocks) { p.presence = "done"; msg = `${first(p)} finished the lesson`; }
+              else msg = `${first(p)} → ${blocks[p.idx]?.title}`;
             }
           }
         }
@@ -225,7 +225,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
       if (msg) setFeed((fd) => [{ t: elapsedRef.current, text: msg }, ...fd].slice(0, 40));
     }, 3000);
     return () => clearInterval(id);
-  }, [phase, nParts, parts]);
+  }, [phase, nBlocks, blocks]);
 
   const joined = people.filter((p) => p.joined);
   const active = joined.filter((p) => p.presence === "active");
@@ -239,17 +239,17 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
     setRec((r) => ({ ...r, [kind]: !r[kind] }));
     setFeed((f) => [{ t: elapsedRef.current, text: `${rec[kind] ? "Stopped" : "Started"} ${kind} recording` }, ...f].slice(0, 40));
   }
-  function goPart(i) {
-    if (i < 0 || i >= nParts) return;
-    const p = parts[i]; const tog = TOGETHER.has(p.type);
+  function goBlock(i) {
+    if (i < 0 || i >= nBlocks) return;
+    const b = blocks[i]; const tog = TOGETHER.has(b.type);
     setFocus(i); focusRef.current = i; togetherRef.current = tog;
     setPeople((prev) => {
       const next = prev.map((x) => ({ ...x }));
       next.forEach((x) => { if (x.joined && x.presence !== "done") { x.idx = i; if (x.presence !== "idle") x.presence = "active"; } });
       peopleRef.current = next; return next;
     });
-    setFeed((fd) => [{ t: elapsedRef.current, text: tog ? `Now doing “${p.title}” together` : `Everyone: work on “${p.title}” at your own pace` }, ...fd].slice(0, 40));
-    toast(tog ? `Doing “${p.title}” together` : `Class working on “${p.title}”`);
+    setFeed((fd) => [{ t: elapsedRef.current, text: tog ? `Now doing “${b.title}” together` : `Everyone: work on “${b.title}” at your own pace` }, ...fd].slice(0, 40));
+    toast(tog ? `Doing “${b.title}” together` : `Class working on “${b.title}”`);
   }
   function nudge(p) {
     setFeed((f) => [{ t: elapsedRef.current, text: `Nudged ${first(p)} — “still with us?”` }, ...f].slice(0, 40));
@@ -274,7 +274,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
       </div>
 
       {phase === "ended"
-        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} parts={parts} onEnd={onEnd} />
+        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} onEnd={onEnd} />
         : (
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
             {/* STAGE — the lesson content the teacher teaches from (what students see) */}
@@ -282,15 +282,15 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
               {/* pathway strip */}
               <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200 px-5 sm:px-8 py-3">
                 <div className="flex items-center gap-2 overflow-x-auto">
-                  <button onClick={() => goPart(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronLeft size={16} /></button>
-                  {parts.map((p, i) => { const P = PART_TYPES[p.type]; const I = P?.icon || GraduationCap; return (
-                    <button key={p.id} onClick={() => goPart(i)} title={p.title}
+                  <button onClick={() => goBlock(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronLeft size={16} /></button>
+                  {blocks.map((b, i) => { const BT = BLOCK_TYPES[b.type]; const I = BT?.icon || GraduationCap; return (
+                    <button key={b.id} onClick={() => goBlock(i)} title={b.title}
                       className={`shrink-0 inline-flex items-center gap-1.5 text-sm rounded-lg pl-1.5 pr-2.5 py-1 border transition-colors ${focus === i ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
-                      <span className={`w-5 h-5 rounded flex items-center justify-center ${P?.tone || "bg-slate-100"}`}><I size={12} /></span>
+                      <span className={`w-5 h-5 rounded flex items-center justify-center ${BT?.tone || "bg-slate-100"}`}><I size={12} /></span>
                       {i + 1}
                     </button>
                   ); })}
-                  <button onClick={() => goPart(focus + 1)} disabled={focus >= nParts - 1} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronRight size={16} /></button>
+                  <button onClick={() => goBlock(focus + 1)} disabled={focus >= nBlocks - 1} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronRight size={16} /></button>
                 </div>
               </div>
 
@@ -298,7 +298,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                 {/* stage header: what we're on, together/individual, who's here */}
                 <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
                   <div>
-                    <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Part {focus + 1} of {nParts} · you're teaching</div>
+                    <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Block {focus + 1} of {nBlocks} · you're teaching</div>
                     <h2 className="text-xl font-bold tracking-tight">{current?.title}</h2>
                   </div>
                   {together
@@ -316,7 +316,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                 </div>
 
                 {/* the actual content, exactly as a learner sees it */}
-                {current ? <PartStudentView part={current} /> : <Card className="p-8 text-center text-slate-400 text-sm">This lesson has no parts yet.</Card>}
+                {current ? <BlockStudentView block={current} /> : <Card className="p-8 text-center text-slate-400 text-sm">This lesson has no blocks yet.</Card>}
               </div>
             </div>
 
@@ -362,7 +362,7 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                 {[...joined, ...notJoined].map((p) => {
                   const pr = PRESENCE[p.presence];
                   const onFocus = p.joined && p.idx === focus && p.presence !== "done";
-                  const label = !p.joined ? "not joined" : p.presence === "done" ? "finished all parts" : p.presence === "idle" ? "idle" : `on ${parts[p.idx]?.title || "…"}`;
+                  const label = !p.joined ? "not joined" : p.presence === "done" ? "finished all blocks" : p.presence === "idle" ? "idle" : `on ${blocks[p.idx]?.title || "…"}`;
                   return (
                     <div key={p.id} className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -379,8 +379,8 @@ function LiveRoom({ course, lesson, parts, invitedIds, onEnd }) {
                       </div>
                       {p.joined && (
                         <div className="flex items-center gap-2 mt-2 pl-12">
-                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex-1"><div className="h-full bg-indigo-500" style={{ width: `${Math.round((Math.min(p.idx, nParts) / nParts) * 100)}%` }} /></div>
-                          <span className="font-mono text-[10px] text-slate-400 w-8 text-right">{Math.min(p.idx, nParts)}/{nParts}</span>
+                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex-1"><div className="h-full bg-indigo-500" style={{ width: `${Math.round((Math.min(p.idx, nBlocks) / nBlocks) * 100)}%` }} /></div>
+                          <span className="font-mono text-[10px] text-slate-400 w-8 text-right">{Math.min(p.idx, nBlocks)}/{nBlocks}</span>
                         </div>
                       )}
                     </div>
@@ -424,10 +424,10 @@ function RoomCode() {
   );
 }
 
-function Ended({ elapsed, rec, joined, total, parts, onEnd }) {
+function Ended({ elapsed, rec, joined, total, blocks, onEnd }) {
   const { toast } = useStore();
   const [drafted, setDrafted] = useState(false);
-  const nParts = parts.length || 1;
+  const nBlocks = blocks.length || 1;
   return (
     <div className="flex-1 overflow-y-auto p-5 sm:p-8">
       <div className="max-w-2xl mx-auto">
@@ -444,8 +444,8 @@ function Ended({ elapsed, rec, joined, total, parts, onEnd }) {
             <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
               <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-[11px] font-semibold">{initials(p.name)}</div>
               <span className="flex-1">{p.name}</span>
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden w-24"><div className="h-full bg-indigo-500" style={{ width: `${Math.round((Math.min(p.idx, nParts) / nParts) * 100)}%` }} /></div>
-              <span className="text-xs text-slate-400 font-mono w-16 text-right">{p.presence === "done" ? "done" : `${Math.min(p.idx, nParts)}/${nParts}`}</span>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden w-24"><div className="h-full bg-indigo-500" style={{ width: `${Math.round((Math.min(p.idx, nBlocks) / nBlocks) * 100)}%` }} /></div>
+              <span className="text-xs text-slate-400 font-mono w-16 text-right">{p.presence === "done" ? "done" : `${Math.min(p.idx, nBlocks)}/${nBlocks}`}</span>
             </div>
           ))}
           {!joined.length && <div className="px-3 py-4 text-sm text-slate-400">No students joined this session.</div>}
