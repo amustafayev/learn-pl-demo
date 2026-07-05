@@ -236,6 +236,8 @@ export const SEED_STUDENTS = [
     wordFlow: { new: 24, learning: 18, known: 15 },
     concepts: { "Articles": 42, "Present perfect": 44, "Past simple": 71, "Prepositions": 63, "Phrasal verbs": 55, "Word order": 80, "Conditionals": 58 },
     l1: [{ issue: "Drops articles (a / the)", why: "Azerbaijani has no articles, so learners under-use them.", count: 11 }, { issue: "Mixes past simple / present perfect", why: "Azerbaijani maps both to one past tense.", count: 7 }],
+    confusionPairs: [{ a: "past simple", b: "present perfect", count: 7 }],
+    adjustLog: [{ when: "2d ago", dir: "easier", concept: "Present perfect", reason: "3 misses in a row — added a re-explanation step" }],
     words: [
       { term: "deploy", az: "yerləşdirmək", def: "put software on a server", example: "We deploy every Friday.", status: "medium", source: "A morning standup", daysAgo: 2, dueInDays: 1 },
       { term: "overcome", az: "öhdəsindən gəlmək", def: "to succeed in dealing with a problem", example: "She overcame her fear of meetings.", status: "weak", source: "Explaining a decision", daysAgo: 6, dueInDays: 0 },
@@ -262,6 +264,8 @@ export const SEED_STUDENTS = [
     wordFlow: { new: 31, learning: 12, known: 27 },
     concepts: { "Articles": 70, "Present perfect": 82, "Past simple": 90, "Prepositions": 74, "Phrasal verbs": 68, "Word order": 92, "Conditionals": 77 },
     l1: [{ issue: "Occasional article slip", why: "Residual L1 interference under time pressure.", count: 3 }],
+    confusionPairs: [],
+    adjustLog: [{ when: "1d ago", dir: "harder", concept: "Word order", reason: "5 correct in a row — skipped ahead to harder items" }],
     words: [
       { term: "furthermore", az: "üstəlik", def: "in addition", example: "Furthermore, the data shows growth.", status: "strong", source: "IELTS linkers", daysAgo: 4, dueInDays: 6 },
       { term: "nevertheless", az: "buna baxmayaraq", def: "in spite of that", example: "It rained; nevertheless, we walked.", status: "medium", source: "IELTS linkers", daysAgo: 2, dueInDays: 2 },
@@ -279,6 +283,8 @@ export const SEED_STUDENTS = [
     wordFlow: { new: 12, learning: 9, known: 5 },
     concepts: { "Articles": 38, "Present perfect": 41, "Past simple": 52, "Prepositions": 47, "Phrasal verbs": 44, "Word order": 66, "Conditionals": 39 },
     l1: [{ issue: "Word order in questions", why: "L1 word order differs from English auxiliary inversion.", count: 6 }],
+    confusionPairs: [{ a: "make", b: "do", count: 4 }],
+    adjustLog: [{ when: "3d ago", dir: "easier", concept: "Word order", reason: "high hesitation + 2 misses — simplified the next set" }],
     words: [
       { term: "resolve", az: "həll etmək", def: "to solve a problem", example: "I resolved the issue.", status: "weak", source: "A morning standup", daysAgo: 5, dueInDays: 0 },
     ],
@@ -323,6 +329,8 @@ export const SEED_STUDENTS = [
     wordFlow: { new: 22, learning: 20, known: 9 },
     concepts: { "Articles": 55, "Present perfect": 60, "Past simple": 68, "Prepositions": 50, "Phrasal verbs": 62, "Word order": 78, "Conditionals": 48 },
     l1: [{ issue: "Conditionals", why: "Maps if-clauses differently from English.", count: 8 }],
+    confusionPairs: [{ a: "second conditional", b: "third conditional", count: 5 }],
+    adjustLog: [],
     words: [
       { term: "consequently", az: "nəticədə", def: "as a result", example: "It rained; consequently, we stayed in.", status: "medium", source: "IELTS linkers", daysAgo: 3, dueInDays: 1 },
     ],
@@ -345,4 +353,14 @@ export const HEATMAP_CONCEPTS = ["Articles", "Perfect", "Past", "Prepos.", "Orde
 // north-star: words moved to "known" per active learner, per week
 export const NORTHSTAR = [
   { wk: "W-5", v: 6.1 }, { wk: "W-4", v: 5.4 }, { wk: "W-3", v: 7.2 }, { wk: "W-2", v: 6.8 }, { wk: "W-1", v: 8.3 }, { wk: "now", v: 9.1 },
+];
+
+/* AI Insights — class-wide mastery trend per concept, last 6 weeks.
+   Feeds the trajectory (improving / plateauing / regressing) computation. */
+export const CONCEPT_WEEKS = ["W-5", "W-4", "W-3", "W-2", "W-1", "now"];
+export const CONCEPT_TRENDS = [
+  { concept: "Articles",         values: [30, 33, 35, 38, 40, 43] },
+  { concept: "Present perfect",  values: [50, 52, 51, 53, 52, 54] },
+  { concept: "Word order",       values: [60, 66, 71, 75, 79, 83] },
+  { concept: "Conditionals",     values: [45, 44, 46, 43, 42, 41] },
 ];
