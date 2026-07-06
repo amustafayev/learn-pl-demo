@@ -267,6 +267,10 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
           <span className="hidden md:block text-sm text-slate-400 truncate">{course?.title} · L{lesson?.n} {lesson?.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          <Pill className="bg-indigo-500/20 text-indigo-300" title="Passive behavioural signals (dwell, hesitation, retries) log automatically — separate from voice/screen recording">
+            <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-300 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-400" /></span>
+            <Activity size={11} /> AI tracking active
+          </Pill>
           {rec.voice && <Pill className="bg-rose-500/20 text-rose-300"><Mic size={11} /> {clock(elapsed)}</Pill>}
           {rec.screen && <Pill className="bg-rose-500/20 text-rose-300"><Monitor size={11} /> screen</Pill>}
           <Btn onClick={() => setPhase("ended")} className="!bg-rose-600 !text-white hover:!bg-rose-700"><PhoneOff size={15} /> End lesson</Btn>

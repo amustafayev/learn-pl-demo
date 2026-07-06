@@ -5,7 +5,7 @@ import {
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
-  Trophy,
+  Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -52,6 +52,11 @@ export const COMPONENT_META = {
   listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50" },
   scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50" },
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100" },
+  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50" },
+  youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50" },
+  speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50" },
+  shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50" },
+  upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100" },
 };
 
 const SAMPLE_WORDS = [
@@ -119,6 +124,16 @@ function defaultComponent(kind, texts = []) {
       { prompt: "Colleague: Ready for the standup?", sample: "Almost — let me grab a coffee first." },
     ] };
     case "homework":   return { ...base, prompt: "Write 5 sentences introducing yourself to a new team.", minSentences: 5 };
+    case "comprehension": return { ...base, items: [
+      { q: "What did the speaker do yesterday?", options: ["Shipped the login screen", "Deployed the fix", "Wrote a report"], answer: 0, why: "Bax mətnə: “Yesterday I shipped the login screen.”" },
+    ] };
+    case "youtube":    return { ...base, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Model conversation", notes: "Watch once for gist, once for detail." };
+    case "speakingRecord": return { ...base, question: "Tell me about a project you're proud of. You have one minute.", tipAz: "Aydın danış, tələsmə — fikrini tamamla." };
+    case "shadowing": return { ...base, items: [
+      { sentence: "I'll get back to you by the end of the day.", note: "Stress: GET back, END of day." },
+      { sentence: "Could you walk me through the process?", note: "Linking: “walk-me-through”." },
+    ] };
+    case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
     default:           return base;
   }
 }
@@ -243,15 +258,21 @@ export default function BlockStudio() {
               );
             })}
 
-            {/* add-component palette — comes from this Block type's own catalog entry */}
+            {/* add-component palette — comes from this Block type's own catalog entry.
+                Already-used kinds get a highlight + count badge but stay fully
+                clickable, since a Block can hold the same component more than once
+                (e.g. two Quizzes, three Passages). */}
             {adding ? (
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-3"><span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick a component</span><button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button></div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {palette.map((k) => {
                     const M = COMPONENT_META[k]; const KI = M.icon;
+                    const used = components.filter((c) => c.kind === k).length;
                     return (
-                      <button key={k} onClick={() => addComponent(k)} className="flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
+                      <button key={k} onClick={() => addComponent(k)}
+                        className={`relative flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
+                        {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={16} /></span>
                         <span className="text-sm font-medium">{M.label}</span>
                       </button>
@@ -308,7 +329,7 @@ export function ComponentStudent({ component }) {
     case "timeline":   return <Card className="p-6"><TenseTimeline /></Card>;
     case "sentence":   return <SentenceComponent component={component} />;
     case "preposition":return <Card className="p-6"><PrepositionScene {...component} /></Card>;
-    case "conjugation":return <Card className="p-6"><ConjugationWheel verb={component.verb} tenses={component.tenses} /></Card>;
+    case "conjugation":return <Card className="p-6 overflow-x-auto"><ConjugationWheel verb={component.verb} tenses={component.tenses} /></Card>;
     case "conditional":return <Card className="p-6"><ConditionalFlow type={component.type} branches={component.branches} /></Card>;
     case "comparison": return <Card className="p-6"><ComparisonLadder forms={component.forms} examples={component.examples} /></Card>;
     case "wordweb":    return <Card className="p-6 overflow-x-auto"><WordWeb center={component.center} branches={component.branches} /></Card>;
@@ -319,6 +340,11 @@ export function ComponentStudent({ component }) {
     case "listening":  return <MediaComponent component={component} kind="listening" />;
     case "scenario":   return <ScenarioComponent component={component} />;
     case "homework":   return <HomeworkComponent component={component} />;
+    case "comprehension": return <QuizComponent component={component} />;
+    case "youtube":    return <YoutubeComponent component={component} />;
+    case "speakingRecord": return <SpeakingRecordComponent component={component} />;
+    case "shadowing":  return <ShadowingComponent component={component} />;
+    case "upload":     return <UploadComponent component={component} />;
     default:           return null;
   }
 }
@@ -556,6 +582,132 @@ function HomeworkComponent({ component }) {
   );
 }
 
+function extractYoutubeId(url) {
+  if (!url) return null;
+  for (const p of [/[?&]v=([^&]+)/, /youtu\.be\/([^?&]+)/, /embed\/([^?&]+)/]) {
+    const m = url.match(p); if (m) return m[1];
+  }
+  return null;
+}
+
+/* ---- YouTube video — embeddable in Reading, Listening or Speaking blocks ---- */
+function YoutubeComponent({ component }) {
+  const id = extractYoutubeId(component.url);
+  return (
+    <div className="max-w-2xl">
+      <Card className="p-0 overflow-hidden">
+        <div className="aspect-video bg-slate-900">
+          {id ? (
+            <iframe className="w-full h-full" src={`https://www.youtube-nocookie.com/embed/${id}`} title={component.title || "YouTube video"}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">Add a YouTube link to preview it here</div>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="font-semibold">{component.title || "YouTube video"}</div>
+          {component.notes && <div className="text-xs text-slate-400 mt-0.5">{component.notes}</div>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---- Speaking: record a real answer, get simulated AI feedback ---- */
+function SpeakingRecordComponent({ component }) {
+  const [state, setState] = useState("idle"); // idle | recording | analyzing | done
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (state !== "recording") return;
+    const id = setTimeout(() => setSeconds((s) => s + 1), 1000);
+    return () => clearTimeout(id);
+  }, [state, seconds]);
+
+  function start() { setSeconds(0); setState("recording"); }
+  function stop() { setState("analyzing"); setTimeout(() => setState("done"), 1400); }
+  function again() { setSeconds(0); setState("idle"); }
+
+  return (
+    <Card className="p-5 max-w-xl">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Speaking · record & get AI feedback</div>
+      <div className="text-lg font-medium mb-1">{component.question}</div>
+      {component.tipAz && <p className="text-xs text-slate-400 mb-4">{component.tipAz}</p>}
+
+      {state === "idle" && <Btn onClick={start}><Mic2 size={14} /> Start recording</Btn>}
+
+      {state === "recording" && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" /></span>
+            <span className="text-sm font-mono text-rose-600">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</span>
+          </div>
+          <div className="flex items-end gap-0.5 h-8 mb-3">
+            {Array.from({ length: 40 }).map((_, i) => <span key={i} className="flex-1 bg-rose-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + seconds)) * 80}%` }} />)}
+          </div>
+          <Btn className="!bg-rose-600 !text-white hover:!bg-rose-700" onClick={stop}>Stop & analyze</Btn>
+        </div>
+      )}
+
+      {state === "analyzing" && <div className="flex items-center gap-2 text-sm text-slate-500"><Sparkles size={15} className="text-violet-500" /> AI is analyzing your speech…</div>}
+
+      {state === "done" && (
+        <div>
+          <AiNote icon={Sparkles} tone="violet" title="AI feedback">
+            Good pace and clear structure — you covered the situation, action and result. Watch: “the project which I lead” → say “which I led” (past tense, since it's finished). Fluency: 7.5/10. Try adding one more concrete detail next time.
+          </AiNote>
+          <Btn variant="outline" size="sm" className="mt-3" onClick={again}><RotateCcw size={13} /> Record again</Btn>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ---- Shadowing — listen to a model sentence, repeat it immediately ---- */
+function ShadowingComponent({ component }) {
+  const items = component.items || [];
+  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <ShadowItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function ShadowItem({ item, n, total }) {
+  const [playing, setPlaying] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recorded, setRecorded] = useState(false);
+  function playModel() { setPlaying(true); setTimeout(() => setPlaying(false), 1200); }
+  function recordRepeat() { setRecording(true); setTimeout(() => { setRecording(false); setRecorded(true); }, 1400); }
+  return (
+    <Card className="p-4">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Shadowing · {n} of {total}</div>
+      <div className="text-base font-medium mb-1">“{item.sentence}”</div>
+      {item.note && <div className="text-xs text-slate-400 mb-3">{item.note}</div>}
+      <div className="flex items-center gap-2">
+        <Btn variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Btn>
+        <Btn size="sm" onClick={recordRepeat} disabled={recording}><Mic2 size={13} /> {recording ? "Listening…" : "Repeat it"}</Btn>
+      </div>
+      {recorded && <div className="mt-3"><AiNote icon={Check} tone="emerald">Rhythm and stress matched closely — nice shadowing.</AiNote></div>}
+    </Card>
+  );
+}
+
+/* ---- File upload — homework submitted as a file, not typed text ---- */
+function UploadComponent({ component }) {
+  const [file, setFile] = useState(null);
+  const [sent, setSent] = useState(false);
+  return (
+    <Card className="p-5 max-w-xl">
+      <p className="text-slate-600 text-sm mb-3">{component.instructions}</p>
+      {!sent ? (
+        <div>
+          <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-6 text-sm text-slate-400 hover:border-indigo-300 hover:text-indigo-500 cursor-pointer transition-colors">
+            <FileUp size={16} /> {file ? file.name : `Choose a file (${component.accept || "any"})`}
+            <input type="file" accept={component.accept} className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+          <div className="flex justify-end mt-3"><Btn size="sm" disabled={!file} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn></div>
+        </div>
+      ) : <Pill className="bg-amber-50 text-amber-700">“{file?.name}” sent — waiting for review</Pill>}
+    </Card>
+  );
+}
+
 function shuffled(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -743,6 +895,11 @@ function ComponentEditor({ component, onChange }) {
     case "listening":  return <MediaEditor component={component} onChange={onChange} />;
     case "scenario":   return <ScenarioEditor component={component} onChange={onChange} />;
     case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
+    case "comprehension": return <QuizEditor component={component} onChange={onChange} />;
+    case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
+    case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
+    case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
+    case "upload":     return <UploadEditor component={component} onChange={onChange} />;
     default:           return null;
   }
 }
@@ -1051,6 +1208,37 @@ function SpeedRoundEditor({ component, onChange }) {
     <div className="space-y-3">
       <Field label="Round length (seconds)"><input type="number" className={`${inputCls} w-24`} value={component.seconds} onChange={(e) => onChange({ seconds: Number(e.target.value) || 10 })} /></Field>
       <QuizEditor component={component} onChange={onChange} />
+    </div>
+  );
+}
+
+function YoutubeEditor({ component, onChange }) {
+  const id = extractYoutubeId(component.url);
+  return (
+    <div className="space-y-3">
+      <Field label="YouTube URL"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" /></Field>
+      <p className={`text-xs ${id ? "text-emerald-600" : "text-amber-600"}`}>{id ? "Valid link — will embed." : "Paste a full YouTube link (watch, youtu.be, or embed format)."}</p>
+      <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
+      <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
+    </div>
+  );
+}
+
+function SpeakingRecordEditor({ component, onChange }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Question / prompt"><textarea className={`${inputCls} h-20 resize-none`} value={component.question} onChange={(e) => onChange({ question: e.target.value })} /></Field>
+      <Field label="Tip for the student (Azerbaijani) — optional"><input className={inputCls} value={component.tipAz} onChange={(e) => onChange({ tipAz: e.target.value })} /></Field>
+      <p className="text-xs text-slate-400">The student records an answer; AI gives simulated fluency + language feedback. Speaking is otherwise graded by you, the teacher — this adds a self-practice layer, not a replacement.</p>
+    </div>
+  );
+}
+
+function UploadEditor({ component, onChange }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Instructions"><textarea className={`${inputCls} h-20 resize-none`} value={component.instructions} onChange={(e) => onChange({ instructions: e.target.value })} /></Field>
+      <Field label="Accepted file types"><input className={inputCls} value={component.accept} onChange={(e) => onChange({ accept: e.target.value })} placeholder=".pdf,.doc,.docx" /></Field>
     </div>
   );
 }

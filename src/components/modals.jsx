@@ -100,16 +100,20 @@ export function AddTextModal({ open, onClose }) {
 
 /* Add a block to a lesson (lesson builder) — the offered types come from the
    course's lesson template, not a fixed list, so IELTS/Business/etc. courses
-   see a different catalog than General English ones. */
-export function AddBlockModal({ open, onClose, onPick, types }) {
+   see a different catalog than General English ones. Block types already
+   used in this lesson are highlighted with a count badge, but stay fully
+   clickable — a lesson can have two Reading blocks, three Practice blocks, etc. */
+export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} }) {
   return (
     <Modal open={open} onClose={onClose} title="Add a block" sub="A lesson is built from skill blocks — each can hold several components">
       <div className="grid grid-cols-2 gap-2">
         {types.map((type) => {
           const BT = BLOCK_TYPES[type]; const I = BT.icon;
+          const used = usedCounts[type] || 0;
           return (
             <button key={type} onClick={() => { onPick(type); onClose(); }}
-              className="flex items-start gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-3 text-left transition-colors">
+              className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
+              {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
               <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
               <span>
                 <span className="text-sm font-medium block">{BT.label}</span>

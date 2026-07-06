@@ -1,5 +1,5 @@
 import {
-  BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail,
+  BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck,
 } from "lucide-react";
 
 /* =========================================================================
@@ -30,32 +30,35 @@ export const HUE_SOFT = {
    added Block opens with.
    ========================================================================= */
 export const BLOCK_TYPES = {
-  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "quiz", "gapfill", "scramble", "wordweb"], starter: ["passage"] },
-  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "quiz", "gapfill"], starter: ["listening"] },
-  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video"], starter: ["scenario"] },
-  writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "gapfill", "scramble"], starter: ["homework"] },
+  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "scramble", "wordweb", "youtube"], starter: ["passage"] },
+  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "youtube", "quiz", "gapfill"], starter: ["listening"] },
+  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing"], starter: ["scenario"] },
+  writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
   grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
   vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill"], starter: ["wordlist", "flashcards"] },
   practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround"], starter: ["gapfill", "match"] },
+  // Homework as its own Block (not just a component tucked inside Writing) —
+  // what the student reviews and submits at home after the live lesson.
+  homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
   // IELTS-specific: writing and speaking split by task/part, since each
   // has its own timing, rubric and structure — unlike General English.
-  ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "quiz", "gapfill"], starter: ["listening"] },
-  ieltsReading:   { label: "Reading",            icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "quiz", "gapfill"], starter: ["passage"] },
-  ieltsWriting1:  { label: "Writing Task 1",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework"], starter: ["homework"], description: "Describe visual data (graph, chart, process) in 150+ words." },
-  ieltsWriting2:  { label: "Writing Task 2",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework"], starter: ["homework"], description: "Essay responding to a prompt, 250+ words." },
-  ieltsSpeaking1: { label: "Speaking Part 1",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "Short interview questions about familiar topics." },
-  ieltsSpeaking2: { label: "Speaking Part 2",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "The long turn — speak for 2 minutes on a cue-card topic." },
-  ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
+  ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "youtube", "quiz", "gapfill"], starter: ["listening"] },
+  ieltsReading:   { label: "Reading",            icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "youtube"], starter: ["passage"] },
+  ieltsWriting1:  { label: "Writing Task 1",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload"], starter: ["homework"], description: "Describe visual data (graph, chart, process) in 150+ words." },
+  ieltsWriting2:  { label: "Writing Task 2",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload"], starter: ["homework"], description: "Essay responding to a prompt, 250+ words." },
+  ieltsSpeaking1: { label: "Speaking Part 1",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Short interview questions about familiar topics." },
+  ieltsSpeaking2: { label: "Speaking Part 2",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord", "shadowing"], starter: ["scenario"], description: "The long turn — speak for 2 minutes on a cue-card topic." },
+  ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
   // Business English: swaps generic Writing for correspondence practice.
-  businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
+  businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
 };
 
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
 export const LESSON_TEMPLATES = {
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice"] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary"] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary"] },
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "homework"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "homework"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "homework"] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the

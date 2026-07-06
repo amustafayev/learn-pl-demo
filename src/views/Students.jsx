@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Send, Download, Flame, Target, Brain, AlertTriangle, Check,
   CheckCircle2, Circle, Lock, NotebookPen, Sparkles, ArrowRight, Clock, TrendingUp,
-  RotateCcw, Search,
+  RotateCcw, Search, Gift, Zap,
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, RadarChart, PolarGrid,
@@ -19,6 +19,17 @@ import { WordStatusPill } from "./grammar.jsx";
 import StudentInsights from "./StudentInsights.jsx";
 
 const weakest = (c) => Object.entries(c).sort((a, b) => a[1] - b[1])[0];
+
+/* Motivation — XP ledger and streak-discount tiers, both computed from data
+   already tracked (activity log, streak) rather than authored separately. */
+const XP_PER_EVENT = { word: 5, test: 15, lesson: 30, reading: 10 };
+const xpFor = (type) => XP_PER_EVENT[type] || 5;
+const DISCOUNT_TIERS = [{ days: 7, pct: 10 }, { days: 30, pct: 15 }, { days: 60, pct: 20 }];
+function discountProgress(streak) {
+  const unlocked = [...DISCOUNT_TIERS].reverse().find((t) => streak >= t.days);
+  const next = DISCOUNT_TIERS.find((t) => streak < t.days);
+  return { currentPct: unlocked?.pct || 0, next, pctToNext: next ? Math.min(100, (streak / next.days) * 100) : 100 };
+}
 
 /* ------------------------------- roster ------------------------------- */
 
@@ -192,6 +203,21 @@ function Overview({ s }) {
           <div className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Target size={15} className="text-emerald-600" /> Daily goal</div>
           <div className="flex items-center gap-2"><span className="flex-1"><Bar pct={(s.dailyDone / s.dailyGoal) * 100} hue="emerald" /></span><span className="font-mono text-xs text-slate-500">{s.dailyDone}/{s.dailyGoal}</span></div>
           <div className="text-xs text-slate-400 mt-2">{s.streakFreeze} streak freeze{s.streakFreeze !== 1 ? "s" : ""} available</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Gift size={15} className="text-rose-500" /> Rewards</div>
+          <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Renewal discount</span><span className="font-mono text-slate-700">{discountProgress(s.streak).currentPct}%{discountProgress(s.streak).next ? ` (next ${discountProgress(s.streak).next.pct}% at ${discountProgress(s.streak).next.days}d)` : " · max"}</span></div>
+          <Bar pct={discountProgress(s.streak).pctToNext} hue="rose" />
+          <div className="text-sm font-semibold mt-4 mb-2 flex items-center gap-1.5"><Zap size={14} className="text-amber-500" /> Recent XP</div>
+          <div className="space-y-1.5">
+            {(s.activity || []).slice(0, 3).map((a, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 truncate pr-2">{a.detail}</span>
+                <span className="font-mono text-amber-600 shrink-0">+{xpFor(a.type)} XP</span>
+              </div>
+            ))}
+            {!s.activity?.length && <p className="text-xs text-slate-400">No XP activity yet.</p>}
+          </div>
         </Card>
         <Card className="p-5">
           <div className="text-sm font-semibold mb-1">Words this week</div>

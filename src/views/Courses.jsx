@@ -122,6 +122,7 @@ export function LessonBuilderView() {
   const grammarBlock = blocks.find((b) => b.type === "grammar");
   // which Block types this course's lesson template offers — not a fixed list
   const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
+  const usedCounts = blocks.reduce((acc, b) => ({ ...acc, [b.type]: (acc[b.type] || 0) + 1 }), {});
 
   function addBlock(type) {
     const BT = BLOCK_TYPES[type];
@@ -242,7 +243,7 @@ export function LessonBuilderView() {
         </div>
       </div>
 
-      <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes} />
+      <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes} usedCounts={usedCounts} />
       <AssignModal open={assignOpen} onClose={() => setAssignOpen(false)} what={`${course.title} — Lesson ${lesson.n}: ${lesson.title}`} kind="lesson" />
     </Page>
   );
