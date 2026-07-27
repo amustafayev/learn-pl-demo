@@ -5,7 +5,7 @@ import {
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
-  Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2,
+  Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -14,6 +14,7 @@ import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
   PrepositionScene, ConjugationWheel, ConditionalFlow, ComparisonLadder, WordWeb,
 } from "./grammar.jsx";
+import { Crossword } from "./playground.jsx";
 
 /* =========================================================================
    Block Studio — a Block (Reading, Grammar, IELTS Writing Task 2 …) is a
@@ -57,6 +58,7 @@ export const COMPONENT_META = {
   speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50" },
   shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100" },
+  crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50" },
 };
 
 const SAMPLE_WORDS = [
@@ -134,6 +136,13 @@ function defaultComponent(kind, texts = []) {
       { sentence: "Could you walk me through the process?", note: "Linking: “walk-me-through”." },
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
+    case "crossword":  return { ...base, items: [
+      { word: "deploy", clue: "Put software onto a server" },
+      { word: "release", clue: "A new version made available to users" },
+      { word: "merge", clue: "Combine two branches of code" },
+      { word: "ship", clue: "Send finished work to users" },
+      { word: "bug", clue: "A mistake in the code" },
+    ] };
     default:           return base;
   }
 }
@@ -345,6 +354,7 @@ export function ComponentStudent({ component }) {
     case "speakingRecord": return <SpeakingRecordComponent component={component} />;
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
+    case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
     default:           return null;
   }
 }
@@ -900,6 +910,7 @@ function ComponentEditor({ component, onChange }) {
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
     case "upload":     return <UploadEditor component={component} onChange={onChange} />;
+    case "crossword":  return <RowsEditor component={component} onChange={onChange} fields={[["word", "Word (letters only)"], ["clue", "Clue"]]} blank={{ word: "", clue: "" }} label="word" wide={["clue"]} />;
     default:           return null;
   }
 }

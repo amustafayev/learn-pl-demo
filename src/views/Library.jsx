@@ -8,6 +8,7 @@ import { useStore } from "../store.jsx";
 import { HUE_SOFT, CONFUSED } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
+import Playground from "./playground.jsx";
 
 export default function Library() {
   const [sub, setSub] = useState("reading");
@@ -19,14 +20,16 @@ export default function Library() {
 
   return (
     <Page>
-      <PageHead kicker="Content library" title="Library" sub="Reading texts and vocabulary sets you assign to learners." />
+      <PageHead kicker="Content library" title="Library" sub="Reading texts, vocabulary sets, and the playground learners explore between lessons." />
       <div className="flex gap-1.5 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
-        {[["reading", "Reading"], ["words", "Word sets"]].map(([id, label]) => (
+        {[["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"]].map(([id, label]) => (
           <button key={id} onClick={() => setSub(id)}
             className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${sub === id ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}>{label}</button>
         ))}
       </div>
-      {sub === "reading" ? <ReadingList open={setOpenText} /> : <WordSetsList open={setOpenSet} />}
+      {sub === "reading" && <ReadingList open={setOpenText} />}
+      {sub === "words" && <WordSetsList open={setOpenSet} />}
+      {sub === "playground" && <Playground />}
     </Page>
   );
 }

@@ -271,6 +271,13 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
   const [translate, setTranslate] = useState(true);
   const [open, setOpen] = useState(null); // index of tapped word
   const [saved, setSaved] = useState({});
+  const [revealedAz, setRevealedAz] = useState({}); // AZ shown behind a button when the toggle is off
+  const [playing, setPlaying] = useState(null); // "uk" | "us" while a pronunciation plays
+
+  function play(variant) {
+    setPlaying(variant);
+    setTimeout(() => setPlaying(null), 900);
+  }
 
   return (
     <div>
@@ -279,7 +286,7 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
           <span className={`w-9 h-5 rounded-full relative transition-colors ${translate ? "bg-indigo-600" : "bg-slate-300"}`}>
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: translate ? 18 : 2 }} />
           </span>
-          <span className="inline-flex items-center gap-1 text-slate-600"><Languages size={14} /> Tap-to-translate</span>
+          <span className="inline-flex items-center gap-1 text-slate-600"><Languages size={14} /> Instant AZ translation</span>
           <input type="checkbox" className="sr-only" checked={translate} onChange={(e) => setTranslate(e.target.checked)} />
         </label>
         {showStatusColors && (
@@ -306,13 +313,28 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
               </button>
               {open === i && (
                 <span className="absolute z-20 left-0 top-full mt-1 w-64 bg-white rounded-xl border border-slate-200 shadow-xl p-3.5 text-left block">
-                  <span className="flex items-center justify-between">
+                  <span className="flex items-start justify-between gap-2">
                     <b className="text-slate-900">{tok.term}</b>
-                    <button className="text-slate-300 hover:text-slate-500"><Volume2 size={14} /></button>
+                    {tok.emoji && <span className="text-2xl leading-none" title="picture definition">{tok.emoji}</span>}
                   </span>
-                  {translate && <span className="block text-indigo-600 font-medium text-sm mt-0.5">{tok.az}</span>}
-                  <span className="block text-sm text-slate-600 mt-1.5">{tok.def}</span>
+                  {/* UK / US pronunciation, Cambridge-style */}
+                  <span className="flex items-center gap-1.5 mt-1.5">
+                    {[["uk", "UK", tok.ipaUk], ["us", "US", tok.ipaUs]].map(([id, label, ipa]) => (
+                      <button key={id} onClick={() => play(`${i}-${id}`)}
+                        className={`inline-flex items-center gap-1 text-[10px] font-mono rounded-md px-1.5 py-0.5 border transition-colors ${playing === `${i}-${id}` ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600"}`}>
+                        <Volume2 size={10} /> {label}{ipa ? ` ${ipa}` : ""}
+                      </button>
+                    ))}
+                  </span>
+                  {/* definition first — translation is one tap away, not in your face */}
+                  <span className="block text-sm text-slate-600 mt-2">{tok.def}</span>
                   <span className="block text-xs text-slate-400 italic mt-1.5">“{tok.example}”</span>
+                  {(translate || revealedAz[i])
+                    ? <span className="block text-indigo-600 font-medium text-sm mt-1.5">🇦🇿 {tok.az}</span>
+                    : <button onClick={() => setRevealedAz((r) => ({ ...r, [i]: true }))}
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-md px-2 py-0.5">
+                        <Languages size={11} /> AZ tərcümə
+                      </button>}
                   <button
                     onClick={() => { setSaved((s) => ({ ...s, [tok.term]: true })); if (onSaveWord) onSaveWord(tok); }}
                     disabled={isSaved}

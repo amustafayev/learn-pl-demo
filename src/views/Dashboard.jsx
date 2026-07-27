@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { Page, PageHead, Card, Btn, Avatar, StatCard, AiNote, SectionLabel, Pill } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
-import { TEACHER } from "../data.jsx";
+import { TEACHER, WORD_OF_DAY } from "../data.jsx";
 import { NewCourseModal, AddTextModal, AssignModal } from "../components/modals.jsx";
 
 function weakest(concepts) {
@@ -20,7 +20,7 @@ function brief(s) {
 }
 
 export default function Dashboard() {
-  const { state } = useStore();
+  const { state, toast } = useStore();
   const { go } = useNav();
   const [modal, setModal] = useState(null);
 
@@ -106,6 +106,25 @@ export default function Dashboard() {
                   <a.icon size={16} className="text-indigo-500" /> {a.label}
                 </button>
               ))}
+            </Card>
+          </div>
+
+          <div>
+            <SectionLabel>Word of the day</SectionLabel>
+            <Card className="p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl leading-none">{WORD_OF_DAY.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold">{WORD_OF_DAY.term} <span className="text-indigo-600 font-medium text-sm">· {WORD_OF_DAY.az}</span></div>
+                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">UK {WORD_OF_DAY.ipaUk} · US {WORD_OF_DAY.ipaUs}</div>
+                  <p className="text-sm text-slate-500 mt-1">{WORD_OF_DAY.def}</p>
+                  <p className="text-xs text-slate-400 italic mt-1">“{WORD_OF_DAY.example}”</p>
+                </div>
+              </div>
+              <button onClick={() => toast(`“${WORD_OF_DAY.term}” pushed to all students`)}
+                className="mt-3 w-full text-xs font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-300 rounded-lg py-1.5 transition-colors">
+                <Send size={12} className="inline mr-1" /> Push to all students
+              </button>
             </Card>
           </div>
 

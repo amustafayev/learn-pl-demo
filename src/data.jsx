@@ -35,8 +35,8 @@ export const BLOCK_TYPES = {
   speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing"], starter: ["scenario"] },
   writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
   grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
-  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill"], starter: ["wordlist", "flashcards"] },
-  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround"], starter: ["gapfill", "match"] },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword"], starter: ["wordlist", "flashcards"] },
+  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword"], starter: ["gapfill", "match"] },
   // Homework as its own Block (not just a component tucked inside Writing) —
   // what the student reviews and submits at home after the live lesson.
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
@@ -158,7 +158,7 @@ export const SEED_LESSONS = {
 /* ------------------------------- reading library ------------------------------- */
 
 // A tappable token carries the AZ translation + definition + example.
-const w = (term, az, def, example, status = "known") => ({ term, az, def, example, status });
+const w = (term, az, def, example, status = "known", extra = {}) => ({ term, az, def, example, status, ...extra });
 const s = (text) => ({ text }); // plain glue text (punctuation / known words)
 
 export const SEED_TEXTS = [
@@ -166,9 +166,9 @@ export const SEED_TEXTS = [
     id: "t_standup", title: "A morning standup", topic: "IT", level: "B1", wordCount: 58, hasTranslation: true,
     body: [
       s("Every morning the team has a short "), w("standup", "gündəlik toplantı", "a short daily meeting where each person shares progress", "We keep the standup under ten minutes.", "new"),
-      s(". Yesterday I "), w("shipped", "təhvil verdim", "released code to users", "We shipped the new login screen last night.", "learning"),
-      s(" the login screen. Today I will "), w("deploy", "yerləşdirmək", "put software onto a server so people can use it", "We deploy every Friday afternoon.", "new"),
-      s(" the fix, and by then the "), w("release", "buraxılış", "a new version made available to users", "The release is planned for Monday.", "learning"),
+      s(". Yesterday I "), w("shipped", "təhvil verdim", "released code to users", "We shipped the new login screen last night.", "learning", { emoji: "📦", ipaUk: "/ʃɪpt/", ipaUs: "/ʃɪpt/" }),
+      s(" the login screen. Today I will "), w("deploy", "yerləşdirmək", "put software onto a server so people can use it", "We deploy every Friday afternoon.", "new", { emoji: "🚀", ipaUk: "/dɪˈplɔɪ/", ipaUs: "/dɪˈplɔɪ/" }),
+      s(" the fix, and by then the "), w("release", "buraxılış", "a new version made available to users", "The release is planned for Monday.", "learning", { emoji: "🎉", ipaUk: "/rɪˈliːs/", ipaUs: "/rɪˈliːs/" }),
       s(" should be stable. I have already "), w("resolved", "həll etdim", "solved or fixed a problem", "I resolved the bug before lunch.", "known"),
       s(" the payment bug, so nothing is "), w("blocking", "maneə törədən", "stopping progress", "Nothing is blocking me today.", "new"), s(" me today."),
     ],
@@ -177,9 +177,9 @@ export const SEED_TEXTS = [
     id: "t_cafe", title: "At the café", topic: "Everyday", level: "A2", wordCount: 44, hasTranslation: true,
     body: [
       s("I usually "), w("order", "sifariş vermək", "to ask for food or drink in a place", "I order a coffee every morning.", "learning"),
-      s(" a coffee before work. The café near my flat is "), w("cozy", "rahat", "warm and comfortable", "The room was small but cozy.", "new"),
+      s(" a coffee before work. The café near my flat is "), w("cozy", "rahat", "warm and comfortable", "The room was small but cozy.", "new", { emoji: "🛋️", ipaUk: "/ˈkəʊ.zi/", ipaUs: "/ˈkoʊ.zi/" }),
       s(" and the staff are "), w("friendly", "mehriban", "kind and pleasant", "The waiter was very friendly.", "known"),
-      s(". Sometimes I "), w("grab", "tez almaq", "to take something quickly", "Let me grab a sandwich on the way.", "new"), s(" a sandwich too."),
+      s(". Sometimes I "), w("grab", "tez almaq", "to take something quickly", "Let me grab a sandwich on the way.", "new", { emoji: "🥪", ipaUk: "/ɡræb/", ipaUs: "/ɡræb/" }), s(" a sandwich too."),
     ],
   },
   {
@@ -273,6 +273,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 2.4, struggle: "standup recording replayed 3× around “already resolved”" },
       hints: { used: 5, mostUsedOn: "Present perfect" },
       abandonment: [{ lesson: "Lesson 5 — Code-review comments", part: "Grammar", when: "4d ago" }],
+      hesitationStats: { avgFirstAnswerSec: 9, answersChanged: 3, retriesAvg: 1.8, worstOn: "Present perfect" },
       confidence: [
         { concept: "Present perfect", predicted: 75, actual: 42 },
         { concept: "Word order", predicted: 85, actual: 88 },
@@ -310,6 +311,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 0.8, struggle: null },
       hints: { used: 0, mostUsedOn: null },
       abandonment: [],
+      hesitationStats: { avgFirstAnswerSec: 3, answersChanged: 0, retriesAvg: 1.1, worstOn: null },
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
@@ -339,6 +341,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 3.1, struggle: "café audio replayed 4× on “grab a sandwich”" },
       hints: { used: 8, mostUsedOn: "Word order" },
       abandonment: [{ lesson: "Lesson 1 — Introducing yourself", part: "Grammar", when: "2d ago" }],
+      hesitationStats: { avgFirstAnswerSec: 14, answersChanged: 5, retriesAvg: 2.6, worstOn: "Word order" },
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
@@ -363,6 +366,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 0.5, struggle: null },
       hints: { used: 0, mostUsedOn: null },
       abandonment: [],
+      hesitationStats: { avgFirstAnswerSec: 4, answersChanged: 1, retriesAvg: 1.2, worstOn: null },
     },
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
@@ -388,6 +392,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 0, struggle: null },
       hints: { used: 0, mostUsedOn: null },
       abandonment: [{ lesson: "Placement follow-up", part: "Reading", when: "6d ago" }],
+      hesitationStats: { avgFirstAnswerSec: 0, answersChanged: 0, retriesAvg: 0, worstOn: null },
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
@@ -424,6 +429,7 @@ export const SEED_STUDENTS = [
       listening: { avgReplays: 1.5, struggle: null },
       hints: { used: 12, mostUsedOn: "Conditionals" },
       abandonment: [{ lesson: "Part 2 — the long turn", part: "Grammar", when: "3d ago" }],
+      hesitationStats: { avgFirstAnswerSec: 18, answersChanged: 6, retriesAvg: 3.2, worstOn: "Conditionals" },
       confidence: [{ concept: "Conditionals", predicted: 40, actual: 25 }],
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
@@ -444,6 +450,15 @@ export const HEATMAP_CONCEPTS = ["Articles", "Perfect", "Past", "Prepos.", "Orde
 export const NORTHSTAR = [
   { wk: "W-5", v: 6.1 }, { wk: "W-4", v: 5.4 }, { wk: "W-3", v: 7.2 }, { wk: "W-2", v: 6.8 }, { wk: "W-1", v: 8.3 }, { wk: "now", v: 9.1 },
 ];
+
+// Word of the day — one shared word pushed to every learner (from the docs'
+// "gizmos" list). Rotates daily in the real product; fixed in the demo.
+export const WORD_OF_DAY = {
+  term: "figure out", az: "başa düşmək, tapmaq", emoji: "🧩",
+  ipaUk: "/ˈfɪɡ.ər aʊt/", ipaUs: "/ˈfɪɡ.jɚ aʊt/",
+  def: "to finally understand something or find a solution after thinking",
+  example: "It took me an hour to figure out the bug.",
+};
 
 /* AI Insights — class-wide mastery trend per concept, last 6 weeks.
    Feeds the trajectory (improving / plateauing / regressing) computation. */

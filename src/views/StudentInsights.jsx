@@ -2,7 +2,7 @@ import React from "react";
 import {
   BookOpen, Headphones, Lightbulb, LogOut, Sparkles, Brain, Mic, Hourglass,
   CalendarClock, ArrowLeftRight, ShieldCheck, ShieldAlert, TrendingUp, TrendingDown,
-  Minus, Gauge, Repeat, CheckCircle2, Circle, Wand2, Map, Languages,
+  Minus, Gauge, Repeat, CheckCircle2, Circle, Wand2, Map, Languages, Timer, RotateCcw,
 } from "lucide-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -129,6 +129,38 @@ export default function StudentInsights({ s }) {
     <div className="space-y-6">
       <div className="flex flex-wrap gap-1.5">
         {METHODS.map((m) => <Pill key={m} className="bg-slate-100 text-slate-500">{m}</Pill>)}
+      </div>
+
+      {/* raw signal dashboard — the tracked behaviours at a glance */}
+      <div>
+        <SectionLabel>Raw signals · logged automatically this week</SectionLabel>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {(() => {
+            const h = t.hesitationStats || {};
+            const sev = (v, warn, bad) => (v >= bad ? "text-rose-600" : v >= warn ? "text-amber-600" : "text-emerald-600");
+            const dwellTotal = Object.values(dwell).reduce((a, b) => a + b, 0);
+            const topDwell = Object.entries(dwell).sort((a, b) => b[1] - a[1])[0];
+            const revisits = (t.stuckPoints || []).reduce((a, p) => a + (p.revisits || 0), 0);
+            const signals = [
+              { icon: Timer, label: "Hesitation", value: h.avgFirstAnswerSec ? `${h.avgFirstAnswerSec}s` : "—", tone: sev(h.avgFirstAnswerSec || 0, 8, 15), sub: h.answersChanged ? `${h.answersChanged} answers changed` : "time to first answer" },
+              { icon: RotateCcw, label: "Retries", value: h.retriesAvg ? `${h.retriesAvg}×` : "—", tone: sev(h.retriesAvg || 0, 2, 3), sub: h.worstOn ? `worst on ${h.worstOn}` : "before correct" },
+              { icon: Repeat, label: "Revisits", value: revisits || "—", tone: sev(revisits, 3, 6), sub: "pages reopened" },
+              { icon: Hourglass, label: "Dwell", value: `${dwellTotal}m`, tone: "text-slate-700", sub: topDwell ? `most on ${TYPE_LABEL[topDwell[0]] || topDwell[0]}` : "this week" },
+              { icon: BookOpen, label: "Reading pace", value: t.reading?.paceWpm ? `${t.reading.paceWpm}` : "—", tone: "text-slate-700", sub: `wpm · ${t.reading?.rereads ?? 0} re-reads` },
+              { icon: Headphones, label: "Replays", value: t.listening?.avgReplays ?? "—", tone: sev(t.listening?.avgReplays || 0, 2, 3), sub: "per audio, avg" },
+              { icon: Lightbulb, label: "Hints", value: t.hints?.used ?? 0, tone: sev(t.hints?.used || 0, 5, 10), sub: t.hints?.mostUsedOn ? `mostly ${t.hints.mostUsedOn}` : "used this week" },
+              { icon: CalendarClock, label: "Rhythm", value: `${t.rhythm?.sessionsPerWeek ?? 0}/wk`, tone: "text-slate-700", sub: `${t.rhythm?.avgSessionMin || 0}m sessions` },
+            ];
+            return signals.map((sg) => (
+              <Card key={sg.label} className="p-3.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-slate-400 mb-1.5"><sg.icon size={12} /> {sg.label}</div>
+                <div className={`font-mono text-xl font-bold ${sg.tone}`}>{sg.value}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5 truncate" title={sg.sub}>{sg.sub}</div>
+              </Card>
+            ));
+          })()}
+        </div>
+        <p className="text-[11px] text-slate-400 mt-2">Green = comfortable · amber = watch · red = struggling. One signal alone is ambiguous — the insights below only fire when signals cluster.</p>
       </div>
 
       {/* readiness + you vs last month */}
