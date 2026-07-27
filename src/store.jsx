@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback } from "react";
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK,
 } from "./data.jsx";
 
 /* =========================================================================
@@ -29,6 +29,7 @@ const initialState = {
   students: clone(SEED_STUDENTS),
   texts: clone(SEED_TEXTS),
   wordSets: clone(SEED_WORDSETS),
+  blockBank: clone(SEED_BLOCK_BANK),
   toasts: [],
 };
 
@@ -134,6 +135,36 @@ function reducer(state, action) {
         const merged = [...newWords.filter((wd) => !existing.has(wd.term)), ...s.words];
         return { ...s, notes: [{ ...note, id: uid("n"), saved: true }, ...(s.notes || [])], words: merged };
       });
+      return { ...state, students };
+    }
+    case "SAVE_BLOCK_TO_BANK": {
+      // snapshot a block (deep copy) into the teacher's reusable bank
+      const { block, from } = action;
+      const snapshot = {
+        id: uid("bb"), type: block.type, title: block.title || block.type, from: from || "—",
+        content: JSON.parse(JSON.stringify(block.content || { components: [] })),
+      };
+      return { ...state, blockBank: [snapshot, ...state.blockBank] };
+    }
+    case "REMOVE_FROM_BANK":
+      return { ...state, blockBank: state.blockBank.filter((b) => b.id !== action.bankId) };
+    case "SET_STUDENT_COURSE": {
+      // enroll (courseId) or unenroll (null); assignments from other courses are dropped
+      const { studentId, courseId } = action;
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, assignedLessons: [] } : s));
+      return { ...state, students };
+    }
+    case "ASSIGN_LESSON": {
+      const { studentId, lessonId } = action;
+      const students = state.students.map((s) =>
+        s.id === studentId && !(s.assignedLessons || []).includes(lessonId)
+          ? { ...s, assignedLessons: [...(s.assignedLessons || []), lessonId] } : s);
+      return { ...state, students };
+    }
+    case "UNASSIGN_LESSON": {
+      const { studentId, lessonId } = action;
+      const students = state.students.map((s) =>
+        s.id === studentId ? { ...s, assignedLessons: (s.assignedLessons || []).filter((l) => l !== lessonId) } : s);
       return { ...state, students };
     }
     case "SET_RECORDING_SUMMARY": {

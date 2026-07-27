@@ -231,7 +231,7 @@ const act = (type, detail, when) => ({ type, detail, when });
 
 export const SEED_STUDENTS = [
   {
-    id: "s_rashad", name: "Rashad Aliyev", courseId: "it", level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
+    id: "s_rashad", name: "Rashad Aliyev", courseId: "it", assignedLessons: ["it3", "it4"], level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 14, xp: 3820, status: "in progress", last: "2h ago", step: 4, progress: 57, atRisk: false,
     placement: { level: "B1", when: "3 months ago", score: 62 },
     cefr: [{ m: "Apr", v: 1 }, { m: "May", v: 1.4 }, { m: "Jun", v: 1.7 }, { m: "Jul", v: 2.0 }],
@@ -282,7 +282,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
-    id: "s_nigar", name: "Nigar Mammadova", courseId: "it", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
+    id: "s_nigar", name: "Nigar Mammadova", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
     dailyGoal: 30, dailyDone: 30, xp: 9120, status: "in progress", last: "20m ago", step: 6, progress: 92, atRisk: false,
     placement: { level: "B2", when: "6 months ago", score: 78 },
     cefr: [{ m: "Apr", v: 2.4 }, { m: "May", v: 2.7 }, { m: "Jun", v: 3.0 }, { m: "Jul", v: 3.3 }],
@@ -316,7 +316,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_elvin", name: "Elvin Huseynov", courseId: "it", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
+    id: "s_elvin", name: "Elvin Huseynov", courseId: "it", assignedLessons: ["it1"], level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
     dailyGoal: 15, dailyDone: 3, xp: 1240, status: "in progress", last: "1d ago", step: 1, progress: 24, atRisk: false,
     placement: { level: "B1", when: "1 month ago", score: 54 },
     cefr: [{ m: "May", v: 1.0 }, { m: "Jun", v: 1.2 }, { m: "Jul", v: 1.3 }],
@@ -346,7 +346,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_leyla", name: "Leyla Qasimova (demo)", courseId: "it", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
+    id: "s_leyla", name: "Leyla Qasimova (demo)", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 20, xp: 6400, status: "completed", last: "3h ago", step: 7, progress: 100, atRisk: false,
     placement: { level: "B2", when: "5 months ago", score: 81 },
     cefr: [{ m: "Apr", v: 2.6 }, { m: "May", v: 2.9 }, { m: "Jun", v: 3.2 }, { m: "Jul", v: 3.4 }],
@@ -371,7 +371,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
-    id: "s_kamran", name: "Kamran Safarov", courseId: "it", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
+    id: "s_kamran", name: "Kamran Safarov", courseId: "it", assignedLessons: [], level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
     dailyGoal: 10, dailyDone: 0, xp: 120, status: "not started", last: "6d ago", step: -1, progress: 0, atRisk: true,
     riskReason: "No activity for 6 days · streak dropped to 0 · never finished placement follow-up",
     placement: { level: "A2", when: "1 week ago", score: 41 },
@@ -397,7 +397,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_aysel", name: "Aysel Rahimli", courseId: "ielts", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
+    id: "s_aysel", name: "Aysel Rahimli", courseId: "ielts", assignedLessons: ["ie2"], level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
     dailyGoal: 25, dailyDone: 11, xp: 4550, status: "in progress", last: "5h ago", step: 5, progress: 71, atRisk: true,
     riskReason: "Effort high (11 sessions/wk) but grammar score flat 3 weeks — a human should look",
     placement: { level: "B2", when: "2 months ago", score: 69 },
@@ -449,6 +449,49 @@ export const HEATMAP_CONCEPTS = ["Articles", "Perfect", "Past", "Prepos.", "Orde
 // north-star: words moved to "known" per active learner, per week
 export const NORTHSTAR = [
   { wk: "W-5", v: 6.1 }, { wk: "W-4", v: 5.4 }, { wk: "W-3", v: 7.2 }, { wk: "W-2", v: 6.8 }, { wk: "W-1", v: 8.3 }, { wk: "now", v: 9.1 },
+];
+
+/* ------------------------------- block bank ------------------------------- */
+
+// The teacher's saved, reusable blocks. Saving snapshots a block (with all
+// its components); inserting into a lesson deep-copies it, so edits after
+// insertion never touch the saved original.
+export const SEED_BLOCK_BANK = [
+  {
+    id: "bb1", type: "grammar", title: "Tense timeline pack", from: "IT English · Lesson 4",
+    content: { components: [
+      { id: "bb1c1", kind: "timeline" },
+      { id: "bb1c2", kind: "gapfill", items: [
+        { text: "I ___ the report yesterday.", answer: "finished", why: "“yesterday” bitmiş vaxtdır → Past simple." },
+        { text: "She ___ here since 2020.", answer: "has lived", why: "İndi də davam edir → Present perfect." },
+      ] },
+    ] },
+  },
+  {
+    id: "bb2", type: "vocabulary", title: "IT starter words", from: "IT English · Lesson 1",
+    content: { components: [
+      { id: "bb2c1", kind: "wordlist", items: [
+        { term: "deploy", az: "yerləşdirmək", def: "put software onto a server", example: "We deploy every Friday." },
+        { term: "bug", az: "səhv", def: "a mistake in the code", example: "I found a bug in the login flow." },
+        { term: "merge", az: "birləşdirmək", def: "combine two branches of code", example: "Merge your branch before Friday." },
+      ] },
+      { id: "bb2c2", kind: "flashcards", items: [
+        { term: "deploy", az: "yerləşdirmək", example: "We deploy every Friday." },
+        { term: "bug", az: "səhv", example: "I found a bug in the login flow." },
+      ] },
+    ] },
+  },
+  {
+    id: "bb3", type: "practice", title: "Dev-words crossword", from: "Playground",
+    content: { components: [
+      { id: "bb3c1", kind: "crossword", items: [
+        { word: "deploy", clue: "Put software onto a server" },
+        { word: "release", clue: "A new version made available to users" },
+        { word: "merge", clue: "Combine two branches of code" },
+        { word: "bug", clue: "A mistake in the code" },
+      ] },
+    ] },
+  },
 ];
 
 // Word of the day — one shared word pushed to every learner (from the docs'

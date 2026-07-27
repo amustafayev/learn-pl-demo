@@ -103,7 +103,7 @@ export function AddTextModal({ open, onClose }) {
    see a different catalog than General English ones. Block types already
    used in this lesson are highlighted with a count badge, but stay fully
    clickable — a lesson can have two Reading blocks, three Practice blocks, etc. */
-export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} }) {
+export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, bank = [], onPickBank }) {
   return (
     <Modal open={open} onClose={onClose} title="Add a block" sub="A lesson is built from skill blocks — each can hold several components">
       <div className="grid grid-cols-2 gap-2">
@@ -123,6 +123,28 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} })
           );
         })}
       </div>
+
+      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson */}
+      {bank.length > 0 && onPickBank && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">From My Blocks · ready-made, drops in with all its content</div>
+          <div className="space-y-1.5">
+            {bank.map((item) => {
+              const BT = BLOCK_TYPES[item.type]; const I = BT.icon;
+              return (
+                <button key={item.id} onClick={() => { onPickBank(item); onClose(); }}
+                  className="w-full flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-2.5 text-left transition-colors">
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={15} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="text-sm font-medium block truncate">{item.title}</span>
+                    <span className="text-[11px] text-slate-400 block truncate">{BT.label} · {(item.content?.components || []).length} components · saved from {item.from}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

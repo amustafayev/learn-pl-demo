@@ -6,6 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
+  BookmarkPlus,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -217,9 +218,15 @@ export default function BlockStudio() {
             <h1 className="text-xl font-bold tracking-tight">{block.title || BT.label}</h1>
           </div>
         </div>
-        <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
-          <button onClick={() => setMode("student")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "student" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Eye size={14} /> As student</button>
-          <button onClick={() => setMode("edit")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "edit" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Pencil size={14} /> Edit content</button>
+        <div className="flex items-center gap-2">
+          <Btn variant="outline" size="sm"
+            onClick={() => { dispatch({ type: "SAVE_BLOCK_TO_BANK", block, from: `${course.title} · Lesson ${lesson.n}` }); toast(`“${block.title || BT.label}” saved to My Blocks`); }}>
+            <BookmarkPlus size={14} /> Save to My Blocks
+          </Btn>
+          <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
+            <button onClick={() => setMode("student")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "student" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Eye size={14} /> As student</button>
+            <button onClick={() => setMode("edit")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "edit" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Pencil size={14} /> Edit content</button>
+          </div>
         </div>
       </div>
 
