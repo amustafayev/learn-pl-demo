@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useReducer, useCallback } from "react";
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK,
 } from "./data.jsx";
 
 /* =========================================================================
@@ -14,6 +14,16 @@ import { BLOCK_TYPES } from "./data.jsx";
 const clone = (x) => JSON.parse(JSON.stringify(x));
 let seq = 1000;
 const uid = (p) => `${p}${++seq}`;
+const COMPONENT_BANK_KEY = "lucid.component-bank";
+
+function savedComponentBank() {
+  try {
+    const saved = window.localStorage.getItem(COMPONENT_BANK_KEY);
+    return saved ? JSON.parse(saved) : clone(SEED_COMPONENT_BANK);
+  } catch {
+    return clone(SEED_COMPONENT_BANK);
+  }
+}
 
 // Ensure a lesson has an editable `built` array of Blocks (hydrate from the
 // shorthand `parts` list — an array of Block-type ids — the first time a
@@ -30,6 +40,7 @@ const initialState = {
   texts: clone(SEED_TEXTS),
   wordSets: clone(SEED_WORDSETS),
   blockBank: clone(SEED_BLOCK_BANK),
+  componentBank: savedComponentBank(),
   toasts: [],
 };
 
@@ -148,6 +159,19 @@ function reducer(state, action) {
     }
     case "REMOVE_FROM_BANK":
       return { ...state, blockBank: state.blockBank.filter((b) => b.id !== action.bankId) };
+    case "SAVE_COMPONENT_TO_BANK": {
+      const { component, title, from } = action;
+      const snapshot = {
+        id: uid("cb"),
+        title: title || component.title || "Saved Component",
+        kind: component.kind,
+        from: from || "—",
+        data: JSON.parse(JSON.stringify(component)),
+      };
+      return { ...state, componentBank: [snapshot, ...(state.componentBank || [])] };
+    }
+    case "REMOVE_COMPONENT_FROM_BANK":
+      return { ...state, componentBank: (state.componentBank || []).filter((c) => c.id !== action.bankId) };
     case "SET_STUDENT_COURSE": {
       // enroll (courseId) or unenroll (null); assignments from other courses are dropped
       const { studentId, courseId } = action;
@@ -188,6 +212,13 @@ const StoreCtx = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  // A saved component is a teacher-owned template, not transient lesson
+  // state. Keep just this library across reloads so it remains available
+  // when the teacher starts a different lesson later.
+  useEffect(() => {
+    try { window.localStorage.setItem(COMPONENT_BANK_KEY, JSON.stringify(state.componentBank)); } catch { /* prototype still works without storage */ }
+  }, [state.componentBank]);
 
   const toast = useCallback((text, tone) => {
     const id = uid("toast");

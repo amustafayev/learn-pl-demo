@@ -35,9 +35,9 @@ export const BLOCK_TYPES = {
   speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing"], starter: ["scenario"] },
   writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
   grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
-  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword"], starter: ["wordlist", "flashcards"] },
-  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword"], starter: ["gapfill", "match"] },
-  playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["wordlist", "flashcards"] },
+  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
+  playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
   // IELTS-specific: writing and speaking split by task/part, since each
   // has its own timing, rubric and structure — unlike General English.
@@ -486,6 +486,32 @@ export const SEED_BLOCK_BANK = [
         { word: "bug", clue: "A mistake in the code" },
       ] },
     ] },
+  },
+];
+
+// Reusable individual component bank (saved by teachers for cross-lesson reuse)
+export const SEED_COMPONENT_BANK = [
+  {
+    id: "cb1", title: "Wheel of Fortune — IT Standup Vocab", kind: "wheel", from: "Playground",
+    data: { id: "cb1d", kind: "wheel", title: "IT Standup Vocab Wheel", items: [
+      { term: "deploy", az: "yerləşdirmək", q: "What does 'deploy' mean in software?" },
+      { term: "ship", az: "təhvil vermək", q: "Give an example with 'ship'." },
+      { term: "blocking", az: "maneə törədən", q: "What is blocking your progress?" },
+      { term: "resolved", az: "həll edildi", q: "Have you resolved the bug?" },
+    ] }
+  },
+  {
+    id: "cb2", title: "Word Search — Tense & Time Words", kind: "wordsearch", from: "Playground",
+    data: { id: "cb2d", kind: "wordsearch", title: "Find the Tense & Time Words", words: ["DEPLOY", "SHIP", "RELEASE", "SOLVED", "MERGE"] }
+  },
+  {
+    id: "cb3", title: "Image & Word Match — Everyday Objects", kind: "imagetoword", from: "Playground",
+    data: { id: "cb3d", kind: "imagetoword", title: "Match Picture to Word", items: [
+      { emoji: "☕", term: "coffee", az: "qəhvə" },
+      { emoji: "🛋️", term: "cozy", az: "rahat" },
+      { emoji: "🥪", term: "sandwich", az: "sendviç" },
+      { emoji: "📦", term: "package", az: "bağlama" },
+    ] }
   },
 ];
 

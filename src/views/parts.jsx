@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, Eye, Pencil, Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
   GraduationCap, Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown,
@@ -6,7 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus,
+  BookmarkPlus, Dices, Image,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -60,6 +60,9 @@ export const COMPONENT_META = {
   shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100" },
   crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50" },
+  wheel:      { label: "Wheel of Fortune",       icon: Dices,             tone: "text-purple-600 bg-purple-50" },
+  wordsearch: { label: "Word Search Grid",       icon: Grid3x3,           tone: "text-emerald-600 bg-emerald-50" },
+  imagetoword:{ label: "Picture to Word Match",  icon: Image,             tone: "text-indigo-600 bg-indigo-50" },
 };
 
 const SAMPLE_WORDS = [
@@ -144,6 +147,19 @@ function defaultComponent(kind, texts = []) {
       { word: "ship", clue: "Send finished work to users" },
       { word: "bug", clue: "A mistake in the code" },
     ] };
+    case "wheel":      return { ...base, title: "Vocabulary Wheel", items: [
+      { term: "deploy", az: "yerləşdirmək", q: "What does 'deploy' mean in software?" },
+      { term: "ship", az: "təhvil vermək", q: "Give an example with 'ship'." },
+      { term: "blocking", az: "maneə törədən", q: "What is blocking your progress?" },
+      { term: "resolved", az: "həll edildi", q: "Have you resolved the bug?" },
+    ] };
+    case "wordsearch": return { ...base, title: "Word Search Grid", words: ["DEPLOY", "SHIP", "RELEASE", "SOLVED", "MERGE"] };
+    case "imagetoword": return { ...base, title: "Match Picture to Word", items: [
+      { emoji: "☕", term: "coffee", az: "qəhvə" },
+      { emoji: "🛋️", term: "cozy", az: "rahat" },
+      { emoji: "🥪", term: "sandwich", az: "sendviç" },
+      { emoji: "📦", term: "package", az: "bağlama" },
+    ] };
     default:           return base;
   }
 }
@@ -204,6 +220,29 @@ export default function BlockStudio() {
   };
   const addComponent = (kind) => { setComponents([...components, defaultComponent(kind, state.texts)]); setAdding(false); toast(`Added ${COMPONENT_META[kind].label}`); };
 
+  const duplicateComponent = (i) => {
+    const copy = JSON.parse(JSON.stringify(components[i]));
+    copy.id = cid();
+    const next = [...components]; next.splice(i + 1, 0, copy); setComponents(next);
+    toast("Component duplicated");
+  };
+  const saveComponentToBank = (c) => {
+    dispatch({
+      type: "SAVE_COMPONENT_TO_BANK",
+      component: c,
+      title: `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`,
+      from: `${course.title} · Lesson ${lesson.n}`
+    });
+    toast(`Saved “${COMPONENT_META[c.kind]?.label || c.kind}” to Component Library`);
+  };
+  const insertSavedComponent = (item) => {
+    const copy = JSON.parse(JSON.stringify(item.data));
+    copy.id = cid();
+    setComponents([...components, copy]);
+    setAdding(false);
+    toast(`Inserted “${item.title}” from Component Library`);
+  };
+
   return (
     <div className="p-5 sm:p-8 max-w-5xl mx-auto">
       <button onClick={() => go({ partId: null })} className="text-sm text-slate-400 hover:text-indigo-600 inline-flex items-center gap-1 mb-4">
@@ -221,7 +260,7 @@ export default function BlockStudio() {
         <div className="flex items-center gap-2">
           <Btn variant="outline" size="sm"
             onClick={() => { dispatch({ type: "SAVE_BLOCK_TO_BANK", block, from: `${course.title} · Lesson ${lesson.n}` }); toast(`“${block.title || BT.label}” saved to My Blocks`); }}>
-            <BookmarkPlus size={14} /> Save to My Blocks
+            <BookmarkPlus size={14} /> Save Block to Bank
           </Btn>
           <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
             <button onClick={() => setMode("student")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "student" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Eye size={14} /> As student</button>
@@ -235,7 +274,8 @@ export default function BlockStudio() {
           <div className="mb-4 flex items-center gap-2 text-xs text-slate-400"><GraduationCap size={14} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
           <div className="space-y-8">
             {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind]; const CI = M.icon;
+              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
+              const CI = M.icon;
               return (
                 <div key={c.id}>
                   <div className="flex items-center gap-2 mb-3">
@@ -252,21 +292,24 @@ export default function BlockStudio() {
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Components · add, reorder, edit</div>
+            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Components · add, reorder, duplicate & save to library</div>
             <Btn size="sm" variant="soft" onClick={() => { toast("Block saved"); go({ partId: null }); }}><Check size={14} /> Save & close</Btn>
           </div>
           <div className="space-y-4">
             {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind]; const CI = M.icon;
+              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
+              const CI = M.icon;
               return (
                 <Card key={c.id} className="p-4">
                   <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-slate-100">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
                     <div className="flex-1"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}</span><div className="font-semibold text-sm">{M.label}</div></div>
-                    <div className="flex items-center gap-0.5 text-slate-300">
-                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                    <div className="flex items-center gap-1 text-slate-400">
+                      <button title="Save component to library" onClick={() => saveComponentToBank(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
+                      <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><Copy size={14} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
+                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
+                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
                     </div>
                   </div>
                   <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} />
@@ -274,26 +317,55 @@ export default function BlockStudio() {
               );
             })}
 
-            {/* add-component palette — comes from this Block type's own catalog entry.
-                Already-used kinds get a highlight + count badge but stay fully
-                clickable, since a Block can hold the same component more than once
-                (e.g. two Quizzes, three Passages). */}
             {adding ? (
-              <Card className="p-4">
-                <div className="flex items-center justify-between mb-3"><span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick a component</span><button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button></div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {palette.map((k) => {
-                    const M = COMPONENT_META[k]; const KI = M.icon;
-                    const used = components.filter((c) => c.kind === k).length;
-                    return (
-                      <button key={k} onClick={() => addComponent(k)}
-                        className={`relative flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
-                        {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={16} /></span>
-                        <span className="text-sm font-medium">{M.label}</span>
-                      </button>
-                    );
-                  })}
+              <Card className="p-5 space-y-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick a component or insert from saved library</span>
+                  <button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                </div>
+
+                {state.componentBank && state.componentBank.length > 0 && (
+                  <div className="border-b border-slate-100 pb-4">
+                    <div className="text-[11px] font-mono uppercase tracking-wide text-indigo-600 font-semibold mb-2 flex items-center gap-1">
+                      <BookmarkPlus size={13} /> Insert from My Component Library
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {state.componentBank.map((item) => {
+                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-slate-100 text-slate-600", icon: Layers };
+                        const KI = M.icon;
+                        return (
+                          <button key={item.id} onClick={() => insertSavedComponent(item)}
+                            className="flex items-center gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 p-2.5 text-left transition-all shadow-sm">
+                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={14} /></span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-slate-800 truncate">{item.title}</div>
+                              <div className="text-[10px] text-slate-400 truncate">{item.from} · {M.label}</div>
+                            </div>
+                            <Plus size={14} className="text-indigo-600 shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Create New Component:</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {palette.map((k) => {
+                      const M = COMPONENT_META[k] || { label: k, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
+                      const KI = M.icon;
+                      const used = components.filter((c) => c.kind === k).length;
+                      return (
+                        <button key={k} onClick={() => addComponent(k)}
+                          className={`relative flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
+                          {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
+                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={16} /></span>
+                          <span className="text-sm font-medium">{M.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </Card>
             ) : (
@@ -362,6 +434,9 @@ export function ComponentStudent({ component }) {
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
     case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
+    case "wheel":      return <WheelComponent component={component} />;
+    case "wordsearch": return <WordSearchComponent component={component} />;
+    case "imagetoword":return <ImageToWordComponent component={component} />;
     default:           return null;
   }
 }
@@ -459,6 +534,81 @@ function MatchBoard({ pairs, showEmoji, onDone }) {
       </div>
     </div>
   );
+}
+
+/* ---- Wheel of Fortune — a low-stakes speaking / recall prompt ---- */
+function WheelComponent({ component }) {
+  const items = (component.items || []).filter((item) => item.term);
+  const [selected, setSelected] = useState(null);
+  const [turn, setTurn] = useState(0);
+  const colors = ["#8b5cf6", "#ec4899", "#0ea5e9", "#f59e0b", "#10b981", "#6366f1"];
+  const slices = items.length ? items.map((_, i) => `${colors[i % colors.length]} ${(i * 100) / items.length}% ${((i + 1) * 100) / items.length}%`).join(", ") : "#e2e8f0 0 100%";
+  const spin = () => {
+    if (!items.length) return;
+    const choice = Math.floor(Math.random() * items.length);
+    setTurn((v) => v + 1);
+    setSelected(items[choice]);
+  };
+  return (
+    <Card className="p-6 max-w-xl text-center">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">Vocabulary wheel</div>
+      <h3 className="font-semibold mb-5">{component.title || "Spin for a prompt"}</h3>
+      <div className="relative mx-auto w-52 h-52">
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-slate-800" />
+        <button onClick={spin} aria-label="Spin the vocabulary wheel" className="w-full h-full rounded-full border-8 border-white shadow-lg transition-transform duration-700 ease-out" style={{ background: `conic-gradient(${slices})`, transform: `rotate(${turn * 720}deg)` }}>
+          <span className="absolute inset-[35%] rounded-full bg-white shadow flex items-center justify-center text-xs font-bold text-violet-700">SPIN</span>
+        </button>
+      </div>
+      <Btn className="mt-5" onClick={spin} disabled={!items.length}><Dices size={14} /> Spin the wheel</Btn>
+      {selected && <AiNote icon={Sparkles} tone="violet" title={selected.term}>
+        <span className="font-medium">{selected.az}</span>{selected.q ? <> · {selected.q}</> : null}
+      </AiNote>}
+      {!items.length && <p className="text-sm text-slate-400 mt-4">Add at least one prompt in Edit content.</p>}
+    </Card>
+  );
+}
+
+function wordSearchGrid(words) {
+  const clean = words.map((word) => String(word).toUpperCase().replace(/[^A-Z]/g, "")).filter(Boolean);
+  const cols = Math.max(8, ...clean.map((word) => word.length));
+  const rows = Math.max(8, clean.length + 2);
+  const grid = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => String.fromCharCode(65 + ((r * 7 + c * 11) % 26))));
+  const targets = [];
+  clean.slice(0, rows).forEach((word, r) => {
+    const offset = (r * 3) % Math.max(1, cols - word.length + 1);
+    [...word].forEach((letter, i) => { grid[r][offset + i] = letter; targets.push(`${r}-${offset + i}`); });
+  });
+  return { grid, targets: new Set(targets), words: clean };
+}
+
+/* ---- Word search — classic visual scanning and spelling practice ---- */
+function WordSearchComponent({ component }) {
+  const puzzle = useMemo(() => wordSearchGrid(component.words || []), [component.words]);
+  const [picked, setPicked] = useState(new Set());
+  const toggle = (key) => setPicked((current) => {
+    const next = new Set(current); next.has(key) ? next.delete(key) : next.add(key); return next;
+  });
+  const solved = puzzle.targets.size > 0 && [...puzzle.targets].every((key) => picked.has(key));
+  return (
+    <Card className="p-5 max-w-xl">
+      <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-xs font-mono uppercase tracking-wide text-slate-400">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Pill className="bg-emerald-50 text-emerald-700">{picked.size}/{puzzle.targets.size} letters</Pill></div>
+      {puzzle.words.length ? <>
+        <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${puzzle.grid[0].length}, minmax(0, 1fr))` }}>
+          {puzzle.grid.flatMap((row, r) => row.map((letter, c) => {
+            const key = `${r}-${c}`; const active = picked.has(key);
+            return <button key={key} onClick={() => toggle(key)} className={`w-8 h-8 rounded text-xs font-bold transition-colors ${active ? "bg-emerald-500 text-white" : "bg-slate-100 hover:bg-emerald-100 text-slate-700"}`}>{letter}</button>;
+          }))}
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-4">{puzzle.words.map((word) => <Pill key={word} className="bg-slate-100 text-slate-600">{word}</Pill>)}</div>
+        {solved && <div className="mt-4"><AiNote icon={Check} tone="emerald">Every target letter is found — great spelling practice.</AiNote></div>}
+      </> : <p className="text-sm text-slate-400">Add words in Edit content to build the grid.</p>}
+    </Card>
+  );
+}
+
+function ImageToWordComponent({ component }) {
+  const items = component.items || [];
+  return <div className="max-w-lg"><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-slate-400 mt-3">Match every picture to its English word.</p></div>;
 }
 
 function ThemeGroup({ pairs }) {
@@ -918,8 +1068,19 @@ function ComponentEditor({ component, onChange }) {
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
     case "upload":     return <UploadEditor component={component} onChange={onChange} />;
     case "crossword":  return <RowsEditor component={component} onChange={onChange} fields={[["word", "Word (letters only)"], ["clue", "Clue"]]} blank={{ word: "", clue: "" }} label="word" wide={["clue"]} />;
+    case "wheel":      return <WheelEditor component={component} onChange={onChange} />;
+    case "wordsearch": return <WordSearchEditor component={component} onChange={onChange} />;
+    case "imagetoword":return <RowsEditor component={component} onChange={onChange} fields={[["emoji", "Emoji / picture"], ["term", "English word"], ["az", "Azerbaijani"]]} blank={{ emoji: "🧩", term: "", az: "" }} label="picture" />;
     default:           return null;
   }
+}
+
+function WheelEditor({ component, onChange }) {
+  return <div className="space-y-3"><Field label="Activity title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field><RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["q", "Prompt / question"]]} blank={{ term: "", az: "", q: "" }} label="wheel prompt" wide={["q"]} /></div>;
+}
+
+function WordSearchEditor({ component, onChange }) {
+  return <div className="space-y-3"><Field label="Activity title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field><Field label="Words (one per line or comma separated)"><textarea className={`${inputCls} h-28 resize-none`} value={(component.words || []).join("\n")} onChange={(e) => onChange({ words: e.target.value.split(/[\n,]/).map((word) => word.trim()).filter(Boolean) })} /></Field><p className="text-xs text-slate-400">Letters only work best; the grid rebuilds from these words.</p></div>;
 }
 
 function PassageEditor({ component, onChange }) {
