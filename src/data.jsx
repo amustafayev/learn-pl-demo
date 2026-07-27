@@ -1,5 +1,5 @@
 import {
-  BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck,
+  BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck, Gamepad2,
 } from "lucide-react";
 
 /* =========================================================================
@@ -37,8 +37,7 @@ export const BLOCK_TYPES = {
   grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
   vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword"], starter: ["wordlist", "flashcards"] },
   practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword"], starter: ["gapfill", "match"] },
-  // Homework as its own Block (not just a component tucked inside Writing) —
-  // what the student reviews and submits at home after the live lesson.
+  playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
   // IELTS-specific: writing and speaking split by task/part, since each
   // has its own timing, rubric and structure — unlike General English.
@@ -56,9 +55,9 @@ export const BLOCK_TYPES = {
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
 export const LESSON_TEMPLATES = {
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "homework"] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "homework"] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "homework"] },
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework"] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the
@@ -119,6 +118,7 @@ const TENSE_PARTS = [
   P("listening",  "Listenings — Real standup audio recording", "Audio recording · 1:45 · with transcript"),
   P("grammar",    "Grammar — Tenses on a timeline",           "Interactive visual grammar block"),
   P("practice",   "Practice Grammar — Fill the gaps & tense rules", "Auto-graded · instant feedback in AZ"),
+  P("playground", "Playground — Crossword & Word Tower Challenge", "Gamified vocabulary challenge & puzzles"),
   P("homework",   "Homework — Write 5 sentences using target tenses", "Student submits at home for teacher review"),
 ];
 

@@ -368,7 +368,7 @@ export function LessonBuilderView() {
       </Card>
 
       {/* Pathway Flow Layout */}
-      <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Homework)</SectionLabel>
+      <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Playground → Homework)</SectionLabel>
 
       <div className="relative space-y-3 mb-8">
         {blocks.map((b, i) => {
