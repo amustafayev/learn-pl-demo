@@ -113,15 +113,13 @@ const P = (type, title, meta, extra = {}) => ({ id: `p${++pid}`, type, title, me
 
 // Full authored content for the flagship "Tense forms" lesson (IT English · L4)
 const TENSE_PARTS = [
-  P("reading",    "How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
-  P("vocabulary", "12 tense & time words",          "deploy · ship · release · by then …"),
-  P("grammar",    "Tenses on a timeline",           "Interactive visual block"),
-  P("listening",  "Past simple vs present perfect", "3:10 · subtitled"),
-  P("listening",  "A real standup recording",       "1:45 · with transcript"),
-  P("speaking",   "Give your status in standup",    "Work situation · 4 turns"),
-  P("practice",   "Fill the gaps · 10 items",       "Auto-graded · instant feedback in AZ"),
-  P("practice",   "Quick check · 6 items",          "Encourage-don't-punish · retry allowed"),
-  P("writing",    "Write 5 sentences about your week", "You review before it's marked done"),
+  P("reading",    "Passage — How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
+  P("vocabulary", "Words — 12 target tense & time words",      "deploy · ship · release · by then …"),
+  P("listening",  "Videos — Video explanation of tense forms", "Video lesson · 4:15 · subtitled"),
+  P("listening",  "Listenings — Real standup audio recording", "Audio recording · 1:45 · with transcript"),
+  P("grammar",    "Grammar — Tenses on a timeline",           "Interactive visual grammar block"),
+  P("practice",   "Practice Grammar — Fill the gaps & tense rules", "Auto-graded · instant feedback in AZ"),
+  P("homework",   "Homework — Write 5 sentences using target tenses", "Student submits at home for teacher review"),
 ];
 
 export const SEED_COURSES = [
@@ -133,25 +131,22 @@ export const SEED_COURSES = [
 // lessons keyed by course
 export const SEED_LESSONS = {
   it: [
-    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["reading", "vocabulary", "listening", "grammar", "practice"],                    active: 14, progress: 100 },
-    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["reading", "vocabulary", "listening", "grammar", "writing"],                    active: 14, progress: 88 },
-    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["reading", "vocabulary", "listening", "grammar", "speaking", "writing"],        active: 13, progress: 64 },
-    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["reading", "vocabulary", "grammar", "listening", "listening", "speaking", "practice", "practice", "writing"], active: 11, progress: 29, current: true },
-    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["reading", "vocabulary", "grammar", "practice"],                                  active: 4,  progress: 6,  locked: true },
-    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "grammar", "writing"],                     active: 0,  progress: 0,  locked: true },
+    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14, progress: 100 },
+    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14, progress: 88 },
+    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],        active: 13, progress: 64 },
+    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"], active: 11, progress: 29, current: true },
+    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                                  active: 4,  progress: 6,  locked: true },
+    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],                     active: 0,  progress: 0,  locked: true },
   ],
   every: [
-    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice"],        active: 21, progress: 96 },
-    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice"],      active: 20, progress: 84 },
-    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "grammar", "speaking", "practice"], active: 18, progress: 71, current: true },
-    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice"],                   active: 9,  progress: 22, locked: true },
+    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice", "homework"],        active: 21, progress: 96 },
+    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice", "homework"],      active: 20, progress: 84 },
+    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"], active: 18, progress: 71, current: true },
+    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice", "homework"],                   active: 9,  progress: 22, locked: true },
   ],
-  // IELTS Speaking course — note the template gives this course a DIFFERENT
-  // Block catalog (ieltsSpeaking1/2/3, ieltsListening, ieltsWriting1/2 …)
-  // than the General English courses above.
   ielts: [
-    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar"],  active: 9,  progress: 55 },
-    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary"], active: 7,  progress: 38, current: true },
+    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9,  progress: 55 },
+    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary", "practice", "homework"], active: 7,  progress: 38, current: true },
   ],
 };
 

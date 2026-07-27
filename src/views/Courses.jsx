@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
   GripVertical, Send, Eye, Sparkles, Radio, Users, UserPlus, UserMinus,
-  BookmarkPlus, FolderTree, Check,
+  BookmarkPlus, FolderTree, Check, Play, BookOpen, Layers, Video, Headphones, Shapes, PenTool, ClipboardCheck
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -10,8 +10,7 @@ import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
 import { ComponentStudent, COMPONENT_META, blockComponents } from "./parts.jsx";
 
-// Deep-copy a saved bank block into a fresh lesson part — new ids all the way
-// down so later edits never touch the saved original.
+// Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
 export function partFromBank(item) {
   const content = JSON.parse(JSON.stringify(item.content || { components: [] }));
   content.components = (content.components || []).map((c, i) => ({ ...c, id: `c${Date.now()}_${i}` }));
@@ -26,24 +25,45 @@ export function CoursesView() {
   const [modal, setModal] = useState(false);
   return (
     <Page>
-      <PageHead kicker="Your courses" title="Courses"
+      <PageHead kicker="Teacher Console · Maryam Bayramova" title="Courses"
+        sub="Select a course to view its lessons, pathway content, and active student roster"
         right={<Btn onClick={() => setModal(true)}><Plus size={16} /> New course</Btn>} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.courses.map((c) => {
           const count = (state.lessons[c.id] || []).length;
-          const enrolled = state.students.filter((s) => s.courseId === c.id).length;
+          const enrolled = state.students.filter((s) => s.courseId === c.id);
           return (
             <button key={c.id} onClick={() => go({ courseId: c.id })}
-              className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5">
-              <div className="flex items-center justify-between mb-4">
-                <span className={`text-xs font-mono px-2 py-1 rounded-md ${HUE_SOFT[c.hue]}`}>{c.level}</span>
-                <ChevronRight size={16} className="text-slate-300" />
+              className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-xs font-mono px-2 py-1 rounded-md ${HUE_SOFT[c.hue]}`}>{c.level}</span>
+                  <ChevronRight size={16} className="text-slate-300" />
+                </div>
+                <div className="text-lg font-bold mb-1">{c.title}</div>
+                <div className="text-sm text-slate-500 mb-1">{count} lessons · {enrolled.length} enrolled students</div>
+                <div className="text-[11px] text-slate-400 mb-4">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
               </div>
-              <div className="text-lg font-bold mb-1">{c.title}</div>
-              <div className="text-sm text-slate-400 mb-1">{count} lessons · {enrolled} students enrolled</div>
-              <div className="text-[11px] text-slate-400 mb-3">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-1"><span>Avg completion</span><span className="font-mono">{c.completion}%</span></div>
-              <Bar pct={c.completion} hue={c.hue} />
+
+              <div>
+                {/* Enrolled student avatars preview */}
+                <div className="flex items-center gap-1.5 mb-4">
+                  <div className="flex -space-x-2 overflow-hidden">
+                    {enrolled.slice(0, 4).map((s) => (
+                      <Avatar key={s.id} name={s.name} size={6} />
+                    ))}
+                  </div>
+                  {enrolled.length > 4 && (
+                    <span className="text-xs text-slate-400 font-mono ml-1">+{enrolled.length - 4} more</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span>Avg completion</span>
+                  <span className="font-mono">{c.completion}%</span>
+                </div>
+                <Bar pct={c.completion} hue={c.hue} />
+              </div>
             </button>
           );
         })}
@@ -53,17 +73,15 @@ export function CoursesView() {
   );
 }
 
-/* ----------------------------- course → tree explorer -----------------------------
-   One organized place per course: Lessons expand into their Blocks (each
-   openable / savable to My Blocks); the Students branch handles enrollment
-   and per-lesson assignment. Editing content stays in the builder & studio. */
+/* ----------------------------- course → lessons & users -----------------------------
+   Clean hierarchy: Course -> Lessons List. Each lesson card explicitly lists
+   the students working on that lesson, its pathway steps sequence, and actions. */
 
 export function CourseView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
+  const { route, go, startLive } = useNav();
   const [modal, setModal] = useState(false);
-  const [expanded, setExpanded] = useState({});
-  const [manageLesson, setManageLesson] = useState(null); // lesson being student-managed
+  const [manageLesson, setManageLesson] = useState(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
 
   const course = state.courses.find((c) => c.id === route.courseId);
@@ -71,133 +89,148 @@ export function CourseView() {
   const enrolled = state.students.filter((s) => s.courseId === course.id);
   const others = state.students.filter((s) => s.courseId !== course.id);
 
-  function toggleLesson(l) {
-    if (!expanded[l.id]) dispatch({ type: "ENSURE_BUILT", courseId: course.id, lessonId: l.id });
-    setExpanded((e) => ({ ...e, [l.id]: !e[l.id] }));
-  }
-  function saveBlock(block, lesson) {
-    dispatch({ type: "SAVE_BLOCK_TO_BANK", block, from: `${course.title} · Lesson ${lesson.n}` });
-    toast(`“${block.title || BLOCK_TYPES[block.type].label}” saved to My Blocks`);
-  }
-  const assignedCount = (l) => enrolled.filter((s) => (s.assignedLessons || []).includes(l.id)).length;
+  if (!course) return null;
 
   return (
     <Page>
       <Crumbs items={[{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
       <PageHead title={course.title}
-        sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · everything in this course, one tree`}
-        right={<Btn onClick={() => setModal(true)}><Plus size={16} /> New lesson</Btn>} />
+        sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${lessons.length} lessons · ${enrolled.length} enrolled students`}
+        right={
+          <div className="flex gap-2">
+            <Btn variant="outline" size="sm" onClick={() => setEnrollOpen((v) => !v)}>
+              <UserPlus size={14} /> Enroll student
+            </Btn>
+            <Btn size="sm" onClick={() => setModal(true)}><Plus size={16} /> New lesson</Btn>
+          </div>
+        } />
 
-      <SectionLabel><span className="inline-flex items-center gap-1.5"><FolderTree size={13} /> Course tree · lessons → blocks → components</span></SectionLabel>
-
-      {/* ---- Lessons branch ---- */}
-      <Card className="p-2 mb-5">
-        {lessons.map((l) => {
-          const isOpen = expanded[l.id];
-          const blocks = l.built || [];
-          const nAssigned = assignedCount(l);
-          return (
-            <div key={l.id} className="border-b border-slate-50 last:border-b-0">
-              <div className={`flex items-center gap-2 px-2 py-2.5 rounded-lg ${l.current ? "bg-indigo-50/40" : ""}`}>
-                <button onClick={() => toggleLesson(l)} className="p-1 text-slate-400 hover:text-indigo-600 shrink-0">
-                  {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                </button>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-mono font-semibold shrink-0 ${
-                  l.locked ? "bg-slate-100 text-slate-400" : l.progress === 100 ? "bg-emerald-100 text-emerald-700" : "bg-indigo-600 text-white"}`}>
-                  {l.locked ? <Lock size={11} /> : l.n}
-                </span>
-                <button onClick={() => toggleLesson(l)} className="min-w-0 flex-1 text-left">
-                  <span className="font-medium text-sm truncate block">{l.title}</span>
-                </button>
-                <span className="hidden sm:flex items-center gap-1.5 shrink-0">
-                  <Pill className="bg-slate-100 text-slate-500 font-mono">{(l.built || l.parts || []).length} blocks</Pill>
-                  <button onClick={() => setManageLesson(l)} title="Assign / unassign students"
-                    className={`inline-flex items-center gap-1 text-[11px] rounded-md px-2 py-0.5 transition-colors ${nAssigned ? "bg-teal-50 text-teal-700 hover:bg-teal-100" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}>
-                    <Users size={11} /> {nAssigned}
-                  </button>
-                </span>
-                <Btn variant="ghost" size="sm" onClick={() => !l.locked && go({ lessonId: l.id })} className="shrink-0">Open <ChevronRight size={13} /></Btn>
-              </div>
-
-              {isOpen && (
-                <div className="ml-[38px] border-l border-slate-200 pl-3 pb-2">
-                  {blocks.map((b) => {
-                    const BT = BLOCK_TYPES[b.type]; const I = BT.icon;
-                    const nComps = blockComponents(b, state.texts).length;
-                    return (
-                      <div key={b.id} className="group flex items-center gap-2.5 py-1.5 pr-2 rounded-lg hover:bg-slate-50">
-                        <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${BT.tone}`}><I size={13} /></span>
-                        <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
-                          <span className="text-sm text-slate-700 truncate block">{b.title || BT.label}
-                            <span className="text-[11px] text-slate-400 ml-1.5 font-mono">{BT.label.toLowerCase()} · {nComps} comp.</span>
-                          </span>
-                        </button>
-                        <button title="Save to My Blocks" onClick={() => saveBlock(b, l)}
-                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-600 p-1 transition-opacity"><BookmarkPlus size={14} /></button>
-                        <button title="Open in studio" onClick={() => go({ lessonId: l.id, partId: b.id })}
-                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-600 p-1 transition-opacity"><Eye size={14} /></button>
-                      </div>
-                    );
-                  })}
-                  {!blocks.length && <p className="text-xs text-slate-400 py-1.5">Loading blocks…</p>}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {!lessons.length && <p className="text-sm text-slate-400 p-4">No lessons yet — add the first one.</p>}
-      </Card>
-
-      {/* ---- Students branch ---- */}
-      <SectionLabel right={
-        <button onClick={() => setEnrollOpen((v) => !v)} className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1">
-          <UserPlus size={13} /> Enroll student
-        </button>
-      }>
-        <span className="inline-flex items-center gap-1.5"><Users size={13} /> Students in this course · {enrolled.length}</span>
-      </SectionLabel>
-
+      {/* Enroll student panel */}
       {enrollOpen && (
-        <Card className="p-3 mb-3">
-          <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Pick a student to enroll</div>
+        <Card className="p-4 mb-6 border-indigo-200 bg-indigo-50/30">
+          <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-3 font-semibold">Pick a student to enroll in {course.title}</div>
           {others.length ? (
             <div className="flex flex-wrap gap-2">
               {others.map((s) => (
                 <button key={s.id}
                   onClick={() => { dispatch({ type: "SET_STUDENT_COURSE", studentId: s.id, courseId: course.id }); toast(`${s.name.split(" ")[0]} enrolled in ${course.title}`); setEnrollOpen(false); }}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 hover:border-indigo-300 px-2.5 py-1.5 text-sm">
-                  <Avatar name={s.name} size={6} /> {s.name} <span className="text-[10px] text-slate-400 font-mono">{s.level}</span>
+                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 p-2 text-sm shadow-sm transition-all">
+                  <Avatar name={s.name} size={6} />
+                  <span className="font-medium">{s.name}</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{s.level}</span>
                 </button>
               ))}
             </div>
-          ) : <p className="text-sm text-slate-400">Everyone is already enrolled here.</p>}
+          ) : <p className="text-sm text-slate-400">All students are currently enrolled in this course.</p>}
         </Card>
       )}
 
-      <Card className="divide-y divide-slate-50 mb-6">
-        {enrolled.map((s) => {
-          const nLessons = (s.assignedLessons || []).length;
+      {/* Course Lessons Pathway List */}
+      <SectionLabel>
+        <span className="inline-flex items-center gap-1.5">
+          <FolderTree size={14} /> Course Lessons ({lessons.length}) — Each lesson shows working students & pathway flow
+        </span>
+      </SectionLabel>
+
+      <div className="space-y-4 mb-8">
+        {lessons.map((l) => {
+          const blocks = l.built || (l.parts || []).map(t => ({ type: t, title: BLOCK_TYPES[t]?.label || t }));
+          // Get list of students working on/assigned to this specific lesson
+          const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(l.id));
+
           return (
-            <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-              <button onClick={() => go({ tab: "students", studentId: s.id })} className="shrink-0"><Avatar name={s.name} /></button>
-              <button onClick={() => go({ tab: "students", studentId: s.id })} className="min-w-0 flex-1 text-left">
-                <div className="font-medium text-sm truncate">{s.name}</div>
-                <div className="text-xs text-slate-400">{s.level} · {nLessons} lesson{nLessons !== 1 ? "s" : ""} assigned</div>
-              </button>
-              <div className="hidden sm:flex items-center gap-1 flex-wrap justify-end max-w-[40%]">
-                {(s.assignedLessons || []).map((lid) => {
-                  const l = lessons.find((x) => x.id === lid);
-                  return l ? <Pill key={lid} className="bg-indigo-50 text-indigo-700 font-mono">L{l.n}</Pill> : null;
-                })}
+            <Card key={l.id} className={`p-5 transition-all ${l.current ? "border-indigo-300 ring-2 ring-indigo-100" : "hover:border-slate-300"}`}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
+                    l.locked ? "bg-slate-100 text-slate-400" : l.progress === 100 ? "bg-emerald-500 text-white" : "bg-indigo-600 text-white"}`}>
+                    {l.locked ? <Lock size={14} /> : `L${l.n}`}
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-base text-slate-800">{l.title}</h3>
+                      {l.current && <Pill className="bg-indigo-100 text-indigo-700 font-mono text-[10px]">Current Lesson</Pill>}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      {blocks.length} pathway steps · {workingStudents.length} student{workingStudents.length !== 1 ? "s" : ""} working on this lesson
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lesson Actions */}
+                <div className="flex items-center gap-2">
+                  <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, lessonId: l.id })} className="!text-rose-600 !border-rose-200">
+                    <Radio size={13} /> Go live
+                  </Btn>
+                  <Btn variant="outline" size="sm" onClick={() => setManageLesson(l)}>
+                    <Users size={13} /> Manage Users ({workingStudents.length})
+                  </Btn>
+                  <Btn size="sm" onClick={() => go({ lessonId: l.id })}>
+                    Open Lesson Pathway <ChevronRight size={14} />
+                  </Btn>
+                </div>
               </div>
-              <button title={`Unenroll from ${course.title}`}
-                onClick={() => { dispatch({ type: "SET_STUDENT_COURSE", studentId: s.id, courseId: null }); toast(`${s.name.split(" ")[0]} unenrolled`); }}
-                className="text-slate-300 hover:text-rose-500 p-1 shrink-0"><UserMinus size={15} /></button>
-            </div>
+
+              {/* Lesson Content Flow Summary (Pathway style) */}
+              <div className="py-3 border-b border-slate-100">
+                <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Pathway Flow:</div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {blocks.map((b, i) => {
+                    const BT = BLOCK_TYPES[b.type] || { label: b.type, tone: "bg-slate-100 text-slate-600" };
+                    return (
+                      <React.Fragment key={i}>
+                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium ${BT.tone}`}>
+                          {BT.label || b.title}
+                        </span>
+                        {i < blocks.length - 1 && <ChevronRight size={12} className="text-slate-300" />}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Users Working on this Lesson List */}
+              <div className="pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
+                    <Users size={12} /> Students working on this lesson ({workingStudents.length})
+                  </span>
+                  <button onClick={() => setManageLesson(l)} className="text-xs text-indigo-600 hover:underline font-medium">
+                    + Assign / Remove Students
+                  </button>
+                </div>
+
+                {workingStudents.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {workingStudents.map((s) => {
+                      const currentStep = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || BLOCK_TYPES[blocks[s.step]?.type]?.label : "Finished";
+                      return (
+                        <div key={s.id} onClick={() => go({ tab: "students", studentId: s.id })}
+                          className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 cursor-pointer transition-colors">
+                          <Avatar name={s.name} size={7} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-semibold text-slate-800 truncate">{s.name}</div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {s.progress === 100 ? "Completed ✓" : `On Step: ${currentStep}`}
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            {s.progress}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic py-1">No students assigned to this lesson yet. Click "+ Assign / Remove Students" to assign users.</p>
+                )}
+              </div>
+            </Card>
           );
         })}
-        {!enrolled.length && <p className="text-sm text-slate-400 p-4">No students enrolled — use “Enroll student” above.</p>}
-      </Card>
+
+        {!lessons.length && <p className="text-sm text-slate-400 p-4">No lessons in this course yet.</p>}
+      </div>
 
       <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} />
       <ManageLessonStudentsModal lesson={manageLesson} course={course} enrolled={enrolled} onClose={() => setManageLesson(null)} />
@@ -205,12 +238,12 @@ export function CourseView() {
   );
 }
 
-/* Assign / unassign a lesson per student — checkbox list of enrolled students. */
+/* Assign / unassign a lesson per student modal */
 function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
   const { dispatch, toast } = useStore();
   if (!lesson) return null;
   return (
-    <Modal open onClose={onClose} title={`Lesson ${lesson.n}: ${lesson.title}`} sub="Tick a student to assign this lesson; untick to unassign"
+    <Modal open onClose={onClose} title={`Assign Lesson ${lesson.n}: ${lesson.title}`} sub="Select students working on this lesson"
       footer={<Btn onClick={onClose}>Done</Btn>}>
       <div className="space-y-1.5 max-h-72 overflow-y-auto">
         {enrolled.map((s) => {
@@ -239,7 +272,8 @@ function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
   );
 }
 
-/* ----------------------------- lesson builder ----------------------------- */
+/* ----------------------------- lesson pathway builder -----------------------------
+   Structured Lesson Pathway View: Passage -> Words -> Videos -> Listenings -> Grammar -> Practice Grammar -> Homework */
 
 export function LessonBuilderView() {
   const { state, dispatch, toast } = useStore();
@@ -256,20 +290,20 @@ export function LessonBuilderView() {
     dispatch({ type: "ENSURE_BUILT", courseId: route.courseId, lessonId: route.lessonId });
   }, [route.courseId, route.lessonId, dispatch]);
 
-  if (!lesson) return null;
+  if (!lesson || !course) return null;
   const blocks = lesson.built || [];
-  const grammarBlock = blocks.find((b) => b.type === "grammar");
-  // which Block types this course's lesson template offers — not a fixed list
+  const enrolled = state.students.filter((s) => s.courseId === course.id);
+  const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(lesson.id));
+
   const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
   const usedCounts = blocks.reduce((acc, b) => ({ ...acc, [b.type]: (acc[b.type] || 0) + 1 }), {});
-  // saved blocks whose type this course's template accepts
   const compatibleBank = state.blockBank.filter((b) => availableTypes.includes(b.type));
 
   function addBlock(type) {
     const BT = BLOCK_TYPES[type];
     dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId,
       part: { id: `p${Date.now()}`, type, title: BT.label, meta: "—" } });
-    toast(`Added ${BT.label} block`);
+    toast(`Added ${BT.label} step`);
   }
   function addFromBank(item) {
     dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId, part: partFromBank(item) });
@@ -289,108 +323,104 @@ export function LessonBuilderView() {
       <Crumbs items={[
         { label: "Courses", onClick: () => go({ courseId: null, lessonId: null }) },
         { label: course.title, onClick: () => go({ lessonId: null }) },
-        { label: `Lesson ${lesson.n}` },
+        { label: `Lesson ${lesson.n}: ${lesson.title}` },
       ]} />
-      <PageHead title={lesson.title} sub={`${blocks.length} blocks · lesson builder · drag or use arrows to reorder`}
+
+      <PageHead title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
         right={<div className="flex gap-2">
-          <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300"><Radio size={14} /> Go live</Btn>
-          <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign</Btn>
-          <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add block</Btn>
+          <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300">
+            <Radio size={14} /> Go live
+          </Btn>
+          <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign Students</Btn>
+          <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add Step</Btn>
         </div>} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* pathway builder */}
-        <div className="lg:col-span-3">
-          <SectionLabel>Lesson content · pathway</SectionLabel>
-          <div className="relative">
-            {blocks.map((b, i) => {
-              const BT = BLOCK_TYPES[b.type]; const I = BT.icon;
+      {/* Active Students Working on this Lesson Bar */}
+      <Card className="p-4 mb-6 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-indigo-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-indigo-600" />
+            <h4 className="font-bold text-sm text-slate-800">Students working on this lesson ({workingStudents.length})</h4>
+          </div>
+          <Btn variant="ghost" size="sm" onClick={() => setAssignOpen(true)} className="text-indigo-600 text-xs">
+            + Manage Students
+          </Btn>
+        </div>
+
+        {workingStudents.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {workingStudents.map((s) => {
+              const stepName = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || BLOCK_TYPES[blocks[s.step]?.type]?.label : "Finished";
               return (
-                <div key={b.id} className="relative pl-10 pb-2.5">
-                  {i < blocks.length - 1 && <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200" />}
-                  <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs font-mono text-slate-400">{i + 1}</div>
-                  <div className="group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 p-3.5 transition-colors flex items-center gap-3">
-                    <button onClick={() => go({ partId: b.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{BT.label}</div>
-                        {editing === b.id ? (
-                          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            onBlur={() => saveTitle(b)} onKeyDown={(e) => e.key === "Enter" && saveTitle(b)}
-                            className="w-full text-sm font-medium border-b border-indigo-300 focus:outline-none" />
-                        ) : (
-                          <div className="font-medium truncate">{b.title || BT.label}</div>
-                        )}
-                        {b.meta && b.meta !== "—" && <div className="text-xs text-slate-400 truncate">{b.meta}</div>}
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-0.5 text-slate-300">
-                      <button title="Save to My Blocks" onClick={() => saveToBank(b)} className="hover:text-indigo-600 p-1"><BookmarkPlus size={14} /></button>
-                      <button title="Open (view & edit)" onClick={() => go({ partId: b.id })} className="hover:text-indigo-600 p-1"><Eye size={15} /></button>
-                      <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-slate-500 p-1"><Pencil size={14} /></button>
-                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-slate-500 p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Block removed"); }} className="hover:text-rose-500 p-1"><Trash2 size={14} /></button>
-                      <GripVertical size={14} className="cursor-grab" />
-                    </div>
-                  </div>
+                <div key={s.id} onClick={() => go({ tab: "students", studentId: s.id })}
+                  className="flex items-center gap-2 bg-white rounded-xl px-3 py-1.5 border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-300">
+                  <Avatar name={s.name} size={6} />
+                  <span className="text-xs font-semibold text-slate-800">{s.name}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">({stepName})</span>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{s.progress}%</span>
                 </div>
               );
             })}
-            {!blocks.length && (
-              <button onClick={() => setAddOpen(true)} className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 text-sm">
-                <Plus size={16} className="inline mr-1" /> Add the first block
-              </button>
-            )}
           </div>
-        </div>
+        ) : (
+          <p className="text-xs text-slate-400 italic">No students assigned to this lesson yet.</p>
+        )}
+      </Card>
 
-        {/* right rail */}
-        <div className="lg:col-span-2 space-y-6">
-          <div>
-            <SectionLabel>Students on this lesson</SectionLabel>
-            <Card className="divide-y divide-slate-100">
-              {state.students.slice(0, 5).map((s) => {
-                const on = s.step >= 0 && s.step < blocks.length;
-                return (
-                  <button key={s.id} onClick={() => go({ tab: "students", studentId: s.id })} className="w-full text-left p-3.5 hover:bg-slate-50 flex items-center gap-3">
-                    <Avatar name={s.name} />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">{s.name}</div>
-                      <div className="text-xs text-slate-400">
-                        {s.step === -1 ? "not started" : on ? `on ${BLOCK_TYPES[blocks[s.step].type].label}` : "finished"} · {s.last}
-                      </div>
-                    </div>
-                    <span className="font-mono text-xs text-slate-400">{s.progress}%</span>
-                  </button>
-                );
-              })}
-            </Card>
-            <p className="text-xs text-slate-400 mt-2">Detailed analytics live in <b>Statistics</b> — kept out of the content on purpose.</p>
-          </div>
+      {/* Pathway Flow Layout */}
+      <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Homework)</SectionLabel>
 
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
-            <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm mb-1"><Sparkles size={15} /> One lesson, three uses</div>
-            <p className="text-sm text-indigo-900/70">This same lesson works as your <b>teaching aid</b>, a <b>self-study</b> product, and something a stranger can <b>buy</b> — built once.</p>
-          </div>
-
-          {grammarBlock && (() => {
-            const comps = blockComponents(grammarBlock, state.texts);
-            const first = comps[0];
-            return (
-              <div>
-                <SectionLabel>Signature: visual grammar · {comps.length} {comps.length === 1 ? "visualization" : "visualizations"}</SectionLabel>
-                {first ? (
-                  <>
-                    <div className="text-xs text-slate-400 mb-2">{COMPONENT_META[first.kind]?.label}</div>
-                    <Card className="p-4 overflow-x-auto"><ComponentStudent component={first} /></Card>
-                  </>
-                ) : <Card className="p-4 text-sm text-slate-400">No visualization added yet — open the block to add one.</Card>}
+      <div className="relative space-y-3 mb-8">
+        {blocks.map((b, i) => {
+          const BT = BLOCK_TYPES[b.type] || { label: b.type, icon: Shapes, tone: "text-indigo-600 bg-indigo-50" };
+          const I = BT.icon;
+          return (
+            <div key={b.id} className="relative pl-10">
+              {i < blocks.length - 1 && <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-indigo-100" />}
+              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-2 border-indigo-500 flex items-center justify-center text-xs font-mono font-bold text-indigo-600 shadow-sm">
+                {i + 1}
               </div>
-            );
-          })()}
-        </div>
+
+              <div className="group bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 p-4 transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <button onClick={() => go({ partId: b.id })} className="flex items-center gap-3.5 min-w-0 flex-1 text-left">
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${BT.tone}`}><I size={18} /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 font-semibold">{BT.label}</div>
+                    {editing === b.id ? (
+                      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={() => saveTitle(b)} onKeyDown={(e) => e.key === "Enter" && saveTitle(b)}
+                        className="w-full text-base font-semibold border-b-2 border-indigo-500 focus:outline-none" />
+                    ) : (
+                      <div className="font-bold text-base text-slate-800 truncate">{b.title || BT.label}</div>
+                    )}
+                    {b.meta && b.meta !== "—" && <div className="text-xs text-slate-400 truncate mt-0.5">{b.meta}</div>}
+                  </div>
+                </button>
+
+                {/* Step controls */}
+                <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
+                  <Btn variant="ghost" size="sm" onClick={() => go({ partId: b.id })} className="!text-indigo-600 font-semibold">
+                    <Eye size={14} /> Open Step
+                  </Btn>
+                  <div className="flex items-center gap-1 text-slate-300">
+                    <button title="Save to My Blocks" onClick={() => saveToBank(b)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
+                    <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100"><Pencil size={14} /></button>
+                    <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
+                    <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
+                    <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {!blocks.length && (
+          <button onClick={() => setAddOpen(true)} className="w-full border-2 border-dashed border-slate-300 rounded-2xl p-8 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 text-sm font-medium">
+            <Plus size={18} className="inline mr-1" /> Add the first step to the pathway
+          </button>
+        )}
       </div>
 
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
@@ -399,3 +429,4 @@ export function LessonBuilderView() {
     </Page>
   );
 }
+
