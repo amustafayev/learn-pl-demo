@@ -60,6 +60,22 @@ export function blockMeta(type) {
   return BLOCK_TYPES[type] || { label: type, icon: Shapes, tone: "text-slate-600 bg-slate-100" };
 }
 
+// Solid fill for the compact per-lesson "block rail" in the course tree —
+// deliberately a stronger color than `tone`'s soft background, since a tick
+// only a few pixels tall needs to read clearly at a glance.
+const BLOCK_RAIL = {
+  reading: "bg-sky-500", ieltsReading: "bg-sky-500",
+  listening: "bg-violet-500", ieltsListening: "bg-violet-500",
+  speaking: "bg-teal-500", ieltsSpeaking1: "bg-teal-500", ieltsSpeaking2: "bg-teal-500", ieltsSpeaking3: "bg-teal-500",
+  writing: "bg-rose-500", ieltsWriting1: "bg-rose-500", ieltsWriting2: "bg-rose-500", businessWriting: "bg-rose-500",
+  grammar: "bg-emerald-500",
+  vocabulary: "bg-indigo-500",
+  practice: "bg-amber-500",
+  playground: "bg-purple-500",
+  homework: "bg-orange-500",
+};
+export function blockRail(type) { return BLOCK_RAIL[type] || "bg-slate-400"; }
+
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
 export const LESSON_TEMPLATES = {

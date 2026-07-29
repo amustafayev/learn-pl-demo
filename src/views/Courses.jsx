@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import {
-  Plus, ChevronRight, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
-  Send, Eye, Users, UserPlus,
+  Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
+  Send, Eye, Users, UserPlus, Search, Maximize2, Minimize2,
   BookmarkPlus, FolderTree,
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
-import { useStore, useNav, lessonBlocks, saveBlockToBank } from "../store.jsx";
-import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
+import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
+import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
+import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
 export function partFromBank(item) {
@@ -82,13 +83,63 @@ export function CourseView() {
   const [modal, setModal] = useState(false);
   const [manageLesson, setManageLesson] = useState(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [expandedLessons, setExpandedLessons] = useState({});
+  const [expandedBlocks, setExpandedBlocks] = useState({});
 
   const course = state.courses.find((c) => c.id === route.courseId);
   const lessons = state.lessons[route.courseId] || [];
-  const enrolled = state.students.filter((s) => s.courseId === course.id);
-  const others = state.students.filter((s) => s.courseId !== course.id);
+  const enrolled = state.students.filter((s) => s.courseId === course?.id);
+  const others = state.students.filter((s) => s.courseId !== course?.id);
+
+  // Hydrate every lesson's shorthand `parts` into a real `built` array with
+  // stable ids as soon as the tree needs to show them — without this, a
+  // lesson never opened in the builder gets fresh synthetic block ids on
+  // every render, which breaks the tree's own expand/collapse state.
+  useEffect(() => {
+    lessons.forEach((l) => {
+      if (!l.built || !l.built.length) dispatch({ type: "ENSURE_BUILT", courseId: route.courseId, lessonId: l.id });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.courseId, lessons.length]);
 
   if (!course) return null;
+
+  const q = query.trim().toLowerCase();
+  const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
+  const toggleBlock = (key) => setExpandedBlocks((m) => ({ ...m, [key]: !m[key] }));
+
+  // The whole tree (Lesson → Block → Component), built once per render so
+  // the header row, the block rail and the expanded body all read off the
+  // same numbers. Search matches roll up: a matching component reveals its
+  // block, a matching block reveals its lesson.
+  const tree = lessons.map((l) => {
+    const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, state.texts) }));
+    const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(l.id));
+    const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
+
+    let lessonMatch = !!q && l.title.toLowerCase().includes(q);
+    const blockMatch = {};
+    if (q) blocks.forEach((b) => {
+      const BT = blockMeta(b.type);
+      const blockHit = (b.title || BT.label).toLowerCase().includes(q) || BT.label.toLowerCase().includes(q);
+      const compHit = b.components.some((c) => {
+        const label = (COMPONENT_META[c.kind]?.label || c.kind).toLowerCase();
+        return label.includes(q) || componentPreview(c, state.texts).toLowerCase().includes(q);
+      });
+      if (blockHit || compHit) { blockMatch[b.id] = true; lessonMatch = true; }
+    });
+
+    return { lesson: l, blocks, workingStudents, totalComponents, lessonMatch, blockMatch };
+  });
+  const visibleTree = q ? tree.filter((t) => t.lessonMatch) : tree;
+
+  function expandAll() {
+    const nextL = {}; const nextB = {};
+    tree.forEach((t) => { nextL[t.lesson.id] = true; t.blocks.forEach((b) => { nextB[`${t.lesson.id}:${b.id}`] = true; }); });
+    setExpandedLessons(nextL); setExpandedBlocks(nextB);
+  }
+  const collapseAll = () => { setExpandedLessons({}); setExpandedBlocks({}); };
 
   return (
     <Page>
@@ -124,40 +175,51 @@ export function CourseView() {
         </Card>
       )}
 
-      {/* Course Lessons Pathway List */}
-      <SectionLabel>
+      {/* Course tree: Lesson → Block → Component */}
+      <SectionLabel right={
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a block or component…"
+              className="text-xs border border-slate-200 rounded-lg pl-7 pr-2.5 py-1.5 w-56 focus:outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
+          </div>
+          <button onClick={expandAll} className="text-xs text-slate-400 hover:text-indigo-600 inline-flex items-center gap-1"><Maximize2 size={12} /> Expand all</button>
+          <button onClick={collapseAll} className="text-xs text-slate-400 hover:text-indigo-600 inline-flex items-center gap-1"><Minimize2 size={12} /> Collapse all</button>
+        </div>
+      }>
         <span className="inline-flex items-center gap-1.5">
-          <FolderTree size={14} /> Course Lessons ({lessons.length}) — Each lesson shows working students & pathway flow
+          <FolderTree size={14} /> Course tree ({lessons.length} lessons) — lessons → blocks → components
         </span>
       </SectionLabel>
 
-      <div className="space-y-4 mb-8">
-        {lessons.map((l) => {
-          const blocks = lessonBlocks(l);
-          // Get list of students working on/assigned to this specific lesson
-          const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(l.id));
+      <div className="space-y-3 mb-8">
+        {visibleTree.map(({ lesson: l, blocks, workingStudents, totalComponents, blockMatch }) => {
+          const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
-            <Card key={l.id} className={`p-5 transition-all ${l.current ? "border-indigo-300 ring-2 ring-indigo-100" : "hover:border-slate-300"}`}>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-3">
+            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${l.current ? "border-indigo-300 ring-2 ring-indigo-100" : "hover:border-slate-300"}`}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button onClick={() => toggleLesson(l.id)} className="text-slate-400 hover:text-indigo-600 shrink-0 p-1 -ml-1">
+                    {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </button>
                   <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
                     l.locked ? "bg-slate-100 text-slate-400" : l.progress === 100 ? "bg-emerald-500 text-white" : "bg-indigo-600 text-white"}`}>
                     {l.locked ? <Lock size={14} /> : `L${l.n}`}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base text-slate-800">{l.title}</h3>
-                      {l.current && <Pill className="bg-indigo-100 text-indigo-700 font-mono text-[10px]">Current Lesson</Pill>}
+                      <h3 className="font-bold text-base text-slate-800 truncate">{l.title}</h3>
+                      {l.current && <Pill className="bg-indigo-100 text-indigo-700 font-mono text-[10px] shrink-0">Current Lesson</Pill>}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      {blocks.length} pathway steps · {workingStudents.length} student{workingStudents.length !== 1 ? "s" : ""} working on this lesson
+                      {blocks.length} blocks · {totalComponents} components · {workingStudents.length} student{workingStudents.length !== 1 ? "s" : ""} working
                     </div>
                   </div>
                 </div>
 
                 {/* Lesson Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <Btn variant="outline" size="sm" onClick={() => setManageLesson(l)}>
                     <Users size={13} /> Manage Users ({workingStudents.length})
                   </Btn>
@@ -167,26 +229,20 @@ export function CourseView() {
                 </div>
               </div>
 
-              {/* Lesson Content Flow Summary (Pathway style) */}
-              <div className="py-3 border-b border-slate-100">
-                <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Pathway Flow:</div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {blocks.map((b, i) => {
-                    const BT = blockMeta(b.type);
-                    return (
-                      <React.Fragment key={i}>
-                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium ${BT.tone}`}>
-                          {BT.label || b.title}
-                        </span>
-                        {i < blocks.length - 1 && <ChevronRight size={12} className="text-slate-300" />}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Block rail — density at a glance, without expanding: one tick
+                  per Block, taller/filled ticks hold more Components. */}
+              <button onClick={() => toggleLesson(l.id)} title="Click to expand the blocks below"
+                className="w-full flex items-end gap-1 px-5 py-3 border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                {blocks.map((b) => (
+                  <span key={b.id} title={`${blockMeta(b.type).label} · ${b.components.length} component${b.components.length === 1 ? "" : "s"}`}
+                    className={`flex-1 rounded-full ${blockRail(b.type)} ${blockMatch[b.id] ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
+                    style={{ height: `${Math.min(14, 5 + b.components.length * 2)}px`, opacity: b.components.length ? 1 : .3 }} />
+                ))}
+                {!blocks.length && <span className="text-xs text-slate-300">No blocks yet</span>}
+              </button>
 
               {/* Users Working on this Lesson List */}
-              <div className="pt-3">
+              <div className="px-5 py-3 border-b border-slate-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
                     <Users size={12} /> Students working on this lesson ({workingStudents.length})
@@ -199,7 +255,7 @@ export function CourseView() {
                 {workingStudents.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     {workingStudents.map((s) => {
-                      const currentStep = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || BLOCK_TYPES[blocks[s.step]?.type]?.label : "Finished";
+                      const currentStep = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || blockMeta(blocks[s.step]?.type).label : "Finished";
                       return (
                         <div key={s.id} onClick={() => go({ tab: "students", studentId: s.id })}
                           className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 cursor-pointer transition-colors">
@@ -221,11 +277,74 @@ export function CourseView() {
                   <p className="text-xs text-slate-400 italic py-1">No students assigned to this lesson yet. Click "+ Assign / Remove Students" to assign users.</p>
                 )}
               </div>
+
+              {/* Blocks → Components — the two levels beneath the lesson */}
+              {isOpen && (
+                <div className="px-5 py-4">
+                  {blocks.map((b) => {
+                    const BT = blockMeta(b.type); const I = BT.icon;
+                    const key = `${l.id}:${b.id}`;
+                    const bOpen = q ? !!blockMatch[b.id] : !!expandedBlocks[key];
+                    const studentsOnBlock = workingStudents.filter((s) => blocks[s.step] === b);
+                    return (
+                      <div key={b.id} className="mb-1.5 last:mb-0">
+                        <div className="group flex items-center gap-2 py-1.5 rounded-lg hover:bg-slate-50">
+                          <button onClick={() => toggleBlock(key)} className="text-slate-400 hover:text-indigo-600 p-0.5 shrink-0">
+                            {bOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                          </button>
+                          <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${BT.tone}`}><I size={13} /></span>
+                          <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
+                            <span className="text-sm font-medium text-slate-700 truncate">{b.title || BT.label}</span>
+                            <span className="text-[11px] text-slate-400 ml-1.5">
+                              {b.components.length} component{b.components.length === 1 ? "" : "s"}
+                              {studentsOnBlock.length ? ` · ${studentsOnBlock.length} student${studentsOnBlock.length === 1 ? "" : "s"} here` : ""}
+                            </span>
+                          </button>
+                          <button title="Save block to My Blocks"
+                            onClick={() => saveBlockToBank(dispatch, toast, b, `${course.title} · Lesson ${l.n}`)}
+                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-600 p-1 transition-opacity shrink-0">
+                            <BookmarkPlus size={13} />
+                          </button>
+                        </div>
+
+                        {bOpen && (
+                          <div className="ml-[38px] border-l border-slate-200 pl-3">
+                            {b.components.map((c) => {
+                              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: BookmarkPlus, tone: "bg-slate-100 text-slate-500" };
+                              const CI = M.icon;
+                              return (
+                                <div key={c.id} className="group flex items-center gap-2 py-1 pr-1 rounded-lg hover:bg-slate-50">
+                                  <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${M.tone}`}><CI size={11} /></span>
+                                  <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
+                                    <span className="text-xs text-slate-600">{M.label}</span>
+                                    <span className="text-[11px] text-slate-400 ml-1.5">{componentPreview(c, state.texts)}</span>
+                                  </button>
+                                  <button title="Save component to library"
+                                    onClick={() => saveComponentToBank(dispatch, toast, c, `${b.title || BT.label} — ${M.label}`, `${course.title} · Lesson ${l.n}`)}
+                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-600 p-1 transition-opacity shrink-0">
+                                    <BookmarkPlus size={11} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            {!b.components.length && <p className="text-xs text-slate-300 py-1">No components yet — open the block to add one.</p>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!blocks.length && <p className="text-xs text-slate-400">No blocks in this lesson yet — open it to add the first one.</p>}
+                </div>
+              )}
             </Card>
           );
         })}
 
-        {!lessons.length && <p className="text-sm text-slate-400 p-4">No lessons in this course yet.</p>}
+        {!visibleTree.length && (
+          <p className="text-sm text-slate-400 p-4">
+            {q ? `No blocks or components match “${query}”.` : "No lessons in this course yet."}
+          </p>
+        )}
       </div>
 
       <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} />

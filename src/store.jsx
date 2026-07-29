@@ -43,6 +43,13 @@ export function saveBlockToBank(dispatch, toast, block, from) {
   toast(`“${block.title || BLOCK_TYPES[block.type]?.label || block.type}” saved to My Blocks`);
 }
 
+// Same idea, one level down — save a single Component into the Component
+// Library. Shared by Block Studio's editor and the course tree's leaf rows.
+export function saveComponentToBank(dispatch, toast, component, title, from) {
+  dispatch({ type: "SAVE_COMPONENT_TO_BANK", component, title, from });
+  toast(`Saved “${title}” to Component Library`);
+}
+
 // Group bank items (saved Blocks or saved Components) by the course/parent
 // they were saved from — every "reuse a saved thing" picker (My Blocks, the
 // Add-block dialog, the Component Library) organizes its list the same way,

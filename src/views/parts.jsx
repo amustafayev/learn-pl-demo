@@ -9,7 +9,7 @@ import {
   BookmarkPlus, Dices, Image,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
-import { useStore, useNav, saveBlockToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
+import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -174,6 +174,35 @@ export function defaultContent(blockTypeId, texts = []) {
 // used by the studio and by the live-lesson stage so both show the same thing.
 export function blockComponents(block, texts = []) { return toComponents(block, texts).components; }
 
+// A one-line, honest summary of one Component's actual content — no counts
+// or states that aren't really tracked. Used anywhere a component needs to
+// be scanned at a glance without opening it (the course tree's leaf rows).
+export function componentPreview(component, texts = []) {
+  const items = component.items;
+  switch (component.kind) {
+    case "passage": {
+      const text = texts.find((t) => t.id === component.textId);
+      return text ? `${text.title} · ${text.wordCount} words` : "No text linked yet";
+    }
+    case "wordlist": case "flashcards": case "memory":
+      return `${(items || component.pairs || []).length} words`;
+    case "match": return `${(component.pairs || []).length} pairs`;
+    case "quiz": case "comprehension": case "gapfill": case "scramble": case "speedround": case "shadowing":
+      return `${(items || []).length} item${(items || []).length === 1 ? "" : "s"}`;
+    case "crossword": case "wheel": case "wordsearch": case "imagetoword":
+      return `${(items || component.words || []).length} words`;
+    case "video": case "listening": return `${component.duration || "—"} · ${component.title || "untitled"}`;
+    case "youtube": return component.title || "Untitled video";
+    case "scenario": return `${(component.turns || []).length} turns · ${component.situation || ""}`;
+    case "homework": return `Min. ${component.minSentences || 0} sentences`;
+    case "upload": return component.instructions || "File upload";
+    case "speakingRecord": return component.question || "Recording prompt";
+    case "timeline": case "sentence": case "preposition": case "conjugation": case "conditional": case "comparison": case "wordweb":
+      return "Interactive visual";
+    default: return "";
+  }
+}
+
 // migrate any pre-nesting / pre-rename content shape into the components model
 function toComponents(block, texts) {
   const c = block.content;
@@ -226,15 +255,8 @@ export default function BlockStudio() {
     const next = [...components]; next.splice(i + 1, 0, copy); setComponents(next);
     toast("Component duplicated");
   };
-  const saveComponentToBank = (c) => {
-    dispatch({
-      type: "SAVE_COMPONENT_TO_BANK",
-      component: c,
-      title: `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`,
-      from: `${course.title} · Lesson ${lesson.n}`
-    });
-    toast(`Saved “${COMPONENT_META[c.kind]?.label || c.kind}” to Component Library`);
-  };
+  const handleSaveComponent = (c) => saveComponentToBank(dispatch, toast, c,
+    `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
   const insertSavedComponent = (item) => {
     const copy = JSON.parse(JSON.stringify(item.data));
     copy.id = cid();
@@ -305,7 +327,7 @@ export default function BlockStudio() {
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
                     <div className="flex-1"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}</span><div className="font-semibold text-sm">{M.label}</div></div>
                     <div className="flex items-center gap-1 text-slate-400">
-                      <button title="Save component to library" onClick={() => saveComponentToBank(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
+                      <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
                       <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><Copy size={14} /></button>
                       <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
                       <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
