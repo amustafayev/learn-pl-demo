@@ -332,6 +332,10 @@ export default function BlockStudio() {
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = (lesson?.built || []).find((p) => p.id === route.partId);
   const enrolled = state.students.filter((s) => s.courseId === course?.id);
+  // Group work picks from students actually assigned to THIS lesson, not
+  // the whole course roster — group members should be the people doing
+  // this lesson, which "enrolled but not assigned" students aren't (yet).
+  const assignedToLesson = enrolled.filter((s) => (s.assignedLessons || []).includes(route.lessonId));
 
   useEffect(() => {
     if (block && !block.content?.components) {
@@ -441,7 +445,7 @@ export default function BlockStudio() {
                       <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={enrolled} />
+                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson} />
                 </Card>
               );
             })}
@@ -1982,7 +1986,7 @@ function InfoGapEditor({ component, onChange, roster = [] }) {
                   <option key={s.id} value={s.id} disabled={usedIds.has(s.id) && r.studentId !== s.id}>{s.name}</option>
                 ))}
               </select>
-              {!roster.length && <span className="text-xs text-amber-600 block mt-1">No students enrolled in this course yet.</span>}
+              {!roster.length && <span className="text-xs text-amber-600 block mt-1">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
             </Field>
             <Field label="Only they see"><textarea className={`${inputCls} h-24 resize-none`} value={r.prompt || ""} onChange={(e) => setRole(i, { prompt: e.target.value })} /></Field>
           </div>
@@ -2025,7 +2029,7 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
                       className={`text-xs rounded-full px-2.5 py-1 border ${on ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{s.name}</button>
                   );
                 })}
-                {!roster.length && <span className="text-xs text-amber-600">No students enrolled in this course yet.</span>}
+                {!roster.length && <span className="text-xs text-amber-600">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
               </div>
             </div>
           ))}
