@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import {
   Plus, BookPlus, Send, AlertTriangle, Brain, ArrowRight, Flame, TrendingUp,
 } from "lucide-react";
-import { Page, PageHead, Card, Btn, Avatar, StatCard, AiNote, SectionLabel, Pill } from "../ui.jsx";
+import { Page, PageHead, Card, Btn, Avatar, StatCard, AiNote, SectionLabel, Pill, Modal, StudentCheckList } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
 import { TEACHER, WORD_OF_DAY } from "../data.jsx";
-import { NewCourseModal, AddTextModal, AssignModal } from "../components/modals.jsx";
+import { NewCourseModal, AddTextModal } from "../components/modals.jsx";
+import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 
 function weakest(concepts) {
   return Object.entries(concepts).sort((a, b) => a[1] - b[1])[0];
@@ -146,7 +147,26 @@ export default function Dashboard() {
 
       <NewCourseModal open={modal === "course"} onClose={() => setModal(null)} />
       <AddTextModal open={modal === "text"} onClose={() => setModal(null)} />
-      <AssignModal open={modal === "assign"} onClose={() => setModal(null)} what="Lesson 4 — Tense forms" kind="lesson" />
+      <AssignFromDashboardModal open={modal === "assign"} onClose={() => setModal(null)} />
     </Page>
   );
+}
+
+// The dashboard's quick "Assign" doesn't start from a student's own page, so
+// it needs one extra step first: pick who, then reuse the exact same real
+// assign flow (lessons/blocks/kits/words/new task) as the student page does.
+function AssignFromDashboardModal({ open, onClose }) {
+  const { state } = useStore();
+  const [student, setStudent] = useState(null);
+  const close = () => { setStudent(null); onClose(); };
+  if (!open) return null;
+  if (!student) {
+    return (
+      <Modal open onClose={close} title="Assign to a student" sub="Pick who you're assigning first">
+        <StudentCheckList students={state.students} isSelected={() => false} onToggle={(s) => setStudent(s)}
+          metaFor={(s) => `${s.level} · ${s.status}`} />
+      </Modal>
+    );
+  }
+  return <StudentAssignModal open onClose={close} student={student} />;
 }
