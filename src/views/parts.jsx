@@ -34,36 +34,49 @@ const cid = () => `c${Date.now()}_${++compSeq}`;
 
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
-  passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50" },
-  wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50" },
-  flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50" },
-  match:      { label: "Drag & drop match",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50" },
-  quiz:       { label: "Quiz (multiple choice)",icon: FileQuestion,      tone: "text-orange-600 bg-orange-50" },
-  gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50" },
-  timeline:   { label: "Tense timeline",        icon: Shapes,            tone: "text-emerald-600 bg-emerald-50" },
-  sentence:   { label: "Colour-coded sentence", icon: Shapes,            tone: "text-emerald-600 bg-emerald-50" },
-  preposition:{ label: "Preposition scene",     icon: MapPin,            tone: "text-sky-600 bg-sky-50" },
-  conjugation:{ label: "Conjugation wheel",     icon: RotateCw,          tone: "text-blue-600 bg-blue-50" },
-  conditional:{ label: "Conditional flow",      icon: GitBranch,         tone: "text-amber-600 bg-amber-50" },
-  comparison: { label: "Comparison ladder",     icon: TrendingUp,        tone: "text-lime-600 bg-lime-50" },
-  wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50" },
-  memory:     { label: "Memory match",          icon: Grid2x2,           tone: "text-pink-600 bg-pink-50" },
-  scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50" },
-  speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50" },
-  video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50" },
-  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50" },
-  scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50" },
-  homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100" },
-  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50" },
-  youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50" },
-  speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50" },
-  shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50" },
-  upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100" },
-  crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50" },
-  wheel:      { label: "Wheel of Fortune",       icon: Dices,             tone: "text-purple-600 bg-purple-50" },
-  wordsearch: { label: "Word Search Grid",       icon: Grid3x3,           tone: "text-emerald-600 bg-emerald-50" },
-  imagetoword:{ label: "Picture to Word Match",  icon: Image,             tone: "text-indigo-600 bg-indigo-50" },
+  passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50",      hint: "A tappable text with translations and saved words" },
+  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50", hint: "Multiple-choice questions checked against a passage" },
+  wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50", hint: "Term, translation, definition and example, in a list" },
+  flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50", hint: "Flip cards, one word at a time, for quick recall" },
+  match:      { label: "Drag & drop match",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50", hint: "Pair each word with its translation or picture" },
+  memory:     { label: "Memory match",          icon: Grid2x2,           tone: "text-pink-600 bg-pink-50",    hint: "Flip-and-match pairs game for vocabulary" },
+  crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50",    hint: "Classic crossword built from a word + clue list" },
+  wheel:      { label: "Wheel of Fortune",       icon: Dices,             tone: "text-purple-600 bg-purple-50", hint: "Spin for a random word prompt — low-stakes speaking warm-up" },
+  wordsearch: { label: "Word Search Grid",       icon: Grid3x3,           tone: "text-emerald-600 bg-emerald-50", hint: "Find hidden words in a letter grid" },
+  imagetoword:{ label: "Picture to Word Match",  icon: Image,             tone: "text-indigo-600 bg-indigo-50", hint: "Match an emoji/picture to the English word" },
+  timeline:   { label: "Tense timeline",        icon: Shapes,            tone: "text-emerald-600 bg-emerald-50", hint: "Visual timeline showing when a tense is used" },
+  sentence:   { label: "Colour-coded sentence", icon: Shapes,            tone: "text-emerald-600 bg-emerald-50", hint: "One colour per grammar role, applied to a real sentence" },
+  preposition:{ label: "Preposition scene",     icon: MapPin,            tone: "text-sky-600 bg-sky-50",      hint: "Pick the right preposition for a pictured scene" },
+  conjugation:{ label: "Conjugation wheel",     icon: RotateCw,          tone: "text-blue-600 bg-blue-50",    hint: "One verb conjugated across every tense, on a wheel" },
+  conditional:{ label: "Conditional flow",      icon: GitBranch,         tone: "text-amber-600 bg-amber-50",  hint: "If/then branches for conditional sentence types" },
+  comparison: { label: "Comparison ladder",     icon: TrendingUp,        tone: "text-lime-600 bg-lime-50",    hint: "Positive → comparative → superlative, side by side" },
+  wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50", hint: "A central word branching into related phrases" },
+  quiz:       { label: "Quiz (multiple choice)",icon: FileQuestion,      tone: "text-orange-600 bg-orange-50", hint: "Classic multiple-choice question set" },
+  gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50",  hint: "Type the missing word into a sentence" },
+  scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50",    hint: "Unscramble jumbled sentences in the right order" },
+  speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50",      hint: "Timed multiple-choice round for quick recall practice" },
+  video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50",    hint: "A short clip with a transcript to reveal" },
+  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50", hint: "An audio clip with a transcript to reveal" },
+  youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50",      hint: "Embed a real YouTube video with your own notes" },
+  scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50",    hint: "A real-life conversation to role-play, turn by turn" },
+  speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50",    hint: "Student records an answer, gets simulated AI feedback" },
+  shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50",    hint: "Listen to a model sentence, then repeat it aloud" },
+  homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
+  upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
 };
+
+// Groups COMPONENT_META into the categories a teacher actually thinks in —
+// used everywhere a component kind needs to be picked, so similar-sounding
+// kinds (Quiz vs. Comprehension vs. Speed round) are told apart by where
+// they sit, not just by name.
+export const COMPONENT_CATEGORIES = [
+  { id: "text", label: "Reading & text", kinds: ["passage", "comprehension"] },
+  { id: "vocab", label: "Vocabulary & games", kinds: ["wordlist", "flashcards", "match", "memory", "crossword", "wheel", "wordsearch", "imagetoword"] },
+  { id: "grammar", label: "Grammar visuals", kinds: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"] },
+  { id: "practice", label: "Practice & assessment", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
+  { id: "media", label: "Media & speaking", kinds: ["video", "listening", "youtube", "scenario", "speakingRecord", "shadowing"] },
+  { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
+];
 
 const SAMPLE_WORDS = [
   { term: "introduce", az: "təqdim etmək", def: "to present someone or yourself", example: "Let me introduce myself." },
@@ -71,7 +84,48 @@ const SAMPLE_WORDS = [
   { term: "available", az: "əlçatan", def: "free to be used or seen", example: "I'm available after lunch." },
 ];
 
-function defaultComponent(kind, texts = []) {
+// Exported so any "pick a component kind" surface — Block Studio's own
+// palette, or a quick per-student task — can produce real starter content
+// for that kind instead of an empty shell.
+// A categorized "pick a component kind" grid — every used-count badge and
+// hover style lives here once, so Block Studio's own palette and any other
+// "assign a quick task" surface look and behave identically.
+export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
+  const groups = COMPONENT_CATEGORIES
+    .map((cat) => ({ ...cat, kinds: cat.kinds.filter((k) => kinds.includes(k)) }))
+    .filter((cat) => cat.kinds.length);
+  return (
+    <div className="space-y-4">
+      {groups.map((cat) => (
+        <div key={cat.id}>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{cat.label}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {cat.kinds.map((k) => {
+              const M = COMPONENT_META[k]; const I = M.icon;
+              const used = usedCounts[k] || 0;
+              return (
+                <button key={k} onClick={() => onPick(k)}
+                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
+                  {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><I size={16} /></span>
+                  <span className="min-w-0">
+                    <span className="text-sm font-medium block">{M.label}</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5 leading-snug">{M.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Exported so any "pick a component kind" surface — Block Studio's own
+// palette, or a quick per-student task — can produce real starter content
+// for that kind instead of an empty shell.
+export function defaultComponent(kind, texts = []) {
   const base = { id: cid(), kind };
   switch (kind) {
     case "passage":    return { ...base, textId: texts[0]?.id || null };
@@ -382,22 +436,10 @@ export default function BlockStudio() {
                 )}
 
                 <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Create New Component:</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {palette.map((k) => {
-                      const M = COMPONENT_META[k] || { label: k, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
-                      const KI = M.icon;
-                      const used = components.filter((c) => c.kind === k).length;
-                      return (
-                        <button key={k} onClick={() => addComponent(k)}
-                          className={`relative flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
-                          {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
-                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={16} /></span>
-                          <span className="text-sm font-medium">{M.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Create new component — grouped by what it's for</div>
+                  <ComponentKindPicker kinds={palette}
+                    usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
+                    onPick={addComponent} />
                 </div>
               </Card>
             ) : (

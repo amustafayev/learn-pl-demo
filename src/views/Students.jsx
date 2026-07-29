@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  Send, Download, Flame, Target, Brain, AlertTriangle, Check,
+  Send, Download, Flame, Target, Brain, AlertTriangle, Check, X,
   CheckCircle2, Circle, Lock, NotebookPen, Sparkles, ArrowRight, Clock, TrendingUp,
   RotateCcw, Search, Gift, Zap,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import {
 } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
 import { statusPill } from "../data.jsx";
-import { AssignModal } from "../components/modals.jsx";
+import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 import { WordStatusPill } from "./grammar.jsx";
 import StudentInsights from "./StudentInsights.jsx";
 
@@ -89,7 +89,7 @@ export function StudentsView() {
 /* ------------------------------- detail ------------------------------- */
 
 export function StudentDetail() {
-  const { state } = useStore();
+  const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [tab, setTab] = useState("overview");
   const [assign, setAssign] = useState(false);
@@ -97,11 +97,13 @@ export function StudentDetail() {
   if (!s) return null;
 
   const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
+  const lessons = state.lessons[s.courseId] || [];
+  const assignedLessons = (s.assignedLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
 
   return (
     <Page>
       <Crumbs items={[{ label: "Students", onClick: () => go({ studentId: null }) }, { label: s.name }]} />
-      <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
           <Avatar name={s.name} size={14} />
           <div>
@@ -111,6 +113,30 @@ export function StudentDetail() {
         </div>
         <Btn onClick={() => setAssign(true)}><Send size={15} /> Assign</Btn>
       </div>
+
+      {/* Compact assign + progress strip — the whole point: what's assigned
+          and how far along it is, at a glance, with one-click unassign. */}
+      <Card className="p-3.5 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="sm:w-48 shrink-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400">Progress</span>
+              <span className="text-xs font-mono text-slate-500">{s.progress}%</span>
+            </div>
+            <Bar pct={s.progress} />
+          </div>
+          <div className="hidden sm:block w-px self-stretch bg-slate-100" />
+          <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
+            {assignedLessons.length ? assignedLessons.map((l) => (
+              <span key={l.id} className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 rounded-full pl-2.5 pr-1 py-1">
+                L{l.n}: {l.title}
+                <button title="Unassign" onClick={() => { dispatch({ type: "UNASSIGN_LESSON", studentId: s.id, lessonId: l.id }); toast(`Unassigned Lesson ${l.n}`); }}
+                  className="hover:text-rose-600 rounded-full p-0.5"><X size={11} /></button>
+              </span>
+            )) : <span className="text-xs text-slate-400">No lessons assigned yet — use “Assign” above.</span>}
+          </div>
+        </div>
+      </Card>
 
       <div className="flex gap-1 mb-6 border-b border-slate-200 overflow-x-auto">
         {tabs.map(([id, label]) => (
@@ -126,7 +152,7 @@ export function StudentDetail() {
       {tab === "notes" && <Notes s={s} />}
       {tab === "path" && <PathView s={s} />}
 
-      <AssignModal open={assign} onClose={() => setAssign(false)} what="Lesson 4 — Tense forms" kind="lesson" presetStudentId={s.id} />
+      <StudentAssignModal open={assign} onClose={() => setAssign(false)} student={s} />
     </Page>
   );
 }

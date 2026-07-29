@@ -50,6 +50,14 @@ export function saveComponentToBank(dispatch, toast, component, title, from) {
   toast(`Saved “${title}” to Component Library`);
 }
 
+// One student, one thing assigned — wraps the generic ASSIGN action so every
+// "assign this to a student" surface (student page, saved blocks, word
+// sets, a freshly created component) confirms with the same toast wording.
+export function assignToStudent(dispatch, toast, studentId, what, kind) {
+  dispatch({ type: "ASSIGN", studentIds: [studentId], what, kind });
+  toast(`Assigned “${what}”`);
+}
+
 // Group bank items (saved Blocks or saved Components) by the course/parent
 // they were saved from — every "reuse a saved thing" picker (My Blocks, the
 // Add-block dialog, the Component Library) organizes its list the same way,
