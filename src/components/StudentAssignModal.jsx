@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Check, Plus, Send } from "lucide-react";
-import { Modal, Btn, Card } from "../ui.jsx";
-import { useStore, groupBankByParent, bankChildLabel, assignToStudent } from "../store.jsx";
+import { Check, Plus, Send, Boxes } from "lucide-react";
+import { Modal, Btn, Card, Pill } from "../ui.jsx";
+import { useStore, groupBankByParent, bankChildLabel, assignToStudent, kitContents } from "../store.jsx";
 import { blockMeta } from "../data.jsx";
 import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent } from "../views/parts.jsx";
 
@@ -15,6 +15,7 @@ import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent
 const TABS = [
   { id: "lessons", label: "Lessons" },
   { id: "blocks", label: "My Blocks" },
+  { id: "kits", label: "Kits" },
   { id: "words", label: "Word sets" },
   { id: "new", label: "New task" },
 ];
@@ -41,6 +42,10 @@ export function StudentAssignModal({ open, onClose, student }) {
   }
   function assignWordSet(ws) {
     assignToStudent(dispatch, toast, student.id, `Word set: ${ws.title}`, "words");
+    close();
+  }
+  function assignKit(kit, count) {
+    assignToStudent(dispatch, toast, student.id, `${kit.title} (kit · ${count} item${count === 1 ? "" : "s"})`, "kit");
     close();
   }
   function assignNew() {
@@ -105,6 +110,28 @@ export function StudentAssignModal({ open, onClose, student }) {
             </div>
           ))}
           {!state.blockBank.length && <p className="text-sm text-slate-400 p-2">Nothing saved in My Blocks yet — save a block from any lesson first.</p>}
+        </div>
+      )}
+
+      {tab === "kits" && (
+        <div className="space-y-1.5 max-h-80 overflow-y-auto">
+          {(state.kits || []).map((kit) => {
+            const { blocks, components, count } = kitContents(kit, state.blockBank, state.componentBank);
+            return (
+              <button key={kit.id} onClick={() => assignKit(kit, count)} disabled={!count}
+                className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${count ? "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40" : "border-slate-100 opacity-50 cursor-not-allowed"}`}>
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-50 text-violet-600"><Boxes size={15} /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{kit.title}</div>
+                  <div className="text-[11px] text-slate-400 truncate">
+                    {count ? [...blocks.map((b) => b.title), ...components.map((c) => c.title)].join(" · ") : "Referenced items were removed from the bank"}
+                  </div>
+                </div>
+                <Pill className="bg-slate-100 text-slate-500 font-mono shrink-0">{count}</Pill>
+              </button>
+            );
+          })}
+          {!(state.kits || []).length && <p className="text-sm text-slate-400 p-2">No kits yet — build one from Library → My Blocks → Kits.</p>}
         </div>
       )}
 

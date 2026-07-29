@@ -12,7 +12,7 @@ import {
   Page, PageHead, Crumbs, Card, Bar, Btn, Pill, Avatar, SectionLabel, AiNote, StatCard,
   Field, inputCls,
 } from "../ui.jsx";
-import { useStore, useNav } from "../store.jsx";
+import { useStore, useNav, buildRecapLesson } from "../store.jsx";
 import { statusPill } from "../data.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 import { WordStatusPill } from "./grammar.jsx";
@@ -158,8 +158,10 @@ export function StudentDetail() {
 }
 
 function Overview({ s }) {
+  const { state, dispatch, toast } = useStore();
   const [concept, score] = weakest(s.concepts);
   const radar = Object.entries(s.concepts).map(([k, v]) => ({ concept: k.length > 10 ? k.split(" ")[0] : k, mastery: v }));
+  const course = state.courses.find((c) => c.id === s.courseId);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
@@ -170,7 +172,13 @@ function Overview({ s }) {
         {s.atRisk && <AiNote icon={AlertTriangle} tone="rose" title="Why this student is flagged">{s.riskReason}</AiNote>}
 
         <div>
-          <SectionLabel>Focus next · 2–3 concrete actions</SectionLabel>
+          <SectionLabel right={course && (
+            <button
+              onClick={() => buildRecapLesson(dispatch, toast, s, course, state.blockBank, concept)}
+              className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 font-medium">
+              <RotateCcw size={12} /> Build recap lesson from My Blocks
+            </button>
+          )}>Focus next · 2–3 concrete actions</SectionLabel>
           <Card className="p-4 space-y-2.5">
             {[`Review ${concept.toLowerCase()} with the visual timeline`, `Resurface ${s.words.filter((w) => w.status === "weak").length || 3} weak words in spaced repetition`, "Add one scenario task (work email) to build listening"].map((a, i) => (
               <div key={i} className="flex items-center gap-2.5 text-sm"><span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-bold shrink-0">{i + 1}</span>{a}</div>

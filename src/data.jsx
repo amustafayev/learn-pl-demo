@@ -30,12 +30,12 @@ export const HUE_SOFT = {
    added Block opens with.
    ========================================================================= */
 export const BLOCK_TYPES = {
-  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "scramble", "wordweb", "youtube"], starter: ["passage"] },
-  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "youtube", "quiz", "gapfill"], starter: ["listening"] },
-  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing"], starter: ["scenario"] },
+  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "scramble", "wordweb", "youtube", "slidedeck"], starter: ["passage"] },
+  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "youtube", "slidedeck", "quiz", "gapfill"], starter: ["listening"] },
+  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing", "slidedeck"], starter: ["scenario"] },
   writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
-  grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill"], starter: ["timeline"] },
-  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["wordlist", "flashcards"] },
+  grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill", "slidedeck"], starter: ["timeline"] },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword", "slidedeck"], starter: ["wordlist", "flashcards"] },
   practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
   playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
@@ -537,6 +537,15 @@ export const SEED_COMPONENT_BANK = [
       { emoji: "📦", term: "package", az: "bağlama" },
     ] }
   },
+];
+
+// A Kit bundles saved Blocks and/or saved Components under one title, so a
+// teacher can hand a student a whole "meal" of components in one assign
+// action instead of one at a time. Kits reference bank items by id — they
+// don't own content — so editing a saved block/component updates every kit
+// that includes it.
+export const SEED_KITS = [
+  { id: "kit1", title: "Standup recap kit", blockIds: ["bb1"], componentIds: ["cb1"] },
 ];
 
 // Word of the day — one shared word pushed to every learner (from the docs'

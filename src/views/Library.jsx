@@ -4,7 +4,7 @@ import {
   Check, Sparkles, ArrowRight, Trash2, BookmarkCheck, Boxes,
 } from "lucide-react";
 import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls } from "../ui.jsx";
-import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
+import { useStore, groupBankByParent, bankChildLabel, kitContents } from "../store.jsx";
 import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
@@ -391,9 +391,123 @@ function MyBlocks() {
         )}
       </div>
 
+      <div className="mt-8">
+        <KitsSection />
+      </div>
+
       <p className="text-xs text-slate-400 mt-6">
         Insert a saved block from any lesson: <b>Add block → From My Blocks</b>. Insert a saved component while editing a block: <b>Add component → My Component Library</b>. Both drop in as a copy, so editing them never touches the saved original.
       </p>
+    </>
+  );
+}
+
+/* ------------------------------- kits ------------------------------- */
+
+// A Kit bundles saved Blocks + Components under one title so a teacher can
+// hand a student a whole "meal" — e.g. a recap kit — in one assign action.
+// Kits only store ids, so renaming/editing a bank item updates every kit.
+function KitsSection() {
+  const { state, dispatch, toast } = useStore();
+  const [building, setBuilding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [blockIds, setBlockIds] = useState(new Set());
+  const [componentIds, setComponentIds] = useState(new Set());
+
+  const toggle = (set, setSet, id) => setSet((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const selectedCount = blockIds.size + componentIds.size;
+
+  function save() {
+    if (!title.trim()) return toast("Give the kit a title", "err");
+    if (!selectedCount) return toast("Pick at least one saved block or component", "err");
+    dispatch({ type: "SAVE_KIT", title: title.trim(), blockIds: [...blockIds], componentIds: [...componentIds] });
+    toast(`“${title.trim()}” saved as a kit`);
+    setTitle(""); setBlockIds(new Set()); setComponentIds(new Set()); setBuilding(false);
+  }
+
+  return (
+    <>
+      <SectionLabel right={
+        <button onClick={() => setBuilding((v) => !v)} className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 font-medium">
+          <Boxes size={13} /> {building ? "Cancel" : "New kit"}
+        </button>
+      }>Kits · bundle several saved things into one assignable "meal"</SectionLabel>
+
+      {building && (
+        <Card className="p-4 mb-4 border-indigo-200">
+          <Field label="Kit title"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Standup recap kit" autoFocus /></Field>
+          <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2 mt-3">Pick blocks &amp; components to include ({selectedCount} selected)</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-72 overflow-y-auto pr-1">
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">Blocks</div>
+              <div className="space-y-1">
+                {state.blockBank.map((item) => {
+                  const BT = BLOCK_TYPES[item.type] || {}; const I = BT.icon || BookmarkCheck;
+                  const on = blockIds.has(item.id);
+                  return (
+                    <button key={item.id} onClick={() => toggle(blockIds, setBlockIds, item.id)}
+                      className={`w-full flex items-center gap-2 rounded-lg border p-2 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${BT.tone || "bg-slate-100"}`}><I size={12} /></span>
+                      <span className="text-xs font-medium truncate flex-1">{item.title}</span>
+                      {on && <Check size={13} className="text-indigo-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+                {!state.blockBank.length && <p className="text-xs text-slate-400">Nothing saved yet.</p>}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">Components</div>
+              <div className="space-y-1">
+                {(state.componentBank || []).map((item) => {
+                  const M = COMPONENT_META[item.kind] || { icon: Layers, tone: "bg-slate-100" };
+                  const I = M.icon;
+                  const on = componentIds.has(item.id);
+                  return (
+                    <button key={item.id} onClick={() => toggle(componentIds, setComponentIds, item.id)}
+                      className={`w-full flex items-center gap-2 rounded-lg border p-2 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${M.tone}`}><I size={12} /></span>
+                      <span className="text-xs font-medium truncate flex-1">{item.title}</span>
+                      {on && <Check size={13} className="text-indigo-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+                {!(state.componentBank || []).length && <p className="text-xs text-slate-400">Nothing saved yet.</p>}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end mt-3"><Btn size="sm" onClick={save}><Boxes size={13} /> Save kit</Btn></div>
+        </Card>
+      )}
+
+      {(state.kits || []).length ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {state.kits.map((kit) => {
+            const { blocks, components, count } = kitContents(kit, state.blockBank, state.componentBank);
+            return (
+              <Card key={kit.id} className="p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="w-9 h-9 rounded-lg flex items-center justify-center bg-violet-50 text-violet-600"><Boxes size={16} /></span>
+                  <button title="Delete kit" onClick={() => { dispatch({ type: "REMOVE_KIT", kitId: kit.id }); toast(`“${kit.title}” kit deleted`); }}
+                    className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                </div>
+                <div className="font-bold mb-0.5">{kit.title}</div>
+                <div className="text-xs text-slate-400 mb-3">{count} item{count === 1 ? "" : "s"}</div>
+                <div className="flex flex-wrap gap-1">
+                  {blocks.map((b) => <Pill key={b.id} className="bg-slate-100 text-slate-500">{b.title}</Pill>)}
+                  {components.map((c) => <Pill key={c.id} className="bg-violet-50 text-violet-600">{c.title}</Pill>)}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : !building && (
+        <Card className="p-8 text-center text-sm text-slate-400">No kits yet — bundle a few saved blocks/components into one, assignable in a click from any student's page.</Card>
+      )}
     </>
   );
 }

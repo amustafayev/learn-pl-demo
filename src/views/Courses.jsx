@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
-  Send, Eye, Users, UserPlus, Search, Maximize2, Minimize2,
+  Send, Eye, Users, UserPlus, Search, Maximize2, Minimize2, Radio,
   BookmarkPlus, FolderTree,
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
@@ -79,7 +79,7 @@ export function CoursesView() {
 
 export function CourseView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
+  const { route, go, startLive } = useNav();
   const [modal, setModal] = useState(false);
   const [manageLesson, setManageLesson] = useState(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -220,6 +220,9 @@ export function CourseView() {
 
                 {/* Lesson Actions */}
                 <div className="flex items-center gap-2 shrink-0">
+                  <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, lessonId: l.id })} className="!text-rose-600 !border-rose-200">
+                    <Radio size={13} /> Go live
+                  </Btn>
                   <Btn variant="outline" size="sm" onClick={() => setManageLesson(l)}>
                     <Users size={13} /> Manage Users ({workingStudents.length})
                   </Btn>
@@ -378,7 +381,7 @@ function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
 
 export function LessonBuilderView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
+  const { route, go, startLive } = useNav();
   const [addOpen, setAddOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -428,6 +431,9 @@ export function LessonBuilderView() {
 
       <PageHead title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
         right={<div className="flex gap-2">
+          <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300">
+            <Radio size={14} /> Go live
+          </Btn>
           <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign Students</Btn>
           <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add Step</Btn>
         </div>} />

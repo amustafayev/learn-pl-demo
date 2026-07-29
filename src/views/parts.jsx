@@ -6,7 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus, Dices, Image,
+  BookmarkPlus, Dices, Image, MonitorPlay,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
@@ -63,6 +63,7 @@ export const COMPONENT_META = {
   shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50",    hint: "Listen to a model sentence, then repeat it aloud" },
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
+  slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
 };
 
 // Groups COMPONENT_META into the categories a teacher actually thinks in —
@@ -75,6 +76,7 @@ export const COMPONENT_CATEGORIES = [
   { id: "grammar", label: "Grammar visuals", kinds: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"] },
   { id: "practice", label: "Practice & assessment", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
   { id: "media", label: "Media & speaking", kinds: ["video", "listening", "youtube", "scenario", "speakingRecord", "shadowing"] },
+  { id: "present", label: "Presentations", kinds: ["slidedeck"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
 
@@ -194,6 +196,7 @@ export function defaultComponent(kind, texts = []) {
       { sentence: "Could you walk me through the process?", note: "Linking: “walk-me-through”." },
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
+    case "slidedeck":  return { ...base, provider: "slides", url: "", title: "Untitled deck", notes: "" };
     case "crossword":  return { ...base, items: [
       { word: "deploy", clue: "Put software onto a server" },
       { word: "release", clue: "A new version made available to users" },
@@ -250,6 +253,7 @@ export function componentPreview(component, texts = []) {
     case "scenario": return `${(component.turns || []).length} turns · ${component.situation || ""}`;
     case "homework": return `Min. ${component.minSentences || 0} sentences`;
     case "upload": return component.instructions || "File upload";
+    case "slidedeck": return component.url ? `${component.title || "Untitled deck"} · ${component.provider || "slides"}` : "No deck linked yet";
     case "speakingRecord": return component.question || "Recording prompt";
     case "timeline": case "sentence": case "preposition": case "conjugation": case "conditional": case "comparison": case "wordweb":
       return "Interactive visual";
@@ -507,6 +511,7 @@ export function ComponentStudent({ component }) {
     case "speakingRecord": return <SpeakingRecordComponent component={component} />;
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
+    case "slidedeck":  return <SlideDeckComponent component={component} />;
     case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
     case "wheel":      return <WheelComponent component={component} />;
     case "wordsearch": return <WordSearchComponent component={component} />;
@@ -854,6 +859,37 @@ function YoutubeComponent({ component }) {
   );
 }
 
+const SLIDE_PROVIDER_LABEL = { slides: "Google Slides", canva: "Canva", pptx: "PowerPoint", other: "Deck" };
+
+/* ---- Slide deck — Google Slides / Canva / PowerPoint, embedded by link.
+   Bring the visual explainer teachers already build elsewhere into the
+   lesson itself, instead of sharing a separate file. ---- */
+function SlideDeckComponent({ component }) {
+  return (
+    <div className="max-w-3xl">
+      <Card className="p-0 overflow-hidden">
+        <div className="aspect-video bg-slate-100">
+          {component.url ? (
+            <iframe className="w-full h-full" src={component.url} title={component.title || "Slide deck"} allowFullScreen loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400 text-sm">
+              <MonitorPlay size={22} />
+              No deck linked yet — add an embed link in Edit content.
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{component.title || "Untitled deck"}</span>
+            <Pill className="bg-violet-50 text-violet-700">{SLIDE_PROVIDER_LABEL[component.provider] || "Deck"}</Pill>
+          </div>
+          {component.notes && <div className="text-xs text-slate-400 mt-0.5">{component.notes}</div>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ---- Speaking: record a real answer, get simulated AI feedback ---- */
 function SpeakingRecordComponent({ component }) {
   const [state, setState] = useState("idle"); // idle | recording | analyzing | done
@@ -1138,6 +1174,7 @@ function ComponentEditor({ component, onChange }) {
     case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
     case "comprehension": return <QuizEditor component={component} onChange={onChange} />;
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
+    case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
     case "upload":     return <UploadEditor component={component} onChange={onChange} />;
@@ -1471,6 +1508,28 @@ function YoutubeEditor({ component, onChange }) {
     <div className="space-y-3">
       <Field label="YouTube URL"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" /></Field>
       <p className={`text-xs ${id ? "text-emerald-600" : "text-amber-600"}`}>{id ? "Valid link — will embed." : "Paste a full YouTube link (watch, youtu.be, or embed format)."}</p>
+      <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
+      <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
+    </div>
+  );
+}
+
+function SlideDeckEditor({ component, onChange }) {
+  const HINTS = {
+    slides: "Google Slides → File → Share → Publish to web → Embed → paste that <iframe> src here.",
+    canva: "Canva → Share → Embed → copy the src from the generated <iframe> code.",
+    pptx: "PowerPoint (online) → Share → Embed → copy the src from the generated <iframe> code.",
+    other: "Paste any embeddable slide URL.",
+  };
+  return (
+    <div className="space-y-3">
+      <Field label="Made with">
+        <select className={inputCls} value={component.provider || "slides"} onChange={(e) => onChange({ provider: e.target.value })}>
+          {Object.entries(SLIDE_PROVIDER_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </Field>
+      <Field label="Embed link"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://docs.google.com/presentation/d/…/embed" /></Field>
+      <p className="text-xs text-slate-400">{HINTS[component.provider || "slides"]}</p>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
     </div>

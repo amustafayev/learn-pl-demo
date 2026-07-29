@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_KITS,
 } from "./data.jsx";
 
 /* =========================================================================
@@ -9,7 +9,7 @@ import {
    words + notes + assignments). No backend — pure in-memory React state.
    ========================================================================= */
 
-import { BLOCK_TYPES } from "./data.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 let seq = 1000;
@@ -58,6 +58,19 @@ export function assignToStudent(dispatch, toast, studentId, what, kind) {
   toast(`Assigned “${what}”`);
 }
 
+// "Build a recap lesson" — assembles a brand-new lesson entirely from
+// blocks already saved in My Blocks (deep-copied, so editing the recap never
+// touches the originals) and assigns it straight to the student. The guard
+// (nothing compatible saved yet) lives here so every call site gets the
+// same message instead of a silently empty lesson.
+export function buildRecapLesson(dispatch, toast, student, course, blockBank, focusLabel) {
+  const templateTypes = LESSON_TEMPLATES[course?.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
+  const compatible = blockBank.filter((b) => templateTypes.includes(b.type));
+  if (!compatible.length) { toast("Save some blocks to My Blocks first — nothing compatible with this course yet", "err"); return; }
+  dispatch({ type: "BUILD_RECAP_LESSON", studentId: student.id, focusLabel });
+  toast(`Recap lesson built from ${compatible.length} saved block${compatible.length === 1 ? "" : "s"} and assigned to ${student.name.split(" ")[0]}`);
+}
+
 // Group bank items (saved Blocks or saved Components) by the course/parent
 // they were saved from — every "reuse a saved thing" picker (My Blocks, the
 // Add-block dialog, the Component Library) organizes its list the same way,
@@ -77,6 +90,15 @@ export function groupBankByParent(items) {
 // item's own detail line instead of repeating the parent in every row.
 export const bankChildLabel = (item) => (item.from || "").split(" · ").slice(1).join(" · ");
 
+// Resolve a Kit's referenced block/component ids into their current titles
+// — since a Kit only stores ids, this always reflects the bank's latest
+// state (rename a saved block and every kit using it updates automatically).
+export function kitContents(kit, blockBank, componentBank) {
+  const blocks = (kit.blockIds || []).map((id) => blockBank.find((b) => b.id === id)).filter(Boolean);
+  const components = (kit.componentIds || []).map((id) => componentBank.find((c) => c.id === id)).filter(Boolean);
+  return { blocks, components, count: blocks.length + components.length };
+}
+
 const initialState = {
   courses: clone(SEED_COURSES),
   lessons: clone(SEED_LESSONS),
@@ -85,6 +107,7 @@ const initialState = {
   wordSets: clone(SEED_WORDSETS),
   blockBank: clone(SEED_BLOCK_BANK),
   componentBank: savedComponentBank(),
+  kits: clone(SEED_KITS),
   toasts: [],
 };
 
@@ -216,6 +239,37 @@ function reducer(state, action) {
     }
     case "REMOVE_COMPONENT_FROM_BANK":
       return { ...state, componentBank: (state.componentBank || []).filter((c) => c.id !== action.bankId) };
+    case "SAVE_KIT": {
+      // a Kit references bank items by id rather than copying their content,
+      // so editing a saved block/component updates every kit that uses it.
+      const { title, blockIds, componentIds } = action;
+      const kit = { id: uid("kit"), title, blockIds: blockIds || [], componentIds: componentIds || [] };
+      return { ...state, kits: [kit, ...(state.kits || [])] };
+    }
+    case "REMOVE_KIT":
+      return { ...state, kits: (state.kits || []).filter((k) => k.id !== action.kitId) };
+    case "BUILD_RECAP_LESSON": {
+      // assemble a brand-new lesson from every My-Blocks item compatible with
+      // the student's course template, deep-copied so it's independent of
+      // the saved originals, and assign it straight to that student.
+      const { studentId, focusLabel } = action;
+      const student = state.students.find((s) => s.id === studentId);
+      if (!student || !student.courseId) return state;
+      const course = state.courses.find((c) => c.id === student.courseId);
+      const templateTypes = LESSON_TEMPLATES[course?.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
+      const compatible = state.blockBank.filter((b) => templateTypes.includes(b.type));
+      if (!compatible.length) return state;
+      const courseId = student.courseId;
+      const list = state.lessons[courseId] || [];
+      const built = compatible.map((item) => {
+        const content = JSON.parse(JSON.stringify(item.content || { components: [] }));
+        content.components = (content.components || []).map((c) => ({ ...c, id: uid("c") }));
+        return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
+      });
+      const lesson = { id: uid("l"), n: list.length + 1, title: `Recap: ${focusLabel}`, parts: built.map((p) => p.type), built, active: 0, progress: 0, current: false };
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, assignedLessons: [...(s.assignedLessons || []), lesson.id] } : s));
+      return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] }, students };
+    }
     case "SET_STUDENT_COURSE": {
       // enroll (courseId) or unenroll (null); assignments from other courses are dropped
       const { studentId, courseId } = action;
