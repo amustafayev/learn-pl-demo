@@ -220,10 +220,14 @@ export function defaultComponent(kind, texts = []) {
       mode: "infogap", // "infogap" (any group size) | "quizrace" (Kahoot/Quizlet-Live-style team game)
       situation: "Two colleagues are planning who covers the on-call shift this weekend.",
       roles: [
-        { label: "Student A", prompt: "You are free Saturday but not Sunday. Convince your partner to swap." },
-        { label: "Student B", prompt: "You are free Sunday but not Saturday. You'd prefer not to change your plans." },
+        { studentId: null, prompt: "You are free Saturday but not Sunday. Convince your partner to swap." },
+        { studentId: null, prompt: "You are free Sunday but not Saturday. You'd prefer not to change your plans." },
       ],
-      teams: ["Team Falcon", "Team Comet", "Team Nova"],
+      teams: [
+        { id: "team1", name: "Team Falcon", studentIds: [] },
+        { id: "team2", name: "Team Comet", studentIds: [] },
+        { id: "team3", name: "Team Nova", studentIds: [] },
+      ],
       items: [
         { q: "Choose the correct form: She ___ here since 2020.", options: ["live", "lives", "has lived"], answer: 2 },
         { q: "Pick the polite request.", options: ["Give me the report.", "Could you send me the report?", "Report — now."], answer: 1 },
@@ -327,6 +331,7 @@ export default function BlockStudio() {
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = (lesson?.built || []).find((p) => p.id === route.partId);
+  const enrolled = state.students.filter((s) => s.courseId === course?.id);
 
   useEffect(() => {
     if (block && !block.content?.components) {
@@ -436,7 +441,7 @@ export default function BlockStudio() {
                       <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} />
+                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={enrolled} />
                 </Card>
               );
             })}
@@ -1070,19 +1075,21 @@ function PeerTaskComponent({ component }) {
 }
 
 function InfoGapTask({ component }) {
-  const roles = component.roles?.length ? component.roles : [{ label: "Student A", prompt: "" }, { label: "Student B", prompt: "" }];
+  const { state } = useStore();
+  const roles = component.roles?.length ? component.roles : [{ studentId: null, prompt: "" }, { studentId: null, prompt: "" }];
   const [view, setView] = useState(0);
   const role = roles[Math.min(view, roles.length - 1)];
+  const nameFor = (r) => state.students.find((s) => s.id === r?.studentId)?.name || "Unassigned role";
   return (
     <div className="max-w-xl">
       <AiNote icon={Handshake} tone="sky" title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</AiNote>
       <div className="flex gap-2 mt-4 mb-3 flex-wrap">
         {roles.map((r, i) => (
-          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{r.label || `Student ${i + 1}`}</button>
+          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{nameFor(r)}</button>
         ))}
       </div>
       <Card className="p-5">
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{role?.label} sees only this</div>
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{nameFor(role)} sees only this</div>
         <p className="text-sm text-slate-700">{role?.prompt}</p>
       </Card>
       <p className="text-xs text-slate-400 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
@@ -1090,61 +1097,72 @@ function InfoGapTask({ component }) {
   );
 }
 
-// A Kahoot / Quizlet Live-style team race — any number of teams, speed +
-// accuracy both score points. There's no live multiplayer backend here, so
-// each round is simulated (weighted-random per team) for preview — the
-// point is the format, not a real-time connection.
+// A Kahoot / Quizlet Live-style team race — any number of teams, each with
+// real assigned students, speed + accuracy both score points. There's no
+// live multiplayer backend here, so each round is simulated (weighted-random
+// per team) for preview — the point is the format, not a real connection.
 function TeamQuizRace({ component }) {
-  const teams = component.teams?.length ? component.teams : ["Team A", "Team B"];
+  const { state } = useStore();
+  const teams = component.teams?.length ? component.teams : [{ id: "a", name: "Team A", studentIds: [] }, { id: "b", name: "Team B", studentIds: [] }];
   const items = component.items || [];
-  const [state, setState] = useState("idle"); // idle | playing | revealed | done
+  const [gameState, setGameState] = useState("idle"); // idle | playing | revealed | done
   const [qi, setQi] = useState(0);
   const [scores, setScores] = useState({});
   const [roundResult, setRoundResult] = useState(null);
 
-  function start() { setScores(Object.fromEntries(teams.map((t) => [t, 0]))); setQi(0); setState("playing"); }
+  const memberNames = (t) => (t.studentIds || []).map((id) => state.students.find((s) => s.id === id)?.name.split(" ")[0]).filter(Boolean).join(", ");
+
+  function start() { setScores(Object.fromEntries(teams.map((t) => [t.id, 0]))); setQi(0); setGameState("playing"); }
   function revealRound() {
     const result = {};
     teams.forEach((t) => {
       const correct = Math.random() < 0.72;
       const ms = Math.round(1500 + Math.random() * 5000);
-      result[t] = { correct, ms, points: correct ? Math.max(100, Math.round(1000 - ms / 7)) : 0 };
+      result[t.id] = { correct, ms, points: correct ? Math.max(100, Math.round(1000 - ms / 7)) : 0 };
     });
     setRoundResult(result);
-    setScores((s) => { const next = { ...s }; teams.forEach((t) => { next[t] = (next[t] || 0) + result[t].points; }); return next; });
-    setState("revealed");
+    setScores((s) => { const next = { ...s }; teams.forEach((t) => { next[t.id] = (next[t.id] || 0) + result[t.id].points; }); return next; });
+    setGameState("revealed");
   }
   function next() {
-    if (qi + 1 >= items.length) { setState("done"); return; }
-    setQi((i) => i + 1); setRoundResult(null); setState("playing");
+    if (qi + 1 >= items.length) { setGameState("done"); return; }
+    setQi((i) => i + 1); setRoundResult(null); setGameState("playing");
   }
 
   if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-slate-400">Add at least 2 teams and 1 question to enable the race.</Card>;
 
-  if (state === "idle") {
+  if (gameState === "idle") {
     return (
       <Card className="p-6 max-w-md text-center">
         <Trophy size={28} className="mx-auto text-amber-500 mb-2" />
         <div className="font-semibold mb-1">Team quiz race · {teams.length} teams</div>
         <p className="text-sm text-slate-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
+        <div className="text-left space-y-1 mb-4">
+          {teams.map((t) => (
+            <div key={t.id} className="text-xs text-slate-500"><b className="text-slate-700">{t.name}</b>{memberNames(t) ? ` — ${memberNames(t)}` : " — no students assigned yet"}</div>
+          ))}
+        </div>
         <Btn onClick={start}><Trophy size={14} /> Start race</Btn>
       </Card>
     );
   }
 
-  if (state === "done") {
-    const ranked = teams.slice().sort((a, b) => scores[b] - scores[a]);
+  if (gameState === "done") {
+    const ranked = teams.slice().sort((a, b) => scores[b.id] - scores[a.id]);
     return (
       <Card className="p-6 max-w-md">
         <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-amber-500" /><span className="font-semibold">Final leaderboard</span></div>
         {ranked.map((t, i) => (
-          <div key={t} className="flex items-center gap-3 py-2">
+          <div key={t.id} className="flex items-center gap-3 py-2">
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}>{i + 1}</span>
-            <span className="flex-1 font-medium">{t}</span>
-            <span className="font-mono text-sm">{scores[t]} pts</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium truncate">{t.name}</div>
+              {memberNames(t) && <div className="text-xs text-slate-400 truncate">{memberNames(t)}</div>}
+            </div>
+            <span className="font-mono text-sm">{scores[t.id]} pts</span>
           </div>
         ))}
-        <Btn variant="outline" size="sm" className="mt-3" onClick={() => setState("idle")}><RotateCcw size={13} /> Play again</Btn>
+        <Btn variant="outline" size="sm" className="mt-3" onClick={() => setGameState("idle")}><RotateCcw size={13} /> Play again</Btn>
       </Card>
     );
   }
@@ -1160,26 +1178,29 @@ function TeamQuizRace({ component }) {
         <div className="text-base font-medium mb-3">{item.q}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {item.options.map((o, oi) => (
-            <div key={oi} className={`rounded-lg border p-3 text-sm ${state === "revealed" && oi === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}>{o}</div>
+            <div key={oi} className={`rounded-lg border p-3 text-sm ${gameState === "revealed" && oi === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}>{o}</div>
           ))}
         </div>
       </Card>
-      {state === "playing" && <Btn onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Btn>}
-      {state === "revealed" && (
+      {gameState === "playing" && <Btn onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Btn>}
+      {gameState === "revealed" && (
         <>
           <Card className="p-4 divide-y divide-slate-100">
             {teams.map((t) => (
-              <div key={t} className="flex items-center gap-3 py-2 text-sm">
-                <span className="flex-1 font-medium">{t}</span>
-                <Pill className={roundResult[t].correct ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}>{roundResult[t].correct ? "Correct" : "Missed"}</Pill>
-                <span className="font-mono text-xs text-slate-400 w-14 text-right">{(roundResult[t].ms / 1000).toFixed(1)}s</span>
-                <span className="font-mono text-sm w-14 text-right">+{roundResult[t].points}</span>
+              <div key={t.id} className="flex items-center gap-3 py-2 text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{t.name}</div>
+                  {memberNames(t) && <div className="text-xs text-slate-400 truncate">{memberNames(t)}</div>}
+                </div>
+                <Pill className={roundResult[t.id].correct ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}>{roundResult[t.id].correct ? "Correct" : "Missed"}</Pill>
+                <span className="font-mono text-xs text-slate-400 w-14 text-right">{(roundResult[t.id].ms / 1000).toFixed(1)}s</span>
+                <span className="font-mono text-sm w-14 text-right">+{roundResult[t.id].points}</span>
               </div>
             ))}
           </Card>
           <div className="flex flex-wrap gap-2">
-            {teams.slice().sort((a, b) => scores[b] - scores[a]).map((t, i) => (
-              <Pill key={t} className={i === 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}>{i === 0 && "👑 "}{t} · {scores[t]}</Pill>
+            {teams.slice().sort((a, b) => scores[b.id] - scores[a.id]).map((t, i) => (
+              <Pill key={t.id} className={i === 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}>{i === 0 && "👑 "}{t.name} · {scores[t.id]}</Pill>
             ))}
           </div>
           <Btn onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Btn>
@@ -1494,7 +1515,7 @@ function SpeedRoundComponent({ component }) {
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function ComponentEditor({ component, onChange }) {
+function ComponentEditor({ component, onChange, roster }) {
   switch (component.kind) {
     case "passage":    return <PassageEditor component={component} onChange={onChange} />;
     case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
@@ -1522,7 +1543,7 @@ function ComponentEditor({ component, onChange }) {
     case "pronunciationDrill": return <RowsEditor component={component} onChange={onChange} fields={[["phrase", "Phrase"], ["ipa", "IPA (optional)"], ["note", "Note"]]} blank={{ phrase: "", ipa: "", note: "" }} label="phrase" wide={["note"]} />;
     case "cultureNote": return <CultureNoteEditor component={component} onChange={onChange} />;
     case "reviewqueue": return <ReviewQueueEditor />;
-    case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} />;
+    case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} roster={roster} />;
     case "checkpoint": return <CheckpointEditor component={component} onChange={onChange} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
@@ -1924,7 +1945,7 @@ function ReviewQueueEditor() {
   );
 }
 
-function PeerTaskEditor({ component, onChange }) {
+function PeerTaskEditor({ component, onChange, roster }) {
   const mode = component.mode || "infogap";
   return (
     <div className="space-y-4">
@@ -1934,18 +1955,19 @@ function PeerTaskEditor({ component, onChange }) {
             className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{label}</button>
         ))}
       </div>
-      {mode === "infogap" ? <InfoGapEditor component={component} onChange={onChange} /> : <TeamQuizRaceEditor component={component} onChange={onChange} />}
+      {mode === "infogap" ? <InfoGapEditor component={component} onChange={onChange} roster={roster} /> : <TeamQuizRaceEditor component={component} onChange={onChange} roster={roster} />}
     </div>
   );
 }
 
-function InfoGapEditor({ component, onChange }) {
+function InfoGapEditor({ component, onChange, roster = [] }) {
   const roles = component.roles || [];
   const setRole = (i, patch) => onChange({ roles: roles.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
+  const usedIds = new Set(roles.map((r) => r.studentId).filter(Boolean));
   return (
     <div className="space-y-3">
       <Field label="Situation"><textarea className={`${inputCls} h-20 resize-none`} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
-      <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Roles — any group size, each sees only their own card</div>
+      <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Roles — assign a real student to each, any group size</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {roles.map((r, i) => (
           <div key={i} className="rounded-xl border border-slate-100 p-3">
@@ -1953,32 +1975,62 @@ function InfoGapEditor({ component, onChange }) {
               <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Role {i + 1}</span>
               <button onClick={() => onChange({ roles: roles.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
             </div>
-            <Field label="Label"><input className={inputCls} value={r.label || ""} onChange={(e) => setRole(i, { label: e.target.value })} /></Field>
+            <Field label="Student">
+              <select className={inputCls} value={r.studentId || ""} onChange={(e) => setRole(i, { studentId: e.target.value || null })}>
+                <option value="">— pick a student —</option>
+                {roster.map((s) => (
+                  <option key={s.id} value={s.id} disabled={usedIds.has(s.id) && r.studentId !== s.id}>{s.name}</option>
+                ))}
+              </select>
+              {!roster.length && <span className="text-xs text-amber-600 block mt-1">No students enrolled in this course yet.</span>}
+            </Field>
             <Field label="Only they see"><textarea className={`${inputCls} h-24 resize-none`} value={r.prompt || ""} onChange={(e) => setRole(i, { prompt: e.target.value })} /></Field>
           </div>
         ))}
       </div>
-      <Btn variant="outline" size="sm" onClick={() => onChange({ roles: [...roles, { label: `Student ${roles.length + 1}`, prompt: "" }] })}><Plus size={14} /> Add role</Btn>
+      <Btn variant="outline" size="sm" onClick={() => onChange({ roles: [...roles, { studentId: null, prompt: "" }] })}><Plus size={14} /> Add role</Btn>
     </div>
   );
 }
 
-function TeamQuizRaceEditor({ component, onChange }) {
+function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
   const teams = component.teams || [];
-  const setTeam = (i, v) => onChange({ teams: teams.map((t, j) => (j === i ? v : t)) });
+  const setTeam = (i, patch) => onChange({ teams: teams.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+  function toggleMember(i, studentId) {
+    const already = (teams[i].studentIds || []).includes(studentId);
+    onChange({
+      teams: teams.map((t, j) => {
+        if (j === i) return { ...t, studentIds: already ? t.studentIds.filter((id) => id !== studentId) : [...(t.studentIds || []), studentId] };
+        // a student can only be on one team at a time — drop them elsewhere when added here
+        return already ? t : { ...t, studentIds: (t.studentIds || []).filter((id) => id !== studentId) };
+      }),
+    });
+  }
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Teams</div>
-        <div className="space-y-1.5">
+        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Teams — name each, then assign real students</div>
+        <div className="space-y-3">
           {teams.map((t, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input className={inputCls} value={t} onChange={(e) => setTeam(i, e.target.value)} />
-              <button onClick={() => onChange({ teams: teams.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500 shrink-0"><Trash2 size={14} /></button>
+            <div key={t.id || i} className="rounded-xl border border-slate-100 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <input className={inputCls} value={t.name || ""} onChange={(e) => setTeam(i, { name: e.target.value })} />
+                <button onClick={() => onChange({ teams: teams.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500 shrink-0"><Trash2 size={14} /></button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {roster.map((s) => {
+                  const on = (t.studentIds || []).includes(s.id);
+                  return (
+                    <button key={s.id} onClick={() => toggleMember(i, s.id)}
+                      className={`text-xs rounded-full px-2.5 py-1 border ${on ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{s.name}</button>
+                  );
+                })}
+                {!roster.length && <span className="text-xs text-amber-600">No students enrolled in this course yet.</span>}
+              </div>
             </div>
           ))}
         </div>
-        <Btn variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, `Team ${teams.length + 1}`] })}><Plus size={14} /> Add team</Btn>
+        <Btn variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: `team_${Date.now()}`, name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Btn>
       </div>
       <div>
         <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Race questions</div>
