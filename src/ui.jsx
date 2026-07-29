@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, X, Check } from "lucide-react";
 import { HUE, initials } from "./data.jsx";
 import { useStore } from "./store.jsx";
 
@@ -67,6 +67,35 @@ export function Avatar({ name, size = 8 }) {
       style={{ width: `${size * 4}px`, height: `${size * 4}px`, fontSize: size >= 10 ? 14 : 11 }}
     >
       {initials(name)}
+    </div>
+  );
+}
+
+// A checkbox list of students — the shared shape behind every "pick some
+// students" UI (assign content, assign/unassign a lesson, invite to a live
+// session). `metaFor` renders the small line under each name, so each call
+// site can show whatever's relevant (level & status, lessons assigned, …)
+// without forking the row markup itself.
+export function StudentCheckList({ students, isSelected, onToggle, metaFor, emptyText = "No students to show." }) {
+  return (
+    <div className="space-y-1.5 max-h-72 overflow-y-auto">
+      {students.map((s) => {
+        const on = isSelected(s);
+        return (
+          <button key={s.id} onClick={() => onToggle(s)}
+            className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+            <Avatar name={s.name} />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-sm truncate">{s.name}</div>
+              <div className="text-xs text-slate-400">{metaFor(s)}</div>
+            </div>
+            <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300"}`}>
+              {on && <Check size={13} className="text-white" />}
+            </span>
+          </button>
+        );
+      })}
+      {!students.length && <p className="text-sm text-slate-400 p-2">{emptyText}</p>}
     </div>
   );
 }

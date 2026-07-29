@@ -4,9 +4,9 @@ import {
   Hand, ArrowRight, PhoneOff, CircleDot, Activity, GraduationCap, Sparkles, Radio, Bell,
   ChevronLeft, ChevronRight, UsersRound, UserRound,
 } from "lucide-react";
-import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
-import { useStore } from "../store.jsx";
-import { initials, BLOCK_TYPES } from "../data.jsx";
+import { Card, Btn, Pill, AiNote, Field, inputCls, StudentCheckList } from "../ui.jsx";
+import { useStore, lessonBlocks } from "../store.jsx";
+import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
 
 // Block types the class does together (teacher leads, everyone on the same
@@ -32,14 +32,6 @@ const PRESENCE = {
   done:    { dot: "bg-indigo-500",  text: "text-indigo-600" },
   offline: { dot: "bg-slate-300",   text: "text-slate-400" },
 };
-
-function lessonBlocks(lesson) {
-  if (!lesson) return [];
-  const built = lesson.built && lesson.built.length
-    ? lesson.built
-    : (lesson.parts || []).map((t, i) => ({ id: `t${i}`, type: t, title: BLOCK_TYPES[t]?.label }));
-  return built.map((b) => ({ id: b.id || b.type, type: b.type, title: b.title || BLOCK_TYPES[b.type]?.label || b.type }));
-}
 
 export default function LiveSession({ context, onEnd }) {
   const { state } = useStore();
@@ -115,8 +107,8 @@ function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, l
             </div>
             {lesson && (
               <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                {lessonBlocks(lesson).map((b) => { const BT = BLOCK_TYPES[b.type]; const I = BT?.icon || GraduationCap; return (
-                  <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT?.tone || "bg-slate-100"}`}><I size={14} /></span>
+                {lessonBlocks(lesson).map((b) => { const BT = blockMeta(b.type); const I = BT.icon || GraduationCap; return (
+                  <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT.tone}`}><I size={14} /></span>
                 ); })}
                 <span className="text-xs text-slate-400 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
               </div>
@@ -134,18 +126,8 @@ function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, l
               </div>
             </div>
             {!enrolled.length && <p className="text-xs text-amber-600 mb-2">No students enrolled in this course yet — showing everyone.</p>}
-            <div className="space-y-1.5 max-h-56 overflow-y-auto">
-              {roster.map((s) => {
-                const on = invited.includes(s.id);
-                return (
-                  <button key={s.id} onClick={() => toggle(s.id)} className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
-                    <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-semibold">{initials(s.name)}</div>
-                    <div className="min-w-0 flex-1"><div className="font-medium text-sm truncate">{s.name}</div><div className="text-xs text-slate-400">{s.level} · {s.status}</div></div>
-                    <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300"}`}>{on && <Check size={13} className="text-white" />}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <StudentCheckList students={roster} isSelected={(s) => invited.includes(s.id)} onToggle={(s) => toggle(s.id)}
+              metaFor={(s) => `${s.level} · ${s.status}`} />
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-400"><Bell size={13} /> Invited students get a platform notification with the join link.</div>
           </Card>
 
@@ -287,10 +269,10 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
               <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200 px-5 sm:px-8 py-3">
                 <div className="flex items-center gap-2 overflow-x-auto">
                   <button onClick={() => goBlock(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"><ChevronLeft size={16} /></button>
-                  {blocks.map((b, i) => { const BT = BLOCK_TYPES[b.type]; const I = BT?.icon || GraduationCap; return (
+                  {blocks.map((b, i) => { const BT = blockMeta(b.type); const I = BT.icon || GraduationCap; return (
                     <button key={b.id} onClick={() => goBlock(i)} title={b.title}
                       className={`shrink-0 inline-flex items-center gap-1.5 text-sm rounded-lg pl-1.5 pr-2.5 py-1 border transition-colors ${focus === i ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
-                      <span className={`w-5 h-5 rounded flex items-center justify-center ${BT?.tone || "bg-slate-100"}`}><I size={12} /></span>
+                      <span className={`w-5 h-5 rounded flex items-center justify-center ${BT.tone}`}><I size={12} /></span>
                       {i + 1}
                     </button>
                   ); })}

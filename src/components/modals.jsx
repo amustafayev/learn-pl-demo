@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Check } from "lucide-react";
-import { Modal, Field, inputCls, Btn, Avatar } from "../ui.jsx";
+import { Modal, Field, inputCls, Btn, StudentCheckList } from "../ui.jsx";
 import { useStore } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 
@@ -164,24 +164,8 @@ export function AssignModal({ open, onClose, what, kind, presetStudentId }) {
   return (
     <Modal open={open} onClose={onClose} title="Assign to students" sub={what}
       footer={<><Btn variant="outline" onClick={onClose}>Cancel</Btn><Btn onClick={assign}>Assign{sel.length ? ` (${sel.length})` : ""}</Btn></>}>
-      <div className="space-y-1.5 max-h-72 overflow-y-auto">
-        {state.students.map((s) => {
-          const on = sel.includes(s.id);
-          return (
-            <button key={s.id} onClick={() => toggle(s.id)}
-              className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
-              <Avatar name={s.name} />
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm truncate">{s.name}</div>
-                <div className="text-xs text-slate-400">{s.level} · {s.status}</div>
-              </div>
-              <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300"}`}>
-                {on && <Check size={13} className="text-white" />}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <StudentCheckList students={state.students} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
+        metaFor={(s) => `${s.level} · ${s.status}`} />
     </Modal>
   );
 }

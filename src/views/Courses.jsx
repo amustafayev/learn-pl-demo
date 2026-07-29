@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
   GripVertical, Send, Eye, Sparkles, Radio, Users, UserPlus, UserMinus,
-  BookmarkPlus, FolderTree, Check, Play, BookOpen, Layers, Video, Headphones, Shapes, PenTool, ClipboardCheck
+  BookmarkPlus, FolderTree, Play, BookOpen, Layers, Video, Headphones, Shapes, PenTool, ClipboardCheck
 } from "lucide-react";
-import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal } from "../ui.jsx";
-import { useStore, useNav } from "../store.jsx";
-import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
+import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
+import { useStore, useNav, lessonBlocks, saveBlockToBank } from "../store.jsx";
+import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
 import { ComponentStudent, COMPONENT_META, blockComponents } from "./parts.jsx";
 
@@ -134,7 +134,7 @@ export function CourseView() {
 
       <div className="space-y-4 mb-8">
         {lessons.map((l) => {
-          const blocks = l.built || (l.parts || []).map(t => ({ type: t, title: BLOCK_TYPES[t]?.label || t }));
+          const blocks = lessonBlocks(l);
           // Get list of students working on/assigned to this specific lesson
           const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(l.id));
 
@@ -176,7 +176,7 @@ export function CourseView() {
                 <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Pathway Flow:</div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {blocks.map((b, i) => {
-                    const BT = BLOCK_TYPES[b.type] || { label: b.type, tone: "bg-slate-100 text-slate-600" };
+                    const BT = blockMeta(b.type);
                     return (
                       <React.Fragment key={i}>
                         <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium ${BT.tone}`}>
@@ -245,29 +245,15 @@ function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
   return (
     <Modal open onClose={onClose} title={`Assign Lesson ${lesson.n}: ${lesson.title}`} sub="Select students working on this lesson"
       footer={<Btn onClick={onClose}>Done</Btn>}>
-      <div className="space-y-1.5 max-h-72 overflow-y-auto">
-        {enrolled.map((s) => {
+      <StudentCheckList students={enrolled}
+        isSelected={(s) => (s.assignedLessons || []).includes(lesson.id)}
+        onToggle={(s) => {
           const on = (s.assignedLessons || []).includes(lesson.id);
-          return (
-            <button key={s.id}
-              onClick={() => {
-                dispatch({ type: on ? "UNASSIGN_LESSON" : "ASSIGN_LESSON", studentId: s.id, lessonId: lesson.id });
-                toast(`${on ? "Unassigned from" : "Assigned to"} ${s.name.split(" ")[0]}`);
-              }}
-              className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
-              <Avatar name={s.name} />
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm truncate">{s.name}</div>
-                <div className="text-xs text-slate-400">{s.level} · {(s.assignedLessons || []).length} lessons assigned</div>
-              </div>
-              <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300"}`}>
-                {on && <Check size={13} className="text-white" />}
-              </span>
-            </button>
-          );
-        })}
-        {!enrolled.length && <p className="text-sm text-slate-400 p-2">No students enrolled in {course.title} yet.</p>}
-      </div>
+          dispatch({ type: on ? "UNASSIGN_LESSON" : "ASSIGN_LESSON", studentId: s.id, lessonId: lesson.id });
+          toast(`${on ? "Unassigned from" : "Assigned to"} ${s.name.split(" ")[0]}`);
+        }}
+        metaFor={(s) => `${s.level} · ${(s.assignedLessons || []).length} lessons assigned`}
+        emptyText={`No students enrolled in ${course.title} yet.`} />
     </Modal>
   );
 }
@@ -314,8 +300,7 @@ export function LessonBuilderView() {
     setEditing(null);
   }
   function saveToBank(b) {
-    dispatch({ type: "SAVE_BLOCK_TO_BANK", block: b, from: `${course.title} · Lesson ${lesson.n}` });
-    toast(`“${b.title || BLOCK_TYPES[b.type].label}” saved to My Blocks`);
+    saveBlockToBank(dispatch, toast, b, `${course.title} · Lesson ${lesson.n}`);
   }
 
   return (
@@ -372,7 +357,7 @@ export function LessonBuilderView() {
 
       <div className="relative space-y-3 mb-8">
         {blocks.map((b, i) => {
-          const BT = BLOCK_TYPES[b.type] || { label: b.type, icon: Shapes, tone: "text-indigo-600 bg-indigo-50" };
+          const BT = blockMeta(b.type);
           const I = BT.icon;
           return (
             <div key={b.id} className="relative pl-10">

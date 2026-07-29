@@ -25,13 +25,23 @@ function savedComponentBank() {
   }
 }
 
-// Ensure a lesson has an editable `built` array of Blocks (hydrate from the
-// shorthand `parts` list — an array of Block-type ids — the first time a
-// lesson is edited in the builder).
-const built = (l) =>
-  l.built && l.built.length
+// Blocks for a lesson — hydrated from the shorthand `parts` list (an array
+// of Block-type ids) the first time it's touched, or the live `built` array
+// afterwards. Exported so any view that just needs to preview a lesson's
+// pathway (Course tree, Live Session setup) can reuse the same hydration
+// logic instead of re-deriving it locally.
+export const lessonBlocks = (l) =>
+  !l ? [] : l.built && l.built.length
     ? l.built
-    : l.parts.map((t) => ({ id: uid("p"), type: t, title: BLOCK_TYPES[t].label, meta: "—" }));
+    : (l.parts || []).map((t) => ({ id: uid("p"), type: t, title: BLOCK_TYPES[t]?.label || t, meta: "—" }));
+
+// One place to save a Block (with all its Components) into the teacher's
+// reusable bank and confirm it via toast — used by both the lesson builder
+// and Block Studio so the message and payload never drift apart.
+export function saveBlockToBank(dispatch, toast, block, from) {
+  dispatch({ type: "SAVE_BLOCK_TO_BANK", block, from });
+  toast(`“${block.title || BLOCK_TYPES[block.type]?.label || block.type}” saved to My Blocks`);
+}
 
 const initialState = {
   courses: clone(SEED_COURSES),
@@ -65,7 +75,7 @@ function reducer(state, action) {
     case "ENSURE_BUILT": {
       const { courseId, lessonId } = action;
       const list = (state.lessons[courseId] || []).map((l) =>
-        l.id === lessonId && !(l.built && l.built.length) ? { ...l, built: built(l) } : l
+        l.id === lessonId && !(l.built && l.built.length) ? { ...l, built: lessonBlocks(l) } : l
       );
       return { ...state, lessons: { ...state.lessons, [courseId]: list } };
     }
@@ -73,7 +83,7 @@ function reducer(state, action) {
       const { courseId, lessonId, part } = action;
       const list = state.lessons[courseId].map((l) => {
         if (l.id !== lessonId) return l;
-        const b = [...built(l), part];
+        const b = [...lessonBlocks(l), part];
         return { ...l, built: b, parts: b.map((p) => p.type) };
       });
       return { ...state, lessons: { ...state.lessons, [courseId]: list } };
@@ -82,7 +92,7 @@ function reducer(state, action) {
       const { courseId, lessonId, partId } = action;
       const list = state.lessons[courseId].map((l) => {
         if (l.id !== lessonId) return l;
-        const b = built(l).filter((p) => p.id !== partId);
+        const b = lessonBlocks(l).filter((p) => p.id !== partId);
         return { ...l, built: b, parts: b.map((p) => p.type) };
       });
       return { ...state, lessons: { ...state.lessons, [courseId]: list } };
@@ -91,7 +101,7 @@ function reducer(state, action) {
       const { courseId, lessonId, partId, dir } = action;
       const list = state.lessons[courseId].map((l) => {
         if (l.id !== lessonId) return l;
-        const b = [...built(l)];
+        const b = [...lessonBlocks(l)];
         const i = b.findIndex((p) => p.id === partId);
         const j = i + dir;
         if (i < 0 || j < 0 || j >= b.length) return l;
@@ -104,7 +114,7 @@ function reducer(state, action) {
       const { courseId, lessonId, partId, patch } = action;
       const list = state.lessons[courseId].map((l) => {
         if (l.id !== lessonId) return l;
-        const b = built(l).map((p) => (p.id === partId ? { ...p, ...patch } : p));
+        const b = lessonBlocks(l).map((p) => (p.id === partId ? { ...p, ...patch } : p));
         return { ...l, built: b, parts: b.map((p) => p.type) };
       });
       return { ...state, lessons: { ...state.lessons, [courseId]: list } };

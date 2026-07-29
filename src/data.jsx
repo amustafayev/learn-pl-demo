@@ -52,6 +52,14 @@ export const BLOCK_TYPES = {
   businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
 };
 
+// A single, safe-fallback lookup for a Block type's display metadata — every
+// view that renders a block's icon/label/tone should call this instead of
+// reaching into BLOCK_TYPES directly, so an unknown/removed type never
+// crashes a render and every fallback style matches everywhere.
+export function blockMeta(type) {
+  return BLOCK_TYPES[type] || { label: type, icon: Shapes, tone: "text-slate-600 bg-slate-100" };
+}
+
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
 export const LESSON_TEMPLATES = {

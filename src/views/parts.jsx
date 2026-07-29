@@ -9,7 +9,7 @@ import {
   BookmarkPlus, Dices, Image,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
-import { useStore, useNav } from "../store.jsx";
+import { useStore, useNav, saveBlockToBank } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -259,7 +259,7 @@ export default function BlockStudio() {
         </div>
         <div className="flex items-center gap-2">
           <Btn variant="outline" size="sm"
-            onClick={() => { dispatch({ type: "SAVE_BLOCK_TO_BANK", block, from: `${course.title} · Lesson ${lesson.n}` }); toast(`“${block.title || BT.label}” saved to My Blocks`); }}>
+            onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
             <BookmarkPlus size={14} /> Save Block to Bank
           </Btn>
           <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
