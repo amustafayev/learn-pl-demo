@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, Eye, Pencil, Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
-  GraduationCap, Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown,
+  GraduationCap, Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown, ArrowRight,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
@@ -67,7 +67,7 @@ export const COMPONENT_META = {
   pronunciationDrill: { label: "Pronunciation drill", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",    hint: "Model clip vs. student attempt, waveform-compared" },
   cultureNote:  { label: "Culture & context note",  icon: Globe2,        tone: "text-fuchsia-600 bg-fuchsia-50", hint: "Formal, casual, or rude — the register behind a phrase" },
   reviewqueue:  { label: "Review queue",             icon: RefreshCw,     tone: "text-lime-600 bg-lime-50",     hint: "Auto-generated from each student's own due words and weak concepts" },
-  peertask:     { label: "Peer task",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Role-play or info-gap for two students, each with their own side" },
+  peertask:     { label: "Group work",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Info-gap/jigsaw for any group size, or a Kahoot-style team quiz race" },
   checkpoint:   { label: "Checkpoint",                icon: Award,         tone: "text-red-600 bg-red-50",       hint: "A scored quiz with a pass threshold — formal, not casual practice" },
 };
 
@@ -217,9 +217,18 @@ export function defaultComponent(kind, texts = []) {
     ] };
     case "reviewqueue": return { ...base, mode: "auto" };
     case "peertask": return { ...base,
+      mode: "infogap", // "infogap" (any group size) | "quizrace" (Kahoot/Quizlet-Live-style team game)
       situation: "Two colleagues are planning who covers the on-call shift this weekend.",
-      roleA: { label: "Student A", prompt: "You are free Saturday but not Sunday. Convince your partner to swap." },
-      roleB: { label: "Student B", prompt: "You are free Sunday but not Saturday. You'd prefer not to change your plans." },
+      roles: [
+        { label: "Student A", prompt: "You are free Saturday but not Sunday. Convince your partner to swap." },
+        { label: "Student B", prompt: "You are free Sunday but not Saturday. You'd prefer not to change your plans." },
+      ],
+      teams: ["Team Falcon", "Team Comet", "Team Nova"],
+      items: [
+        { q: "Choose the correct form: She ___ here since 2020.", options: ["live", "lives", "has lived"], answer: 2 },
+        { q: "Pick the polite request.", options: ["Give me the report.", "Could you send me the report?", "Report — now."], answer: 1 },
+        { q: "Which sentence uses the past simple correctly?", options: ["I have finished it yesterday.", "I finished it yesterday.", "I finish it yesterday."], answer: 1 },
+      ],
     };
     case "checkpoint": return { ...base, passScore: 70, items: [
       { q: "She ___ here since 2019.", options: ["live", "lives", "has lived"], answer: 2, why: "“since 2019” → present perfect." },
@@ -285,7 +294,9 @@ export function componentPreview(component, texts = []) {
     case "pronunciationDrill": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
     case "cultureNote": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
     case "reviewqueue": return "Generated per student — no fixed content";
-    case "peertask": return component.situation || "Role-play for two";
+    case "peertask": return component.mode === "quizrace"
+      ? `Team quiz race · ${(component.teams || []).length} teams · ${(component.items || []).length} questions`
+      : `${(component.roles || []).length}-way info-gap${component.situation ? ` · ${component.situation}` : ""}`;
     case "checkpoint": return `${(component.items || []).length} questions · pass at ${component.passScore || 70}%`;
     case "speakingRecord": return component.question || "Recording prompt";
     case "timeline": case "sentence": case "preposition": case "conjugation": case "conditional": case "comparison": case "wordweb":
@@ -1051,21 +1062,129 @@ function ReviewQueueComponent({ student }) {
 /* ---- Peer task — a role-play/info-gap built for two students, each seeing
    only their own side. Distinct from Scenario (solo, teacher-facing sample
    replies) and from whole-class content. ---- */
+// Group work has two distinct mechanics under one Block — pick per component:
+// an info-gap/jigsaw for any number of roles (classic ESL pair/group work,
+// generalized beyond two), or a Kahoot/Quizlet-Live-style team quiz race.
 function PeerTaskComponent({ component }) {
-  const [view, setView] = useState("A");
-  const role = view === "A" ? component.roleA : component.roleB;
+  return component.mode === "quizrace" ? <TeamQuizRace component={component} /> : <InfoGapTask component={component} />;
+}
+
+function InfoGapTask({ component }) {
+  const roles = component.roles?.length ? component.roles : [{ label: "Student A", prompt: "" }, { label: "Student B", prompt: "" }];
+  const [view, setView] = useState(0);
+  const role = roles[Math.min(view, roles.length - 1)];
   return (
     <div className="max-w-xl">
-      <AiNote icon={Handshake} tone="sky" title="Peer task — pair up two students">{component.situation}</AiNote>
-      <div className="flex gap-2 mt-4 mb-3">
-        <button onClick={() => setView("A")} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === "A" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{component.roleA?.label || "Student A"}</button>
-        <button onClick={() => setView("B")} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === "B" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{component.roleB?.label || "Student B"}</button>
+      <AiNote icon={Handshake} tone="sky" title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</AiNote>
+      <div className="flex gap-2 mt-4 mb-3 flex-wrap">
+        {roles.map((r, i) => (
+          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{r.label || `Student ${i + 1}`}</button>
+        ))}
       </div>
       <Card className="p-5">
         <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{role?.label} sees only this</div>
         <p className="text-sm text-slate-700">{role?.prompt}</p>
       </Card>
-      <p className="text-xs text-slate-400 mt-3">When paired for real, each student only ever sees their own side — this toggle is just for you to preview both.</p>
+      <p className="text-xs text-slate-400 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
+    </div>
+  );
+}
+
+// A Kahoot / Quizlet Live-style team race — any number of teams, speed +
+// accuracy both score points. There's no live multiplayer backend here, so
+// each round is simulated (weighted-random per team) for preview — the
+// point is the format, not a real-time connection.
+function TeamQuizRace({ component }) {
+  const teams = component.teams?.length ? component.teams : ["Team A", "Team B"];
+  const items = component.items || [];
+  const [state, setState] = useState("idle"); // idle | playing | revealed | done
+  const [qi, setQi] = useState(0);
+  const [scores, setScores] = useState({});
+  const [roundResult, setRoundResult] = useState(null);
+
+  function start() { setScores(Object.fromEntries(teams.map((t) => [t, 0]))); setQi(0); setState("playing"); }
+  function revealRound() {
+    const result = {};
+    teams.forEach((t) => {
+      const correct = Math.random() < 0.72;
+      const ms = Math.round(1500 + Math.random() * 5000);
+      result[t] = { correct, ms, points: correct ? Math.max(100, Math.round(1000 - ms / 7)) : 0 };
+    });
+    setRoundResult(result);
+    setScores((s) => { const next = { ...s }; teams.forEach((t) => { next[t] = (next[t] || 0) + result[t].points; }); return next; });
+    setState("revealed");
+  }
+  function next() {
+    if (qi + 1 >= items.length) { setState("done"); return; }
+    setQi((i) => i + 1); setRoundResult(null); setState("playing");
+  }
+
+  if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-slate-400">Add at least 2 teams and 1 question to enable the race.</Card>;
+
+  if (state === "idle") {
+    return (
+      <Card className="p-6 max-w-md text-center">
+        <Trophy size={28} className="mx-auto text-amber-500 mb-2" />
+        <div className="font-semibold mb-1">Team quiz race · {teams.length} teams</div>
+        <p className="text-sm text-slate-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
+        <Btn onClick={start}><Trophy size={14} /> Start race</Btn>
+      </Card>
+    );
+  }
+
+  if (state === "done") {
+    const ranked = teams.slice().sort((a, b) => scores[b] - scores[a]);
+    return (
+      <Card className="p-6 max-w-md">
+        <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-amber-500" /><span className="font-semibold">Final leaderboard</span></div>
+        {ranked.map((t, i) => (
+          <div key={t} className="flex items-center gap-3 py-2">
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}>{i + 1}</span>
+            <span className="flex-1 font-medium">{t}</span>
+            <span className="font-mono text-sm">{scores[t]} pts</span>
+          </div>
+        ))}
+        <Btn variant="outline" size="sm" className="mt-3" onClick={() => setState("idle")}><RotateCcw size={13} /> Play again</Btn>
+      </Card>
+    );
+  }
+
+  const item = items[qi];
+  return (
+    <div className="max-w-xl space-y-4">
+      <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+        <span>Question {qi + 1} of {items.length}</span>
+        <span>{teams.length} teams racing</span>
+      </div>
+      <Card className="p-5">
+        <div className="text-base font-medium mb-3">{item.q}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {item.options.map((o, oi) => (
+            <div key={oi} className={`rounded-lg border p-3 text-sm ${state === "revealed" && oi === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}>{o}</div>
+          ))}
+        </div>
+      </Card>
+      {state === "playing" && <Btn onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Btn>}
+      {state === "revealed" && (
+        <>
+          <Card className="p-4 divide-y divide-slate-100">
+            {teams.map((t) => (
+              <div key={t} className="flex items-center gap-3 py-2 text-sm">
+                <span className="flex-1 font-medium">{t}</span>
+                <Pill className={roundResult[t].correct ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}>{roundResult[t].correct ? "Correct" : "Missed"}</Pill>
+                <span className="font-mono text-xs text-slate-400 w-14 text-right">{(roundResult[t].ms / 1000).toFixed(1)}s</span>
+                <span className="font-mono text-sm w-14 text-right">+{roundResult[t].points}</span>
+              </div>
+            ))}
+          </Card>
+          <div className="flex flex-wrap gap-2">
+            {teams.slice().sort((a, b) => scores[b] - scores[a]).map((t, i) => (
+              <Pill key={t} className={i === 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}>{i === 0 && "👑 "}{t} · {scores[t]}</Pill>
+            ))}
+          </div>
+          <Btn onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Btn>
+        </>
+      )}
     </div>
   );
 }
@@ -1806,18 +1925,64 @@ function ReviewQueueEditor() {
 }
 
 function PeerTaskEditor({ component, onChange }) {
+  const mode = component.mode || "infogap";
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {[["infogap", "Info-gap / jigsaw"], ["quizrace", "Team quiz race"]].map(([id, label]) => (
+          <button key={id} onClick={() => onChange({ mode: id })}
+            className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{label}</button>
+        ))}
+      </div>
+      {mode === "infogap" ? <InfoGapEditor component={component} onChange={onChange} /> : <TeamQuizRaceEditor component={component} onChange={onChange} />}
+    </div>
+  );
+}
+
+function InfoGapEditor({ component, onChange }) {
+  const roles = component.roles || [];
+  const setRole = (i, patch) => onChange({ roles: roles.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   return (
     <div className="space-y-3">
       <Field label="Situation"><textarea className={`${inputCls} h-20 resize-none`} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
+      <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Roles — any group size, each sees only their own card</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-100 p-3">
-          <Field label="Student A — label"><input className={inputCls} value={component.roleA?.label || ""} onChange={(e) => onChange({ roleA: { ...component.roleA, label: e.target.value } })} /></Field>
-          <Field label="Student A — only they see"><textarea className={`${inputCls} h-24 resize-none`} value={component.roleA?.prompt || ""} onChange={(e) => onChange({ roleA: { ...component.roleA, prompt: e.target.value } })} /></Field>
+        {roles.map((r, i) => (
+          <div key={i} className="rounded-xl border border-slate-100 p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Role {i + 1}</span>
+              <button onClick={() => onChange({ roles: roles.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            </div>
+            <Field label="Label"><input className={inputCls} value={r.label || ""} onChange={(e) => setRole(i, { label: e.target.value })} /></Field>
+            <Field label="Only they see"><textarea className={`${inputCls} h-24 resize-none`} value={r.prompt || ""} onChange={(e) => setRole(i, { prompt: e.target.value })} /></Field>
+          </div>
+        ))}
+      </div>
+      <Btn variant="outline" size="sm" onClick={() => onChange({ roles: [...roles, { label: `Student ${roles.length + 1}`, prompt: "" }] })}><Plus size={14} /> Add role</Btn>
+    </div>
+  );
+}
+
+function TeamQuizRaceEditor({ component, onChange }) {
+  const teams = component.teams || [];
+  const setTeam = (i, v) => onChange({ teams: teams.map((t, j) => (j === i ? v : t)) });
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Teams</div>
+        <div className="space-y-1.5">
+          {teams.map((t, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input className={inputCls} value={t} onChange={(e) => setTeam(i, e.target.value)} />
+              <button onClick={() => onChange({ teams: teams.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500 shrink-0"><Trash2 size={14} /></button>
+            </div>
+          ))}
         </div>
-        <div className="rounded-xl border border-slate-100 p-3">
-          <Field label="Student B — label"><input className={inputCls} value={component.roleB?.label || ""} onChange={(e) => onChange({ roleB: { ...component.roleB, label: e.target.value } })} /></Field>
-          <Field label="Student B — only they see"><textarea className={`${inputCls} h-24 resize-none`} value={component.roleB?.prompt || ""} onChange={(e) => onChange({ roleB: { ...component.roleB, prompt: e.target.value } })} /></Field>
-        </div>
+        <Btn variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, `Team ${teams.length + 1}`] })}><Plus size={14} /> Add team</Btn>
+      </div>
+      <div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Race questions</div>
+        <QuizEditor component={component} onChange={onChange} />
       </div>
     </div>
   );

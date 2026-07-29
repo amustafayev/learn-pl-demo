@@ -5,11 +5,11 @@ import {
 } from "lucide-react";
 import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel, kitContents } from "../store.jsx";
-import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
+import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
-import { COMPONENT_META } from "./parts.jsx";
+import { COMPONENT_META, COMPONENT_CATEGORIES } from "./parts.jsx";
 
 export default function Library() {
   const [sub, setSub] = useState("reading");
@@ -23,7 +23,7 @@ export default function Library() {
     <Page>
       <PageHead kicker="Content library" title="Library" sub="Reading texts, vocabulary sets, and the playground learners explore between lessons." />
       <div className="flex gap-1.5 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
-        {[["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "My Blocks"]].map(([id, label]) => (
+        {[["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "My Blocks"], ["guide", "Guide"]].map(([id, label]) => (
           <button key={id} onClick={() => setSub(id)}
             className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${sub === id ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}>{label}</button>
         ))}
@@ -32,6 +32,7 @@ export default function Library() {
       {sub === "words" && <WordSetsList open={setOpenSet} />}
       {sub === "playground" && <Playground />}
       {sub === "bank" && <MyBlocks />}
+      {sub === "guide" && <SystemGuide />}
     </Page>
   );
 }
@@ -508,6 +509,84 @@ function KitsSection() {
       ) : !building && (
         <Card className="p-8 text-center text-sm text-slate-400">No kits yet — bundle a few saved blocks/components into one, assignable in a click from any student's page.</Card>
       )}
+    </>
+  );
+}
+
+/* ------------------------------- guide ------------------------------- */
+
+// The whole system, one screen: every Block type and exactly which
+// Component(s) live inside it — so "what do we have, and what's it made
+// of" never requires opening a lesson to find out.
+function SystemGuide() {
+  const [open, setOpen] = useState(null); // expanded block-type id, or null
+  const blockTypeIds = LESSON_TEMPLATES.general.blockTypes;
+
+  return (
+    <>
+      <SectionLabel>Block types → what each one is for, and its components</SectionLabel>
+      <p className="text-sm text-slate-500 mb-5 max-w-2xl">
+        A <b>Block</b> is a container with one job (Reading, Grammar, Peer work…); a <b>Component</b> is the specific activity inside it. Tap any block to see what it's built from — nothing here requires opening a real lesson.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+        {blockTypeIds.map((id) => {
+          const BT = BLOCK_TYPES[id];
+          const I = BT.icon;
+          const isOpen = open === id;
+          const kinds = BT.components || [];
+          return (
+            <Card key={id} className="p-0 overflow-hidden">
+              <button onClick={() => setOpen(isOpen ? null : id)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50/60 transition-colors">
+                <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-sm">{BT.label}</div>
+                  <div className="text-xs text-slate-400 truncate">{kinds.length} component{kinds.length === 1 ? "" : "s"}{BT.description ? ` · ${BT.description}` : ""}</div>
+                </div>
+                <ChevronDown size={15} className={`text-slate-300 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                  {kinds.map((k) => {
+                    const M = COMPONENT_META[k];
+                    if (!M) return null;
+                    const CI = M.icon;
+                    return (
+                      <span key={k} title={M.hint} className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${M.tone}`}>
+                        <CI size={13} /> {M.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+
+      <SectionLabel>Every component, by category</SectionLabel>
+      <div className="space-y-4">
+        {COMPONENT_CATEGORIES.map((cat) => (
+          <div key={cat.id}>
+            <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-1.5">{cat.label}</div>
+            <div className="flex flex-wrap gap-1.5">
+              {cat.kinds.map((k) => {
+                const M = COMPONENT_META[k];
+                if (!M) return null;
+                const CI = M.icon;
+                return (
+                  <span key={k} title={M.hint} className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${M.tone}`}>
+                    <CI size={13} /> {M.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-slate-400 mt-6 max-w-2xl">
+        IELTS and Business courses also offer specialised variants of Writing and Speaking (Writing Task 1/2, Speaking Part 1/2/3, Business Writing) — same idea, split by task instead of shown here to keep this map to one page.
+      </p>
     </>
   );
 }

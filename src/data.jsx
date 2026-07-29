@@ -57,7 +57,7 @@ export const BLOCK_TYPES = {
   pronunciation: { label: "Pronunciation", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",     components: ["pronunciationDrill"], starter: ["pronunciationDrill"], description: "Model clip vs. student attempt, waveform-compared — phonetic drilling, not open speech." },
   culture:       { label: "Culture & context", icon: Globe2,    tone: "text-fuchsia-600 bg-fuchsia-50", components: ["cultureNote"], starter: ["cultureNote"], description: "When a phrase is formal, casual, or rude — the register no dictionary explains." },
   review:        { label: "Review", icon: RefreshCw,           tone: "text-lime-600 bg-lime-50",       components: ["reviewqueue"], starter: ["reviewqueue"], description: "Generated, not authored — pulls each student's own due words and weak concepts." },
-  peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50",       components: ["peertask"], starter: ["peertask"], description: "A role-play or info-gap built for two students, not solo or whole-class." },
+  peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50",       components: ["peertask"], starter: ["peertask"], description: "Group work, not solo or whole-class — an info-gap for any group size, or a Kahoot-style team quiz race." },
   assessment:    { label: "Assessment", icon: Award,           tone: "text-red-600 bg-red-50",         components: ["checkpoint"], starter: ["checkpoint"], description: "A scored checkpoint with a pass threshold — formal, unlike casual Practice." },
 };
 
