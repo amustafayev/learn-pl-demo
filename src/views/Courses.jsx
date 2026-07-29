@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
-  GripVertical, Send, Eye, Sparkles, Radio, Users, UserPlus, UserMinus,
-  BookmarkPlus, FolderTree, Play, BookOpen, Layers, Video, Headphones, Shapes, PenTool, ClipboardCheck
+  Plus, ChevronRight, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
+  Send, Eye, Radio, Users, UserPlus,
+  BookmarkPlus, FolderTree,
 } from "lucide-react";
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank } from "../store.jsx";
 import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
-import { ComponentStudent, COMPONENT_META, blockComponents } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
 export function partFromBank(item) {
