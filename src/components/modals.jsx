@@ -7,6 +7,9 @@ import { BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 const HUES = ["indigo", "emerald", "amber", "rose", "sky"];
 const HUE_SWATCH = { indigo: "bg-indigo-500", emerald: "bg-emerald-500", amber: "bg-amber-500", rose: "bg-rose-500", sky: "bg-sky-500" };
 
+
+
+
 /* Create a new course */
 export function NewCourseModal({ open, onClose }) {
   const { dispatch, toast } = useStore();
