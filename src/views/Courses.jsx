@@ -7,7 +7,7 @@ import {
 import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
 import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
-import { NewCourseModal, NewLessonModal, AddBlockModal, AssignModal } from "../components/modals.jsx";
+import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
@@ -528,7 +528,7 @@ export function LessonBuilderView() {
 
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
         usedCounts={usedCounts} bank={compatibleBank} onPickBank={addFromBank} />
-      <AssignModal open={assignOpen} onClose={() => setAssignOpen(false)} what={`${course.title} — Lesson ${lesson.n}: ${lesson.title}`} kind="lesson" />
+      <ManageLessonStudentsModal lesson={assignOpen ? lesson : null} course={course} enrolled={enrolled} onClose={() => setAssignOpen(false)} />
     </Page>
   );
 }
