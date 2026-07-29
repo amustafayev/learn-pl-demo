@@ -1,5 +1,6 @@
 import {
   BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck, Gamepad2,
+  AudioWaveform, Globe2, RefreshCw, Handshake, Award,
 } from "lucide-react";
 
 /* =========================================================================
@@ -50,6 +51,14 @@ export const BLOCK_TYPES = {
   ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
   // Business English: swaps generic Writing for correspondence practice.
   businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
+  // Five focused Block types, each mapped to exactly one signature
+  // Component — deliberately narrow (not a grab-bag of every component kind)
+  // so what each Block is FOR stays legible at a glance.
+  pronunciation: { label: "Pronunciation", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",     components: ["pronunciationDrill"], starter: ["pronunciationDrill"], description: "Model clip vs. student attempt, waveform-compared — phonetic drilling, not open speech." },
+  culture:       { label: "Culture & context", icon: Globe2,    tone: "text-fuchsia-600 bg-fuchsia-50", components: ["cultureNote"], starter: ["cultureNote"], description: "When a phrase is formal, casual, or rude — the register no dictionary explains." },
+  review:        { label: "Review", icon: RefreshCw,           tone: "text-lime-600 bg-lime-50",       components: ["reviewqueue"], starter: ["reviewqueue"], description: "Generated, not authored — pulls each student's own due words and weak concepts." },
+  peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50",       components: ["peertask"], starter: ["peertask"], description: "A role-play or info-gap built for two students, not solo or whole-class." },
+  assessment:    { label: "Assessment", icon: Award,           tone: "text-red-600 bg-red-50",         components: ["checkpoint"], starter: ["checkpoint"], description: "A scored checkpoint with a pass threshold — formal, unlike casual Practice." },
 };
 
 // A single, safe-fallback lookup for a Block type's display metadata — every
@@ -73,15 +82,22 @@ const BLOCK_RAIL = {
   practice: "bg-amber-500",
   playground: "bg-purple-500",
   homework: "bg-orange-500",
+  pronunciation: "bg-cyan-500",
+  culture: "bg-fuchsia-500",
+  review: "bg-lime-500",
+  peerwork: "bg-blue-500",
+  assessment: "bg-red-500",
 };
 export function blockRail(type) { return BLOCK_RAIL[type] || "bg-slate-400"; }
 
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
+const NEW_BLOCK_TYPES = ["pronunciation", "culture", "review", "peerwork", "assessment"];
+
 export const LESSON_TEMPLATES = {
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework"] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework"] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework"] },
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework", ...NEW_BLOCK_TYPES] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework", ...NEW_BLOCK_TYPES] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework", ...NEW_BLOCK_TYPES] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the

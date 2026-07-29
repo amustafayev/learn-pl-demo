@@ -157,7 +157,7 @@ export function StudentAssignModal({ open, onClose, student }) {
             <button onClick={() => setPreview(null)} className="text-xs text-slate-400 hover:text-indigo-600 mb-3">← Pick a different kind</button>
             <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{COMPONENT_META[preview.kind].label} · preview — this is exactly what {student.name.split(" ")[0]} will see</div>
             <Card className="p-4 mb-4">
-              <ComponentStudent component={preview.component} />
+              <ComponentStudent component={preview.component} student={student} />
             </Card>
             <Btn onClick={assignNew}><Send size={14} /> Assign this task</Btn>
           </div>

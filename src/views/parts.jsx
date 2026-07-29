@@ -6,7 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus, Dices, Image, MonitorPlay,
+  BookmarkPlus, Dices, Image, MonitorPlay, AudioWaveform, Globe2, Handshake, Award, Info,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
@@ -64,6 +64,11 @@ export const COMPONENT_META = {
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
   slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
+  pronunciationDrill: { label: "Pronunciation drill", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",    hint: "Model clip vs. student attempt, waveform-compared" },
+  cultureNote:  { label: "Culture & context note",  icon: Globe2,        tone: "text-fuchsia-600 bg-fuchsia-50", hint: "Formal, casual, or rude — the register behind a phrase" },
+  reviewqueue:  { label: "Review queue",             icon: RefreshCw,     tone: "text-lime-600 bg-lime-50",     hint: "Auto-generated from each student's own due words and weak concepts" },
+  peertask:     { label: "Peer task",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Role-play or info-gap for two students, each with their own side" },
+  checkpoint:   { label: "Checkpoint",                icon: Award,         tone: "text-red-600 bg-red-50",       hint: "A scored quiz with a pass threshold — formal, not casual practice" },
 };
 
 // Groups COMPONENT_META into the categories a teacher actually thinks in —
@@ -74,9 +79,14 @@ export const COMPONENT_CATEGORIES = [
   { id: "text", label: "Reading & text", kinds: ["passage", "comprehension"] },
   { id: "vocab", label: "Vocabulary & games", kinds: ["wordlist", "flashcards", "match", "memory", "crossword", "wheel", "wordsearch", "imagetoword"] },
   { id: "grammar", label: "Grammar visuals", kinds: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"] },
-  { id: "practice", label: "Practice & assessment", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
-  { id: "media", label: "Media & speaking", kinds: ["video", "listening", "youtube", "scenario", "speakingRecord", "shadowing"] },
+  { id: "practice", label: "Practice", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
+  { id: "assessment", label: "Assessment", kinds: ["checkpoint"] },
+  { id: "speaking", label: "Speaking & pronunciation", kinds: ["scenario", "speakingRecord", "shadowing", "pronunciationDrill"] },
+  { id: "media", label: "Media", kinds: ["video", "listening", "youtube"] },
   { id: "present", label: "Presentations", kinds: ["slidedeck"] },
+  { id: "culture", label: "Culture & context", kinds: ["cultureNote"] },
+  { id: "review", label: "Review (auto-generated)", kinds: ["reviewqueue"] },
+  { id: "peer", label: "Peer & group work", kinds: ["peertask"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
 
@@ -197,6 +207,24 @@ export function defaultComponent(kind, texts = []) {
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
     case "slidedeck":  return { ...base, provider: "slides", url: "", title: "Untitled deck", notes: "" };
+    case "pronunciationDrill": return { ...base, items: [
+      { phrase: "world", ipa: "/wɜːrld/", note: "One syllable — Azerbaijani speakers often add an extra vowel sound." },
+      { phrase: "thought", ipa: "/θɔːt/", note: "The “th” is unvoiced — tongue between teeth, not a “t” or “s” sound." },
+    ] };
+    case "cultureNote": return { ...base, items: [
+      { phrase: "Could you possibly…?", az: "Bacararsınızmı…?", level: "formal", note: "Polite request for a manager or client — softer than “Can you”.", example: "Could you possibly send that report today?" },
+      { phrase: "Yeah, no worries", az: "Bəli, problem deyil", level: "informal", note: "Fine with a close colleague, too casual for a first client email.", example: "Yeah, no worries, I'll handle it." },
+    ] };
+    case "reviewqueue": return { ...base, mode: "auto" };
+    case "peertask": return { ...base,
+      situation: "Two colleagues are planning who covers the on-call shift this weekend.",
+      roleA: { label: "Student A", prompt: "You are free Saturday but not Sunday. Convince your partner to swap." },
+      roleB: { label: "Student B", prompt: "You are free Sunday but not Saturday. You'd prefer not to change your plans." },
+    };
+    case "checkpoint": return { ...base, passScore: 70, items: [
+      { q: "She ___ here since 2019.", options: ["live", "lives", "has lived"], answer: 2, why: "“since 2019” → present perfect." },
+      { q: "I ___ the report yesterday.", options: ["finish", "finished", "have finished"], answer: 1, why: "“yesterday” is a finished past time → past simple." },
+    ] };
     case "crossword":  return { ...base, items: [
       { word: "deploy", clue: "Put software onto a server" },
       { word: "release", clue: "A new version made available to users" },
@@ -254,6 +282,11 @@ export function componentPreview(component, texts = []) {
     case "homework": return `Min. ${component.minSentences || 0} sentences`;
     case "upload": return component.instructions || "File upload";
     case "slidedeck": return component.url ? `${component.title || "Untitled deck"} · ${component.provider || "slides"}` : "No deck linked yet";
+    case "pronunciationDrill": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
+    case "cultureNote": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
+    case "reviewqueue": return "Generated per student — no fixed content";
+    case "peertask": return component.situation || "Role-play for two";
+    case "checkpoint": return `${(component.items || []).length} questions · pass at ${component.passScore || 70}%`;
     case "speakingRecord": return component.question || "Recording prompt";
     case "timeline": case "sentence": case "preposition": case "conjugation": case "conditional": case "comparison": case "wordweb":
       return "Interactive visual";
@@ -462,7 +495,7 @@ export default function BlockStudio() {
 
 // Renders a whole Block exactly as a learner sees it (all its components).
 // Shared by Block Studio's "As student" view and the live-lesson stage.
-export function BlockStudentView({ block }) {
+export function BlockStudentView({ block, student }) {
   const { state } = useStore();
   const components = blockComponents(block, state.texts);
   if (!components.length) return <Card className="p-8 text-center text-slate-400 text-sm">No components in this block yet.</Card>;
@@ -476,7 +509,7 @@ export function BlockStudentView({ block }) {
               <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
               <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
             </div>
-            <ComponentStudent component={c} />
+            <ComponentStudent component={c} student={student} />
           </div>
         );
       })}
@@ -484,7 +517,11 @@ export function BlockStudentView({ block }) {
   );
 }
 
-export function ComponentStudent({ component }) {
+// `student` is optional — only surfaces where a specific learner is known
+// (e.g. previewing a per-student assignment). It's read solely by the
+// review-queue kind, which generates its content from that student's own
+// data rather than anything authored on the component.
+export function ComponentStudent({ component, student }) {
   switch (component.kind) {
     case "passage":    return <PassageComponent component={component} />;
     case "wordlist":   return <WordListComponent component={component} />;
@@ -512,6 +549,11 @@ export function ComponentStudent({ component }) {
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
     case "slidedeck":  return <SlideDeckComponent component={component} />;
+    case "pronunciationDrill": return <PronunciationComponent component={component} />;
+    case "cultureNote": return <CultureNoteComponent component={component} />;
+    case "reviewqueue": return <ReviewQueueComponent component={component} student={student} />;
+    case "peertask":   return <PeerTaskComponent component={component} />;
+    case "checkpoint": return <CheckpointComponent component={component} />;
     case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
     case "wheel":      return <WheelComponent component={component} />;
     case "wordsearch": return <WordSearchComponent component={component} />;
@@ -890,6 +932,189 @@ function SlideDeckComponent({ component }) {
   );
 }
 
+/* ---- Pronunciation drill — a model clip vs. a recorded attempt, waveform
+   compared with a match score. Distinct from Speaking Record: this is short
+   phonetic drilling, not an open-ended graded answer. ---- */
+function PronunciationComponent({ component }) {
+  const items = component.items || [];
+  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <PronunciationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function PronunciationItem({ item, n, total }) {
+  const [playing, setPlaying] = useState(false);
+  const [state, setState] = useState("idle"); // idle | recording | done
+  const [score, setScore] = useState(null);
+  const modelWave = useMemo(() => Array.from({ length: 24 }, (_, i) => 20 + Math.abs(Math.sin(i * 0.9)) * 80), []);
+  const done = state === "done";
+  // recompute a fresh "attempt" only when a recording just finished — `done`
+  // is a deliberate re-roll trigger, not a real data dependency
+  const attemptWave = useMemo(() => modelWave.map((v) => Math.max(8, v + (Math.random() * 30 - 15))), [done]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function playModel() { setPlaying(true); setTimeout(() => setPlaying(false), 1000); }
+  function record() { setState("recording"); setTimeout(() => { setScore(70 + Math.floor(Math.random() * 26)); setState("done"); }, 1200); }
+  function retry() { setState("idle"); setScore(null); }
+
+  return (
+    <Card className="p-4">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Pronunciation · {n} of {total}</div>
+      <div className="flex items-center gap-2 mb-1"><span className="text-lg font-semibold">{item.phrase}</span><span className="text-sm text-slate-400 font-mono">{item.ipa}</span></div>
+      {item.note && <div className="text-xs text-slate-400 mb-3">{item.note}</div>}
+      <div className="flex items-center gap-2 mb-3">
+        <Btn variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Btn>
+        <Btn size="sm" onClick={record} disabled={state === "recording"}><Mic2 size={13} /> {state === "recording" ? "Listening…" : "Record attempt"}</Btn>
+      </div>
+      {state !== "idle" && (
+        <div className="space-y-1.5 mb-2">
+          <div className="flex items-end gap-0.5 h-8">{modelWave.map((h, i) => <span key={i} className="flex-1 bg-cyan-300 rounded-full" style={{ height: `${h}%` }} />)}</div>
+          {state === "done" && <div className="flex items-end gap-0.5 h-8">{attemptWave.map((h, i) => <span key={i} className="flex-1 bg-indigo-400 rounded-full" style={{ height: `${h}%` }} />)}</div>}
+        </div>
+      )}
+      {state === "done" && (
+        <AiNote icon={score >= 85 ? Check : RotateCcw} tone={score >= 85 ? "emerald" : "amber"}>
+          Match: <b>{score}%</b> — {score >= 85 ? "very close to the model." : "close, but listen again for the stress and vowel length."}
+          <button onClick={retry} className="underline ml-2">Try again</button>
+        </AiNote>
+      )}
+    </Card>
+  );
+}
+
+/* ---- Culture & context — the register a dictionary doesn't explain:
+   formal, casual, or rude. ---- */
+const CULTURE_LEVEL_STYLE = {
+  formal: { label: "Formal", tone: "bg-emerald-50 text-emerald-700" },
+  neutral: { label: "Neutral", tone: "bg-sky-50 text-sky-700" },
+  informal: { label: "Informal", tone: "bg-amber-50 text-amber-700" },
+  rude: { label: "Avoid", tone: "bg-rose-50 text-rose-700" },
+};
+function CultureNoteComponent({ component }) {
+  const items = component.items || [];
+  return (
+    <div className="space-y-3 max-w-xl">
+      {items.map((it, i) => {
+        const lvl = CULTURE_LEVEL_STYLE[it.level] || CULTURE_LEVEL_STYLE.neutral;
+        return (
+          <Card key={i} className="p-4">
+            <div className="flex items-center gap-2 mb-1.5"><span className="font-semibold">{it.phrase}</span><Pill className={lvl.tone}>{lvl.label}</Pill></div>
+            {it.az && <div className="text-sm text-indigo-600 mb-1">{it.az}</div>}
+            <p className="text-sm text-slate-600">{it.note}</p>
+            {it.example && <p className="text-xs text-slate-400 italic mt-1.5">“{it.example}”</p>}
+          </Card>
+        );
+      })}
+      {!items.length && <Card className="p-6 text-sm text-slate-400 text-center">No phrases added yet.</Card>}
+    </div>
+  );
+}
+
+/* ---- Review queue — deliberately has no authored content. It generates
+   itself from a specific student's own due words + weakest concepts, so
+   without a student in context there's nothing to show but an explanation. ---- */
+function ReviewQueueComponent({ student }) {
+  if (!student) {
+    return (
+      <Card className="p-6 max-w-xl">
+        <div className="flex items-center gap-2 text-slate-500 mb-2"><Info size={16} /> <span className="font-semibold text-sm">Generated per student</span></div>
+        <p className="text-sm text-slate-500">This block has no fixed content — opened by (or previewed for) a specific student, it pulls their own due words and lowest-scoring concepts. There's no student in context here, so there's nothing to generate yet.</p>
+      </Card>
+    );
+  }
+  const dueWords = (student.words || []).filter((w) => w.status !== "strong").slice(0, 5);
+  const weakConcepts = Object.entries(student.concepts || {}).sort((a, b) => a[1] - b[1]).slice(0, 3);
+  return (
+    <div className="max-w-xl space-y-4">
+      <AiNote icon={RefreshCw} tone="emerald" title={`Generated for ${student.name.split(" ")[0]}, just now`}>
+        Built from their own data — due words and lowest-scoring concepts — nothing here is authored.
+      </AiNote>
+      <div>
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Due words</div>
+        <Card className="divide-y divide-slate-100">
+          {dueWords.map((w, i) => (
+            <div key={i} className="p-3 flex items-center justify-between">
+              <div><span className="font-medium">{w.term}</span> <span className="text-indigo-600 text-sm ml-1.5">{w.az}</span></div>
+              <Pill className={w.status === "weak" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}>{w.status}</Pill>
+            </div>
+          ))}
+          {!dueWords.length && <div className="p-3 text-sm text-slate-400">No due words right now.</div>}
+        </Card>
+      </div>
+      <div>
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Weakest concepts</div>
+        <div className="flex flex-wrap gap-2">
+          {weakConcepts.map(([c, v]) => <Pill key={c} className="bg-rose-50 text-rose-700">{c} · {v}%</Pill>)}
+          {!weakConcepts.length && <span className="text-sm text-slate-400">No concept data yet.</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Peer task — a role-play/info-gap built for two students, each seeing
+   only their own side. Distinct from Scenario (solo, teacher-facing sample
+   replies) and from whole-class content. ---- */
+function PeerTaskComponent({ component }) {
+  const [view, setView] = useState("A");
+  const role = view === "A" ? component.roleA : component.roleB;
+  return (
+    <div className="max-w-xl">
+      <AiNote icon={Handshake} tone="sky" title="Peer task — pair up two students">{component.situation}</AiNote>
+      <div className="flex gap-2 mt-4 mb-3">
+        <button onClick={() => setView("A")} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === "A" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{component.roleA?.label || "Student A"}</button>
+        <button onClick={() => setView("B")} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === "B" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{component.roleB?.label || "Student B"}</button>
+      </div>
+      <Card className="p-5">
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{role?.label} sees only this</div>
+        <p className="text-sm text-slate-700">{role?.prompt}</p>
+      </Card>
+      <p className="text-xs text-slate-400 mt-3">When paired for real, each student only ever sees their own side — this toggle is just for you to preview both.</p>
+    </div>
+  );
+}
+
+/* ---- Checkpoint — a scored, all-at-once quiz with a pass threshold.
+   Deliberately different from casual Practice: no instant per-question
+   retry, one submit, one pass/fail result. ---- */
+function CheckpointComponent({ component }) {
+  const items = component.items || [];
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  if (!items.length) return <Card className="p-8 text-center text-slate-400 text-sm">No questions added yet.</Card>;
+  const correct = items.filter((it, i) => answers[i] === it.answer).length;
+  const pct = Math.round((correct / items.length) * 100);
+  const pass = pct >= (component.passScore || 70);
+  return (
+    <div className="max-w-xl space-y-4">
+      {items.map((it, i) => (
+        <Card key={i} className="p-5">
+          <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Question {i + 1} of {items.length}</div>
+          <div className="text-base font-medium mb-3">{it.q}</div>
+          <div className="space-y-2">
+            {it.options.map((o, oi) => {
+              const picked = answers[i] === oi;
+              return (
+                <button key={oi} disabled={submitted} onClick={() => setAnswers((a) => ({ ...a, [i]: oi }))}
+                  className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${
+                    !submitted ? (picked ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300") :
+                    oi === it.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
+                    picked ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+                  {o}
+                </button>
+              );
+            })}
+          </div>
+          {submitted && it.why && <p className="text-xs text-slate-400 mt-2">{it.why}</p>}
+        </Card>
+      ))}
+      {!submitted ? (
+        <Btn onClick={() => setSubmitted(true)} disabled={Object.keys(answers).length < items.length}><Award size={14} /> Submit checkpoint</Btn>
+      ) : (
+        <AiNote icon={Award} tone={pass ? "emerald" : "rose"} title={`${correct}/${items.length} correct — ${pct}%`}>
+          {pass ? `Pass — at or above the ${component.passScore || 70}% threshold.` : `Below the ${component.passScore || 70}% pass threshold — a retry or review is recommended.`}
+        </AiNote>
+      )}
+    </div>
+  );
+}
+
 /* ---- Speaking: record a real answer, get simulated AI feedback ---- */
 function SpeakingRecordComponent({ component }) {
   const [state, setState] = useState("idle"); // idle | recording | analyzing | done
@@ -1175,6 +1400,11 @@ function ComponentEditor({ component, onChange }) {
     case "comprehension": return <QuizEditor component={component} onChange={onChange} />;
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
     case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
+    case "pronunciationDrill": return <RowsEditor component={component} onChange={onChange} fields={[["phrase", "Phrase"], ["ipa", "IPA (optional)"], ["note", "Note"]]} blank={{ phrase: "", ipa: "", note: "" }} label="phrase" wide={["note"]} />;
+    case "cultureNote": return <CultureNoteEditor component={component} onChange={onChange} />;
+    case "reviewqueue": return <ReviewQueueEditor />;
+    case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} />;
+    case "checkpoint": return <CheckpointEditor component={component} onChange={onChange} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
     case "upload":     return <UploadEditor component={component} onChange={onChange} />;
@@ -1532,6 +1762,72 @@ function SlideDeckEditor({ component, onChange }) {
       <p className="text-xs text-slate-400">{HINTS[component.provider || "slides"]}</p>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
+    </div>
+  );
+}
+
+function CultureNoteEditor({ component, onChange }) {
+  const items = component.items || [];
+  const setItem = (i, patch) => onChange({ items: items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border border-slate-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Phrase</span>
+              <input className={`${inputCls} mt-1`} value={it.phrase || ""} onChange={(e) => setItem(i, { phrase: e.target.value })} /></label>
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Azerbaijani</span>
+              <input className={`${inputCls} mt-1`} value={it.az || ""} onChange={(e) => setItem(i, { az: e.target.value })} /></label>
+          </div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Register</span>
+            <select className={`${inputCls} mt-1`} value={it.level || "neutral"} onChange={(e) => setItem(i, { level: e.target.value })}>
+              {Object.entries(CULTURE_LEVEL_STYLE).map(([id, s]) => <option key={id} value={id}>{s.label}</option>)}
+            </select>
+          </label>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Note</span>
+            <input className={`${inputCls} mt-1`} value={it.note || ""} onChange={(e) => setItem(i, { note: e.target.value })} /></label>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Example</span>
+            <input className={`${inputCls} mt-1`} value={it.example || ""} onChange={(e) => setItem(i, { example: e.target.value })} /></label>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { phrase: "", az: "", level: "neutral", note: "", example: "" }] })}><Plus size={14} /> Add phrase</Btn>
+    </div>
+  );
+}
+
+function ReviewQueueEditor() {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500">
+      Nothing to edit here — this block generates its content automatically from each student's own due words and weakest concepts when they open it. Preview it for a specific student from that student's page (Assign → New task) to see it filled in.
+    </div>
+  );
+}
+
+function PeerTaskEditor({ component, onChange }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Situation"><textarea className={`${inputCls} h-20 resize-none`} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-slate-100 p-3">
+          <Field label="Student A — label"><input className={inputCls} value={component.roleA?.label || ""} onChange={(e) => onChange({ roleA: { ...component.roleA, label: e.target.value } })} /></Field>
+          <Field label="Student A — only they see"><textarea className={`${inputCls} h-24 resize-none`} value={component.roleA?.prompt || ""} onChange={(e) => onChange({ roleA: { ...component.roleA, prompt: e.target.value } })} /></Field>
+        </div>
+        <div className="rounded-xl border border-slate-100 p-3">
+          <Field label="Student B — label"><input className={inputCls} value={component.roleB?.label || ""} onChange={(e) => onChange({ roleB: { ...component.roleB, label: e.target.value } })} /></Field>
+          <Field label="Student B — only they see"><textarea className={`${inputCls} h-24 resize-none`} value={component.roleB?.prompt || ""} onChange={(e) => onChange({ roleB: { ...component.roleB, prompt: e.target.value } })} /></Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CheckpointEditor({ component, onChange }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Pass threshold (%)"><input type="number" min="0" max="100" className={`${inputCls} w-28`} value={component.passScore ?? 70} onChange={(e) => onChange({ passScore: Number(e.target.value) || 0 })} /></Field>
+      <QuizEditor component={component} onChange={onChange} />
     </div>
   );
 }
