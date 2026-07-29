@@ -9,7 +9,7 @@ import {
   BookmarkPlus, Dices, Image,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
-import { useStore, useNav, saveBlockToBank } from "../store.jsx";
+import { useStore, useNav, saveBlockToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -329,22 +329,32 @@ export default function BlockStudio() {
                     <div className="text-[11px] font-mono uppercase tracking-wide text-indigo-600 font-semibold mb-2 flex items-center gap-1">
                       <BookmarkPlus size={13} /> Insert from My Component Library
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {state.componentBank.map((item) => {
-                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-slate-100 text-slate-600", icon: Layers };
-                        const KI = M.icon;
-                        return (
-                          <button key={item.id} onClick={() => insertSavedComponent(item)}
-                            className="flex items-center gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 p-2.5 text-left transition-all shadow-sm">
-                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={14} /></span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-bold text-slate-800 truncate">{item.title}</div>
-                              <div className="text-[10px] text-slate-400 truncate">{item.from} · {M.label}</div>
-                            </div>
-                            <Plus size={14} className="text-indigo-600 shrink-0" />
-                          </button>
-                        );
-                      })}
+                    {/* grouped by the course/parent it was saved from, so the
+                        library reads as folders instead of one flat pile */}
+                    <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
+                      {groupBankByParent(state.componentBank).map(({ parent, items }) => (
+                        <div key={parent}>
+                          <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-500/80 mb-1.5 px-0.5">{parent}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {items.map((item) => {
+                              const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-slate-100 text-slate-600", icon: Layers };
+                              const KI = M.icon;
+                              const child = bankChildLabel(item);
+                              return (
+                                <button key={item.id} onClick={() => insertSavedComponent(item)}
+                                  className="flex items-center gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 p-2.5 text-left transition-all shadow-sm">
+                                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={14} /></span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-bold text-slate-800 truncate">{item.title}</div>
+                                    <div className="text-[10px] text-slate-400 truncate">{M.label}{child ? ` · ${child}` : ""}</div>
+                                  </div>
+                                  <Plus size={14} className="text-indigo-600 shrink-0" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

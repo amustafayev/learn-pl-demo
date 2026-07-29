@@ -43,6 +43,25 @@ export function saveBlockToBank(dispatch, toast, block, from) {
   toast(`“${block.title || BLOCK_TYPES[block.type]?.label || block.type}” saved to My Blocks`);
 }
 
+// Group bank items (saved Blocks or saved Components) by the course/parent
+// they were saved from — every "reuse a saved thing" picker (My Blocks, the
+// Add-block dialog, the Component Library) organizes its list the same way,
+// so a growing bank reads as folders instead of one flat pile.
+export function groupBankByParent(items) {
+  const order = [];
+  const groups = new Map();
+  for (const item of items) {
+    const parent = (item.from || "Other").split(" · ")[0] || "Other";
+    if (!groups.has(parent)) { groups.set(parent, []); order.push(parent); }
+    groups.get(parent).push(item);
+  }
+  return order.map((parent) => ({ parent, items: groups.get(parent) }));
+}
+
+// The part of `from` after the parent (e.g. "Lesson 4") — shown as the
+// item's own detail line instead of repeating the parent in every row.
+export const bankChildLabel = (item) => (item.from || "").split(" · ").slice(1).join(" · ");
+
 const initialState = {
   courses: clone(SEED_COURSES),
   lessons: clone(SEED_LESSONS),

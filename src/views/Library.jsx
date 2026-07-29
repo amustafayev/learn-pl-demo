@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import {
-  BookPlus, Send, Download, ChevronRight, ArrowLeft, Layers, RefreshCw, Wand2,
-  Check, Sparkles, ArrowRight, Trash2, BookmarkCheck,
+  BookPlus, Send, Download, ChevronRight, ChevronDown, ArrowLeft, Layers, RefreshCw, Wand2,
+  Check, Sparkles, ArrowRight, Trash2, BookmarkCheck, Boxes,
 } from "lucide-react";
 import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls } from "../ui.jsx";
-import { useStore } from "../store.jsx";
-import { HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
+import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
+import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
@@ -298,43 +298,102 @@ function OwnTextModal({ open, onClose }) {
 
 // The teacher's saved, reusable blocks. Save from any lesson (bookmark icon in
 // the builder / tree / studio); insert from "Add block → From My Blocks".
+// A collapsible "folder" for one parent (course, or "Playground") in the
+// bank — used for both saved Blocks and saved Components so both read as
+// organized groups instead of one flat pile that only grows over time.
+function BankGroup({ parent, count, hue, children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-6 last:mb-0">
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 mb-3 group">
+        {open ? <ChevronDown size={14} className="text-slate-300 shrink-0" /> : <ChevronRight size={14} className="text-slate-300 shrink-0" />}
+        {hue ? <span className={`w-2 h-2 rounded-full shrink-0 ${HUE[hue]}`} /> : <Boxes size={12} className="text-slate-400 shrink-0" />}
+        <h3 className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{parent}</h3>
+        <Pill className="bg-slate-100 text-slate-500 font-mono">{count}</Pill>
+        <div className="flex-1 h-px bg-slate-100" />
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
 function MyBlocks() {
   const { state, dispatch, toast } = useStore();
-  const bank = state.blockBank;
+  const blockGroups = groupBankByParent(state.blockBank);
+  const componentGroups = groupBankByParent(state.componentBank || []);
+  const hueFor = (parent) => state.courses.find((c) => c.title === parent)?.hue;
+
   return (
     <>
-      <SectionLabel>Saved blocks · reusable across every course</SectionLabel>
-      {bank.length ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bank.map((item) => {
-            const BT = BLOCK_TYPES[item.type] || {}; const I = BT.icon || BookmarkCheck;
-            const comps = item.content?.components || [];
-            return (
-              <Card key={item.id} className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${BT.tone || "bg-slate-100 text-slate-500"}`}><I size={16} /></span>
-                  <button title="Delete from My Blocks"
-                    onClick={() => { dispatch({ type: "REMOVE_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from My Blocks`); }}
-                    className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
-                </div>
-                <div className="font-bold mb-0.5">{item.title}</div>
-                <div className="text-xs text-slate-400 mb-3">{BT.label || item.type} block · saved from {item.from}</div>
-                <div className="flex flex-wrap gap-1">
-                  {comps.map((c, i) => (
-                    <Pill key={i} className="bg-slate-100 text-slate-500">{COMPONENT_META[c.kind]?.label || c.kind}</Pill>
-                  ))}
-                  {!comps.length && <span className="text-xs text-slate-400">empty block</span>}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <Card className="p-8 text-center text-sm text-slate-400">
+      <SectionLabel>Saved blocks · grouped by the course they came from</SectionLabel>
+      {blockGroups.length ? blockGroups.map(({ parent, items }) => (
+        <BankGroup key={parent} parent={parent} count={items.length} hue={hueFor(parent)}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map((item) => {
+              const BT = BLOCK_TYPES[item.type] || {}; const I = BT.icon || BookmarkCheck;
+              const comps = item.content?.components || [];
+              const child = bankChildLabel(item);
+              return (
+                <Card key={item.id} className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${BT.tone || "bg-slate-100 text-slate-500"}`}><I size={16} /></span>
+                    <button title="Delete from My Blocks"
+                      onClick={() => { dispatch({ type: "REMOVE_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from My Blocks`); }}
+                      className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                  </div>
+                  <div className="font-bold mb-0.5">{item.title}</div>
+                  <div className="text-xs text-slate-400 mb-3">{BT.label || item.type} block{child ? ` · ${child}` : ""}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {comps.map((c, i) => (
+                      <Pill key={i} className="bg-slate-100 text-slate-500">{COMPONENT_META[c.kind]?.label || c.kind}</Pill>
+                    ))}
+                    {!comps.length && <span className="text-xs text-slate-400">empty block</span>}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </BankGroup>
+      )) : (
+        <Card className="p-8 text-center text-sm text-slate-400 mb-8">
           Nothing saved yet — in any lesson, hit the <BookmarkCheck size={13} className="inline mx-0.5" /> bookmark on a block to keep it here for reuse.
         </Card>
       )}
-      <p className="text-xs text-slate-400 mt-3">Insert a saved block from any lesson: <b>Add block → From My Blocks</b>. It drops in as a copy, so editing it never changes the saved original.</p>
+
+      <div className="mt-8">
+        <SectionLabel>Saved components · grouped by the course they came from</SectionLabel>
+        {componentGroups.length ? componentGroups.map(({ parent, items }) => (
+          <BankGroup key={parent} parent={parent} count={items.length} hue={hueFor(parent)}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {items.map((item) => {
+                const M = COMPONENT_META[item.kind] || { label: item.kind, icon: Layers, tone: "bg-slate-100 text-slate-600" };
+                const I = M.icon;
+                const child = bankChildLabel(item);
+                return (
+                  <Card key={item.id} className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${M.tone}`}><I size={16} /></span>
+                      <button title="Delete from Component Library"
+                        onClick={() => { dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
+                        className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                    </div>
+                    <div className="font-bold mb-0.5">{item.title}</div>
+                    <div className="text-xs text-slate-400">{M.label}{child ? ` · ${child}` : ""}</div>
+                  </Card>
+                );
+              })}
+            </div>
+          </BankGroup>
+        )) : (
+          <Card className="p-8 text-center text-sm text-slate-400">
+            Nothing saved yet — while editing a block's content, hit the bookmark on any component to keep it here for reuse.
+          </Card>
+        )}
+      </div>
+
+      <p className="text-xs text-slate-400 mt-6">
+        Insert a saved block from any lesson: <b>Add block → From My Blocks</b>. Insert a saved component while editing a block: <b>Add component → My Component Library</b>. Both drop in as a copy, so editing them never touches the saved original.
+      </p>
     </>
   );
 }

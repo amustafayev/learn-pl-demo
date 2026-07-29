@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Check } from "lucide-react";
 import { Modal, Field, inputCls, Btn, StudentCheckList } from "../ui.jsx";
-import { useStore } from "../store.jsx";
+import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "../data.jsx";
 
 const HUES = ["indigo", "emerald", "amber", "rose", "sky"];
@@ -124,24 +124,34 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, b
         })}
       </div>
 
-      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson */}
+      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson.
+          Grouped by the course/parent it was saved from, so a growing bank
+          reads as folders instead of one flat list. */}
       {bank.length > 0 && onPickBank && (
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">From My Blocks · ready-made, drops in with all its content</div>
-          <div className="space-y-1.5">
-            {bank.map((item) => {
-              const BT = BLOCK_TYPES[item.type]; const I = BT.icon;
-              return (
-                <button key={item.id} onClick={() => { onPickBank(item); onClose(); }}
-                  className="w-full flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-2.5 text-left transition-colors">
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={15} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="text-sm font-medium block truncate">{item.title}</span>
-                    <span className="text-[11px] text-slate-400 block truncate">{BT.label} · {(item.content?.components || []).length} components · saved from {item.from}</span>
-                  </span>
-                </button>
-              );
-            })}
+          <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
+            {groupBankByParent(bank).map(({ parent, items }) => (
+              <div key={parent}>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-500/80 mb-1.5 px-0.5">{parent}</div>
+                <div className="space-y-1.5">
+                  {items.map((item) => {
+                    const BT = BLOCK_TYPES[item.type]; const I = BT.icon;
+                    const child = bankChildLabel(item);
+                    return (
+                      <button key={item.id} onClick={() => { onPickBank(item); onClose(); }}
+                        className="w-full flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-2.5 text-left transition-colors">
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={15} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="text-sm font-medium block truncate">{item.title}</span>
+                          <span className="text-[11px] text-slate-400 block truncate">{BT.label} · {(item.content?.components || []).length} components{child ? ` · ${child}` : ""}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
