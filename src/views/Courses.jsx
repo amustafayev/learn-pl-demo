@@ -23,6 +23,7 @@ export function CoursesView() {
   const { state } = useStore();
   const { go } = useNav();
   const [modal, setModal] = useState(false);
+  const [rosterCourse, setRosterCourse] = useState(null);
   return (
     <Page>
       <PageHead kicker="Teacher Console · Maryam Bayramova" title="Courses"
@@ -32,6 +33,7 @@ export function CoursesView() {
         {state.courses.map((c) => {
           const count = (state.lessons[c.id] || []).length;
           const enrolled = state.students.filter((s) => s.courseId === c.id);
+          const openRoster = (e) => { e.stopPropagation(); setRosterCourse(c); };
           return (
             <button key={c.id} onClick={() => go({ courseId: c.id })}
               className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5 flex flex-col justify-between">
@@ -41,13 +43,20 @@ export function CoursesView() {
                   <ChevronRight size={16} className="text-slate-300" />
                 </div>
                 <div className="text-lg font-bold mb-1">{c.title}</div>
-                <div className="text-sm text-slate-500 mb-1">{count} lessons · {enrolled.length} enrolled students</div>
+                <div className="text-sm text-slate-500 mb-1">
+                  {count} lessons ·{" "}
+                  <span role="button" tabIndex={0} onClick={openRoster} onKeyDown={(e) => e.key === "Enter" && openRoster(e)}
+                    className="hover:text-indigo-600 hover:underline">
+                    {enrolled.length} enrolled students
+                  </span>
+                </div>
                 <div className="text-[11px] text-slate-400 mb-4">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
               </div>
 
               <div>
-                {/* Enrolled student avatars preview */}
-                <div className="flex items-center gap-1.5 mb-4">
+                {/* Enrolled student avatars preview — also opens the roster */}
+                <div role="button" tabIndex={0} onClick={openRoster} onKeyDown={(e) => e.key === "Enter" && openRoster(e)}
+                  className="flex items-center gap-1.5 mb-4 w-fit">
                   <div className="flex -space-x-2 overflow-hidden">
                     {enrolled.slice(0, 4).map((s) => (
                       <Avatar key={s.id} name={s.name} size={6} />
@@ -69,7 +78,24 @@ export function CoursesView() {
         })}
       </div>
       <NewCourseModal open={modal} onClose={() => setModal(false)} />
+      <CourseRosterModal course={rosterCourse}
+        students={state.students.filter((s) => s.courseId === rosterCourse?.id)}
+        onClose={() => setRosterCourse(null)} />
     </Page>
+  );
+}
+
+// Read-only roster popover — "click the enrolled-count to see who" instead
+// of it being static text on the course card.
+function CourseRosterModal({ course, students, onClose }) {
+  if (!course) return null;
+  return (
+    <Modal open onClose={onClose} title={`Enrolled in ${course.title}`}
+      sub={`${students.length} student${students.length === 1 ? "" : "s"}`}
+      footer={<Btn onClick={onClose}>Done</Btn>}>
+      <StudentCheckList students={students} isSelected={() => true} onToggle={() => {}}
+        metaFor={(s) => `${s.level} · ${s.status}`} emptyText="No students enrolled in this course yet." />
+    </Modal>
   );
 }
 
@@ -350,7 +376,7 @@ export function CourseView() {
         )}
       </div>
 
-      <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} />
+      <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} onCreated={(lessonId) => go({ lessonId })} />
       <ManageLessonStudentsModal lesson={manageLesson} course={course} enrolled={enrolled} onClose={() => setManageLesson(null)} />
     </Page>
   );

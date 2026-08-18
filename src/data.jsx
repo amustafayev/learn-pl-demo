@@ -90,6 +90,21 @@ const BLOCK_RAIL = {
 };
 export function blockRail(type) { return BLOCK_RAIL[type] || "bg-slate-400"; }
 
+// Groups Block *types* into the categories a teacher actually thinks in when
+// adding a step — mirrors how COMPONENT_CATEGORIES (parts.jsx) groups
+// Component *kinds* — so "Add a block" shows Reading options under Reading
+// instead of throwing every block type from every template at once.
+export const BLOCK_CATEGORIES = [
+  { id: "reading", label: "Reading & listening", types: ["reading", "ieltsReading", "listening", "ieltsListening"] },
+  { id: "vocabulary", label: "Vocabulary", types: ["vocabulary"] },
+  { id: "grammar", label: "Grammar & practice", types: ["grammar", "practice"] },
+  { id: "speaking", label: "Speaking & pronunciation", types: ["speaking", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "pronunciation"] },
+  { id: "writing", label: "Writing", types: ["writing", "ieltsWriting1", "ieltsWriting2", "businessWriting"] },
+  { id: "playground", label: "Playground & homework", types: ["playground", "homework"] },
+  { id: "assessment", label: "Assessment, culture & review", types: ["assessment", "culture", "review"] },
+  { id: "peer", label: "Peer work", types: ["peerwork"] },
+];
+
 // A lesson template is just a named list of Block-type ids — new course
 // types are added here, not by touching the pathway UI or the editors.
 const NEW_BLOCK_TYPES = ["pronunciation", "culture", "review", "peerwork", "assessment"];

@@ -123,10 +123,10 @@ function reducer(state, action) {
       };
     }
     case "ADD_LESSON": {
-      const { courseId, title } = action;
+      const { courseId, title, id } = action;
       const list = state.lessons[courseId] || [];
       const n = list.length + 1;
-      const lesson = { id: uid("l"), n, title, parts: [], active: 0, progress: 0, current: false, built: [] };
+      const lesson = { id: id || uid("l"), n, title, parts: [], active: 0, progress: 0, current: false, built: [] };
       return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] } };
     }
     case "ENSURE_BUILT": {
