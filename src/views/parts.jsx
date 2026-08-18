@@ -6,9 +6,9 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus, Dices, Image, MonitorPlay, AudioWaveform, Globe2, Handshake, Award, Info,
+  BookmarkPlus, Dices, Image, MonitorPlay, Handshake,
 } from "lucide-react";
-import { Card, Btn, Pill, AiNote, Field, inputCls } from "../ui.jsx";
+import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton } from "../ui.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -53,6 +53,7 @@ export const COMPONENT_META = {
   wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50", hint: "A central word branching into related phrases" },
   quiz:       { label: "Quiz (multiple choice)",icon: FileQuestion,      tone: "text-orange-600 bg-orange-50", hint: "Classic multiple-choice question set" },
   gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50",  hint: "Type the missing word into a sentence" },
+  wordformation: { label: "Word formation",     icon: Shapes,            tone: "text-indigo-600 bg-indigo-50", hint: "Transform a root word into the form a sentence needs (decide → decision)" },
   scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50",    hint: "Unscramble jumbled sentences in the right order" },
   speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50",      hint: "Timed multiple-choice round for quick recall practice" },
   video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50",    hint: "A short clip with a transcript to reveal" },
@@ -64,11 +65,7 @@ export const COMPONENT_META = {
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
   slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
-  pronunciationDrill: { label: "Pronunciation drill", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",    hint: "Model clip vs. student attempt, waveform-compared" },
-  cultureNote:  { label: "Culture & context note",  icon: Globe2,        tone: "text-fuchsia-600 bg-fuchsia-50", hint: "Formal, casual, or rude — the register behind a phrase" },
-  reviewqueue:  { label: "Review queue",             icon: RefreshCw,     tone: "text-lime-600 bg-lime-50",     hint: "Auto-generated from each student's own due words and weak concepts" },
   peertask:     { label: "Group work",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Info-gap/jigsaw for any group size, or a Kahoot-style team quiz race" },
-  checkpoint:   { label: "Checkpoint",                icon: Award,         tone: "text-red-600 bg-red-50",       hint: "A scored quiz with a pass threshold — formal, not casual practice" },
 };
 
 // Groups COMPONENT_META into the categories a teacher actually thinks in —
@@ -77,15 +74,12 @@ export const COMPONENT_META = {
 // they sit, not just by name.
 export const COMPONENT_CATEGORIES = [
   { id: "text", label: "Reading & text", kinds: ["passage", "comprehension"] },
-  { id: "vocab", label: "Vocabulary & games", kinds: ["wordlist", "flashcards", "match", "memory", "crossword", "wheel", "wordsearch", "imagetoword"] },
+  { id: "vocab", label: "Vocabulary & games", kinds: ["wordlist", "flashcards", "match", "wordformation", "memory", "crossword", "wheel", "wordsearch", "imagetoword"] },
   { id: "grammar", label: "Grammar visuals", kinds: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"] },
   { id: "practice", label: "Practice", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
-  { id: "assessment", label: "Assessment", kinds: ["checkpoint"] },
-  { id: "speaking", label: "Speaking & pronunciation", kinds: ["scenario", "speakingRecord", "shadowing", "pronunciationDrill"] },
+  { id: "speaking", label: "Speaking & pronunciation", kinds: ["scenario", "speakingRecord", "shadowing"] },
   { id: "media", label: "Media", kinds: ["video", "listening", "youtube"] },
   { id: "present", label: "Presentations", kinds: ["slidedeck"] },
-  { id: "culture", label: "Culture & context", kinds: ["cultureNote"] },
-  { id: "review", label: "Review (auto-generated)", kinds: ["reviewqueue"] },
   { id: "peer", label: "Peer & group work", kinds: ["peertask"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
@@ -154,6 +148,10 @@ export function defaultComponent(kind, texts = []) {
       { text: "I ___ the report yesterday.", answer: "finished", why: "“yesterday” bitmiş vaxtdır → Past simple." },
       { text: "She ___ here since 2020.", answer: "has lived", why: "İndi də davam edir → Present perfect." },
     ] };
+    case "wordformation": return { ...base, items: [
+      { root: "decide", sentence: "The manager made a difficult ___ yesterday.", answer: "decision", pos: "noun", why: "“a difficult ___” bir isim (noun) tələb edir." },
+      { root: "create", sentence: "The team is very ___ when solving problems.", answer: "creative", pos: "adjective", why: "“very ___” bir sifət (adjective) tələb edir." },
+    ] };
     case "timeline":   return { ...base };
     case "sentence":   return { ...base, sentence: [
       { w: "The team", role: "subject" }, { w: "shipped", role: "verb" }, { w: "the login screen", role: "object" },
@@ -196,7 +194,7 @@ export function defaultComponent(kind, texts = []) {
       { prompt: "Colleague: Ready for the standup?", sample: "Almost — let me grab a coffee first." },
     ] };
     case "homework":   return { ...base, prompt: "Write 5 sentences introducing yourself to a new team.", minSentences: 5 };
-    case "comprehension": return { ...base, items: [
+    case "comprehension": return { ...base, mode: "multiple", passageRefId: null, items: [
       { q: "What did the speaker do yesterday?", options: ["Shipped the login screen", "Deployed the fix", "Wrote a report"], answer: 0, why: "Bax mətnə: “Yesterday I shipped the login screen.”" },
     ] };
     case "youtube":    return { ...base, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Model conversation", notes: "Watch once for gist, once for detail." };
@@ -207,15 +205,6 @@ export function defaultComponent(kind, texts = []) {
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
     case "slidedeck":  return { ...base, provider: "slides", url: "", title: "Untitled deck", notes: "" };
-    case "pronunciationDrill": return { ...base, items: [
-      { phrase: "world", ipa: "/wɜːrld/", note: "One syllable — Azerbaijani speakers often add an extra vowel sound." },
-      { phrase: "thought", ipa: "/θɔːt/", note: "The “th” is unvoiced — tongue between teeth, not a “t” or “s” sound." },
-    ] };
-    case "cultureNote": return { ...base, items: [
-      { phrase: "Could you possibly…?", az: "Bacararsınızmı…?", level: "formal", note: "Polite request for a manager or client — softer than “Can you”.", example: "Could you possibly send that report today?" },
-      { phrase: "Yeah, no worries", az: "Bəli, problem deyil", level: "informal", note: "Fine with a close colleague, too casual for a first client email.", example: "Yeah, no worries, I'll handle it." },
-    ] };
-    case "reviewqueue": return { ...base, mode: "auto" };
     case "peertask": return { ...base,
       mode: "infogap", // "infogap" (any group size) | "quizrace" (Kahoot/Quizlet-Live-style team game)
       situation: "Two colleagues are planning who covers the on-call shift this weekend.",
@@ -234,10 +223,6 @@ export function defaultComponent(kind, texts = []) {
         { q: "Which sentence uses the past simple correctly?", options: ["I have finished it yesterday.", "I finished it yesterday.", "I finish it yesterday."], answer: 1 },
       ],
     };
-    case "checkpoint": return { ...base, passScore: 70, items: [
-      { q: "She ___ here since 2019.", options: ["live", "lives", "has lived"], answer: 2, why: "“since 2019” → present perfect." },
-      { q: "I ___ the report yesterday.", options: ["finish", "finished", "have finished"], answer: 1, why: "“yesterday” is a finished past time → past simple." },
-    ] };
     case "crossword":  return { ...base, items: [
       { word: "deploy", clue: "Put software onto a server" },
       { word: "release", clue: "A new version made available to users" },
@@ -285,7 +270,11 @@ export function componentPreview(component, texts = []) {
     case "wordlist": case "flashcards": case "memory":
       return `${(items || component.pairs || []).length} words`;
     case "match": return `${(component.pairs || []).length} pairs`;
-    case "quiz": case "comprehension": case "gapfill": case "scramble": case "speedround": case "shadowing":
+    case "comprehension": {
+      const modeLabel = { multiple: "multiple choice", truefalse: "true/false", matching: "matching" }[component.mode || "multiple"];
+      return `${(items || []).length} item${(items || []).length === 1 ? "" : "s"} · ${modeLabel}`;
+    }
+    case "quiz": case "gapfill": case "wordformation": case "scramble": case "speedround": case "shadowing":
       return `${(items || []).length} item${(items || []).length === 1 ? "" : "s"}`;
     case "crossword": case "wheel": case "wordsearch": case "imagetoword":
       return `${(items || component.words || []).length} words`;
@@ -295,13 +284,9 @@ export function componentPreview(component, texts = []) {
     case "homework": return `Min. ${component.minSentences || 0} sentences`;
     case "upload": return component.instructions || "File upload";
     case "slidedeck": return component.url ? `${component.title || "Untitled deck"} · ${component.provider || "slides"}` : "No deck linked yet";
-    case "pronunciationDrill": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
-    case "cultureNote": return `${(component.items || []).length} phrase${(component.items || []).length === 1 ? "" : "s"}`;
-    case "reviewqueue": return "Generated per student — no fixed content";
     case "peertask": return component.mode === "quizrace"
       ? `Team quiz race · ${(component.teams || []).length} teams · ${(component.items || []).length} questions`
       : `${(component.roles || []).length}-way info-gap${component.situation ? ` · ${component.situation}` : ""}`;
-    case "checkpoint": return `${(component.items || []).length} questions · pass at ${component.passScore || 70}%`;
     case "speakingRecord": return component.question || "Recording prompt";
     case "timeline": case "sentence": case "preposition": case "conjugation": case "conditional": case "comparison": case "wordweb":
       return "Interactive visual";
@@ -409,11 +394,13 @@ export default function BlockStudio() {
             {components.map((c, i) => {
               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
               const CI = M.icon;
+              const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
               return (
-                <div key={c.id}>
+                <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-indigo-100" : ""}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
                     <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
+                    {linkedPassage && <span className="text-[11px] text-indigo-400">↳ for its passage above</span>}
                   </div>
                   <ComponentStudent component={c} />
                 </div>
@@ -432,11 +419,15 @@ export default function BlockStudio() {
             {components.map((c, i) => {
               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
               const CI = M.icon;
+              const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
               return (
-                <Card key={c.id} className="p-4">
+                <Card key={c.id} className={`p-4 ${linkedPassage ? "ml-6 border-indigo-100" : ""}`}>
                   <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-slate-100">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
-                    <div className="flex-1"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}</span><div className="font-semibold text-sm">{M.label}</div></div>
+                    <div className="flex-1">
+                      <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}{linkedPassage ? " · ↳ for its passage" : ""}</span>
+                      <div className="font-semibold text-sm">{M.label}</div>
+                    </div>
                     <div className="flex items-center gap-1 text-slate-400">
                       <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
                       <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><Copy size={14} /></button>
@@ -445,7 +436,8 @@ export default function BlockStudio() {
                       <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson} />
+                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                    passages={components.filter((x) => x.kind === "passage")} />
                 </Card>
               );
             })}
@@ -515,7 +507,7 @@ export default function BlockStudio() {
 
 // Renders a whole Block exactly as a learner sees it (all its components).
 // Shared by Block Studio's "As student" view and the live-lesson stage.
-export function BlockStudentView({ block, student }) {
+export function BlockStudentView({ block }) {
   const { state } = useStore();
   const components = blockComponents(block, state.texts);
   if (!components.length) return <Card className="p-8 text-center text-slate-400 text-sm">No components in this block yet.</Card>;
@@ -529,7 +521,7 @@ export function BlockStudentView({ block, student }) {
               <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
               <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
             </div>
-            <ComponentStudent component={c} student={student} />
+            <ComponentStudent component={c} />
           </div>
         );
       })}
@@ -537,11 +529,7 @@ export function BlockStudentView({ block, student }) {
   );
 }
 
-// `student` is optional — only surfaces where a specific learner is known
-// (e.g. previewing a per-student assignment). It's read solely by the
-// review-queue kind, which generates its content from that student's own
-// data rather than anything authored on the component.
-export function ComponentStudent({ component, student }) {
+export function ComponentStudent({ component }) {
   switch (component.kind) {
     case "passage":    return <PassageComponent component={component} />;
     case "wordlist":   return <WordListComponent component={component} />;
@@ -549,6 +537,7 @@ export function ComponentStudent({ component, student }) {
     case "match":      return <MatchComponent component={component} />;
     case "quiz":       return <QuizComponent component={component} />;
     case "gapfill":    return <GapFillComponent component={component} />;
+    case "wordformation": return <WordFormationComponent component={component} />;
     case "timeline":   return <Card className="p-6"><TenseTimeline /></Card>;
     case "sentence":   return <SentenceComponent component={component} />;
     case "preposition":return <Card className="p-6"><PrepositionScene {...component} /></Card>;
@@ -563,17 +552,13 @@ export function ComponentStudent({ component, student }) {
     case "listening":  return <MediaComponent component={component} kind="listening" />;
     case "scenario":   return <ScenarioComponent component={component} />;
     case "homework":   return <HomeworkComponent component={component} />;
-    case "comprehension": return <QuizComponent component={component} />;
+    case "comprehension": return <ComprehensionComponent component={component} />;
     case "youtube":    return <YoutubeComponent component={component} />;
     case "speakingRecord": return <SpeakingRecordComponent component={component} />;
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
     case "slidedeck":  return <SlideDeckComponent component={component} />;
-    case "pronunciationDrill": return <PronunciationComponent component={component} />;
-    case "cultureNote": return <CultureNoteComponent component={component} />;
-    case "reviewqueue": return <ReviewQueueComponent component={component} student={student} />;
     case "peertask":   return <PeerTaskComponent component={component} />;
-    case "checkpoint": return <CheckpointComponent component={component} />;
     case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
     case "wheel":      return <WheelComponent component={component} />;
     case "wordsearch": return <WordSearchComponent component={component} />;
@@ -600,8 +585,12 @@ function WordListComponent({ component }) {
     <Card className="divide-y divide-slate-100">
       {items.map((w, i) => (
         <div key={i} className="p-3.5">
-          <div className="flex items-center gap-2"><b>{w.term}</b><span className="text-indigo-600 text-sm">{w.az}</span></div>
-          <div className="text-sm text-slate-500">{w.def}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <b>{w.term}</b>
+            <SpeakButton text={w.term} />
+            {w.def && <span className="text-sm text-slate-500">— {w.def}</span>}
+          </div>
+          {w.az && <div className="text-indigo-600 text-sm mt-0.5">({w.az})</div>}
           {w.example && <div className="text-xs text-slate-400 italic mt-0.5">“{w.example}”</div>}
         </div>
       ))}
@@ -618,9 +607,21 @@ function FlashcardsComponent({ component }) {
   const wd = items[i % items.length];
   return (
     <div className="max-w-md">
-      <button onClick={() => setFlip((f) => !f)} className="w-full h-40 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-indigo-300 transition-colors">
-        {flip ? <><span className="text-2xl font-bold text-indigo-600">{wd.az}</span>{wd.example && <span className="text-sm text-slate-400 mt-2 italic">“{wd.example}”</span>}</> : <span className="text-2xl font-bold">{wd.term}</span>}
-      </button>
+      <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
+        className="w-full h-40 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-indigo-300 transition-colors cursor-pointer">
+        {flip ? (
+          <>
+            {wd.def && <span className="text-base text-slate-600 text-center px-4">{wd.def}</span>}
+            <span className="text-lg font-semibold text-indigo-600 mt-1">({wd.az})</span>
+            {wd.example && <span className="text-sm text-slate-400 mt-2 italic">“{wd.example}”</span>}
+          </>
+        ) : (
+          <>
+            <span className="text-2xl font-bold">{wd.term}</span>
+            <SpeakButton text={wd.term} className="mt-1" />
+          </>
+        )}
+      </div>
       <div className="flex items-center justify-between mt-3">
         <Btn variant="outline" size="sm" onClick={() => { setI((i - 1 + items.length) % items.length); setFlip(false); }}>Prev</Btn>
         <span className="text-sm text-slate-400 font-mono">{(i % items.length) + 1} / {items.length}</span>
@@ -636,14 +637,18 @@ function MatchComponent({ component }) {
   const mode = component.mode || "az";
   const pairs = (component.pairs || []).slice(0, 5);
   if (mode === "theme") return <ThemeGroup pairs={pairs} />;
-  return <MatchBoard pairs={pairs} showEmoji={mode === "picture"} onDone={() => toast("Matched — great work! 🎉")} />;
+  return <MatchBoard pairs={pairs} showEmoji={mode === "picture"} pairType={component.pairType || "az"} onDone={() => toast("Matched — great work! 🎉")} />;
 }
 
-function MatchBoard({ pairs, showEmoji, onDone }) {
+// `pairType` picks which field on the right side the term is matched
+// against — plain translation, or (per the vocab exercise request)
+// definition, synonym, or antonym — each stored on its own key so switching
+// types in the editor never overwrites the others.
+function MatchBoard({ pairs, showEmoji, pairType = "az", onDone }) {
   const [right] = useState(() => [...pairs].reverse());
   const [picked, setPicked] = useState(null);
   const [done, setDone] = useState({});
-  const key = (p) => (showEmoji ? p.emoji : p.az);
+  const key = (p) => (showEmoji ? p.emoji : (p[pairType] ?? p.az));
   function tryMatch(term, val) {
     const p = pairs.find((x) => x.term === term);
     if (key(p) === val) {
@@ -668,7 +673,7 @@ function MatchBoard({ pairs, showEmoji, onDone }) {
           return (
             <button key={p.term} disabled={matched || !picked} onClick={() => tryMatch(picked, key(p))}
               className={`w-full rounded-lg border p-3 text-left transition-colors ${matched ? "border-emerald-200 bg-emerald-50" : !picked ? "border-slate-100 text-slate-400" : "border-slate-200 hover:border-indigo-300"} ${showEmoji ? "text-2xl text-center" : "text-sm font-medium"}`}>
-              {showEmoji ? p.emoji : p.az}
+              {showEmoji ? p.emoji : (p[pairType] ?? p.az)}
             </button>
           );
         })}
@@ -804,6 +809,82 @@ function QuizQ({ item, n, total }) {
   );
 }
 
+/* ---- Reading comprehension — checked against a linked passage, in
+   whichever question format the teacher picks. "multiple" reuses the plain
+   Quiz UI; "truefalse"/"matching" get their own renderer below. ---- */
+function ComprehensionComponent({ component }) {
+  const mode = component.mode || "multiple";
+  const items = component.items || [];
+  if (mode === "truefalse") return <div className="space-y-4 max-w-xl">{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (mode === "matching") return <ComprehensionMatch pairs={items} />;
+  return <QuizComponent component={component} />;
+}
+function TrueFalseQ({ item, n, total }) {
+  const [pick, setPick] = useState(null); // true | false | null
+  const correct = pick === item.answer;
+  return (
+    <Card className="p-5">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">True or false · {n} of {total}</div>
+      <div className="text-lg font-semibold mb-3">{item.statement}</div>
+      <div className="flex gap-2">
+        {[true, false].map((v) => (
+          <button key={String(v)} onClick={() => setPick(v)}
+            className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
+              pick == null ? "border-slate-200 hover:border-indigo-300" :
+              v === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
+              v === pick ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+            {v ? "True" : "False"} {pick != null && v === item.answer && <Check size={14} className="inline ml-1" />}
+          </button>
+        ))}
+      </div>
+      {pick != null && <div className="mt-3"><AiNote icon={correct ? Check : RotateCcw} tone={correct ? "emerald" : "amber"}>{correct ? "Düzdür!" : "Az qaldı."} {item.why}</AiNote></div>}
+    </Card>
+  );
+}
+// "Match texts" — pair a statement/question with the excerpt from the
+// passage that answers it, same drag-free click-to-match mechanic as the
+// vocabulary Match component, but over free text instead of term/az pairs.
+function ComprehensionMatch({ pairs }) {
+  const { toast } = useStore();
+  const clean = (pairs || []).filter((p) => p.left && p.right).slice(0, 6);
+  const [right] = useState(() => [...clean].reverse());
+  const [picked, setPicked] = useState(null);
+  const [done, setDone] = useState({});
+  if (!clean.length) return <Card className="p-6 text-slate-400 text-sm text-center">No matching pairs added yet.</Card>;
+  function tryMatch(leftIdx, rightVal) {
+    if (clean[leftIdx].right === rightVal) {
+      const next = { ...done, [leftIdx]: true };
+      setDone(next); setPicked(null);
+      if (Object.keys(next).length === clean.length) toast("Matched — great reading! 🎉");
+    } else setPicked(null);
+  }
+  return (
+    <div className="grid grid-cols-2 gap-8 max-w-2xl">
+      <div className="space-y-2">
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">Statement</div>
+        {clean.map((p, i) => (
+          <button key={i} disabled={done[i]} onClick={() => setPicked(i)}
+            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${done[i] ? "border-emerald-200 bg-emerald-50 text-emerald-700" : picked === i ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300"}`}>
+            {p.left} {done[i] && <Check size={13} className="inline text-emerald-600" />}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">From the text</div>
+        {right.map((p) => {
+          const matched = Object.keys(done).some((li) => clean[li].right === p.right);
+          return (
+            <button key={p.right} disabled={matched || picked == null} onClick={() => tryMatch(picked, p.right)}
+              className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${matched ? "border-emerald-200 bg-emerald-50" : picked == null ? "border-slate-100 text-slate-400" : "border-slate-200 hover:border-indigo-300"}`}>
+              {p.right}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GapFillComponent({ component }) {
   const items = component.items || [];
   return <div className="space-y-4 max-w-xl">{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} total={items.length} />)}</div>;
@@ -819,6 +900,36 @@ function GapFill({ item, n, total }) {
         <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
           <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
             className={`inline-block w-28 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
+        )}</React.Fragment>
+      ))}</div>
+      {!checked ? <Btn size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Btn>
+        : <AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür! (Correct!)" : <>Az qaldı — düzgün cavab: <b>{item.answer}</b>. {item.why} <button onClick={() => { setChecked(false); setVal(""); }} className="underline ml-1">Yenidən cəhd et</button></>}</AiNote>}
+    </Card>
+  );
+}
+
+/* ---- Word formation — transform a root word into the part of speech a
+   sentence needs (decide → decision), distinct from Gap fill's plain recall:
+   the root is given, so the check is specifically about word-building. ---- */
+function WordFormationComponent({ component }) {
+  const items = component.items || [];
+  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function WordFormationItem({ item, n, total }) {
+  const [val, setVal] = useState("");
+  const [checked, setChecked] = useState(false);
+  const ok = val.trim().toLowerCase() === (item.answer || "").toLowerCase();
+  return (
+    <Card className="p-5">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Word formation · {n} of {total}</div>
+      <div className="flex items-center gap-2 mb-2">
+        <Pill className="bg-indigo-50 text-indigo-700 font-mono">{item.root}</Pill>
+        {item.pos && <span className="text-xs text-slate-400">→ {item.pos}</span>}
+      </div>
+      <div className="text-lg mb-3">{(item.sentence || "").split("___").map((seg, i, arr) => (
+        <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
+          <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
+            className={`inline-block w-32 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
         )}</React.Fragment>
       ))}</div>
       {!checked ? <Btn size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Btn>
@@ -948,122 +1059,6 @@ function SlideDeckComponent({ component }) {
           {component.notes && <div className="text-xs text-slate-400 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
-    </div>
-  );
-}
-
-/* ---- Pronunciation drill — a model clip vs. a recorded attempt, waveform
-   compared with a match score. Distinct from Speaking Record: this is short
-   phonetic drilling, not an open-ended graded answer. ---- */
-function PronunciationComponent({ component }) {
-  const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <PronunciationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
-}
-function PronunciationItem({ item, n, total }) {
-  const [playing, setPlaying] = useState(false);
-  const [state, setState] = useState("idle"); // idle | recording | done
-  const [score, setScore] = useState(null);
-  const modelWave = useMemo(() => Array.from({ length: 24 }, (_, i) => 20 + Math.abs(Math.sin(i * 0.9)) * 80), []);
-  const done = state === "done";
-  // recompute a fresh "attempt" only when a recording just finished — `done`
-  // is a deliberate re-roll trigger, not a real data dependency
-  const attemptWave = useMemo(() => modelWave.map((v) => Math.max(8, v + (Math.random() * 30 - 15))), [done]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function playModel() { setPlaying(true); setTimeout(() => setPlaying(false), 1000); }
-  function record() { setState("recording"); setTimeout(() => { setScore(70 + Math.floor(Math.random() * 26)); setState("done"); }, 1200); }
-  function retry() { setState("idle"); setScore(null); }
-
-  return (
-    <Card className="p-4">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Pronunciation · {n} of {total}</div>
-      <div className="flex items-center gap-2 mb-1"><span className="text-lg font-semibold">{item.phrase}</span><span className="text-sm text-slate-400 font-mono">{item.ipa}</span></div>
-      {item.note && <div className="text-xs text-slate-400 mb-3">{item.note}</div>}
-      <div className="flex items-center gap-2 mb-3">
-        <Btn variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Btn>
-        <Btn size="sm" onClick={record} disabled={state === "recording"}><Mic2 size={13} /> {state === "recording" ? "Listening…" : "Record attempt"}</Btn>
-      </div>
-      {state !== "idle" && (
-        <div className="space-y-1.5 mb-2">
-          <div className="flex items-end gap-0.5 h-8">{modelWave.map((h, i) => <span key={i} className="flex-1 bg-cyan-300 rounded-full" style={{ height: `${h}%` }} />)}</div>
-          {state === "done" && <div className="flex items-end gap-0.5 h-8">{attemptWave.map((h, i) => <span key={i} className="flex-1 bg-indigo-400 rounded-full" style={{ height: `${h}%` }} />)}</div>}
-        </div>
-      )}
-      {state === "done" && (
-        <AiNote icon={score >= 85 ? Check : RotateCcw} tone={score >= 85 ? "emerald" : "amber"}>
-          Match: <b>{score}%</b> — {score >= 85 ? "very close to the model." : "close, but listen again for the stress and vowel length."}
-          <button onClick={retry} className="underline ml-2">Try again</button>
-        </AiNote>
-      )}
-    </Card>
-  );
-}
-
-/* ---- Culture & context — the register a dictionary doesn't explain:
-   formal, casual, or rude. ---- */
-const CULTURE_LEVEL_STYLE = {
-  formal: { label: "Formal", tone: "bg-emerald-50 text-emerald-700" },
-  neutral: { label: "Neutral", tone: "bg-sky-50 text-sky-700" },
-  informal: { label: "Informal", tone: "bg-amber-50 text-amber-700" },
-  rude: { label: "Avoid", tone: "bg-rose-50 text-rose-700" },
-};
-function CultureNoteComponent({ component }) {
-  const items = component.items || [];
-  return (
-    <div className="space-y-3 max-w-xl">
-      {items.map((it, i) => {
-        const lvl = CULTURE_LEVEL_STYLE[it.level] || CULTURE_LEVEL_STYLE.neutral;
-        return (
-          <Card key={i} className="p-4">
-            <div className="flex items-center gap-2 mb-1.5"><span className="font-semibold">{it.phrase}</span><Pill className={lvl.tone}>{lvl.label}</Pill></div>
-            {it.az && <div className="text-sm text-indigo-600 mb-1">{it.az}</div>}
-            <p className="text-sm text-slate-600">{it.note}</p>
-            {it.example && <p className="text-xs text-slate-400 italic mt-1.5">“{it.example}”</p>}
-          </Card>
-        );
-      })}
-      {!items.length && <Card className="p-6 text-sm text-slate-400 text-center">No phrases added yet.</Card>}
-    </div>
-  );
-}
-
-/* ---- Review queue — deliberately has no authored content. It generates
-   itself from a specific student's own due words + weakest concepts, so
-   without a student in context there's nothing to show but an explanation. ---- */
-function ReviewQueueComponent({ student }) {
-  if (!student) {
-    return (
-      <Card className="p-6 max-w-xl">
-        <div className="flex items-center gap-2 text-slate-500 mb-2"><Info size={16} /> <span className="font-semibold text-sm">Generated per student</span></div>
-        <p className="text-sm text-slate-500">This block has no fixed content — opened by (or previewed for) a specific student, it pulls their own due words and lowest-scoring concepts. There's no student in context here, so there's nothing to generate yet.</p>
-      </Card>
-    );
-  }
-  const dueWords = (student.words || []).filter((w) => w.status !== "strong").slice(0, 5);
-  const weakConcepts = Object.entries(student.concepts || {}).sort((a, b) => a[1] - b[1]).slice(0, 3);
-  return (
-    <div className="max-w-xl space-y-4">
-      <AiNote icon={RefreshCw} tone="emerald" title={`Generated for ${student.name.split(" ")[0]}, just now`}>
-        Built from their own data — due words and lowest-scoring concepts — nothing here is authored.
-      </AiNote>
-      <div>
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Due words</div>
-        <Card className="divide-y divide-slate-100">
-          {dueWords.map((w, i) => (
-            <div key={i} className="p-3 flex items-center justify-between">
-              <div><span className="font-medium">{w.term}</span> <span className="text-indigo-600 text-sm ml-1.5">{w.az}</span></div>
-              <Pill className={w.status === "weak" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}>{w.status}</Pill>
-            </div>
-          ))}
-          {!dueWords.length && <div className="p-3 text-sm text-slate-400">No due words right now.</div>}
-        </Card>
-      </div>
-      <div>
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Weakest concepts</div>
-        <div className="flex flex-wrap gap-2">
-          {weakConcepts.map(([c, v]) => <Pill key={c} className="bg-rose-50 text-rose-700">{c} · {v}%</Pill>)}
-          {!weakConcepts.length && <span className="text-sm text-slate-400">No concept data yet.</span>}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1209,51 +1204,6 @@ function TeamQuizRace({ component }) {
           </div>
           <Btn onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Btn>
         </>
-      )}
-    </div>
-  );
-}
-
-/* ---- Checkpoint — a scored, all-at-once quiz with a pass threshold.
-   Deliberately different from casual Practice: no instant per-question
-   retry, one submit, one pass/fail result. ---- */
-function CheckpointComponent({ component }) {
-  const items = component.items || [];
-  const [answers, setAnswers] = useState({});
-  const [submitted, setSubmitted] = useState(false);
-  if (!items.length) return <Card className="p-8 text-center text-slate-400 text-sm">No questions added yet.</Card>;
-  const correct = items.filter((it, i) => answers[i] === it.answer).length;
-  const pct = Math.round((correct / items.length) * 100);
-  const pass = pct >= (component.passScore || 70);
-  return (
-    <div className="max-w-xl space-y-4">
-      {items.map((it, i) => (
-        <Card key={i} className="p-5">
-          <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Question {i + 1} of {items.length}</div>
-          <div className="text-base font-medium mb-3">{it.q}</div>
-          <div className="space-y-2">
-            {it.options.map((o, oi) => {
-              const picked = answers[i] === oi;
-              return (
-                <button key={oi} disabled={submitted} onClick={() => setAnswers((a) => ({ ...a, [i]: oi }))}
-                  className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${
-                    !submitted ? (picked ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300") :
-                    oi === it.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
-                    picked ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
-                  {o}
-                </button>
-              );
-            })}
-          </div>
-          {submitted && it.why && <p className="text-xs text-slate-400 mt-2">{it.why}</p>}
-        </Card>
-      ))}
-      {!submitted ? (
-        <Btn onClick={() => setSubmitted(true)} disabled={Object.keys(answers).length < items.length}><Award size={14} /> Submit checkpoint</Btn>
-      ) : (
-        <AiNote icon={Award} tone={pass ? "emerald" : "rose"} title={`${correct}/${items.length} correct — ${pct}%`}>
-          {pass ? `Pass — at or above the ${component.passScore || 70}% threshold.` : `Below the ${component.passScore || 70}% pass threshold — a retry or review is recommended.`}
-        </AiNote>
       )}
     </div>
   );
@@ -1519,7 +1469,7 @@ function SpeedRoundComponent({ component }) {
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function ComponentEditor({ component, onChange, roster }) {
+function ComponentEditor({ component, onChange, roster, passages = [] }) {
   switch (component.kind) {
     case "passage":    return <PassageEditor component={component} onChange={onChange} />;
     case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
@@ -1527,6 +1477,7 @@ function ComponentEditor({ component, onChange, roster }) {
     case "match":      return <MatchEditor component={component} onChange={onChange} />;
     case "quiz":       return <QuizEditor component={component} onChange={onChange} />;
     case "gapfill":    return <RowsEditor component={component} onChange={onChange} fields={[["text", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["why", "Why (Azerbaijani)"]]} blank={{ text: "", answer: "", why: "" }} label="item" wide={["text", "why"]} />;
+    case "wordformation": return <RowsEditor component={component} onChange={onChange} fields={[["root", "Root word"], ["sentence", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["pos", "Target part of speech"], ["why", "Why (Azerbaijani)"]]} blank={{ root: "", sentence: "", answer: "", pos: "", why: "" }} label="item" wide={["sentence", "why"]} />;
     case "timeline":   return <AiNote icon={Sparkles} tone="emerald">The tense timeline is a ready interactive component — no setup. Switch to “As student” to try it.</AiNote>;
     case "sentence":   return <SentenceEditor component={component} onChange={onChange} />;
     case "preposition":return <PrepositionEditor component={component} onChange={onChange} />;
@@ -1541,14 +1492,10 @@ function ComponentEditor({ component, onChange, roster }) {
     case "listening":  return <MediaEditor component={component} onChange={onChange} />;
     case "scenario":   return <ScenarioEditor component={component} onChange={onChange} />;
     case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
-    case "comprehension": return <QuizEditor component={component} onChange={onChange} />;
+    case "comprehension": return <ComprehensionEditor component={component} onChange={onChange} passages={passages} />;
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
     case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
-    case "pronunciationDrill": return <RowsEditor component={component} onChange={onChange} fields={[["phrase", "Phrase"], ["ipa", "IPA (optional)"], ["note", "Note"]]} blank={{ phrase: "", ipa: "", note: "" }} label="phrase" wide={["note"]} />;
-    case "cultureNote": return <CultureNoteEditor component={component} onChange={onChange} />;
-    case "reviewqueue": return <ReviewQueueEditor />;
     case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} roster={roster} />;
-    case "checkpoint": return <CheckpointEditor component={component} onChange={onChange} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
     case "upload":     return <UploadEditor component={component} onChange={onChange} />;
@@ -1604,21 +1551,33 @@ function RowsEditor({ component, onChange, fields, blank, label, wide = [] }) {
   );
 }
 
+const MATCH_PAIR_TYPES = [["az", "Translation"], ["def", "Definition"], ["synonym", "Synonym"], ["antonym", "Antonym"]];
+
 function MatchEditor({ component, onChange }) {
   const pairs = component.pairs || [];
+  const mode = component.mode || "az";
+  const pairType = component.pairType || "az";
   const setPair = (i, k, v) => onChange({ pairs: pairs.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
   return (
     <div className="space-y-3">
       <div className="flex gap-2 flex-wrap">
         {[["az", "Word → Azerbaijani"], ["picture", "Word → picture"], ["theme", "Group by theme"]].map(([id, lbl]) => (
-          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${component.mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
         ))}
       </div>
+      {mode === "az" && (
+        <div className="flex gap-2 flex-wrap">
+          {MATCH_PAIR_TYPES.map(([id, lbl]) => (
+            <button key={id} onClick={() => onChange({ pairType: id })} className={`text-xs rounded-lg px-2.5 py-1 border ${pairType === id ? "border-indigo-300 bg-indigo-50/60 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          ))}
+        </div>
+      )}
       <div className="space-y-2">
         {pairs.map((p, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_3.5rem_auto] items-center gap-3">
             <input className={inputCls} value={p.term} onChange={(e) => setPair(i, "term", e.target.value)} placeholder="word" />
-            <input className={inputCls} value={p.az} onChange={(e) => setPair(i, "az", e.target.value)} placeholder="azerbaijani" />
+            <input className={inputCls} value={p[pairType] || ""} onChange={(e) => setPair(i, pairType, e.target.value)}
+              placeholder={(MATCH_PAIR_TYPES.find(([id]) => id === pairType) || MATCH_PAIR_TYPES[0])[1].toLowerCase()} />
             <input className={`${inputCls} text-center px-1`} value={p.emoji} onChange={(e) => setPair(i, "emoji", e.target.value)} placeholder="🙂" />
             <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
           </div>
@@ -1676,6 +1635,60 @@ function QuizEditor({ component, onChange }) {
       ))}
       <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { q: "", options: ["", "", ""], answer: 0, why: "" }] })}><Plus size={14} /> Add question</Btn>
       <p className="text-xs text-slate-400">Tap the circle to mark the correct answer. Feedback shows immediately, in Azerbaijani.</p>
+    </div>
+  );
+}
+
+const COMPREHENSION_MODES = [["multiple", "Multiple choice"], ["truefalse", "True / False"], ["matching", "Match texts"]];
+
+function ComprehensionEditor({ component, onChange, passages = [] }) {
+  const { state } = useStore();
+  const mode = component.mode || "multiple";
+  const passageTitle = (p) => state.texts.find((t) => t.id === p.textId)?.title || "Untitled passage";
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 flex-wrap">
+        {COMPREHENSION_MODES.map(([id, lbl]) => (
+          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+        ))}
+      </div>
+      <Field label="Linked passage (optional)">
+        <select className={inputCls} value={component.passageRefId || ""} onChange={(e) => onChange({ passageRefId: e.target.value || null })}>
+          <option value="">No specific passage</option>
+          {passages.map((p) => <option key={p.id} value={p.id}>{passageTitle(p)}</option>)}
+        </select>
+        <p className="text-xs text-slate-400 mt-1.5">Links this check to a passage already in this block — shown nested under it in the course tree.</p>
+      </Field>
+      {mode === "multiple" && <QuizEditor component={component} onChange={onChange} />}
+      {mode === "truefalse" && <TrueFalseEditor component={component} onChange={onChange} />}
+      {mode === "matching" && <RowsEditor component={component} onChange={onChange}
+        fields={[["left", "Statement / question"], ["right", "Answer from the text"]]} blank={{ left: "", right: "" }} label="pair" wide={["left", "right"]} />}
+    </div>
+  );
+}
+
+function TrueFalseEditor({ component, onChange }) {
+  const items = component.items || [];
+  const setItem = (i, patch) => onChange({ items: items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border border-slate-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Statement</span>
+            <input className={`${inputCls} mt-1`} value={it.statement || ""} onChange={(e) => setItem(i, { statement: e.target.value })} /></label>
+          <div className="flex gap-2 mb-2">
+            {[true, false].map((v) => (
+              <button key={String(v)} onClick={() => setItem(i, { answer: v })}
+                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.answer === v ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{v ? "True" : "False"}</button>
+            ))}
+          </div>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Why (Azerbaijani) — optional</span>
+            <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { statement: "", answer: true, why: "" }] })}><Plus size={14} /> Add statement</Btn>
     </div>
   );
 }
@@ -1910,45 +1923,6 @@ function SlideDeckEditor({ component, onChange }) {
   );
 }
 
-function CultureNoteEditor({ component, onChange }) {
-  const items = component.items || [];
-  const setItem = (i, patch) => onChange({ items: items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
-  return (
-    <div className="space-y-3">
-      {items.map((it, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Phrase</span>
-              <input className={`${inputCls} mt-1`} value={it.phrase || ""} onChange={(e) => setItem(i, { phrase: e.target.value })} /></label>
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Azerbaijani</span>
-              <input className={`${inputCls} mt-1`} value={it.az || ""} onChange={(e) => setItem(i, { az: e.target.value })} /></label>
-          </div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Register</span>
-            <select className={`${inputCls} mt-1`} value={it.level || "neutral"} onChange={(e) => setItem(i, { level: e.target.value })}>
-              {Object.entries(CULTURE_LEVEL_STYLE).map(([id, s]) => <option key={id} value={id}>{s.label}</option>)}
-            </select>
-          </label>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Note</span>
-            <input className={`${inputCls} mt-1`} value={it.note || ""} onChange={(e) => setItem(i, { note: e.target.value })} /></label>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Example</span>
-            <input className={`${inputCls} mt-1`} value={it.example || ""} onChange={(e) => setItem(i, { example: e.target.value })} /></label>
-        </div>
-      ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { phrase: "", az: "", level: "neutral", note: "", example: "" }] })}><Plus size={14} /> Add phrase</Btn>
-    </div>
-  );
-}
-
-function ReviewQueueEditor() {
-  return (
-    <div className="rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500">
-      Nothing to edit here — this block generates its content automatically from each student's own due words and weakest concepts when they open it. Preview it for a specific student from that student's page (Assign → New task) to see it filled in.
-    </div>
-  );
-}
-
 function PeerTaskEditor({ component, onChange, roster }) {
   const mode = component.mode || "infogap";
   return (
@@ -2040,15 +2014,6 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
         <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Race questions</div>
         <QuizEditor component={component} onChange={onChange} />
       </div>
-    </div>
-  );
-}
-
-function CheckpointEditor({ component, onChange }) {
-  return (
-    <div className="space-y-3">
-      <Field label="Pass threshold (%)"><input type="number" min="0" max="100" className={`${inputCls} w-28`} value={component.passScore ?? 70} onChange={(e) => onChange({ passScore: Number(e.target.value) || 0 })} /></Field>
-      <QuizEditor component={component} onChange={onChange} />
     </div>
   );
 }

@@ -187,7 +187,7 @@ function reducer(state, action) {
       const students = state.students.map((s) => {
         if (!set.has(s.id)) return s;
         const assignment = { id: uid("as"), what, kind, when: "just now", status: "assigned" };
-        const activity = [{ type: kind === "reading" ? "reading" : kind === "words" ? "word" : "lesson", detail: `Assigned: ${what}`, when: "just now" }, ...(s.activity || [])];
+        const activity = [{ type: kind === "reading" ? "reading" : kind === "vocabulary" ? "word" : "lesson", detail: `Assigned: ${what}`, when: "just now" }, ...(s.activity || [])];
         return { ...s, assignments: [assignment, ...(s.assignments || [])], activity };
       });
       return { ...state, students };
@@ -280,13 +280,19 @@ function reducer(state, action) {
       const { studentId, lessonId } = action;
       const students = state.students.map((s) =>
         s.id === studentId && !(s.assignedLessons || []).includes(lessonId)
-          ? { ...s, assignedLessons: [...(s.assignedLessons || []), lessonId] } : s);
+          ? { ...s, assignedLessons: [...(s.assignedLessons || []), lessonId], unassignedLessons: (s.unassignedLessons || []).filter((u) => u.lessonId !== lessonId) }
+          : s);
       return { ...state, students };
     }
     case "UNASSIGN_LESSON": {
+      // keeps a record instead of just dropping it, so a teacher can see what
+      // was unassigned (and re-assign it) instead of it quietly disappearing.
       const { studentId, lessonId } = action;
-      const students = state.students.map((s) =>
-        s.id === studentId ? { ...s, assignedLessons: (s.assignedLessons || []).filter((l) => l !== lessonId) } : s);
+      const students = state.students.map((s) => {
+        if (s.id !== studentId) return s;
+        const unassignedLessons = [{ lessonId, when: "just now" }, ...(s.unassignedLessons || []).filter((u) => u.lessonId !== lessonId)];
+        return { ...s, assignedLessons: (s.assignedLessons || []).filter((l) => l !== lessonId), unassignedLessons };
+      });
       return { ...state, students };
     }
     case "SET_RECORDING_SUMMARY": {

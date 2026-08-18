@@ -26,15 +26,33 @@ const WINDOW_STYLE = {
   new:      "bg-slate-600 border-slate-500",
 };
 
+const LEVEL_ORDER = { A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
+
+// Groups the whole word base by CEFR level — one bucket per level, holding
+// every word set at that level plus their words flattened together. Shared
+// by Word Tower (one floor per level, word sets as rooms within it) and any
+// other generator (matching/quiz) that wants the same leveled word pool,
+// rather than each re-deriving its own grouping from state.wordSets.
+export function wordsByLevel(wordSets) {
+  const byLevel = new Map();
+  wordSets.forEach((ws) => {
+    const level = ws.level || "—";
+    if (!byLevel.has(level)) byLevel.set(level, { level, sets: [], words: [] });
+    const bucket = byLevel.get(level);
+    bucket.sets.push(ws);
+    bucket.words.push(...ws.words);
+  });
+  return [...byLevel.values()].sort((a, b) => (LEVEL_ORDER[a.level] ?? 9) - (LEVEL_ORDER[b.level] ?? 9));
+}
+
 export function WordTower() {
   const { state } = useStore();
   const [openWin, setOpenWin] = useState(null); // { setId, i }
 
-  // floors sorted easy → hard, rendered top-down so the tower "grows" upward
-  const floors = useMemo(() => {
-    const order = { A2: 0, B1: 1, B2: 2, C1: 3 };
-    return [...state.wordSets].sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9));
-  }, [state.wordSets]);
+  // floors sorted easy → hard, rendered top-down so the tower "grows" upward —
+  // one floor per CEFR level, holding every word set at that level as a room,
+  // so a level with lots of categories still reads as one consolidated floor.
+  const floors = useMemo(() => wordsByLevel(state.wordSets), [state.wordSets]);
 
   const totals = useMemo(() => {
     let lit = 0, all = 0;
@@ -42,7 +60,8 @@ export function WordTower() {
     return { lit, all };
   }, [floors]);
 
-  const sel = openWin ? floors.find((f) => f.id === openWin.setId)?.words[openWin.i] : null;
+  const selSet = openWin ? state.wordSets.find((ws) => ws.id === openWin.setId) : null;
+  const sel = selSet ? selSet.words[openWin.i] : null;
   const selStatus = openWin ? towerStatus(openWin.i) : null;
 
   return (
@@ -61,25 +80,32 @@ export function WordTower() {
               const lit = f.words.filter((_, i) => towerStatus(i) === "known").length;
               const isGround = fi === floors.length - 1;
               return (
-                <div key={f.id} className="px-4 py-3 border-b border-slate-700 last:border-b-0">
+                <div key={f.level} className="px-4 py-3 border-b border-slate-700 last:border-b-0">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{f.title}</span>
-                    <span className="text-[10px] font-mono text-slate-500">{f.level} · {lit}/{f.words.length} lit</span>
+                    <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Level {f.level}</span>
+                    <span className="text-[10px] font-mono text-slate-500">{lit}/{f.words.length} lit</span>
                   </div>
-                  <div className="flex flex-wrap items-end gap-2">
-                    {f.words.map((wd, i) => {
-                      const status = towerStatus(i);
-                      const isOpen = openWin?.setId === f.id && openWin?.i === i;
-                      return (
-                        <button key={i} title={wd.term}
-                          onClick={() => setOpenWin(isOpen ? null : { setId: f.id, i })}
-                          className={`w-8 h-10 rounded-t-md border transition-all ${WINDOW_STYLE[status]} ${isOpen ? "ring-2 ring-amber-300 scale-110 -translate-y-0.5" : "hover:scale-105"}`}>
-                          {isOpen && <span className="text-xs">✨</span>}
-                        </button>
-                      );
-                    })}
-                    {isGround && <div className="w-10 h-12 rounded-t-lg bg-slate-900 border border-slate-700 ml-auto" title="entrance" />}
+                  <div className="space-y-2">
+                    {f.sets.map((ws) => (
+                      <div key={ws.id}>
+                        <div className="text-[9px] font-mono uppercase tracking-wide text-slate-500 mb-1">{ws.title}</div>
+                        <div className="flex flex-wrap items-end gap-2">
+                          {ws.words.map((wd, i) => {
+                            const status = towerStatus(i);
+                            const isOpen = openWin?.setId === ws.id && openWin?.i === i;
+                            return (
+                              <button key={i} title={wd.term}
+                                onClick={() => setOpenWin(isOpen ? null : { setId: ws.id, i })}
+                                className={`w-8 h-10 rounded-t-md border transition-all ${WINDOW_STYLE[status]} ${isOpen ? "ring-2 ring-amber-300 scale-110 -translate-y-0.5" : "hover:scale-105"}`}>
+                                {isOpen && <span className="text-xs">✨</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  {isGround && <div className="w-10 h-12 rounded-t-lg bg-slate-900 border border-slate-700 ml-auto mt-2" title="entrance" />}
                 </div>
               );
             })}
@@ -107,7 +133,7 @@ export function WordTower() {
           <Card className="p-5 text-sm text-slate-400">Tap a window to open it — the word inside appears like a little star.</Card>
         )}
         <AiNote icon={Sparkles} tone="amber" title="How the tower works">
-          Every floor is a word category for a level. As a learner moves words to <b>known</b>, windows light up — the building slowly turns its lights on. A full tower is a finished vocabulary level.
+          Every floor is a full CEFR level, with each word category inside it as its own room. As a learner moves words to <b>known</b>, windows light up — the building slowly turns its lights on. A full tower is a finished vocabulary level.
         </AiNote>
       </div>
     </div>

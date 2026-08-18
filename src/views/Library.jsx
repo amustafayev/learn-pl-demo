@@ -3,7 +3,7 @@ import {
   BookPlus, Send, Download, ChevronRight, ChevronDown, ArrowLeft, Layers, RefreshCw, Wand2,
   Check, Sparkles, ArrowRight, Trash2, BookmarkCheck, Boxes, Store,
 } from "lucide-react";
-import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls, ComingSoon } from "../ui.jsx";
+import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls, ComingSoon, SpeakButton } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel, kitContents } from "../store.jsx";
 import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
@@ -163,7 +163,7 @@ function WordSetPanel({ setId, back }) {
       {mode === "match" && <MatchGame words={ws.words} onDone={() => toast("Matched — encourage, don't punish 🎉")} />}
       {mode === "test" && <AutoTest words={ws.words} />}
 
-      <AssignModal open={assign} onClose={() => setAssign(false)} what={`Word set: ${ws.title}`} kind="words" />
+      <AssignModal open={assign} onClose={() => setAssign(false)} what={`Word set: ${ws.title}`} kind="vocabulary" />
     </Page>
   );
 }
@@ -174,10 +174,20 @@ function Flashcards({ words }) {
   const wd = words[i];
   return (
     <div className="max-w-md">
-      <button onClick={() => setFlip((f) => !f)}
-        className="w-full h-48 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center justify-center text-2xl font-bold hover:border-indigo-300 transition-colors">
-        {flip ? <span className="text-indigo-600">{wd.az}</span> : wd.term}
-      </button>
+      <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
+        className="w-full h-48 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-1.5 hover:border-indigo-300 transition-colors px-6 cursor-pointer">
+        {flip ? (
+          <>
+            {wd.def && <span className="text-base font-medium text-slate-600 text-center">{wd.def}</span>}
+            <span className="text-xl font-bold text-indigo-600">({wd.az})</span>
+          </>
+        ) : (
+          <>
+            <span className="text-2xl font-bold">{wd.term}</span>
+            <SpeakButton text={wd.term} />
+          </>
+        )}
+      </div>
       <div className="flex items-center justify-between mt-4">
         <Btn variant="outline" size="sm" onClick={() => { setI((i - 1 + words.length) % words.length); setFlip(false); }}>Prev</Btn>
         <span className="text-sm text-slate-400 font-mono">{i + 1} / {words.length}</span>
@@ -212,6 +222,7 @@ function MatchGame({ words, onDone }) {
             className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${
               done[p.term] ? "border-emerald-200 bg-emerald-50 text-emerald-700" : picked === p.term ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300"}`}>
             {p.term} {done[p.term] && <Check size={13} className="inline text-emerald-600" />}
+            {p.def && <span className="block text-xs font-normal text-slate-400 mt-0.5">{p.def}</span>}
           </button>
         ))}
       </div>
@@ -240,7 +251,8 @@ function AutoTest({ words }) {
   return (
     <Card className="p-6 max-w-md">
       <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Auto-generated · question 1 of {words.length}</div>
-      <div className="text-lg font-semibold mb-4">What is “{q.term}” in Azerbaijani?</div>
+      <div className="text-lg font-semibold mb-1">What is “{q.term}” in Azerbaijani?</div>
+      <p className="text-sm text-slate-400 mb-4 min-h-[1.25rem]">{q.def}</p>
       <div className="space-y-2">
         {options.map((o) => (
           <button key={o} onClick={() => setPick(o)}

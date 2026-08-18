@@ -1,6 +1,6 @@
 import {
   BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck, Gamepad2,
-  AudioWaveform, Globe2, RefreshCw, Handshake, Award,
+  Handshake,
 } from "lucide-react";
 
 /* =========================================================================
@@ -36,8 +36,8 @@ export const BLOCK_TYPES = {
   speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing", "slidedeck"], starter: ["scenario"] },
   writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
   grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill", "slidedeck"], starter: ["timeline"] },
-  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword", "slidedeck"], starter: ["wordlist", "flashcards"] },
-  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "wordformation", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword", "slidedeck"], starter: ["wordlist", "flashcards"] },
+  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "wordformation", "quiz", "flashcards", "memory", "scramble", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
   playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
   // IELTS-specific: writing and speaking split by task/part, since each
@@ -51,14 +51,10 @@ export const BLOCK_TYPES = {
   ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
   // Business English: swaps generic Writing for correspondence practice.
   businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
-  // Five focused Block types, each mapped to exactly one signature
-  // Component — deliberately narrow (not a grab-bag of every component kind)
-  // so what each Block is FOR stays legible at a glance.
-  pronunciation: { label: "Pronunciation", icon: AudioWaveform, tone: "text-cyan-600 bg-cyan-50",     components: ["pronunciationDrill"], starter: ["pronunciationDrill"], description: "Model clip vs. student attempt, waveform-compared — phonetic drilling, not open speech." },
-  culture:       { label: "Culture & context", icon: Globe2,    tone: "text-fuchsia-600 bg-fuchsia-50", components: ["cultureNote"], starter: ["cultureNote"], description: "When a phrase is formal, casual, or rude — the register no dictionary explains." },
-  review:        { label: "Review", icon: RefreshCw,           tone: "text-lime-600 bg-lime-50",       components: ["reviewqueue"], starter: ["reviewqueue"], description: "Generated, not authored — pulls each student's own due words and weak concepts." },
+  // Deliberately narrow — one signature Component, not a grab-bag — so what
+  // this Block is FOR stays legible at a glance. Low priority: offered last
+  // in every template and its own category, rather than removed.
   peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50",       components: ["peertask"], starter: ["peertask"], description: "Group work, not solo or whole-class — an info-gap for any group size, or a Kahoot-style team quiz race." },
-  assessment:    { label: "Assessment", icon: Award,           tone: "text-red-600 bg-red-50",         components: ["checkpoint"], starter: ["checkpoint"], description: "A scored checkpoint with a pass threshold — formal, unlike casual Practice." },
 };
 
 // A single, safe-fallback lookup for a Block type's display metadata — every
@@ -82,11 +78,7 @@ const BLOCK_RAIL = {
   practice: "bg-amber-500",
   playground: "bg-purple-500",
   homework: "bg-orange-500",
-  pronunciation: "bg-cyan-500",
-  culture: "bg-fuchsia-500",
-  review: "bg-lime-500",
   peerwork: "bg-blue-500",
-  assessment: "bg-red-500",
 };
 export function blockRail(type) { return BLOCK_RAIL[type] || "bg-slate-400"; }
 
@@ -98,21 +90,19 @@ export const BLOCK_CATEGORIES = [
   { id: "reading", label: "Reading & listening", types: ["reading", "ieltsReading", "listening", "ieltsListening"] },
   { id: "vocabulary", label: "Vocabulary", types: ["vocabulary"] },
   { id: "grammar", label: "Grammar & practice", types: ["grammar", "practice"] },
-  { id: "speaking", label: "Speaking & pronunciation", types: ["speaking", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "pronunciation"] },
+  { id: "speaking", label: "Speaking", types: ["speaking", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3"] },
   { id: "writing", label: "Writing", types: ["writing", "ieltsWriting1", "ieltsWriting2", "businessWriting"] },
   { id: "playground", label: "Playground & homework", types: ["playground", "homework"] },
-  { id: "assessment", label: "Assessment, culture & review", types: ["assessment", "culture", "review"] },
+  // Low priority — kept as its own group, last, rather than mixed in above.
   { id: "peer", label: "Peer work", types: ["peerwork"] },
 ];
 
-// A lesson template is just a named list of Block-type ids — new course
-// types are added here, not by touching the pathway UI or the editors.
-const NEW_BLOCK_TYPES = ["pronunciation", "culture", "review", "peerwork", "assessment"];
-
 export const LESSON_TEMPLATES = {
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework", ...NEW_BLOCK_TYPES] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework", ...NEW_BLOCK_TYPES] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework", ...NEW_BLOCK_TYPES] },
+  // "peerwork" is appended last in every template — low priority, so it
+  // doesn't compete for attention in the Add-a-block/component pickers.
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework", "peerwork"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework", "peerwork"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework", "peerwork"] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the
@@ -247,24 +237,39 @@ export const SEED_TEXTS = [
 
 export const SEED_WORDSETS = [
   { id: "ws_it", title: "IT essentials", category: "IT", level: "B1", words: [
-    { term: "deploy", az: "yerləşdirmək" }, { term: "ship", az: "təhvil vermək" }, { term: "release", az: "buraxılış" },
-    { term: "bug", az: "səhv" }, { term: "merge", az: "birləşdirmək" }, { term: "rollback", az: "geri qaytarma" },
+    { term: "deploy", az: "yerləşdirmək", def: "to put software onto a server so people can use it" },
+    { term: "ship", az: "təhvil vermək", def: "to release finished work to users" },
+    { term: "release", az: "buraxılış", def: "a new version of software made available to users" },
+    { term: "bug", az: "səhv", def: "a mistake or fault in the code" },
+    { term: "merge", az: "birləşdirmək", def: "to combine two branches of code into one" },
+    { term: "rollback", az: "geri qaytarma", def: "reverting to an earlier, working version after a bad release" },
   ] },
   { id: "ws_biz", title: "Client email phrases", category: "Business", level: "B2", words: [
-    { term: "follow up", az: "əlaqə saxlamaq" }, { term: "reach out", az: "əlaqə saxla" }, { term: "on track", az: "planda" },
-    { term: "let me know", az: "mənə bildir" }, { term: "at your earliest convenience", az: "ilk imkanda" },
+    { term: "follow up", az: "əlaqə saxlamaq", def: "to contact someone again to check on progress" },
+    { term: "reach out", az: "əlaqə saxla", def: "to get in touch with someone" },
+    { term: "on track", az: "planda", def: "progressing as planned, without delay" },
+    { term: "let me know", az: "mənə bildir", def: "please tell me — a request to be informed" },
+    { term: "at your earliest convenience", az: "ilk imkanda", def: "as soon as it's reasonably possible for you" },
   ] },
   { id: "ws_every", title: "Everyday basics", category: "Everyday", level: "A2", words: [
-    { term: "order", az: "sifariş vermək" }, { term: "grab", az: "tez almaq" }, { term: "cozy", az: "rahat" },
-    { term: "friendly", az: "mehriban" }, { term: "nearby", az: "yaxınlıqda" },
+    { term: "order", az: "sifariş vermək", def: "to ask for food or drink in a place" },
+    { term: "grab", az: "tez almaq", def: "to take or get something quickly" },
+    { term: "cozy", az: "rahat", def: "warm and comfortable" },
+    { term: "friendly", az: "mehriban", def: "kind and pleasant" },
+    { term: "nearby", az: "yaxınlıqda", def: "a short distance away" },
   ] },
   { id: "ws_travel", title: "Travel & directions", category: "Travel", level: "A2", words: [
-    { term: "boarding pass", az: "minik talonu" }, { term: "gate", az: "çıxış qapısı" }, { term: "delay", az: "gecikmə" },
-    { term: "aisle", az: "keçid" }, { term: "layover", az: "aralıq dayanacaq" },
+    { term: "boarding pass", az: "minik talonu", def: "the document you need to get on a flight" },
+    { term: "gate", az: "çıxış qapısı", def: "the airport entrance where passengers board a specific flight" },
+    { term: "delay", az: "gecikmə", def: "a period of time when something happens later than planned" },
+    { term: "aisle", az: "keçid", def: "the walkway between rows of seats" },
+    { term: "layover", az: "aralıq dayanacaq", def: "a stop between flights before reaching the final destination" },
   ] },
   { id: "ws_ielts", title: "IELTS band-7 linkers", category: "IELTS", level: "B2", words: [
-    { term: "furthermore", az: "üstəlik" }, { term: "nevertheless", az: "buna baxmayaraq" }, { term: "consequently", az: "nəticədə" },
-    { term: "in contrast", az: "əksinə" },
+    { term: "furthermore", az: "üstəlik", def: "in addition to what has just been said" },
+    { term: "nevertheless", az: "buna baxmayaraq", def: "in spite of what was just mentioned" },
+    { term: "consequently", az: "nəticədə", def: "as a result of something" },
+    { term: "in contrast", az: "əksinə", def: "showing a clear difference when compared with something else" },
   ] },
 ];
 
@@ -281,7 +286,7 @@ const act = (type, detail, when) => ({ type, detail, when });
 
 export const SEED_STUDENTS = [
   {
-    id: "s_rashad", name: "Rashad Aliyev", courseId: "it", assignedLessons: ["it3", "it4"], level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
+    id: "s_rashad", name: "Rashad Aliyev", tag: "ITler", courseId: "it", assignedLessons: ["it3", "it4"], level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 14, xp: 3820, status: "in progress", last: "2h ago", step: 4, progress: 57, atRisk: false,
     placement: { level: "B1", when: "3 months ago", score: 62 },
     cefr: [{ m: "Apr", v: 1 }, { m: "May", v: 1.4 }, { m: "Jun", v: 1.7 }, { m: "Jul", v: 2.0 }],
@@ -332,7 +337,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
-    id: "s_nigar", name: "Nigar Mammadova", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
+    id: "s_nigar", name: "Nigar Mammadova", tag: "ITler", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
     dailyGoal: 30, dailyDone: 30, xp: 9120, status: "in progress", last: "20m ago", step: 6, progress: 92, atRisk: false,
     placement: { level: "B2", when: "6 months ago", score: 78 },
     cefr: [{ m: "Apr", v: 2.4 }, { m: "May", v: 2.7 }, { m: "Jun", v: 3.0 }, { m: "Jul", v: 3.3 }],
@@ -366,7 +371,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_elvin", name: "Elvin Huseynov", courseId: "it", assignedLessons: ["it1"], level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
+    id: "s_elvin", name: "Elvin Huseynov", tag: "ITler", courseId: "it", assignedLessons: ["it1"], level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
     dailyGoal: 15, dailyDone: 3, xp: 1240, status: "in progress", last: "1d ago", step: 1, progress: 24, atRisk: false,
     placement: { level: "B1", when: "1 month ago", score: 54 },
     cefr: [{ m: "May", v: 1.0 }, { m: "Jun", v: 1.2 }, { m: "Jul", v: 1.3 }],
@@ -396,7 +401,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_leyla", name: "Leyla Qasimova (demo)", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
+    id: "s_leyla", name: "Leyla Qasimova (demo)", tag: "Demo", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 20, xp: 6400, status: "completed", last: "3h ago", step: 7, progress: 100, atRisk: false,
     placement: { level: "B2", when: "5 months ago", score: 81 },
     cefr: [{ m: "Apr", v: 2.6 }, { m: "May", v: 2.9 }, { m: "Jun", v: 3.2 }, { m: "Jul", v: 3.4 }],
@@ -421,7 +426,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
-    id: "s_kamran", name: "Kamran Safarov", courseId: "it", assignedLessons: [], level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
+    id: "s_kamran", name: "Kamran Safarov", tag: "ITler", courseId: "it", assignedLessons: [], level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
     dailyGoal: 10, dailyDone: 0, xp: 120, status: "not started", last: "6d ago", step: -1, progress: 0, atRisk: true,
     riskReason: "No activity for 6 days · streak dropped to 0 · never finished placement follow-up",
     placement: { level: "A2", when: "1 week ago", score: 41 },
@@ -447,7 +452,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_aysel", name: "Aysel Rahimli", courseId: "ielts", assignedLessons: ["ie2"], level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
+    id: "s_aysel", name: "Aysel Rahimli", tag: "IELTS", courseId: "ielts", assignedLessons: ["ie2"], level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
     dailyGoal: 25, dailyDone: 11, xp: 4550, status: "in progress", last: "5h ago", step: 5, progress: 71, atRisk: true,
     riskReason: "Effort high (11 sessions/wk) but grammar score flat 3 weeks — a human should look",
     placement: { level: "B2", when: "2 months ago", score: 69 },

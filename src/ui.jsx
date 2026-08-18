@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, X, Check } from "lucide-react";
+import { ChevronRight, X, Check, Volume2 } from "lucide-react";
 import { HUE, initials } from "./data.jsx";
 import { useStore } from "./store.jsx";
 
@@ -126,6 +126,32 @@ export function StatCard({ value, label, tone = "text-slate-900", hint, onClick 
       <div className="text-slate-400 text-sm mt-1">{label}</div>
       {hint && <div className="text-[11px] text-slate-400 mt-1">{hint}</div>}
     </Card>
+  );
+}
+
+// Speaks a word/phrase via the browser's built-in TTS (no API key needed) —
+// one button per accent, since US/UK vowel differences are exactly what a
+// learner needs to hear apart. Silently does nothing if the browser (or a
+// headless test runner) has no speechSynthesis.
+export function SpeakButton({ text, className = "" }) {
+  function speak(accent) {
+    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = accent === "uk" ? "en-GB" : "en-US";
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }
+  return (
+    <span className={`inline-flex items-center gap-0.5 ${className}`}>
+      <button type="button" title="Play US pronunciation" onClick={(e) => { e.stopPropagation(); speak("us"); }}
+        className="inline-flex items-center gap-0.5 text-[10px] font-mono text-slate-400 hover:text-indigo-600 rounded px-1 py-0.5 hover:bg-slate-100 transition-colors">
+        <Volume2 size={12} /> US
+      </button>
+      <button type="button" title="Play UK pronunciation" onClick={(e) => { e.stopPropagation(); speak("uk"); }}
+        className="inline-flex items-center gap-0.5 text-[10px] font-mono text-slate-400 hover:text-indigo-600 rounded px-1 py-0.5 hover:bg-slate-100 transition-colors">
+        <Volume2 size={12} /> UK
+      </button>
+    </span>
   );
 }
 

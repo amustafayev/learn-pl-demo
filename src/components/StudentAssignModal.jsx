@@ -3,7 +3,7 @@ import { Check, Plus, Send, Boxes } from "lucide-react";
 import { Modal, Btn, Card, Pill } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel, assignToStudent, kitContents } from "../store.jsx";
 import { blockMeta } from "../data.jsx";
-import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent } from "../views/parts.jsx";
+import { ComponentKindPicker, ComponentStudent, COMPONENT_META, COMPONENT_CATEGORIES, defaultComponent } from "../views/parts.jsx";
 
 /* =========================================================================
    Everything a teacher can hand to ONE student, in one place: (un)assign a
@@ -37,11 +37,13 @@ export function StudentAssignModal({ open, onClose, student }) {
     toast(`${on ? "Unassigned" : "Assigned"}: Lesson ${l.n} — ${l.title}`);
   }
   function assignBlock(item) {
-    assignToStudent(dispatch, toast, student.id, `${item.title} (saved block)`, "template");
+    // categorize by the block's own type (reading, vocabulary, grammar, …) —
+    // the same category names used throughout the lesson component list.
+    assignToStudent(dispatch, toast, student.id, `${item.title} (saved block)`, item.type);
     close();
   }
   function assignWordSet(ws) {
-    assignToStudent(dispatch, toast, student.id, `Word set: ${ws.title}`, "words");
+    assignToStudent(dispatch, toast, student.id, `Word set: ${ws.title}`, "vocabulary");
     close();
   }
   function assignKit(kit, count) {
@@ -50,7 +52,8 @@ export function StudentAssignModal({ open, onClose, student }) {
   }
   function assignNew() {
     if (!preview) return;
-    assignToStudent(dispatch, toast, student.id, `${COMPONENT_META[preview.kind].label} (custom task)`, "component");
+    const category = COMPONENT_CATEGORIES.find((c) => c.kinds.includes(preview.kind))?.id || "component";
+    assignToStudent(dispatch, toast, student.id, `${COMPONENT_META[preview.kind].label} (custom task)`, category);
     close();
   }
 
@@ -157,7 +160,7 @@ export function StudentAssignModal({ open, onClose, student }) {
             <button onClick={() => setPreview(null)} className="text-xs text-slate-400 hover:text-indigo-600 mb-3">← Pick a different kind</button>
             <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{COMPONENT_META[preview.kind].label} · preview — this is exactly what {student.name.split(" ")[0]} will see</div>
             <Card className="p-4 mb-4">
-              <ComponentStudent component={preview.component} student={student} />
+              <ComponentStudent component={preview.component} />
             </Card>
             <Btn onClick={assignNew}><Send size={14} /> Assign this task</Btn>
           </div>

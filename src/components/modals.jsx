@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Check } from "lucide-react";
 import { Modal, Field, inputCls, Btn, StudentCheckList } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
@@ -63,22 +63,49 @@ export function NewLessonModal({ open, onClose, courseId, onCreated }) {
 }
 
 /* Add a reading text to the library */
+// Tagging a word here writes it into the same {term, az, def, example}
+// shape the Reader (grammar.jsx) already renders as tap-to-translate — so a
+// teacher-authored passage reads identically to the seed texts, instead of
+// only ever being plain non-tappable text.
 export function AddTextModal({ open, onClose }) {
   const { dispatch, toast } = useStore();
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("IT");
   const [level, setLevel] = useState("B1");
   const [body, setBody] = useState("");
+  const [tags, setTags] = useState({}); // token index -> { az, def, example }
+  const [activeTag, setActiveTag] = useState(null); // token index being tagged, or null
+
+  const tokens = useMemo(() => body.split(/(\s+)/), [body]);
+
+  function tagWord(i, patch) {
+    setTags((t) => ({ ...t, [i]: { ...(t[i] || { az: "", def: "", example: "" }), ...patch } }));
+  }
+  function removeTag(i) {
+    setTags((t) => { const next = { ...t }; delete next[i]; return next; });
+    setActiveTag(null);
+  }
+  function reset() {
+    setTitle(""); setBody(""); setTags({}); setActiveTag(null);
+  }
   function create() {
     if (!title.trim() || !body.trim()) return toast("Title and text are required", "err");
-    const tokens = body.trim().split(/(\s+)/).map((chunk) => (/\S/.test(chunk) ? { text: chunk } : { text: chunk }));
-    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), topic, level, wordCount: body.trim().split(/\s+/).length, hasTranslation: false, body: tokens } });
+    let hasTranslation = false;
+    const bodyTokens = tokens.map((chunk, i) => {
+      const tag = /\S/.test(chunk) ? tags[i] : null;
+      if (tag && (tag.az.trim() || tag.def.trim())) {
+        hasTranslation = true;
+        return { term: chunk, az: tag.az.trim() || "—", def: tag.def.trim(), example: tag.example.trim(), status: "new" };
+      }
+      return { text: chunk };
+    });
+    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), topic, level, wordCount: body.trim().split(/\s+/).length, hasTranslation, body: bodyTokens } });
     toast("Text added to the library");
-    setTitle(""); setBody(""); onClose();
+    reset(); onClose();
   }
   return (
-    <Modal open={open} onClose={onClose} wide title="Add reading text" sub="Paste any text — the platform makes each word tappable"
-      footer={<><Btn variant="outline" onClick={onClose}>Cancel</Btn><Btn onClick={create}>Add to library</Btn></>}>
+    <Modal open={open} onClose={() => { reset(); onClose(); }} wide title="Add reading text" sub="Paste any text, then tag words to make them tappable with a definition"
+      footer={<><Btn variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Btn><Btn onClick={create}>Add to library</Btn></>}>
       <Field label="Title"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sprint retrospective" autoFocus /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Topic">
@@ -92,8 +119,41 @@ export function AddTextModal({ open, onClose }) {
           </select>
         </Field>
       </div>
-      <Field label="Text"><textarea className={`${inputCls} h-32 resize-none`} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Paste the passage here…" /></Field>
-      <p className="text-xs text-slate-400 -mt-2">In v1, translations + definitions are generated per word. This preview keeps words tappable.</p>
+      <Field label="Text"><textarea className={`${inputCls} h-32 resize-none`} value={body}
+        onChange={(e) => { setBody(e.target.value); setTags({}); setActiveTag(null); }} placeholder="Paste the passage here…" /></Field>
+
+      {body.trim() && (
+        <div className="mb-4">
+          <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1.5">Tap a word to give it a translation + definition</div>
+          <div className="rounded-lg border border-slate-200 p-3 leading-relaxed text-sm bg-slate-50/50">
+            {tokens.map((chunk, i) => {
+              if (!/\S/.test(chunk)) return <span key={i}>{chunk}</span>;
+              const tagged = tags[i] && (tags[i].az.trim() || tags[i].def.trim());
+              return (
+                <button key={i} type="button" onClick={() => setActiveTag(activeTag === i ? null : i)}
+                  className={`rounded px-0.5 transition-colors ${tagged ? "bg-sky-100 text-sky-900 font-medium" : "hover:bg-slate-200/70"} ${activeTag === i ? "ring-2 ring-indigo-300" : ""}`}>
+                  {chunk}
+                </button>
+              );
+            })}
+          </div>
+          {activeTag != null && (
+            <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+              <div className="text-xs font-semibold text-indigo-900">Tagging “{tokens[activeTag]}”</div>
+              <div className="grid grid-cols-2 gap-2">
+                <input className={inputCls} placeholder="Azerbaijani translation" value={tags[activeTag]?.az || ""} onChange={(e) => tagWord(activeTag, { az: e.target.value })} />
+                <input className={inputCls} placeholder="Definition (English)" value={tags[activeTag]?.def || ""} onChange={(e) => tagWord(activeTag, { def: e.target.value })} />
+              </div>
+              <input className={inputCls} placeholder="Example sentence (optional)" value={tags[activeTag]?.example || ""} onChange={(e) => tagWord(activeTag, { example: e.target.value })} />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => removeTag(activeTag)} className="text-xs text-rose-500 hover:text-rose-700">Remove tag</button>
+                <button onClick={() => setActiveTag(null)} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Done</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <p className="text-xs text-slate-400 -mt-2">Untagged words stay as plain text; tagged words become tap-to-translate, exactly like the reader everywhere else in the app.</p>
     </Modal>
   );
 }

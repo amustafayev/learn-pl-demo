@@ -341,11 +341,12 @@ export function CourseView() {
                             {b.components.map((c) => {
                               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: BookmarkPlus, tone: "bg-slate-100 text-slate-500" };
                               const CI = M.icon;
+                              const linkedPassage = c.kind === "comprehension" && c.passageRefId && b.components.some((x) => x.id === c.passageRefId);
                               return (
-                                <div key={c.id} className="group flex items-center gap-2 py-1 pr-1 rounded-lg hover:bg-slate-50">
+                                <div key={c.id} className={`group flex items-center gap-2 py-1 pr-1 rounded-lg hover:bg-slate-50 ${linkedPassage ? "ml-4 border-l border-indigo-100 pl-2" : ""}`}>
                                   <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${M.tone}`}><CI size={11} /></span>
                                   <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
-                                    <span className="text-xs text-slate-600">{M.label}</span>
+                                    <span className="text-xs text-slate-600">{linkedPassage ? "↳ " : ""}{M.label}</span>
                                     <span className="text-[11px] text-slate-400 ml-1.5">{componentPreview(c, state.texts)}</span>
                                   </button>
                                   <button title="Save component to library"

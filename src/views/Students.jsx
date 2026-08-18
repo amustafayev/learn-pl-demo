@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  Send, Download, Flame, Target, Brain, AlertTriangle, Check, X,
+  Send, Download, Flame, Brain, AlertTriangle, Check, X,
   CheckCircle2, Circle, Lock, NotebookPen, Sparkles, ArrowRight, Clock, TrendingUp,
   RotateCcw, Search, Gift, Zap,
 } from "lucide-react";
@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   Page, PageHead, Crumbs, Card, Bar, Btn, Pill, Avatar, SectionLabel, AiNote, StatCard,
-  Field, inputCls,
+  Field, inputCls, Modal,
 } from "../ui.jsx";
 import { useStore, useNav, buildRecapLesson } from "../store.jsx";
 import { statusPill } from "../data.jsx";
@@ -64,8 +64,6 @@ export function StudentsView() {
               <th className="text-left font-medium p-4">Student</th>
               <th className="text-left font-medium p-4 hidden md:table-cell">Course</th>
               <th className="text-left font-medium p-4">Level</th>
-              <th className="text-left font-medium p-4">Progress</th>
-              <th className="text-left font-medium p-4 hidden sm:table-cell">Streak</th>
               <th className="text-left font-medium p-4">Status</th>
             </tr>
           </thead>
@@ -76,15 +74,17 @@ export function StudentsView() {
                   <div className="flex items-center gap-3">
                     <Avatar name={s.name} />
                     <div>
-                      <div className="font-medium flex items-center gap-1.5">{s.name}{s.atRisk && <AlertTriangle size={13} className="text-rose-500" />}</div>
+                      <div className="font-medium flex items-center gap-1.5">
+                        {s.name}
+                        {s.tag && <Pill className="bg-slate-100 text-slate-500">{s.tag}</Pill>}
+                        {s.atRisk && <AlertTriangle size={13} className="text-rose-500" />}
+                      </div>
                       <div className="text-xs text-slate-400">{s.goal}</div>
                     </div>
                   </div>
                 </td>
                 <td className="p-4 text-slate-500 hidden md:table-cell">{courseName(s.courseId)}</td>
                 <td className="p-4 font-mono text-slate-500">{s.level}</td>
-                <td className="p-4 w-40"><div className="flex items-center gap-2"><span className="flex-1"><Bar pct={s.progress} /></span><span className="font-mono text-xs text-slate-400">{s.progress}%</span></div></td>
-                <td className="p-4 hidden sm:table-cell"><span className="inline-flex items-center gap-1 font-mono text-slate-500">{s.streak > 0 ? <><Flame size={13} className="text-amber-500" />{s.streak}d</> : "—"}</span></td>
                 <td className="p-4"><Pill className={statusPill(s.status)}>{s.status}</Pill></td>
               </tr>
             ))}
@@ -102,12 +102,24 @@ export function StudentDetail() {
   const { route, go } = useNav();
   const [tab, setTab] = useState("overview");
   const [assign, setAssign] = useState(false);
+  const [confirmUnassign, setConfirmUnassign] = useState(null); // lesson pending unassign confirmation
   const s = state.students.find((x) => x.id === route.studentId);
   if (!s) return null;
 
   const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
   const lessons = state.lessons[s.courseId] || [];
   const assignedLessons = (s.assignedLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
+  const unassignedHistory = (s.unassignedLessons || []).map((u) => ({ ...u, lesson: lessons.find((l) => l.id === u.lessonId) })).filter((u) => u.lesson);
+
+  function unassign(l) {
+    dispatch({ type: "UNASSIGN_LESSON", studentId: s.id, lessonId: l.id });
+    toast(`Unassigned Lesson ${l.n}`);
+    setConfirmUnassign(null);
+  }
+  function reassign(lessonId, title) {
+    dispatch({ type: "ASSIGN_LESSON", studentId: s.id, lessonId });
+    toast(`Re-assigned “${title}”`);
+  }
 
   return (
     <Page>
@@ -116,7 +128,11 @@ export function StudentDetail() {
         <div className="flex items-center gap-4">
           <Avatar name={s.name} size={14} />
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">{s.name}{s.atRisk && <Pill className="bg-rose-50 text-rose-600"><AlertTriangle size={12} /> needs attention</Pill>}</h1>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              {s.name}
+              {s.tag && <Pill className="bg-slate-100 text-slate-500">{s.tag}</Pill>}
+              {s.atRisk && <Pill className="bg-rose-50 text-rose-600"><AlertTriangle size={12} /> needs attention</Pill>}
+            </h1>
             <div className="text-slate-400 text-sm mt-0.5">{s.goal} · placed at {s.placement.level} ({s.placement.when})</div>
           </div>
         </div>
@@ -139,13 +155,31 @@ export function StudentDetail() {
             {assignedLessons.length ? assignedLessons.map((l) => (
               <span key={l.id} className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 rounded-full pl-2.5 pr-1 py-1">
                 L{l.n}: {l.title}
-                <button title="Unassign" onClick={() => { dispatch({ type: "UNASSIGN_LESSON", studentId: s.id, lessonId: l.id }); toast(`Unassigned Lesson ${l.n}`); }}
+                <button title="Unassign" onClick={() => setConfirmUnassign(l)}
                   className="hover:text-rose-600 rounded-full p-0.5"><X size={11} /></button>
               </span>
             )) : <span className="text-xs text-slate-400">No lessons assigned yet — use “Assign” above.</span>}
           </div>
         </div>
+        {unassignedHistory.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
+            <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400 mr-1">Previously unassigned</span>
+            {unassignedHistory.map((u) => (
+              <button key={u.lessonId} onClick={() => reassign(u.lessonId, u.lesson.title)}
+                className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 rounded-full pl-2.5 pr-2 py-1 transition-colors">
+                L{u.lesson.n}: {u.lesson.title} <RotateCcw size={10} />
+              </button>
+            ))}
+          </div>
+        )}
       </Card>
+
+      <Modal open={!!confirmUnassign} onClose={() => setConfirmUnassign(null)}
+        title="Unassign this lesson?"
+        sub={confirmUnassign ? `L${confirmUnassign.n}: ${confirmUnassign.title} — for ${s.name.split(" ")[0]}` : ""}
+        footer={<><Btn variant="outline" onClick={() => setConfirmUnassign(null)}>Cancel</Btn><Btn variant="danger" onClick={() => unassign(confirmUnassign)}><X size={14} /> Unassign</Btn></>}>
+        <p className="text-sm text-slate-500">They'll lose access to it, but it's kept in "Previously unassigned" so you can re-assign it any time.</p>
+      </Modal>
 
       <div className="flex gap-1 mb-6 border-b border-slate-200 overflow-x-auto">
         {tabs.map(([id, label]) => (
@@ -243,8 +277,11 @@ function Overview({ s }) {
           <StatCard value={s.xp.toLocaleString()} label="XP" tone="text-indigo-600" />
         </div>
         <Card className="p-5">
-          <div className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Target size={15} className="text-emerald-600" /> Daily goal</div>
-          <div className="flex items-center gap-2"><span className="flex-1"><Bar pct={(s.dailyDone / s.dailyGoal) * 100} hue="emerald" /></span><span className="font-mono text-xs text-slate-500">{s.dailyDone}/{s.dailyGoal}</span></div>
+          <div className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Clock size={15} className="text-indigo-600" /> Time spent</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-2xl font-bold text-indigo-600">{Math.round(s.tracking.rhythm.avgSessionMin * s.tracking.rhythm.sessionsPerWeek)}</span>
+            <span className="text-xs text-slate-400">min this week · {s.tracking.rhythm.sessionsPerWeek} session{s.tracking.rhythm.sessionsPerWeek === 1 ? "" : "s"}</span>
+          </div>
           <div className="text-xs text-slate-400 mt-2">{s.streakFreeze} streak freeze{s.streakFreeze !== 1 ? "s" : ""} available</div>
         </Card>
         <Card className="p-5">
