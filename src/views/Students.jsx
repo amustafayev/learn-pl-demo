@@ -35,17 +35,26 @@ function discountProgress(streak) {
 
 export function StudentsView() {
   const { state } = useStore();
-  const { go } = useNav();
+  const { route, go } = useNav();
   const [q, setQ] = useState("");
-  const list = state.students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()));
+  const atRiskOnly = route.filter === "atRisk";
+  const list = state.students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) && (!atRiskOnly || s.atRisk));
   const courseName = (id) => state.courses.find((c) => c.id === id)?.title || "—";
   return (
     <Page>
       <PageHead kicker="Everyone you teach" title="Students"
         right={
-          <div className="relative hidden sm:block">
-            <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className={`${inputCls} pl-9 w-48`} />
+          <div className="flex items-center gap-3">
+            {atRiskOnly && (
+              <button onClick={() => go({ filter: undefined })}
+                className="text-xs bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg px-2.5 py-1.5 inline-flex items-center gap-1 font-medium">
+                <AlertTriangle size={13} /> Needs attention only <X size={12} />
+              </button>
+            )}
+            <div className="relative hidden sm:block">
+              <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className={`${inputCls} pl-9 w-48`} />
+            </div>
           </div>
         } />
       <Card className="overflow-hidden">

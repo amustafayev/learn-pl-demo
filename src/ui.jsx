@@ -116,9 +116,12 @@ export function Pill({ children, className = "" }) {
   return <span className={`text-[11px] rounded-md px-2 py-0.5 inline-flex items-center gap-1 ${className}`}>{children}</span>;
 }
 
-export function StatCard({ value, label, tone = "text-slate-900", hint }) {
+export function StatCard({ value, label, tone = "text-slate-900", hint, onClick }) {
   return (
-    <Card className="p-5">
+    <Card
+      className={`p-5 ${onClick ? "text-left w-full cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all" : ""}`}
+      onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
+    >
       <div className={`font-mono text-3xl font-bold ${tone}`}>{value}</div>
       <div className="text-slate-400 text-sm mt-1">{label}</div>
       {hint && <div className="text-[11px] text-slate-400 mt-1">{hint}</div>}

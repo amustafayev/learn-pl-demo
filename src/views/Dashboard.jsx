@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  Plus, BookPlus, Send, AlertTriangle, Brain, ArrowRight, Flame, TrendingUp,
+  BookPlus, Send, AlertTriangle, Brain, ArrowRight, BookmarkCheck,
 } from "lucide-react";
 import { Page, PageHead, Card, Btn, Avatar, StatCard, AiNote, SectionLabel, Pill, Modal, StudentCheckList } from "../ui.jsx";
 import { useStore, useNav } from "../store.jsx";
-import { TEACHER, WORD_OF_DAY } from "../data.jsx";
-import { NewCourseModal, AddTextModal } from "../components/modals.jsx";
+import { TEACHER, WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
+import { COMPONENT_META } from "./parts.jsx";
+import { AddTextModal } from "../components/modals.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 
 function weakest(concepts) {
@@ -31,6 +32,18 @@ export default function Dashboard() {
   const avg = Math.round(state.courses.reduce((a, c) => a + c.completion, 0) / state.courses.length);
   // three students to brief before their next session (most recently active, not-at-risk first)
   const briefs = students.filter((s) => s.status === "in progress").slice(0, 3);
+  // most recently saved Blocks/Components, interleaved — both banks are
+  // unshifted-to on save, so index 0 of each is that bank's latest item.
+  const recentSaves = useMemo(() => {
+    const blocks = (state.blockBank || []).slice(0, 3).map((b) => ({ ...b, saveKind: "block" }));
+    const components = (state.componentBank || []).slice(0, 3).map((c) => ({ ...c, saveKind: "component" }));
+    const merged = [];
+    for (let i = 0; i < 3; i++) {
+      if (blocks[i]) merged.push(blocks[i]);
+      if (components[i]) merged.push(components[i]);
+    }
+    return merged.slice(0, 4);
+  }, [state.blockBank, state.componentBank]);
 
   return (
     <Page>
@@ -47,9 +60,9 @@ export default function Dashboard() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard value={active} label="active students" tone="text-indigo-600" />
+        <StatCard value={active} label="active students" tone="text-indigo-600" onClick={() => go({ tab: "students" })} />
         <StatCard value={`${avg}%`} label="avg completion" tone="text-emerald-600" />
-        <StatCard value={atRisk.length} label="need attention" tone="text-rose-500" />
+        <StatCard value={atRisk.length} label="need attention" tone="text-rose-500" onClick={() => go({ tab: "students", filter: "atRisk" })} />
         <StatCard value="9.1" label="words → known / learner·wk" tone="text-slate-900" hint="your north-star metric" />
       </div>
 
@@ -95,22 +108,6 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <SectionLabel>Quick actions</SectionLabel>
-            <Card className="p-2 divide-y divide-slate-100">
-              {[
-                { label: "New course", icon: Plus, fn: () => setModal("course") },
-                { label: "Add reading text", icon: BookPlus, fn: () => setModal("text") },
-                { label: "Assign to a student", icon: Send, fn: () => setModal("assign") },
-                { label: "See class analytics", icon: TrendingUp, fn: () => go({ tab: "insights" }) },
-              ].map((a) => (
-                <button key={a.label} onClick={a.fn} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 rounded-lg transition-colors">
-                  <a.icon size={16} className="text-indigo-500" /> {a.label}
-                </button>
-              ))}
-            </Card>
-          </div>
-
-          <div>
             <SectionLabel>Word of the day</SectionLabel>
             <Card className="p-4">
               <div className="flex items-start gap-3">
@@ -130,22 +127,32 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <SectionLabel>Streaks today</SectionLabel>
-            <Card className="p-4 space-y-2.5">
-              {students.filter((s) => s.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 3).map((s) => (
-                <div key={s.id} className="flex items-center gap-2 text-sm">
-                  <Avatar name={s.name} />
-                  <span className="flex-1 truncate">{s.name}</span>
-                  <Pill className="bg-amber-50 text-amber-700"><Flame size={12} /> {s.streak}d</Pill>
-                </div>
-              ))}
-              <p className="text-[11px] text-slate-400 pt-1">Encourage-don't-punish: streak freezes protect a missed day.</p>
+            <SectionLabel right={<button onClick={() => go({ tab: "library" })} className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1">Library <ArrowRight size={12} /></button>}>
+              Recently saved
+            </SectionLabel>
+            <Card className="p-2 divide-y divide-slate-100">
+              {recentSaves.length ? recentSaves.map((item) => {
+                const isBlock = item.saveKind === "block";
+                const meta = isBlock ? BLOCK_TYPES[item.type] : COMPONENT_META[item.kind];
+                const I = meta?.icon || BookmarkCheck;
+                return (
+                  <div key={item.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${meta?.tone || "bg-slate-100 text-slate-500"}`}><I size={15} /></span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{item.title}</div>
+                      <div className="text-xs text-slate-400 truncate">{item.from}</div>
+                    </div>
+                    <Pill className={isBlock ? "bg-slate-100 text-slate-500" : "bg-violet-50 text-violet-600"}>{isBlock ? "Block" : "Component"}</Pill>
+                  </div>
+                );
+              }) : (
+                <p className="text-sm text-slate-400 p-3">Nothing saved yet — bookmark a block or component from any lesson to see it here.</p>
+              )}
             </Card>
           </div>
         </div>
       </div>
 
-      <NewCourseModal open={modal === "course"} onClose={() => setModal(null)} />
       <AddTextModal open={modal === "text"} onClose={() => setModal(null)} />
       <AssignFromDashboardModal open={modal === "assign"} onClose={() => setModal(null)} />
     </Page>
