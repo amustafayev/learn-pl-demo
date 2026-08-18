@@ -101,7 +101,7 @@ export default function Dashboard() {
                 { label: "New course", icon: Plus, fn: () => setModal("course") },
                 { label: "Add reading text", icon: BookPlus, fn: () => setModal("text") },
                 { label: "Assign to a student", icon: Send, fn: () => setModal("assign") },
-                { label: "See class analytics", icon: TrendingUp, fn: () => go({ tab: "stats" }) },
+                { label: "See class analytics", icon: TrendingUp, fn: () => go({ tab: "insights" }) },
               ].map((a) => (
                 <button key={a.label} onClick={a.fn} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 rounded-lg transition-colors">
                   <a.icon size={16} className="text-indigo-500" /> {a.label}

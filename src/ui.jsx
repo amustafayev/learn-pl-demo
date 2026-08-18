@@ -126,6 +126,19 @@ export function StatCard({ value, label, tone = "text-slate-900", hint }) {
   );
 }
 
+/* A placeholder for a section that isn't built yet — same shell everywhere
+   ("Level tests" nav entry, Library's teacher marketplace, …) so new
+   coming-soon spots don't each invent their own empty state. */
+export function ComingSoon({ icon: Icon, title, sub }) {
+  return (
+    <Card className="p-10 text-center max-w-lg mx-auto">
+      {Icon && <span className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4"><Icon size={22} /></span>}
+      <div className="font-bold text-lg mb-1.5">{title}</div>
+      <p className="text-sm text-slate-400">{sub}</p>
+    </Card>
+  );
+}
+
 /* AI-flavoured callout — used wherever the doc calls for an insight/summary. */
 export function AiNote({ icon: Icon, tone = "violet", title, children }) {
   const map = {

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Home, LayoutGrid, Library as LibraryIcon, BarChart3, Users, Sparkles, Bell, Brain, Radio } from "lucide-react";
+import { Home, LayoutGrid, Library as LibraryIcon, GraduationCap, Users, Sparkles, Bell, Brain, Radio } from "lucide-react";
 import { StoreProvider, NavProvider } from "./store.jsx";
 import { ToastHost } from "./ui.jsx";
 import { TEACHER } from "./data.jsx";
@@ -8,8 +8,8 @@ import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx"
 import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
-import Statistics from "./views/Statistics.jsx";
 import Insights from "./views/Insights.jsx";
+import LevelTests from "./views/LevelTests.jsx";
 import LiveSession from "./views/LiveSession.jsx";
 
 const NAV = [
@@ -17,7 +17,7 @@ const NAV = [
   { id: "courses", label: "Courses", icon: LayoutGrid },
   { id: "library", label: "Library", icon: LibraryIcon },
   { id: "students", label: "Students", icon: Users },
-  { id: "stats", label: "Statistics", icon: BarChart3 },
+  { id: "levelTests", label: "Level tests", icon: GraduationCap },
   { id: "insights", label: "AI Insights", icon: Brain },
 ];
 
@@ -86,7 +86,7 @@ function Sidebar({ route, go }) {
 }
 
 function TopBar({ route, onStartLive }) {
-  const titles = { dashboard: "Dashboard", courses: "Courses", library: "Library", students: "Students", stats: "Statistics", insights: "AI Insights" };
+  const titles = { dashboard: "Dashboard", courses: "Courses", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
   return (
     <div className="h-16 border-b border-slate-100 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8">
       <div className="text-sm text-slate-400 font-mono uppercase tracking-widest">{titles[route.tab]}</div>
@@ -111,7 +111,7 @@ function Content({ route }) {
   }
   if (route.tab === "library") return <Library />;
   if (route.tab === "students") return route.studentId ? <StudentDetail /> : <StudentsView />;
-  if (route.tab === "stats") return <Statistics />;
+  if (route.tab === "levelTests") return <LevelTests />;
   if (route.tab === "insights") return <Insights />;
   return null;
 }
