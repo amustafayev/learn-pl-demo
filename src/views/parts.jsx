@@ -6,7 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus, Dices, Image, MonitorPlay, Handshake,
+  BookmarkPlus, Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton } from "../ui.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
@@ -55,6 +55,9 @@ export const COMPONENT_META = {
   gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50",  hint: "Type the missing word into a sentence" },
   wordformation: { label: "Word formation",     icon: Shapes,            tone: "text-indigo-600 bg-indigo-50", hint: "Transform a root word into the form a sentence needs (decide → decision)" },
   scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50",    hint: "Unscramble jumbled sentences in the right order" },
+  arrowcorrection: { label: "Arrow correction", icon: CornerDownRight,   tone: "text-rose-600 bg-rose-50",    hint: "Find the mistake in a sentence and correct it" },
+  correctincorrect: { label: "Correct or incorrect", icon: CheckCheck,   tone: "text-emerald-600 bg-emerald-50", hint: "Judge whether a sentence is grammatically correct" },
+  dialoguecompletion: { label: "Dialogue completion", icon: MessageSquare, tone: "text-blue-600 bg-blue-50",  hint: "Fill in the missing turns of a short dialogue" },
   speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50",      hint: "Timed multiple-choice round for quick recall practice" },
   video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50",    hint: "A short clip with a transcript to reveal" },
   listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50", hint: "An audio clip with a transcript to reveal" },
@@ -76,7 +79,7 @@ export const COMPONENT_CATEGORIES = [
   { id: "text", label: "Reading & text", kinds: ["passage", "comprehension"] },
   { id: "vocab", label: "Vocabulary & games", kinds: ["wordlist", "flashcards", "match", "wordformation", "memory", "crossword", "wheel", "wordsearch", "imagetoword"] },
   { id: "grammar", label: "Grammar visuals", kinds: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb"] },
-  { id: "practice", label: "Practice", kinds: ["quiz", "gapfill", "scramble", "speedround"] },
+  { id: "practice", label: "Practice", kinds: ["quiz", "gapfill", "scramble", "arrowcorrection", "correctincorrect", "dialoguecompletion", "speedround"] },
   { id: "speaking", label: "Speaking & pronunciation", kinds: ["scenario", "speakingRecord", "shadowing"] },
   { id: "media", label: "Media", kinds: ["video", "listening", "youtube"] },
   { id: "present", label: "Presentations", kinds: ["slidedeck"] },
