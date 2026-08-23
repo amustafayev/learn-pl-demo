@@ -8,7 +8,7 @@ import {
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
   BookmarkPlus, Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
 } from "lucide-react";
-import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton } from "../ui.jsx";
+import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -131,11 +131,17 @@ export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
   );
 }
 
+// Playground's purely gamified kinds draw from the shared, cross-level Word
+// Tower pool rather than being level-specific themselves — every other
+// component kind gets a CEFR level so the picker, course tree, and My
+// Blocks can all show what level a piece of content targets.
+export const NO_LEVEL_KINDS = new Set(["crossword", "memory", "wheel", "wordsearch", "imagetoword", "speedround"]);
+
 // Exported so any "pick a component kind" surface — Block Studio's own
 // palette, or a quick per-student task — can produce real starter content
 // for that kind instead of an empty shell.
 export function defaultComponent(kind, texts = []) {
-  const base = { id: cid(), kind };
+  const base = { id: cid(), kind, ...(NO_LEVEL_KINDS.has(kind) ? {} : { level: "B1" }) };
   switch (kind) {
     case "passage":    return { ...base, textId: texts[0]?.id || null };
     case "wordlist":   return { ...base, items: SAMPLE_WORDS.map((w) => ({ ...w })) };
@@ -185,6 +191,20 @@ export function defaultComponent(kind, texts = []) {
       { sentence: "She has already finished the report.", why: "Present perfect: subject + has/have + past participle." },
       { sentence: "We are meeting the client tomorrow.", why: "Present continuous for a fixed future plan." },
     ] };
+    case "arrowcorrection": return { ...base, items: [
+      { wrong: "She don't like coffee.", correct: "She doesn't like coffee.", why: "Third-person singular takes “doesn't”, not “don't”." },
+      { wrong: "I have saw that movie.", correct: "I have seen that movie.", why: "Present perfect uses the past participle: “seen”, not “saw”." },
+    ] };
+    case "correctincorrect": return { ...base, items: [
+      { sentence: "He goes to work every day.", correct: true, why: "Third-person singular “goes” — correctly formed." },
+      { sentence: "She have three cats.", correct: false, why: "Should be “has”, not “have”, with “she”." },
+    ] };
+    case "dialoguecompletion": return { ...base, title: "At the coffee machine", turns: [
+      { speaker: "A", text: "Good morning! How was your weekend?" },
+      { speaker: "B", text: "___", blank: true, answer: "It was great, thanks — I visited my family." },
+      { speaker: "A", text: "Nice! Ready for the standup?" },
+      { speaker: "B", text: "___", blank: true, answer: "Almost — let me grab a coffee first." },
+    ] };
     case "speedround": return { ...base, seconds: 30, items: [
       { q: "I ___ to work every morning.", options: ["go", "goes", "going"], answer: 0, why: "" },
       { q: "She ___ here since 2020.", options: ["lives", "has lived", "lived"], answer: 1, why: "" },
@@ -196,7 +216,7 @@ export function defaultComponent(kind, texts = []) {
       { prompt: "Colleague: Good morning! How was your weekend?", sample: "It was great, thanks — I visited my family." },
       { prompt: "Colleague: Ready for the standup?", sample: "Almost — let me grab a coffee first." },
     ] };
-    case "homework":   return { ...base, prompt: "Write 5 sentences introducing yourself to a new team.", minSentences: 5 };
+    case "homework":   return { ...base, type: "essay", prompt: "Write 5 sentences introducing yourself to a new team.", minSentences: 5 };
     case "comprehension": return { ...base, mode: "multiple", passageRefId: null, items: [
       { q: "What did the speaker do yesterday?", options: ["Shipped the login screen", "Deployed the fix", "Wrote a report"], answer: 0, why: "Bax mətnə: “Yesterday I shipped the login screen.”" },
     ] };
@@ -277,14 +297,20 @@ export function componentPreview(component, texts = []) {
       const modeLabel = { multiple: "multiple choice", truefalse: "true/false", matching: "matching" }[component.mode || "multiple"];
       return `${(items || []).length} item${(items || []).length === 1 ? "" : "s"} · ${modeLabel}`;
     }
-    case "quiz": case "gapfill": case "wordformation": case "scramble": case "speedround": case "shadowing":
+    case "quiz": case "gapfill": case "wordformation": case "scramble": case "arrowcorrection": case "correctincorrect": case "speedround": case "shadowing":
       return `${(items || []).length} item${(items || []).length === 1 ? "" : "s"}`;
+    case "dialoguecompletion": return `${(component.turns || []).length} turns · ${component.title || ""}`;
     case "crossword": case "wheel": case "wordsearch": case "imagetoword":
       return `${(items || component.words || []).length} words`;
     case "video": case "listening": return `${component.duration || "—"} · ${component.title || "untitled"}`;
     case "youtube": return component.title || "Untitled video";
     case "scenario": return `${(component.turns || []).length} turns · ${component.situation || ""}`;
-    case "homework": return `Min. ${component.minSentences || 0} sentences`;
+    case "homework": {
+      const type = component.type || "essay";
+      if (type === "video") return "Video link submission";
+      if (type === "link") return "Document/link submission";
+      return `Min. ${component.minSentences || 0} sentences`;
+    }
     case "upload": return component.instructions || "File upload";
     case "slidedeck": return component.url ? `${component.title || "Untitled deck"} · ${component.provider || "slides"}` : "No deck linked yet";
     case "peertask": return component.mode === "quizrace"
@@ -403,6 +429,7 @@ export default function BlockStudio() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
                     <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
+                    <LevelPill level={c.level} />
                     {linkedPassage && <span className="text-[11px] text-indigo-400">↳ for its passage above</span>}
                   </div>
                   <ComponentStudent component={c} />
@@ -431,6 +458,15 @@ export default function BlockStudio() {
                       <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}{linkedPassage ? " · ↳ for its passage" : ""}</span>
                       <div className="font-semibold text-sm">{M.label}</div>
                     </div>
+                    {c.level !== undefined && (
+                      <label className="flex items-center gap-1 text-[11px] text-slate-400">
+                        Level
+                        <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
+                          className="border border-slate-200 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-200">
+                          {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </label>
+                    )}
                     <div className="flex items-center gap-1 text-slate-400">
                       <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
                       <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><Copy size={14} /></button>
@@ -550,6 +586,9 @@ export function ComponentStudent({ component }) {
     case "wordweb":    return <Card className="p-6 overflow-x-auto"><WordWeb center={component.center} branches={component.branches} /></Card>;
     case "memory":     return <MemoryComponent component={component} />;
     case "scramble":   return <ScrambleComponent component={component} />;
+    case "arrowcorrection": return <ArrowCorrectionComponent component={component} />;
+    case "correctincorrect": return <CorrectIncorrectComponent component={component} />;
+    case "dialoguecompletion": return <DialogueCompletionComponent component={component} />;
     case "speedround": return <SpeedRoundComponent component={component} />;
     case "video":      return <MediaComponent component={component} kind="video" />;
     case "listening":  return <MediaComponent component={component} kind="listening" />;
@@ -985,7 +1024,18 @@ function ScenarioComponent({ component }) {
   );
 }
 
+// Homework comes in three shapes — an essay written in-app, a video link
+// (e.g. a recorded speaking task), or a link to an external resource (a
+// completed Google Doc/Form). File uploads stay their own separate "upload"
+// component kind rather than a fourth homework type, since that's a
+// genuinely different submission mechanic (a file, not a URL/text).
 function HomeworkComponent({ component }) {
+  const type = component.type || "essay";
+  if (type === "video") return <HomeworkLinkComponent component={component} icon={Video} placeholder="Paste your video link (YouTube, Drive, Loom…)" />;
+  if (type === "link") return <HomeworkLinkComponent component={component} icon={FileUp} placeholder="Paste your document/form link" />;
+  return <HomeworkEssayComponent component={component} />;
+}
+function HomeworkEssayComponent({ component }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const count = text.trim() ? text.trim().split(/[.!?]+/).filter((x) => x.trim()).length : 0;
@@ -998,6 +1048,30 @@ function HomeworkComponent({ component }) {
           <span className="text-xs text-slate-400 font-mono">{count}/{component.minSentences} sentences</span>
           {sent ? <Pill className="bg-amber-50 text-amber-700">Sent — waiting for review</Pill>
             : <Btn size="sm" disabled={count < component.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+function HomeworkLinkComponent({ component, icon: Icon, placeholder }) {
+  const [url, setUrl] = useState("");
+  const [sent, setSent] = useState(false);
+  return (
+    <div className="max-w-xl">
+      <Card className="p-5">
+        <p className="text-slate-600 text-sm mb-3">{component.prompt}</p>
+        {component.resourceUrl && (
+          <a href={component.resourceUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 mb-3">
+            <Icon size={12} /> Open the resource
+          </a>
+        )}
+        <div className="flex items-center gap-2">
+          <Icon size={16} className="text-slate-400 shrink-0" />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={sent} className={inputCls} placeholder={placeholder} />
+        </div>
+        <div className="flex justify-end mt-3">
+          {sent ? <Pill className="bg-amber-50 text-amber-700">Sent — waiting for review</Pill>
+            : <Btn size="sm" disabled={!url.trim()} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
         </div>
       </Card>
     </div>
@@ -1406,6 +1480,101 @@ function ScrambleItem({ item, n, total }) {
   );
 }
 
+/* ---- Arrow correction — a wrong sentence with the fixed form revealed on
+   demand, one arrow from wrong to right. Distinct from Gap fill: the whole
+   sentence is wrong, not one missing word. ---- */
+function ArrowCorrectionComponent({ component }) {
+  const items = component.items || [];
+  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <ArrowCorrectionItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function ArrowCorrectionItem({ item, n, total }) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <Card className="p-5">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Arrow correction · {n} of {total}</div>
+      <div className="flex items-start gap-2 text-rose-700 bg-rose-50 rounded-lg p-3 mb-2">
+        <span className="text-sm">{item.wrong}</span>
+      </div>
+      {!revealed ? (
+        <Btn size="sm" onClick={() => setRevealed(true)}><CornerDownRight size={14} /> Show correction</Btn>
+      ) : (
+        <>
+          <div className="flex items-start gap-2 text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-2">
+            <CornerDownRight size={16} className="shrink-0 mt-0.5" />
+            <span className="text-sm font-medium">{item.correct}</span>
+          </div>
+          {item.why && <p className="text-xs text-slate-400">{item.why}</p>}
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* ---- Correct or incorrect — a binary grammaticality judgment, distinct
+   from Practice's multi-option quiz. ---- */
+function CorrectIncorrectComponent({ component }) {
+  const items = component.items || [];
+  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <CorrectIncorrectItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+}
+function CorrectIncorrectItem({ item, n, total }) {
+  const [pick, setPick] = useState(null); // true | false | null
+  const ok = pick === item.correct;
+  return (
+    <Card className="p-5">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Correct or incorrect? · {n} of {total}</div>
+      <div className="text-lg font-semibold mb-3">{item.sentence}</div>
+      <div className="flex gap-2">
+        {[true, false].map((v) => (
+          <button key={String(v)} onClick={() => setPick(v)}
+            className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
+              pick == null ? "border-slate-200 hover:border-indigo-300" :
+              v === item.correct ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
+              v === pick ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+            {v ? "Correct" : "Incorrect"} {pick != null && v === item.correct && <Check size={14} className="inline ml-1" />}
+          </button>
+        ))}
+      </div>
+      {pick != null && <div className="mt-3"><AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür!" : "Az qaldı."} {item.why}</AiNote></div>}
+    </Card>
+  );
+}
+
+/* ---- Dialogue completion — fill in the missing turns of a short exchange,
+   each blank checked against the authored answer. ---- */
+function DialogueCompletionComponent({ component }) {
+  const turns = component.turns || [];
+  const [answers, setAnswers] = useState({});
+  const [checked, setChecked] = useState({});
+  return (
+    <Card className="p-5 max-w-xl">
+      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-3">{component.title || "Dialogue completion"}</div>
+      <div className="space-y-3">
+        {turns.map((t, i) => {
+          const ok = (answers[i] || "").trim().toLowerCase() === (t.answer || "").trim().toLowerCase();
+          return (
+            <div key={i} className="flex gap-2.5">
+              <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{t.speaker}</span>
+              {t.blank ? (
+                <div className="flex-1">
+                  <input value={answers[i] || ""} onChange={(e) => { setAnswers((a) => ({ ...a, [i]: e.target.value })); setChecked((c) => ({ ...c, [i]: false })); }}
+                    placeholder="Type this turn…"
+                    className={`w-full text-sm border-b-2 focus:outline-none px-1 py-1 ${checked[i] ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
+                  {!checked[i] ? (
+                    <button onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()} className="text-xs text-indigo-600 hover:text-indigo-700 mt-1 disabled:opacity-40">Check</button>
+                  ) : !ok && <p className="text-xs text-slate-400 mt-1">Sample answer: “{t.answer}”</p>}
+                </div>
+              ) : (
+                <span className="text-sm text-slate-700 mt-0.5">{t.text}</span>
+              )}
+            </div>
+          );
+        })}
+        {!turns.length && <p className="text-sm text-slate-400">No dialogue added yet.</p>}
+      </div>
+    </Card>
+  );
+}
+
 /* ---- Speed round — timed quiz blitz, encourage-don't-punish scoring ---- */
 function SpeedRoundComponent({ component }) {
   const seconds = component.seconds || 30;
@@ -1490,6 +1659,9 @@ function ComponentEditor({ component, onChange, roster, passages = [] }) {
     case "wordweb":    return <WordWebEditor component={component} onChange={onChange} />;
     case "memory":     return <MemoryEditor component={component} onChange={onChange} />;
     case "scramble":   return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Correct sentence"], ["why", "Why (Azerbaijani) — optional"]]} blank={{ sentence: "", why: "" }} label="sentence" wide={["sentence", "why"]} />;
+    case "arrowcorrection": return <RowsEditor component={component} onChange={onChange} fields={[["wrong", "Wrong sentence"], ["correct", "Corrected sentence"], ["why", "Why (Azerbaijani) — optional"]]} blank={{ wrong: "", correct: "", why: "" }} label="sentence" wide={["wrong", "correct", "why"]} />;
+    case "correctincorrect": return <CorrectIncorrectEditor component={component} onChange={onChange} />;
+    case "dialoguecompletion": return <DialogueCompletionEditor component={component} onChange={onChange} />;
     case "speedround": return <SpeedRoundEditor component={component} onChange={onChange} />;
     case "video":      return <MediaEditor component={component} onChange={onChange} />;
     case "listening":  return <MediaEditor component={component} onChange={onChange} />;
@@ -1696,6 +1868,64 @@ function TrueFalseEditor({ component, onChange }) {
   );
 }
 
+function CorrectIncorrectEditor({ component, onChange }) {
+  const items = component.items || [];
+  const setItem = (i, patch) => onChange({ items: items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border border-slate-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Sentence</span>
+            <input className={`${inputCls} mt-1`} value={it.sentence || ""} onChange={(e) => setItem(i, { sentence: e.target.value })} /></label>
+          <div className="flex gap-2 mb-2">
+            {[true, false].map((v) => (
+              <button key={String(v)} onClick={() => setItem(i, { correct: v })}
+                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.correct === v ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{v ? "Correct" : "Incorrect"}</button>
+            ))}
+          </div>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Why (Azerbaijani) — optional</span>
+            <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { sentence: "", correct: true, why: "" }] })}><Plus size={14} /> Add sentence</Btn>
+    </div>
+  );
+}
+
+function DialogueCompletionEditor({ component, onChange }) {
+  const turns = component.turns || [];
+  const setTurn = (i, patch) => onChange({ turns: turns.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+  return (
+    <div className="space-y-3">
+      <Field label="Dialogue title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field>
+      {turns.map((t, i) => (
+        <div key={i} className="rounded-xl border border-slate-100 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-slate-400">Turn {i + 1}</span>
+            <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+          </div>
+          <div className="grid grid-cols-[5rem_1fr] gap-2 mb-2">
+            <input className={inputCls} value={t.speaker || ""} onChange={(e) => setTurn(i, { speaker: e.target.value })} placeholder="A / B" />
+            <label className="inline-flex items-center gap-2 text-xs text-slate-500">
+              <input type="checkbox" checked={!!t.blank} onChange={(e) => setTurn(i, { blank: e.target.checked })} /> Student fills this turn in
+            </label>
+          </div>
+          {t.blank ? (
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Sample answer</span>
+              <input className={`${inputCls} mt-1`} value={t.answer || ""} onChange={(e) => setTurn(i, { answer: e.target.value })} /></label>
+          ) : (
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Line</span>
+              <input className={`${inputCls} mt-1`} value={t.text || ""} onChange={(e) => setTurn(i, { text: e.target.value })} /></label>
+          )}
+        </div>
+      ))}
+      <Btn variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { speaker: turns.length % 2 ? "A" : "B", text: "", blank: false }] })}><Plus size={14} /> Add turn</Btn>
+    </div>
+  );
+}
+
 function MediaEditor({ component, onChange }) {
   return (
     <div>
@@ -1725,11 +1955,26 @@ function ScenarioEditor({ component, onChange }) {
   );
 }
 
+const HOMEWORK_TYPES = [["essay", "Essay"], ["video", "Video link"], ["link", "Document / link"]];
+
 function HomeworkEditor({ component, onChange }) {
+  const type = component.type || "essay";
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        {HOMEWORK_TYPES.map(([id, lbl]) => (
+          <button key={id} onClick={() => onChange({ type: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${type === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+        ))}
+      </div>
       <Field label="Prompt"><textarea className={`${inputCls} h-24 resize-none`} value={component.prompt} onChange={(e) => onChange({ prompt: e.target.value })} /></Field>
-      <Field label="Minimum sentences"><input type="number" className={`${inputCls} w-24`} value={component.minSentences} onChange={(e) => onChange({ minSentences: Number(e.target.value) || 1 })} /></Field>
+      {type === "essay" && (
+        <Field label="Minimum sentences"><input type="number" className={`${inputCls} w-24`} value={component.minSentences} onChange={(e) => onChange({ minSentences: Number(e.target.value) || 1 })} /></Field>
+      )}
+      {(type === "video" || type === "link") && (
+        <Field label={type === "video" ? "Reference video (optional)" : "Google Doc/Form URL (optional)"}>
+          <input className={inputCls} value={component.resourceUrl || ""} onChange={(e) => onChange({ resourceUrl: e.target.value })} placeholder="https://…" />
+        </Field>
+      )}
     </div>
   );
 }

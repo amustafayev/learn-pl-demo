@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Mic, MicOff, Video, VideoOff, Monitor, ShieldCheck, Users, Copy, Check, Clock,
   Hand, ArrowRight, PhoneOff, CircleDot, Activity, GraduationCap, Sparkles, Radio, Bell,
-  ChevronLeft, ChevronRight, UsersRound, UserRound,
+  ChevronLeft, ChevronRight, UsersRound, UserRound, NotebookText,
 } from "lucide-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, StudentCheckList } from "../ui.jsx";
 import { useStore, lessonBlocks } from "../store.jsx";
 import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
+import { LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 
 // Block types the class does together (teacher leads, everyone on the same
 // page) vs. individually (each learner at their own pace) — the gamifications.
@@ -158,6 +159,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
   const [focus, setFocus] = useState(0); // the block the teacher is teaching (the stage)
   const [feed, setFeed] = useState([{ t: 0, text: "Session started — students are joining" }]);
   const [phase, setPhase] = useState("live");
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const peopleRef = useRef(seed);
   const elapsedRef = useRef(0);
@@ -166,6 +168,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
 
   const current = blocks[focus];
   const together = TOGETHER.has(current?.type);
+  const freshLesson = (state.lessons[course?.id] || []).find((l) => l.id === lesson?.id) || lesson;
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -255,6 +258,12 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
           </Pill>
           {rec.voice && <Pill className="bg-rose-500/20 text-rose-300"><Mic size={11} /> {clock(elapsed)}</Pill>}
           {rec.screen && <Pill className="bg-rose-500/20 text-rose-300"><Monitor size={11} /> screen</Pill>}
+          {lesson && (
+            <button onClick={() => setNotesOpen(true)} title="Lesson notes" className="relative text-slate-300 hover:text-white p-1.5">
+              <NotebookText size={17} />
+              {freshLesson?.teacherNotes?.trim() && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />}
+            </button>
+          )}
           <Btn onClick={() => setPhase("ended")} className="!bg-rose-600 !text-white hover:!bg-rose-700"><PhoneOff size={15} /> End lesson</Btn>
         </div>
       </div>
@@ -389,6 +398,10 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
             </div>
           </div>
         )}
+      {lesson && (
+        <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={course.id} lessonId={lesson.id}
+          lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={freshLesson?.teacherNotes} />
+      )}
     </div>
   );
 }

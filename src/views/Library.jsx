@@ -3,7 +3,7 @@ import {
   BookPlus, Send, Download, ChevronRight, ChevronDown, ArrowLeft, Layers, RefreshCw, Wand2,
   Check, Sparkles, ArrowRight, Trash2, BookmarkCheck, Boxes, Store,
 } from "lucide-react";
-import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls, ComingSoon, SpeakButton } from "../ui.jsx";
+import { Page, PageHead, Card, Btn, Pill, SectionLabel, AiNote, Modal, Field, inputCls, ComingSoon, SpeakButton, LevelPill } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel, kitContents } from "../store.jsx";
 import { HUE, HUE_SOFT, CONFUSED, BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
@@ -389,9 +389,12 @@ function MyBlocks() {
                   <Card key={item.id} className="p-5">
                     <div className="flex items-center justify-between mb-3">
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${M.tone}`}><I size={16} /></span>
-                      <button title="Delete from Component Library"
-                        onClick={() => { dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
-                        className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                      <div className="flex items-center gap-1.5">
+                        <LevelPill level={item.data?.level} />
+                        <button title="Delete from Component Library"
+                          onClick={() => { dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
+                          className="text-slate-300 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+                      </div>
                     </div>
                     <div className="font-bold mb-0.5">{item.title}</div>
                     <div className="text-xs text-slate-400">{M.label}{child ? ` · ${child}` : ""}</div>

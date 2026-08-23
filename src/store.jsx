@@ -180,6 +180,15 @@ function reducer(state, action) {
       const { text } = action;
       return { ...state, texts: [{ ...text, id: uid("t") }, ...state.texts] };
     }
+    // A teacher's own running scratchpad for one lesson — separate from the
+    // AI-drafted per-student notes on the student page (Notes tab); this is
+    // just plain text, autosaved as the teacher types while building or
+    // teaching the lesson.
+    case "UPDATE_LESSON_NOTES": {
+      const { courseId, lessonId, notes } = action;
+      const list = (state.lessons[courseId] || []).map((l) => (l.id === lessonId ? { ...l, teacherNotes: notes } : l));
+      return { ...state, lessons: { ...state.lessons, [courseId]: list } };
+    }
     case "ASSIGN": {
       // attach an assignment + activity entry to each target student
       const { studentIds, what, kind } = action;

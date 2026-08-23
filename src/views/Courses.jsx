@@ -4,10 +4,11 @@ import {
   Send, Eye, Users, UserPlus, Search, Maximize2, Minimize2, Radio,
   BookmarkPlus, FolderTree,
 } from "lucide-react";
-import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList } from "../ui.jsx";
+import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList, LevelPill } from "../ui.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
 import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
+import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
@@ -349,6 +350,7 @@ export function CourseView() {
                                     <span className="text-xs text-slate-600">{linkedPassage ? "↳ " : ""}{M.label}</span>
                                     <span className="text-[11px] text-slate-400 ml-1.5">{componentPreview(c, state.texts)}</span>
                                   </button>
+                                  <LevelPill level={c.level} />
                                   <button title="Save component to library"
                                     onClick={() => saveComponentToBank(dispatch, toast, c, `${b.title || BT.label} — ${M.label}`, `${course.title} · Lesson ${l.n}`)}
                                     className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-indigo-600 p-1 transition-opacity shrink-0">
@@ -411,6 +413,7 @@ export function LessonBuilderView() {
   const { route, go, startLive } = useNav();
   const [addOpen, setAddOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
 
@@ -462,6 +465,7 @@ export function LessonBuilderView() {
             <Radio size={14} /> Go live
           </Btn>
           <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign Students</Btn>
+          <LessonNotesButton onOpen={() => setNotesOpen(true)} hasNotes={!!lesson.teacherNotes?.trim()} />
           <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add Step</Btn>
         </div>} />
 
@@ -556,6 +560,8 @@ export function LessonBuilderView() {
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
         usedCounts={usedCounts} bank={compatibleBank} onPickBank={addFromBank} />
       <ManageLessonStudentsModal lesson={assignOpen ? lesson : null} course={course} enrolled={enrolled} onClose={() => setAssignOpen(false)} />
+      <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={route.courseId} lessonId={lesson.id}
+        lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={lesson.teacherNotes} />
     </Page>
   );
 }

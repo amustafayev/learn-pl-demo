@@ -116,6 +116,17 @@ export function Pill({ children, className = "" }) {
   return <span className={`text-[11px] rounded-md px-2 py-0.5 inline-flex items-center gap-1 ${className}`}>{children}</span>;
 }
 
+// CEFR levels a component can be tagged with — every component kind except
+// the purely gamified Playground ones (crossword, memory, wheel, word
+// search, picture match, speed round), which draw from the shared,
+// cross-level Word Tower pool rather than being level-specific themselves.
+export const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+export function LevelPill({ level }) {
+  if (!level) return null;
+  return <Pill className="bg-slate-100 text-slate-500 font-mono">{level}</Pill>;
+}
+
 export function StatCard({ value, label, tone = "text-slate-900", hint, onClick }) {
   return (
     <Card
