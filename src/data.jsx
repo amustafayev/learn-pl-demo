@@ -146,6 +146,12 @@ export function statusPill(status) {
   return "bg-slate-100 text-slate-400";
 }
 
+// A class's meeting days (indices into DAY_LABELS), rendered as "Mon, Wed" —
+// the compact form used everywhere a class card or row needs to show when it meets.
+export function scheduleLabel(days) {
+  return (days || []).map((d) => DAY_LABELS[d]).filter(Boolean).join(", ") || "No schedule set";
+}
+
 /* ------------------------------- teacher ------------------------------- */
 
 export const TEACHER = { name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024" };
@@ -194,6 +200,21 @@ export const SEED_LESSONS = {
     { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary", "practice", "homework"], active: 7,  progress: 38, current: true },
   ],
 };
+
+/* ------------------------------- classes ------------------------------- */
+
+// A Class sits between a Course and its Lessons: the course owns the
+// pathway content (shared), a Class is one scheduled instance of it — its
+// own roster and meeting days. One course can run several classes at once
+// (e.g. an IT English morning group and an evening group), each on its own
+// schedule, each with its own students working through the same lessons.
+export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export const SEED_CLASSES = [
+  { id: "cls_it_morning", courseId: "it", name: "ITler — Morning", scheduleDays: [1, 3], studentIds: ["s_rashad", "s_nigar", "s_leyla"] },
+  { id: "cls_it_evening", courseId: "it", name: "ITler — Evening", scheduleDays: [2, 4], studentIds: ["s_elvin", "s_kamran"] },
+  { id: "cls_ielts_main", courseId: "ielts", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5], studentIds: ["s_aysel"] },
+];
 
 /* ------------------------------- reading library ------------------------------- */
 
@@ -286,7 +307,7 @@ const act = (type, detail, when) => ({ type, detail, when });
 
 export const SEED_STUDENTS = [
   {
-    id: "s_rashad", name: "Rashad Aliyev", tag: "ITler", courseId: "it", assignedLessons: ["it3", "it4"], level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
+    id: "s_rashad", name: "Rashad Aliyev", tag: "ITler", courseId: "it", classId: "cls_it_morning", assignedLessons: ["it3", "it4"], level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 14, xp: 3820, status: "in progress", last: "2h ago", step: 4, progress: 57, atRisk: false,
     placement: { level: "B1", when: "3 months ago", score: 62 },
     cefr: [{ m: "Apr", v: 1 }, { m: "May", v: 1.4 }, { m: "Jun", v: 1.7 }, { m: "Jul", v: 2.0 }],
@@ -337,7 +358,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
-    id: "s_nigar", name: "Nigar Mammadova", tag: "ITler", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
+    id: "s_nigar", name: "Nigar Mammadova", tag: "ITler", courseId: "it", classId: "cls_it_morning", assignedLessons: ["it4"], level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
     dailyGoal: 30, dailyDone: 30, xp: 9120, status: "in progress", last: "20m ago", step: 6, progress: 92, atRisk: false,
     placement: { level: "B2", when: "6 months ago", score: 78 },
     cefr: [{ m: "Apr", v: 2.4 }, { m: "May", v: 2.7 }, { m: "Jun", v: 3.0 }, { m: "Jul", v: 3.3 }],
@@ -371,7 +392,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_elvin", name: "Elvin Huseynov", tag: "ITler", courseId: "it", assignedLessons: ["it1"], level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
+    id: "s_elvin", name: "Elvin Huseynov", tag: "ITler", courseId: "it", classId: "cls_it_evening", assignedLessons: ["it1"], level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
     dailyGoal: 15, dailyDone: 3, xp: 1240, status: "in progress", last: "1d ago", step: 1, progress: 24, atRisk: false,
     placement: { level: "B1", when: "1 month ago", score: 54 },
     cefr: [{ m: "May", v: 1.0 }, { m: "Jun", v: 1.2 }, { m: "Jul", v: 1.3 }],
@@ -401,7 +422,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_leyla", name: "Leyla Qasimova (demo)", tag: "Demo", courseId: "it", assignedLessons: ["it4"], level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
+    id: "s_leyla", name: "Leyla Qasimova (demo)", tag: "Demo", courseId: "it", classId: "cls_it_morning", assignedLessons: ["it4"], level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
     dailyGoal: 20, dailyDone: 20, xp: 6400, status: "completed", last: "3h ago", step: 7, progress: 100, atRisk: false,
     placement: { level: "B2", when: "5 months ago", score: 81 },
     cefr: [{ m: "Apr", v: 2.6 }, { m: "May", v: 2.9 }, { m: "Jun", v: 3.2 }, { m: "Jul", v: 3.4 }],
@@ -426,7 +447,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
-    id: "s_kamran", name: "Kamran Safarov", tag: "ITler", courseId: "it", assignedLessons: [], level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
+    id: "s_kamran", name: "Kamran Safarov", tag: "ITler", courseId: "it", classId: "cls_it_evening", assignedLessons: [], level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
     dailyGoal: 10, dailyDone: 0, xp: 120, status: "not started", last: "6d ago", step: -1, progress: 0, atRisk: true,
     riskReason: "No activity for 6 days · streak dropped to 0 · never finished placement follow-up",
     placement: { level: "A2", when: "1 week ago", score: 41 },
@@ -452,7 +473,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_aysel", name: "Aysel Rahimli", tag: "IELTS", courseId: "ielts", assignedLessons: ["ie2"], level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
+    id: "s_aysel", name: "Aysel Rahimli", tag: "IELTS", courseId: "ielts", classId: "cls_ielts_main", assignedLessons: ["ie2"], level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
     dailyGoal: 25, dailyDone: 11, xp: 4550, status: "in progress", last: "5h ago", step: 5, progress: 71, atRisk: true,
     riskReason: "Effort high (11 sessions/wk) but grammar score flat 3 weeks — a human should look",
     placement: { level: "B2", when: "2 months ago", score: 69 },

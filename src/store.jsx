@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_KITS,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_KITS, SEED_CLASSES,
 } from "./data.jsx";
 
 /* =========================================================================
@@ -102,6 +102,7 @@ export function kitContents(kit, blockBank, componentBank) {
 const initialState = {
   courses: clone(SEED_COURSES),
   lessons: clone(SEED_LESSONS),
+  classes: clone(SEED_CLASSES),
   students: clone(SEED_STUDENTS),
   texts: clone(SEED_TEXTS),
   wordSets: clone(SEED_WORDSETS),
@@ -280,10 +281,40 @@ function reducer(state, action) {
       return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] }, students };
     }
     case "SET_STUDENT_COURSE": {
-      // enroll (courseId) or unenroll (null); assignments from other courses are dropped
+      // Full unenroll only (courseId: null) — also drops the student from
+      // whatever class they were in. Enrolling now always goes through a
+      // specific Class (SET_STUDENT_CLASS), since a course's roster lives
+      // one level down, on its classes.
       const { studentId, courseId } = action;
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, assignedLessons: [] } : s));
-      return { ...state, students };
+      const student = state.students.find((s) => s.id === studentId);
+      const classes = student?.classId
+        ? state.classes.map((c) => (c.id === student.classId ? { ...c, studentIds: c.studentIds.filter((id) => id !== studentId) } : c))
+        : state.classes;
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, classId: null, assignedLessons: [] } : s));
+      return { ...state, students, classes };
+    }
+    case "ADD_CLASS": {
+      const { courseId, name, scheduleDays } = action;
+      const cls = { id: uid("cls"), courseId, name, scheduleDays: scheduleDays || [], studentIds: [] };
+      return { ...state, classes: [...state.classes, cls] };
+    }
+    case "SET_STUDENT_CLASS": {
+      // Enrolling in a Class enrolls in its course too (classId is the
+      // source of truth; courseId stays denormalized on the student so
+      // every existing course-scoped view keeps working unchanged).
+      // classId: null unenrolls from both the class and the course.
+      const { studentId, classId } = action;
+      const student = state.students.find((s) => s.id === studentId);
+      const target = classId ? state.classes.find((c) => c.id === classId) : null;
+      const classes = state.classes.map((c) => {
+        let studentIds = c.studentIds;
+        if (c.id === student?.classId) studentIds = studentIds.filter((id) => id !== studentId);
+        if (c.id === classId && !studentIds.includes(studentId)) studentIds = [...studentIds, studentId];
+        return studentIds === c.studentIds ? c : { ...c, studentIds };
+      });
+      const students = state.students.map((s) =>
+        s.id === studentId ? { ...s, classId: classId || null, courseId: target?.courseId || null, assignedLessons: [] } : s);
+      return { ...state, students, classes };
     }
     case "ASSIGN_LESSON": {
       const { studentId, lessonId } = action;

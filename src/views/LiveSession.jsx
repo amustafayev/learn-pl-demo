@@ -37,19 +37,21 @@ const PRESENCE = {
 export default function LiveSession({ context, onEnd }) {
   const { state } = useStore();
   const [phase, setPhase] = useState("setup");
-  const [courseId, setCourseId] = useState(context?.courseId || state.courses[0]?.id);
+  const firstClass = () => state.classes.find((c) => c.courseId === context?.courseId) || state.classes[0];
+  const [classId, setClassId] = useState(context?.classId || firstClass()?.id || null);
   const [lessonId, setLessonId] = useState(context?.lessonId || null);
   const [invited, setInvited] = useState([]); // student ids
 
-  const course = state.courses.find((c) => c.id === courseId);
-  const lessons = state.lessons[courseId] || [];
+  const cls = state.classes.find((c) => c.id === classId);
+  const course = state.courses.find((c) => c.id === cls?.courseId);
+  const lessons = state.lessons[cls?.courseId] || [];
   const lesson = lessons.find((l) => l.id === lessonId);
 
   if (phase === "setup") {
     return (
       <Setup
-        state={state} courseId={courseId} setCourseId={(id) => { setCourseId(id); setLessonId(null); }}
-        lessons={lessons} lessonId={lessonId} setLessonId={setLessonId} lesson={lesson}
+        state={state} classId={classId} setClassId={(id) => { setClassId(id); setLessonId(null); }}
+        cls={cls} course={course} lessons={lessons} lessonId={lessonId} setLessonId={setLessonId} lesson={lesson}
         invited={invited} setInvited={setInvited} onCancel={onEnd}
         onStart={() => setPhase("live")}
       />
@@ -60,21 +62,22 @@ export default function LiveSession({ context, onEnd }) {
 
 /* ------------------------------- setup ------------------------------- */
 
-function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, lesson, invited, setInvited, onStart, onCancel }) {
+// Picking a Class pins both the course (its lesson list) and the roster —
+// a teacher runs a live session for a specific scheduled group, not an
+// ad-hoc pick of course + hand-picked students.
+function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, setLessonId, lesson, invited, setInvited, onStart, onCancel }) {
   const { toast } = useStore();
-  // students in this course (fall back to everyone if none enrolled)
-  const enrolled = state.students.filter((s) => s.courseId === courseId);
-  const roster = enrolled.length ? enrolled : state.students;
+  const roster = state.students.filter((s) => s.classId === classId);
 
-  // default-select the whole roster whenever the course changes
-  useEffect(() => { setInvited(roster.map((s) => s.id)); /* eslint-disable-next-line */ }, [courseId]);
-  useEffect(() => { if (!lessonId && lessons[0]) setLessonId(lessons[0].id); /* eslint-disable-next-line */ }, [courseId]);
+  // default-select the whole roster whenever the class changes
+  useEffect(() => { setInvited(roster.map((s) => s.id)); /* eslint-disable-next-line */ }, [classId]);
+  useEffect(() => { if (!lessonId && lessons[0]) setLessonId(lessons[0].id); /* eslint-disable-next-line */ }, [classId]);
 
   const toggle = (id) => setInvited((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
-  const ready = lesson && invited.length;
+  const ready = cls && lesson && invited.length;
 
   function start() {
-    if (!ready) return toast("Pick a lesson and at least one student", "err");
+    if (!ready) return toast("Pick a class, a lesson, and at least one student", "err");
     toast(`Session started · notified ${invited.length} student${invited.length > 1 ? "s" : ""}`);
     onStart();
   }
@@ -88,49 +91,59 @@ function Setup({ state, courseId, setCourseId, lessons, lessonId, setLessonId, l
 
       <div className="flex-1 overflow-y-auto p-5 sm:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          <p className="text-slate-500">Pick the material, invite your students, and start. The lesson lives in the platform — everyone joins and works through it individually while you guide and watch.</p>
+          <p className="text-slate-500">Pick a class, then the material — the roster comes with the class. Everyone joins and works through the lesson individually while you guide and watch.</p>
 
-          {/* 1. material */}
-          <Card className="p-5">
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">1 · Material</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Course">
-                <select className={inputCls} value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-                  {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
-              </Field>
-              <Field label="Lesson">
-                <select className={inputCls} value={lessonId || ""} onChange={(e) => setLessonId(e.target.value)}>
-                  <option value="" disabled>Choose a lesson…</option>
-                  {lessons.map((l) => <option key={l.id} value={l.id}>Lesson {l.n}: {l.title}</option>)}
-                </select>
-              </Field>
-            </div>
-            {lesson && (
-              <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                {lessonBlocks(lesson).map((b) => { const BT = blockMeta(b.type); const I = BT.icon || GraduationCap; return (
-                  <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT.tone}`}><I size={14} /></span>
-                ); })}
-                <span className="text-xs text-slate-400 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
-              </div>
-            )}
-          </Card>
+          {!state.classes.length ? (
+            <Card className="p-5 text-sm text-slate-400">No classes yet — create one from a course page first.</Card>
+          ) : (
+            <>
+              {/* 1. class & material */}
+              <Card className="p-5">
+                <div className="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">1 · Class &amp; material</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Class">
+                    <select className={inputCls} value={classId || ""} onChange={(e) => setClassId(e.target.value)}>
+                      {state.classes.map((c) => {
+                        const courseTitle = state.courses.find((co) => co.id === c.courseId)?.title || "—";
+                        return <option key={c.id} value={c.id}>{c.name} · {courseTitle}</option>;
+                      })}
+                    </select>
+                  </Field>
+                  <Field label="Lesson">
+                    <select className={inputCls} value={lessonId || ""} onChange={(e) => setLessonId(e.target.value)}>
+                      <option value="" disabled>Choose a lesson…</option>
+                      {lessons.map((l) => <option key={l.id} value={l.id}>Lesson {l.n}: {l.title}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                {course && <p className="text-xs text-slate-400 mt-2">{course.title} · {course.level}</p>}
+                {lesson && (
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    {lessonBlocks(lesson).map((b) => { const BT = blockMeta(b.type); const I = BT.icon || GraduationCap; return (
+                      <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT.tone}`}><I size={14} /></span>
+                    ); })}
+                    <span className="text-xs text-slate-400 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
+                  </div>
+                )}
+              </Card>
 
-          {/* 2. invite */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-mono uppercase tracking-widest text-slate-400">2 · Invite &amp; notify</div>
-              <div className="flex gap-2 text-xs">
-                <button onClick={() => setInvited(roster.map((s) => s.id))} className="text-indigo-600 hover:text-indigo-700">All</button>
-                <span className="text-slate-300">·</span>
-                <button onClick={() => setInvited([])} className="text-slate-400 hover:text-slate-600">None</button>
-              </div>
-            </div>
-            {!enrolled.length && <p className="text-xs text-amber-600 mb-2">No students enrolled in this course yet — showing everyone.</p>}
-            <StudentCheckList students={roster} isSelected={(s) => invited.includes(s.id)} onToggle={(s) => toggle(s.id)}
-              metaFor={(s) => `${s.level} · ${s.status}`} />
-            <div className="mt-3 flex items-center gap-2 text-xs text-slate-400"><Bell size={13} /> Invited students get a platform notification with the join link.</div>
-          </Card>
+              {/* 2. invite */}
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-mono uppercase tracking-widest text-slate-400">2 · Invite &amp; notify</div>
+                  <div className="flex gap-2 text-xs">
+                    <button onClick={() => setInvited(roster.map((s) => s.id))} className="text-indigo-600 hover:text-indigo-700">All</button>
+                    <span className="text-slate-300">·</span>
+                    <button onClick={() => setInvited([])} className="text-slate-400 hover:text-slate-600">None</button>
+                  </div>
+                </div>
+                {!roster.length && <p className="text-xs text-amber-600 mb-2">No students enrolled in {cls?.name || "this class"} yet.</p>}
+                <StudentCheckList students={roster} isSelected={(s) => invited.includes(s.id)} onToggle={(s) => toggle(s.id)}
+                  metaFor={(s) => `${s.level} · ${s.status}`} />
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400"><Bell size={13} /> Invited students get a platform notification with the join link.</div>
+              </Card>
+            </>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="inline-flex items-center gap-1.5 text-xs font-mono bg-slate-100 rounded-lg px-2.5 py-1.5 text-slate-500">lucid.app/live/LUCID-8842 <Copy size={12} /></div>

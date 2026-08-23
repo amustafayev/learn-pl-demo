@@ -4,7 +4,7 @@ import { StoreProvider, NavProvider } from "./store.jsx";
 import { ToastHost } from "./ui.jsx";
 import { TEACHER } from "./data.jsx";
 import Dashboard from "./views/Dashboard.jsx";
-import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
+import { CoursesView, ClassesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
 import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
@@ -23,13 +23,15 @@ const NAV = [
 
 export default function App() {
   // one shared route object drives every view
-  const [route, setRoute] = useState({ tab: "dashboard", courseId: null, lessonId: null, partId: null, studentId: null });
+  const [route, setRoute] = useState({ tab: "dashboard", courseId: null, classId: null, lessonId: null, partId: null, studentId: null });
   const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
 
   const go = useCallback((patch) => {
     setRoute((r) => {
       // switching top-level tab resets deep selection
-      if (patch.tab && patch.tab !== r.tab) return { tab: patch.tab, courseId: null, lessonId: null, partId: null, studentId: null, ...patch };
+      if (patch.tab && patch.tab !== r.tab) return { tab: patch.tab, courseId: null, classId: null, lessonId: null, partId: null, studentId: null, ...patch };
+      // picking a different course drops any class selected under the old one
+      if (patch.courseId !== undefined && patch.courseId !== r.courseId && patch.classId === undefined) return { ...r, classId: null, lessonId: null, partId: null, ...patch };
       return { ...r, ...patch };
     });
   }, []);
@@ -106,7 +108,8 @@ function Content({ route }) {
   if (route.tab === "courses") {
     if (route.partId) return <PartStudio />;
     if (route.lessonId) return <LessonBuilderView />;
-    if (route.courseId) return <CourseView />;
+    if (route.classId) return <CourseView />;
+    if (route.courseId) return <ClassesView />;
     return <CoursesView />;
   }
   if (route.tab === "library") return <Library />;
