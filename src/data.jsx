@@ -128,6 +128,15 @@ export const READ_STATUS = {
   learning: "underline decoration-2 decoration-amber-400 underline-offset-2",
   known:    "",
 };
+// Manual highlight colours a teacher can apply to any selected run of a
+// reading passage (independent of word status, and combinable with a
+// definition tag on the same run).
+export const HIGHLIGHT_COLORS = {
+  yellow: { swatch: "bg-yellow-300", bg: "bg-yellow-100" },
+  green:  { swatch: "bg-emerald-300", bg: "bg-emerald-100" },
+  pink:   { swatch: "bg-pink-300", bg: "bg-pink-100" },
+  blue:   { swatch: "bg-sky-300", bg: "bg-sky-100" },
+};
 
 export const CONCEPTS = ["Articles", "Present perfect", "Past simple", "Prepositions", "Phrasal verbs", "Word order", "Conditionals"];
 

@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useRef } from "react";
 import { Check } from "lucide-react";
 import { Modal, Field, inputCls, Btn, StudentCheckList } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
-import { BLOCK_TYPES, BLOCK_CATEGORIES } from "../data.jsx";
+import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS } from "../data.jsx";
 
 const HUES = ["indigo", "emerald", "amber", "rose", "sky"];
 const HUE_SWATCH = { indigo: "bg-indigo-500", emerald: "bg-emerald-500", amber: "bg-amber-500", rose: "bg-rose-500", sky: "bg-sky-500" };
@@ -63,48 +63,132 @@ export function NewLessonModal({ open, onClose, courseId, onCreated }) {
 }
 
 /* Add a reading text to the library */
-// Tagging a word here writes it into the same {term, az, def, example}
-// shape the Reader (grammar.jsx) already renders as tap-to-translate — so a
-// teacher-authored passage reads identically to the seed texts, instead of
-// only ever being plain non-tappable text.
+// The passage is authored directly in place: type/paste into the editable
+// area below, then select any word or phrase at any time to highlight it
+// with a colour and/or tag it with a translation + definition — both write
+// onto the same selected run (combinable), matching the {term, az, def,
+// example, color} shape the Reader (grammar.jsx) already renders as
+// tap-to-translate — so a teacher-authored passage reads identically to the
+// seed texts, instead of only ever being plain non-tappable text.
+const HIGHLIGHT_LIST = Object.keys(HIGHLIGHT_COLORS).map((id) => ({ id, swatch: HIGHLIGHT_COLORS[id].swatch }));
+
+function markClass({ color, hasDef }) {
+  const colorCls = color ? HIGHLIGHT_COLORS[color]?.bg : "";
+  return [
+    "rp-mark rounded px-0.5 cursor-pointer",
+    colorCls || (hasDef ? "bg-indigo-100" : "bg-slate-100"),
+    hasDef ? "underline decoration-dotted decoration-indigo-400 underline-offset-2" : "",
+  ].filter(Boolean).join(" ");
+}
+
+function applyMarkStyle(el, { color, az, def, example }) {
+  const hasDef = !!((az || "").trim() || (def || "").trim());
+  el.dataset.color = color || "";
+  el.dataset.az = (az || "").trim();
+  el.dataset.def = (def || "").trim();
+  el.dataset.example = (example || "").trim();
+  el.className = markClass({ color, hasDef });
+}
+
+// Walks the contentEditable's DOM to turn it back into the plain body-token
+// array the store expects — a `.rp-mark` span becomes a tappable/definition
+// or plain-highlighted token, everything else stays plain text.
+function extractTokens(root) {
+  const tokens = [];
+  const pushText = (str) => { if (str) tokens.push({ text: str }); };
+  function walk(node) {
+    if (node.nodeType === Node.TEXT_NODE) return pushText(node.textContent);
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.classList?.contains("rp-mark")) {
+      const az = node.dataset.az || "", def = node.dataset.def || "", example = node.dataset.example || "";
+      const color = node.dataset.color || "", term = node.textContent;
+      if (!term) return;
+      if (az || def) tokens.push({ term, az: az || "—", def, example, status: "new", ...(color ? { color } : {}) });
+      else tokens.push({ text: term, ...(color ? { color } : {}) });
+      return;
+    }
+    if (node.tagName === "BR") return pushText("\n");
+    node.childNodes.forEach(walk);
+    if (node.tagName === "DIV") pushText("\n");
+  }
+  root.childNodes.forEach(walk);
+  return tokens;
+}
+
 export function AddTextModal({ open, onClose }) {
   const { dispatch, toast } = useStore();
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("IT");
   const [level, setLevel] = useState("B1");
-  const [body, setBody] = useState("");
-  const [tags, setTags] = useState({}); // token index -> { az, def, example }
-  const [activeTag, setActiveTag] = useState(null); // token index being tagged, or null
+  const [isEmpty, setIsEmpty] = useState(true);
+  const [popover, setPopover] = useState(null); // { mode: "new"|"edit", top, left, text, color, az, def, example }
+  const editorRef = useRef(null);
+  const pendingRangeRef = useRef(null);
+  const pendingMarkRef = useRef(null);
 
-  const tokens = useMemo(() => body.split(/(\s+)/), [body]);
+  function reset() { setTitle(""); setPopover(null); pendingRangeRef.current = null; pendingMarkRef.current = null; }
+  function closePopover() { setPopover(null); pendingRangeRef.current = null; pendingMarkRef.current = null; }
 
-  function tagWord(i, patch) {
-    setTags((t) => ({ ...t, [i]: { ...(t[i] || { az: "", def: "", example: "" }), ...patch } }));
+  function handleMouseUp() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!editorRef.current || !editorRef.current.contains(range.commonAncestorContainer)) return;
+    const text = range.toString();
+    if (!text.trim()) return;
+    const rect = range.getBoundingClientRect();
+    pendingRangeRef.current = range.cloneRange();
+    setPopover({ mode: "new", top: rect.bottom + 6, left: Math.min(rect.left, window.innerWidth - 300), text, color: null, az: "", def: "", example: "" });
   }
-  function removeTag(i) {
-    setTags((t) => { const next = { ...t }; delete next[i]; return next; });
-    setActiveTag(null);
+  function handleEditorClick(e) {
+    const markEl = e.target.closest?.(".rp-mark");
+    if (!markEl || !editorRef.current?.contains(markEl)) return;
+    const rect = markEl.getBoundingClientRect();
+    pendingMarkRef.current = markEl;
+    setPopover({
+      mode: "edit", top: rect.bottom + 6, left: Math.min(rect.left, window.innerWidth - 300), text: markEl.textContent,
+      color: markEl.dataset.color || null, az: markEl.dataset.az || "", def: markEl.dataset.def || "", example: markEl.dataset.example || "",
+    });
   }
-  function reset() {
-    setTitle(""); setBody(""); setTags({}); setActiveTag(null);
+  function saveMark() {
+    const { mode, color, az, def, example } = popover;
+    if (mode === "new") {
+      const range = pendingRangeRef.current;
+      if (!range) return closePopover();
+      const span = document.createElement("span");
+      applyMarkStyle(span, { color, az, def, example });
+      try { range.surroundContents(span); }
+      catch { toast("Can't tag across existing highlighted text — select a range that doesn't overlap.", "err"); return closePopover(); }
+      window.getSelection()?.removeAllRanges();
+    } else {
+      const el = pendingMarkRef.current;
+      if (!el) return closePopover();
+      applyMarkStyle(el, { color, az, def, example });
+    }
+    editorRef.current?.normalize();
+    closePopover();
+  }
+  function removeMark() {
+    const el = pendingMarkRef.current;
+    if (el) el.replaceWith(document.createTextNode(el.textContent));
+    editorRef.current?.normalize();
+    closePopover();
   }
   function create() {
-    if (!title.trim() || !body.trim()) return toast("Title and text are required", "err");
-    let hasTranslation = false;
-    const bodyTokens = tokens.map((chunk, i) => {
-      const tag = /\S/.test(chunk) ? tags[i] : null;
-      if (tag && (tag.az.trim() || tag.def.trim())) {
-        hasTranslation = true;
-        return { term: chunk, az: tag.az.trim() || "—", def: tag.def.trim(), example: tag.example.trim(), status: "new" };
-      }
-      return { text: chunk };
-    });
-    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), topic, level, wordCount: body.trim().split(/\s+/).length, hasTranslation, body: bodyTokens } });
+    const root = editorRef.current;
+    const plainText = root ? root.innerText : "";
+    if (!title.trim() || !plainText.trim()) return toast("Title and text are required", "err");
+    const bodyTokens = extractTokens(root);
+    const hasTranslation = bodyTokens.some((t) => t.term);
+    const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), topic, level, wordCount, hasTranslation, body: bodyTokens } });
     toast("Text added to the library");
     reset(); onClose();
   }
+  const canSave = !!(popover?.color || popover?.az?.trim() || popover?.def?.trim());
+
   return (
-    <Modal open={open} onClose={() => { reset(); onClose(); }} wide title="Add reading text" sub="Paste any text, then tag words to make them tappable with a definition"
+    <Modal open={open} onClose={() => { reset(); onClose(); }} wide title="Add reading text" sub="Type or paste the passage, then select any word or phrase to highlight it or add a definition"
       footer={<><Btn variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Btn><Btn onClick={create}>Add to library</Btn></>}>
       <Field label="Title"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sprint retrospective" autoFocus /></Field>
       <div className="grid grid-cols-2 gap-3">
@@ -119,41 +203,45 @@ export function AddTextModal({ open, onClose }) {
           </select>
         </Field>
       </div>
-      <Field label="Text"><textarea className={`${inputCls} h-32 resize-none`} value={body}
-        onChange={(e) => { setBody(e.target.value); setTags({}); setActiveTag(null); }} placeholder="Paste the passage here…" /></Field>
 
-      {body.trim() && (
-        <div className="mb-4">
-          <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1.5">Tap a word to give it a translation + definition</div>
-          <div className="rounded-lg border border-slate-200 p-3 leading-relaxed text-sm bg-slate-50/50">
-            {tokens.map((chunk, i) => {
-              if (!/\S/.test(chunk)) return <span key={i}>{chunk}</span>;
-              const tagged = tags[i] && (tags[i].az.trim() || tags[i].def.trim());
-              return (
-                <button key={i} type="button" onClick={() => setActiveTag(activeTag === i ? null : i)}
-                  className={`rounded px-0.5 transition-colors ${tagged ? "bg-sky-100 text-sky-900 font-medium" : "hover:bg-slate-200/70"} ${activeTag === i ? "ring-2 ring-indigo-300" : ""}`}>
-                  {chunk}
-                </button>
-              );
-            })}
+      <Field label="Text">
+        <div className="relative">
+          {isEmpty && <div className="absolute inset-0 p-3 text-sm text-slate-400 pointer-events-none">Type or paste the passage here…</div>}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={(e) => setIsEmpty(!e.currentTarget.textContent.trim())}
+            onMouseUp={handleMouseUp}
+            onClick={handleEditorClick}
+            className="rounded-lg border border-slate-200 p-3 leading-relaxed text-sm bg-slate-50/50 min-h-[128px] max-h-64 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+        </div>
+      </Field>
+      <p className="text-xs text-slate-400 -mt-2 mb-1">Select a word or phrase to highlight it with a colour and/or give it a translation + definition. Click a tagged/highlighted run to edit or remove it.</p>
+
+      {popover && (
+        <div style={{ position: "fixed", top: popover.top, left: popover.left, zIndex: 60 }}
+          className="w-72 bg-white rounded-xl border border-indigo-200 shadow-xl p-3 space-y-2">
+          <div className="text-xs font-semibold text-indigo-900 truncate">“{popover.text}”</div>
+          <div className="flex items-center gap-1.5">
+            {HIGHLIGHT_LIST.map((c) => (
+              <button key={c.id} type="button" onClick={() => setPopover((p) => ({ ...p, color: p.color === c.id ? null : c.id }))}
+                className={`w-6 h-6 rounded-full ${c.swatch} transition-all ${popover.color === c.id ? "ring-2 ring-offset-1 ring-slate-500" : ""}`} title={c.id} />
+            ))}
+            <span className="text-[10px] text-slate-400 ml-1">highlight colour</span>
           </div>
-          {activeTag != null && (
-            <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
-              <div className="text-xs font-semibold text-indigo-900">Tagging “{tokens[activeTag]}”</div>
-              <div className="grid grid-cols-2 gap-2">
-                <input className={inputCls} placeholder="Azerbaijani translation" value={tags[activeTag]?.az || ""} onChange={(e) => tagWord(activeTag, { az: e.target.value })} />
-                <input className={inputCls} placeholder="Definition (English)" value={tags[activeTag]?.def || ""} onChange={(e) => tagWord(activeTag, { def: e.target.value })} />
-              </div>
-              <input className={inputCls} placeholder="Example sentence (optional)" value={tags[activeTag]?.example || ""} onChange={(e) => tagWord(activeTag, { example: e.target.value })} />
-              <div className="flex justify-end gap-3">
-                <button onClick={() => removeTag(activeTag)} className="text-xs text-rose-500 hover:text-rose-700">Remove tag</button>
-                <button onClick={() => setActiveTag(null)} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Done</button>
-              </div>
-            </div>
-          )}
+          <input className={inputCls} placeholder="Azerbaijani translation" value={popover.az} onChange={(e) => setPopover((p) => ({ ...p, az: e.target.value }))} />
+          <input className={inputCls} placeholder="Definition (English)" value={popover.def} onChange={(e) => setPopover((p) => ({ ...p, def: e.target.value }))} />
+          <input className={inputCls} placeholder="Example sentence (optional)" value={popover.example} onChange={(e) => setPopover((p) => ({ ...p, example: e.target.value }))} />
+          <div className="flex justify-end items-center gap-3 pt-1">
+            {popover.mode === "edit" && <button type="button" onClick={removeMark} className="text-xs text-rose-500 hover:text-rose-700 mr-auto">Remove</button>}
+            <button type="button" onClick={closePopover} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+            <button type="button" onClick={saveMark} disabled={!canSave}
+              className={`text-xs font-semibold ${canSave ? "text-indigo-600 hover:text-indigo-700" : "text-slate-300 cursor-not-allowed"}`}>Save</button>
+          </div>
         </div>
       )}
-      <p className="text-xs text-slate-400 -mt-2">Untagged words stay as plain text; tagged words become tap-to-translate, exactly like the reader everywhere else in the app.</p>
     </Modal>
   );
 }

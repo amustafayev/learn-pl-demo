@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Languages, Bookmark, Check, Volume2, ArrowRight } from "lucide-react";
-import { ROLE, READ_STATUS, WORD_STATUS } from "../data.jsx";
+import { ROLE, READ_STATUS, WORD_STATUS, HIGHLIGHT_COLORS } from "../data.jsx";
 import { Pill } from "../ui.jsx";
 
 // Place N items evenly around a circle of the given radius (px), centered on
@@ -300,14 +300,15 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
 
       <div className="text-[17px] leading-8 text-slate-800">
         {text.body.map((tok, i) => {
-          if (!tok.term) return <span key={i}>{tok.text}</span>;
-          const statusCls = showStatusColors ? READ_STATUS[tok.status] || "" : "";
+          const highlightCls = tok.color ? `${HIGHLIGHT_COLORS[tok.color]?.bg || ""} rounded px-0.5` : "";
+          if (!tok.term) return <span key={i} className={highlightCls}>{tok.text}</span>;
+          const statusCls = tok.color ? "" : showStatusColors ? READ_STATUS[tok.status] || "" : "";
           const isSaved = saved[tok.term];
           return (
             <span key={i} className="relative inline-block">
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className={`cursor-pointer hover:bg-indigo-50 rounded px-0.5 ${statusCls} ${open === i ? "bg-indigo-100" : ""}`}
+                className={`cursor-pointer hover:bg-indigo-50 rounded px-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-indigo-100" : ""}`}
               >
                 {tok.term}
               </button>
