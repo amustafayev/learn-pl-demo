@@ -277,26 +277,40 @@ function reducer(state, action) {
         return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
       });
       const lesson = { id: uid("l"), n: list.length + 1, title: `Recap: ${focusLabel}`, parts: built.map((p) => p.type), built, active: 0, progress: 0, current: false };
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, assignedLessons: [...(s.assignedLessons || []), lesson.id] } : s));
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, extraLessons: [...(s.extraLessons || []), lesson.id] } : s));
       return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] }, students };
     }
     case "SET_STUDENT_COURSE": {
       // Full unenroll only (courseId: null) — also drops the student from
       // whatever class they were in. Enrolling now always goes through a
-      // specific Class (SET_STUDENT_CLASS), since a course's roster lives
-      // one level down, on its classes.
+      // specific Class (SET_STUDENT_CLASS) — a student's only assignment
+      // is which class they're in; the class carries the course.
       const { studentId, courseId } = action;
       const student = state.students.find((s) => s.id === studentId);
       const classes = student?.classId
         ? state.classes.map((c) => (c.id === student.classId ? { ...c, studentIds: c.studentIds.filter((id) => id !== studentId) } : c))
         : state.classes;
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, classId: null, assignedLessons: [] } : s));
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, classId: null } : s));
       return { ...state, students, classes };
     }
     case "ADD_CLASS": {
       const { courseId, name, scheduleDays } = action;
-      const cls = { id: uid("cls"), courseId, name, scheduleDays: scheduleDays || [], studentIds: [] };
+      const cls = { id: uid("cls"), courseId: courseId || null, name, scheduleDays: scheduleDays || [], studentIds: [], currentLessonId: null };
       return { ...state, classes: [...state.classes, cls] };
+    }
+    // Assigning/changing which course a class is currently studying —
+    // switching invalidates the old "which lesson is the class on" pointer.
+    case "SET_CLASS_COURSE": {
+      const { classId, courseId } = action;
+      const classes = state.classes.map((c) => (c.id === classId ? { ...c, courseId: courseId || null, currentLessonId: null } : c));
+      return { ...state, classes };
+    }
+    // Which lesson of its assigned course the whole class is currently on —
+    // the class-level equivalent of the old per-student lesson assignment.
+    case "SET_CLASS_CURRENT_LESSON": {
+      const { classId, lessonId } = action;
+      const classes = state.classes.map((c) => (c.id === classId ? { ...c, currentLessonId: lessonId } : c));
+      return { ...state, classes };
     }
     case "SET_STUDENT_CLASS": {
       // Enrolling in a Class enrolls in its course too (classId is the
@@ -313,27 +327,8 @@ function reducer(state, action) {
         return studentIds === c.studentIds ? c : { ...c, studentIds };
       });
       const students = state.students.map((s) =>
-        s.id === studentId ? { ...s, classId: classId || null, courseId: target?.courseId || null, assignedLessons: [] } : s);
+        s.id === studentId ? { ...s, classId: classId || null, courseId: target?.courseId || null } : s);
       return { ...state, students, classes };
-    }
-    case "ASSIGN_LESSON": {
-      const { studentId, lessonId } = action;
-      const students = state.students.map((s) =>
-        s.id === studentId && !(s.assignedLessons || []).includes(lessonId)
-          ? { ...s, assignedLessons: [...(s.assignedLessons || []), lessonId], unassignedLessons: (s.unassignedLessons || []).filter((u) => u.lessonId !== lessonId) }
-          : s);
-      return { ...state, students };
-    }
-    case "UNASSIGN_LESSON": {
-      // keeps a record instead of just dropping it, so a teacher can see what
-      // was unassigned (and re-assign it) instead of it quietly disappearing.
-      const { studentId, lessonId } = action;
-      const students = state.students.map((s) => {
-        if (s.id !== studentId) return s;
-        const unassignedLessons = [{ lessonId, when: "just now" }, ...(s.unassignedLessons || []).filter((u) => u.lessonId !== lessonId)];
-        return { ...s, assignedLessons: (s.assignedLessons || []).filter((l) => l !== lessonId), unassignedLessons };
-      });
-      return { ...state, students };
     }
     case "SET_RECORDING_SUMMARY": {
       // written when a teacher ends a recorded live lesson and drafts notes —

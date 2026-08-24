@@ -64,7 +64,8 @@ function churnScore(s) {
   if (s.streak === 0) { score += 40; factors.push("streak at 0"); }
   const dMatch = /^(\d+)d ago$/.exec(s.last || "");
   if (dMatch && +dMatch[1] >= 3) { score += Math.min(30, +dMatch[1] * 5); factors.push(`inactive ${dMatch[1]}d`); }
-  if (s.dailyGoal && s.dailyDone / s.dailyGoal < 0.3) { score += 15; factors.push("daily goal rarely met"); }
+  const weeklyMin = Math.round((s.tracking?.rhythm?.avgSessionMin || 0) * (s.tracking?.rhythm?.sessionsPerWeek || 0));
+  if (weeklyMin < 30) { score += 15; factors.push(`low time spent (${weeklyMin}m/wk)`); }
   const traj = studentTrajectory(s);
   if (traj.label === "plateauing" && s.streak >= 5) { score += 25; factors.push("high effort, flat progress"); }
   if (traj.label === "regressing") { score += 20; factors.push("scores trending down"); }

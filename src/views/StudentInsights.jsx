@@ -1,8 +1,8 @@
 import React from "react";
 import {
-  BookOpen, Headphones, Lightbulb, LogOut, Sparkles, Brain, Mic, Hourglass,
-  CalendarClock, ArrowLeftRight, ShieldCheck, ShieldAlert, TrendingUp, TrendingDown,
-  Minus, Gauge, Repeat, CheckCircle2, Circle, Wand2, Map, Languages, Timer, RotateCcw,
+  Sparkles, Brain, Mic, Hourglass,
+  ArrowLeftRight, ShieldCheck, ShieldAlert, TrendingUp, TrendingDown,
+  Minus, Gauge, Wand2, Map, Languages,
 } from "lucide-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -12,30 +12,22 @@ import { useStore } from "../store.jsx";
 import { studentTrajectory } from "./Insights.jsx";
 
 /* =========================================================================
-   Per-student AI Insights — the raw + derived tracking signals for ONE
-   learner, straight from the doc's "AI Tracking — Advanced" list, plus the
-   AI-derived layer (readiness, per-skill trajectory, confidence calibration,
-   "you vs last month") and the learner-facing outputs (transparent knowledge
-   map, weekly plain-language summary). Everything not explicitly authored
-   (readiness, per-skill trajectory, cross-skill gap, month-over-month) is
-   COMPUTED from data already tracked elsewhere — not a separate opinion.
+   Per-student AI Insights — the DERIVED layer for ONE learner (readiness,
+   per-skill trajectory, confidence calibration, "you vs last month",
+   cross-skill gap) plus the learner-facing outputs (transparent knowledge
+   map, weekly plain-language summary). Everything here is COMPUTED from
+   data already tracked elsewhere, not a raw dump of every logged signal —
+   the raw hesitation/dwell/recall-speed numbers live in the tracking
+   pipeline but aren't surfaced here on their own; they only matter once
+   they cluster into one of the insights below.
    ========================================================================= */
 
-const METHODS = [
-  "Dwell time per section", "Hesitation & retries", "Reading pace", "Listening replays",
-  "Hint usage", "Recall speed / memory strength", "Session rhythm", "Abandonment point",
-  "Confidence calibration", "Recording summarization",
-];
-
-const TYPE_LABEL = { grammar: "Grammar", vocabulary: "Vocabulary", reading: "Reading", listening: "Listening", speaking: "Speaking", writing: "Writing" };
-const TYPE_COLOR = { grammar: "bg-emerald-500", vocabulary: "bg-indigo-500", reading: "bg-sky-500", listening: "bg-violet-500", speaking: "bg-teal-500", writing: "bg-rose-500" };
 const TREND_TONE = {
   improving:  { icon: TrendingUp, tone: "text-emerald-600 bg-emerald-50" },
   plateauing: { icon: Minus, tone: "text-amber-600 bg-amber-50" },
   regressing: { icon: TrendingDown, tone: "text-rose-600 bg-rose-50" },
   "just started": { icon: Minus, tone: "text-slate-400 bg-slate-100" },
 };
-const LOOP_STAGES = ["Quick review", "Sentence challenge", "Speaking challenge", "Story with the word"];
 
 // remedial-suggestion lookup — maps a stuck concept to a concrete next step
 // using components that already exist in the platform (engine output: "inject
@@ -116,8 +108,6 @@ function weeklySummaryAz(s, mom) {
 export default function StudentInsights({ s }) {
   const { toast } = useStore();
   const t = s.tracking || {};
-  const dwell = t.dwellByType || {};
-  const totalDwell = Object.values(dwell).reduce((a, b) => a + b, 0) || 1;
   const gap = crossSkillGap(s.skills);
   const overallTraj = studentTrajectory(s);
   const perSkill = perSkillTrajectory(s);
@@ -127,42 +117,6 @@ export default function StudentInsights({ s }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-1.5">
-        {METHODS.map((m) => <Pill key={m} className="bg-slate-100 text-slate-500">{m}</Pill>)}
-      </div>
-
-      {/* raw signal dashboard — the tracked behaviours at a glance */}
-      <div>
-        <SectionLabel>Raw signals · logged automatically this week</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {(() => {
-            const h = t.hesitationStats || {};
-            const sev = (v, warn, bad) => (v >= bad ? "text-rose-600" : v >= warn ? "text-amber-600" : "text-emerald-600");
-            const dwellTotal = Object.values(dwell).reduce((a, b) => a + b, 0);
-            const topDwell = Object.entries(dwell).sort((a, b) => b[1] - a[1])[0];
-            const revisits = (t.stuckPoints || []).reduce((a, p) => a + (p.revisits || 0), 0);
-            const signals = [
-              { icon: Timer, label: "Hesitation", value: h.avgFirstAnswerSec ? `${h.avgFirstAnswerSec}s` : "—", tone: sev(h.avgFirstAnswerSec || 0, 8, 15), sub: h.answersChanged ? `${h.answersChanged} answers changed` : "time to first answer" },
-              { icon: RotateCcw, label: "Retries", value: h.retriesAvg ? `${h.retriesAvg}×` : "—", tone: sev(h.retriesAvg || 0, 2, 3), sub: h.worstOn ? `worst on ${h.worstOn}` : "before correct" },
-              { icon: Repeat, label: "Revisits", value: revisits || "—", tone: sev(revisits, 3, 6), sub: "pages reopened" },
-              { icon: Hourglass, label: "Dwell", value: `${dwellTotal}m`, tone: "text-slate-700", sub: topDwell ? `most on ${TYPE_LABEL[topDwell[0]] || topDwell[0]}` : "this week" },
-              { icon: BookOpen, label: "Reading pace", value: t.reading?.paceWpm ? `${t.reading.paceWpm}` : "—", tone: "text-slate-700", sub: `wpm · ${t.reading?.rereads ?? 0} re-reads` },
-              { icon: Headphones, label: "Replays", value: t.listening?.avgReplays ?? "—", tone: sev(t.listening?.avgReplays || 0, 2, 3), sub: "per audio, avg" },
-              { icon: Lightbulb, label: "Hints", value: t.hints?.used ?? 0, tone: sev(t.hints?.used || 0, 5, 10), sub: t.hints?.mostUsedOn ? `mostly ${t.hints.mostUsedOn}` : "used this week" },
-              { icon: CalendarClock, label: "Rhythm", value: `${t.rhythm?.sessionsPerWeek ?? 0}/wk`, tone: "text-slate-700", sub: `${t.rhythm?.avgSessionMin || 0}m sessions` },
-            ];
-            return signals.map((sg) => (
-              <Card key={sg.label} className="p-3.5">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-slate-400 mb-1.5"><sg.icon size={12} /> {sg.label}</div>
-                <div className={`font-mono text-xl font-bold ${sg.tone}`}>{sg.value}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5 truncate" title={sg.sub}>{sg.sub}</div>
-              </Card>
-            ));
-          })()}
-        </div>
-        <p className="text-[11px] text-slate-400 mt-2">Green = comfortable · amber = watch · red = struggling. One signal alone is ambiguous — the insights below only fire when signals cluster.</p>
-      </div>
-
       {/* readiness + you vs last month */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <Card className={`p-4 flex items-center gap-3 ${ready.ready ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"}`}>
@@ -192,19 +146,6 @@ export default function StudentInsights({ s }) {
         </Card>
       </div>
 
-      {/* dwell time per section */}
-      <div>
-        <SectionLabel>Time spent per section this week</SectionLabel>
-        <Card className="p-5">
-          {Object.keys(dwell).length ? Object.entries(dwell).sort((a, b) => b[1] - a[1]).map(([type, min]) => (
-            <div key={type} className="mb-2.5 last:mb-0">
-              <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">{TYPE_LABEL[type] || type}</span><span className="font-mono text-slate-400">{min}m · {Math.round((min / totalDwell) * 100)}%</span></div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className={`h-full ${TYPE_COLOR[type] || "bg-slate-400"}`} style={{ width: `${(min / totalDwell) * 100}%` }} /></div>
-            </div>
-          )) : <p className="text-sm text-slate-400">No session time logged yet.</p>}
-        </Card>
-      </div>
-
       {/* stuck points, with a remedial suggestion each */}
       <div>
         <SectionLabel>Where {s.name.split(" ")[0]} got stuck</SectionLabel>
@@ -215,7 +156,7 @@ export default function StudentInsights({ s }) {
                 <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><Hourglass size={15} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm"><b>{p.concept}</b> <span className="text-slate-400">· {p.activity}</span></div>
-                  <div className="text-xs text-slate-400">{p.retries} retries · {p.avgDwellSec}s avg dwell · revisited {p.revisits}× · {p.when}</div>
+                  <div className="text-xs text-slate-400">{p.retries} retries · revisited {p.revisits}× · {p.when}</div>
                   <div className="text-xs text-indigo-600 mt-1 flex items-center gap-1"><Wand2 size={11} /> {remedialFor(p.concept)}</div>
                 </div>
                 <button onClick={() => toast(`Added a ${p.concept} refresher to ${s.name.split(" ")[0]}'s next session`)}
@@ -224,59 +165,6 @@ export default function StudentInsights({ s }) {
             ))}
           </Card>
         ) : <Card className="p-5 text-sm text-slate-400">No stuck points detected — fails + high dwell + revisits haven't clustered anywhere yet.</Card>}
-      </div>
-
-      {/* response speed & accuracy */}
-      <div>
-        <SectionLabel>Time to respond correctly</SectionLabel>
-        {t.responseSpeed?.length ? (
-          <Card className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-400 text-xs"><tr>
-                <th className="text-left font-medium p-3">Concept</th>
-                <th className="text-left font-medium p-3">Avg time to correct</th>
-                <th className="text-left font-medium p-3">First-try accuracy</th>
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {t.responseSpeed.map((r, i) => (
-                  <tr key={i}>
-                    <td className="p-3 font-medium">{r.concept}</td>
-                    <td className="p-3 font-mono text-slate-500">{r.avgSecToCorrect}s</td>
-                    <td className="p-3"><span className={`font-mono ${r.firstTryAccuracy < 50 ? "text-rose-600" : r.firstTryAccuracy < 75 ? "text-amber-600" : "text-emerald-600"}`}>{r.firstTryAccuracy}%</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        ) : <Card className="p-5 text-sm text-slate-400">Not enough graded attempts yet.</Card>}
-        <p className="text-[11px] text-slate-400 mt-2">Slow + low-accuracy concepts need re-explanation, not just more practice.</p>
-      </div>
-
-      {/* recall speed & the escalating memory loop */}
-      <div>
-        <SectionLabel>Recall speed & memory strength</SectionLabel>
-        <Card className="p-4">
-          {(() => {
-            const loopWord = (s.words || []).find((w) => w.loopStage != null);
-            if (!loopWord) return <p className="text-sm text-slate-400">No word currently in the escalating review loop.</p>;
-            return (
-              <div>
-                <div className="text-sm mb-3">You learned <b>{loopWord.term}</b> {loopWord.daysAgo}d ago — recall speed across intervals decides what's next.</div>
-                <div className="flex items-center gap-1">
-                  {LOOP_STAGES.map((stage, i) => (
-                    <React.Fragment key={stage}>
-                      <div className="flex flex-col items-center gap-1 flex-1">
-                        {i < loopWord.loopStage ? <CheckCircle2 size={18} className="text-emerald-500" /> : i === loopWord.loopStage ? <Repeat size={18} className="text-indigo-600" /> : <Circle size={18} className="text-slate-300" />}
-                        <span className={`text-[10px] text-center ${i === loopWord.loopStage ? "text-indigo-700 font-semibold" : "text-slate-400"}`}>{stage}</span>
-                      </div>
-                      {i < LOOP_STAGES.length - 1 && <div className={`h-px flex-1 -mt-4 ${i < loopWord.loopStage ? "bg-emerald-300" : "bg-slate-200"}`} />}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </Card>
       </div>
 
       {/* confidence calibration */}
@@ -299,47 +187,6 @@ export default function StudentInsights({ s }) {
             <p className="text-[11px] text-slate-400 flex items-center gap-1"><Gauge size={11} /> Grey = self-rated confidence, indigo = actual score. A big gap means they don't know what they don't know.</p>
           </Card>
         ) : <Card className="p-5 text-sm text-slate-400">No self-assessment data yet — ask “how confident are you?” before a quiz to start tracking this.</Card>}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        {/* reading & listening signals */}
-        <div>
-          <SectionLabel>Reading & listening behaviour</SectionLabel>
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center shrink-0"><BookOpen size={15} /></span>
-              <div className="text-sm"><div>{t.reading?.paceWpm || 0} words/min · {t.reading?.rereads || 0} re-reads · {t.reading?.wordsTappedPerText || 0} words tapped/text</div></div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center shrink-0"><Headphones size={15} /></span>
-              <div className="text-sm">
-                <div>{t.listening?.avgReplays ?? 0} replays / audio, avg</div>
-                {t.listening?.struggle && <div className="text-xs text-slate-400">{t.listening.struggle}</div>}
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* rhythm + hints + abandonment */}
-        <div>
-          <SectionLabel>Rhythm, hints & drop-off</SectionLabel>
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0"><CalendarClock size={15} /></span>
-              <div className="text-sm">{t.rhythm?.avgSessionMin || 0}m sessions · {t.rhythm?.sessionsPerWeek ?? 0}/wk · {t.rhythm?.commonTimeOfDay || "—"}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><Lightbulb size={15} /></span>
-              <div className="text-sm">{t.hints?.used || 0} hints used{t.hints?.mostUsedOn ? ` · mostly on ${t.hints.mostUsedOn}` : ""}</div>
-            </div>
-            {t.abandonment?.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><LogOut size={15} /></span>
-                <div className="text-sm">Quit “{t.abandonment[0].lesson}” at {t.abandonment[0].part} · {t.abandonment[0].when}</div>
-              </div>
-            )}
-          </Card>
-        </div>
       </div>
 
       {gap && (

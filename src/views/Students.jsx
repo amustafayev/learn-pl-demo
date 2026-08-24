@@ -2,11 +2,10 @@ import React, { useState } from "react";
 import {
   Send, Download, Flame, Brain, AlertTriangle, Check, X,
   CheckCircle2, Circle, Lock, NotebookPen, Sparkles, ArrowRight, Clock, TrendingUp,
-  RotateCcw, Search, Gift, Zap,
+  RotateCcw, Search,
 } from "lucide-react";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, RadarChart, PolarGrid,
-  PolarAngleAxis, Radar,
+  ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
 import {
   Page, PageHead, Crumbs, Card, Bar, Btn, Pill, Avatar, SectionLabel, AiNote, StatCard,
@@ -20,17 +19,6 @@ import StudentInsights from "./StudentInsights.jsx";
 
 const weakest = (c) => Object.entries(c).sort((a, b) => a[1] - b[1])[0];
 
-/* Motivation — XP ledger and streak-discount tiers, both computed from data
-   already tracked (activity log, streak) rather than authored separately. */
-const XP_PER_EVENT = { word: 5, test: 15, lesson: 30, reading: 10 };
-const xpFor = (type) => XP_PER_EVENT[type] || 5;
-const DISCOUNT_TIERS = [{ days: 7, pct: 10 }, { days: 30, pct: 15 }, { days: 60, pct: 20 }];
-function discountProgress(streak) {
-  const unlocked = [...DISCOUNT_TIERS].reverse().find((t) => streak >= t.days);
-  const next = DISCOUNT_TIERS.find((t) => streak < t.days);
-  return { currentPct: unlocked?.pct || 0, next, pctToNext: next ? Math.min(100, (streak / next.days) * 100) : 100 };
-}
-
 /* ------------------------------- roster ------------------------------- */
 
 export function StudentsView() {
@@ -40,6 +28,7 @@ export function StudentsView() {
   const atRiskOnly = route.filter === "atRisk";
   const list = state.students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) && (!atRiskOnly || s.atRisk));
   const courseName = (id) => state.courses.find((c) => c.id === id)?.title || "—";
+  const className = (classId) => state.classes.find((c) => c.id === classId)?.name;
   return (
     <Page>
       <PageHead kicker="Everyone you teach" title="Students"
@@ -76,7 +65,7 @@ export function StudentsView() {
                     <div>
                       <div className="font-medium flex items-center gap-1.5">
                         {s.name}
-                        {s.tag && <Pill className="bg-slate-100 text-slate-500">{s.tag}</Pill>}
+                        {className(s.classId) && <Pill className="bg-slate-100 text-slate-500">{className(s.classId)}</Pill>}
                         {s.atRisk && <AlertTriangle size={13} className="text-rose-500" />}
                       </div>
                       <div className="text-xs text-slate-400">{s.goal}</div>
@@ -102,23 +91,25 @@ export function StudentDetail() {
   const { route, go } = useNav();
   const [tab, setTab] = useState("overview");
   const [assign, setAssign] = useState(false);
-  const [confirmUnassign, setConfirmUnassign] = useState(null); // lesson pending unassign confirmation
+  const [pickingClass, setPickingClass] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const s = state.students.find((x) => x.id === route.studentId);
   if (!s) return null;
 
   const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
-  const lessons = state.lessons[s.courseId] || [];
-  const assignedLessons = (s.assignedLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
-  const unassignedHistory = (s.unassignedLessons || []).map((u) => ({ ...u, lesson: lessons.find((l) => l.id === u.lessonId) })).filter((u) => u.lesson);
+  const cls = state.classes.find((c) => c.id === s.classId);
+  const course = state.courses.find((c) => c.id === s.courseId);
 
-  function unassign(l) {
-    dispatch({ type: "UNASSIGN_LESSON", studentId: s.id, lessonId: l.id });
-    toast(`Unassigned Lesson ${l.n}`);
-    setConfirmUnassign(null);
+  function moveToClass(classId) {
+    dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId });
+    const target = state.classes.find((c) => c.id === classId);
+    toast(`Moved to ${target?.name}`);
+    setPickingClass(false);
   }
-  function reassign(lessonId, title) {
-    dispatch({ type: "ASSIGN_LESSON", studentId: s.id, lessonId });
-    toast(`Re-assigned “${title}”`);
+  function removeFromClass() {
+    dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: null });
+    toast(`Removed from ${cls?.name}`);
+    setConfirmRemove(false);
   }
 
   return (
@@ -130,7 +121,7 @@ export function StudentDetail() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
               {s.name}
-              {s.tag && <Pill className="bg-slate-100 text-slate-500">{s.tag}</Pill>}
+              {cls && <Pill className="bg-slate-100 text-slate-500">{cls.name}</Pill>}
               {s.atRisk && <Pill className="bg-rose-50 text-rose-600"><AlertTriangle size={12} /> needs attention</Pill>}
             </h1>
             <div className="text-slate-400 text-sm mt-0.5">{s.goal} · placed at {s.placement.level} ({s.placement.when})</div>
@@ -139,8 +130,8 @@ export function StudentDetail() {
         <Btn onClick={() => setAssign(true)}><Send size={15} /> Assign</Btn>
       </div>
 
-      {/* Compact assign + progress strip — the whole point: what's assigned
-          and how far along it is, at a glance, with one-click unassign. */}
+      {/* Class + progress strip — a student's only "assignment" is which
+          class they're in; lesson access/sequencing follows the class. */}
       <Card className="p-3.5 mb-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="sm:w-48 shrink-0">
@@ -151,34 +142,45 @@ export function StudentDetail() {
             <Bar pct={s.progress} />
           </div>
           <div className="hidden sm:block w-px self-stretch bg-slate-100" />
-          <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
-            {assignedLessons.length ? assignedLessons.map((l) => (
-              <span key={l.id} className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 rounded-full pl-2.5 pr-1 py-1">
-                L{l.n}: {l.title}
-                <button title="Unassign" onClick={() => setConfirmUnassign(l)}
-                  className="hover:text-rose-600 rounded-full p-0.5"><X size={11} /></button>
-              </span>
-            )) : <span className="text-xs text-slate-400">No lessons assigned yet — use “Assign” above.</span>}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {cls ? (
+              <>
+                <span className="text-sm text-slate-700"><b>{cls.name}</b>{course ? ` · ${course.title}` : ""}</span>
+                <button onClick={() => setConfirmRemove(true)} title="Remove from class" className="text-slate-300 hover:text-rose-500 p-0.5"><X size={13} /></button>
+              </>
+            ) : <span className="text-xs text-slate-400">Not in a class yet.</span>}
+            <button onClick={() => setPickingClass(true)} className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+              {cls ? "Change class" : "Assign a class"}
+            </button>
           </div>
         </div>
-        {unassignedHistory.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
-            <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400 mr-1">Previously unassigned</span>
-            {unassignedHistory.map((u) => (
-              <button key={u.lessonId} onClick={() => reassign(u.lessonId, u.lesson.title)}
-                className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 rounded-full pl-2.5 pr-2 py-1 transition-colors">
-                L{u.lesson.n}: {u.lesson.title} <RotateCcw size={10} />
-              </button>
-            ))}
-          </div>
-        )}
       </Card>
 
-      <Modal open={!!confirmUnassign} onClose={() => setConfirmUnassign(null)}
-        title="Unassign this lesson?"
-        sub={confirmUnassign ? `L${confirmUnassign.n}: ${confirmUnassign.title} — for ${s.name.split(" ")[0]}` : ""}
-        footer={<><Btn variant="outline" onClick={() => setConfirmUnassign(null)}>Cancel</Btn><Btn variant="danger" onClick={() => unassign(confirmUnassign)}><X size={14} /> Unassign</Btn></>}>
-        <p className="text-sm text-slate-500">They'll lose access to it, but it's kept in "Previously unassigned" so you can re-assign it any time.</p>
+      <Modal open={pickingClass} onClose={() => setPickingClass(false)} title={cls ? "Change class" : "Assign a class"} sub={`Pick a class for ${s.name.split(" ")[0]}`}>
+        <div className="space-y-1.5 max-h-80 overflow-y-auto">
+          {state.classes.map((c) => {
+            const on = c.id === s.classId;
+            const courseTitle = state.courses.find((co) => co.id === c.courseId)?.title;
+            return (
+              <button key={c.id} onClick={() => moveToClass(c.id)} disabled={on}
+                className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{c.name}</div>
+                  <div className="text-xs text-slate-400">{courseTitle || "No course assigned"}</div>
+                </div>
+                {on && <Check size={15} className="text-indigo-600 shrink-0" />}
+              </button>
+            );
+          })}
+          {!state.classes.length && <p className="text-sm text-slate-400 p-2">No classes yet — create one in Classes first.</p>}
+        </div>
+      </Modal>
+
+      <Modal open={confirmRemove} onClose={() => setConfirmRemove(false)}
+        title="Remove from this class?"
+        sub={cls ? `${s.name} — ${cls.name}` : ""}
+        footer={<><Btn variant="outline" onClick={() => setConfirmRemove(false)}>Cancel</Btn><Btn variant="danger" onClick={removeFromClass}><X size={14} /> Remove</Btn></>}>
+        <p className="text-sm text-slate-500">They'll lose access to this class's course and lessons. You can re-assign them any time.</p>
       </Modal>
 
       <div className="flex gap-1 mb-6 border-b border-slate-200 overflow-x-auto">
@@ -205,6 +207,8 @@ function Overview({ s }) {
   const [concept, score] = weakest(s.concepts);
   const radar = Object.entries(s.concepts).map(([k, v]) => ({ concept: k.length > 10 ? k.split(" ")[0] : k, mastery: v }));
   const course = state.courses.find((c) => c.id === s.courseId);
+  const lessons = state.lessons[s.courseId] || [];
+  const recapLessons = (s.extraLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
@@ -227,6 +231,11 @@ function Overview({ s }) {
               <div key={i} className="flex items-center gap-2.5 text-sm"><span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-bold shrink-0">{i + 1}</span>{a}</div>
             ))}
           </Card>
+          {recapLessons.length > 0 && (
+            <p className="text-xs text-slate-400 mt-2">
+              Recap lessons built for {s.name.split(" ")[0]}: {recapLessons.map((l) => l.title).join(", ")}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -285,21 +294,6 @@ function Overview({ s }) {
           <div className="text-xs text-slate-400 mt-2">{s.streakFreeze} streak freeze{s.streakFreeze !== 1 ? "s" : ""} available</div>
         </Card>
         <Card className="p-5">
-          <div className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Gift size={15} className="text-rose-500" /> Rewards</div>
-          <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Renewal discount</span><span className="font-mono text-slate-700">{discountProgress(s.streak).currentPct}%{discountProgress(s.streak).next ? ` (next ${discountProgress(s.streak).next.pct}% at ${discountProgress(s.streak).next.days}d)` : " · max"}</span></div>
-          <Bar pct={discountProgress(s.streak).pctToNext} hue="rose" />
-          <div className="text-sm font-semibold mt-4 mb-2 flex items-center gap-1.5"><Zap size={14} className="text-amber-500" /> Recent XP</div>
-          <div className="space-y-1.5">
-            {(s.activity || []).slice(0, 3).map((a, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 truncate pr-2">{a.detail}</span>
-                <span className="font-mono text-amber-600 shrink-0">+{xpFor(a.type)} XP</span>
-              </div>
-            ))}
-            {!s.activity?.length && <p className="text-xs text-slate-400">No XP activity yet.</p>}
-          </div>
-        </Card>
-        <Card className="p-5">
           <div className="text-sm font-semibold mb-1">Words this week</div>
           <div className="flex items-end gap-2 text-center mt-3">
             {[["new", s.wordFlow.new, "text-sky-600"], ["learning", s.wordFlow.learning, "text-amber-600"], ["known", s.wordFlow.known, "text-emerald-600"]].map(([l, v, t]) => (
@@ -307,19 +301,6 @@ function Overview({ s }) {
             ))}
           </div>
           <p className="text-[11px] text-slate-400 mt-3">Moved to <b>known</b> per week is the north-star signal.</p>
-        </Card>
-        <Card className="p-5">
-          <div className="text-sm font-semibold mb-1">CEFR trajectory</div>
-          <div className="h-28">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={s.cefr} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
-                <XAxis dataKey="m" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 4]} ticks={[0, 2, 4]} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => `level ${v}`} />
-                <Line dataKey="v" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
         </Card>
       </div>
     </div>
@@ -371,41 +352,19 @@ function Words({ s }) {
 }
 
 function Activity({ s }) {
-  const signals = [
-    ["Hesitation", s.hesitation],
-    ["Retries before correct", "avg 1.8 · higher on grammar"],
-    ["Dwell by type", "grammar 2.4× longer than vocab"],
-    ["Session rhythm", "mostly evenings · ~18 min"],
-    ["Hint usage", "grammar hints used often"],
-    ["Recall speed (SR)", "slowing on 2 words → resurface"],
-  ];
   const icon = { word: "📗", test: "✍️", reading: "📖", lesson: "🎯" };
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2">
-        <SectionLabel>Recent activity</SectionLabel>
-        <div className="relative">
-          {s.activity.map((a, i) => (
-            <div key={i} className="relative pl-8 pb-4">
-              {i < s.activity.length - 1 && <div className="absolute left-2.5 top-6 bottom-0 w-px bg-slate-200" />}
-              <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px]">{icon[a.type] || "•"}</div>
-              <div className="text-sm text-slate-700">{a.detail}</div>
-              <div className="text-xs text-slate-400">{a.when}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
-        <SectionLabel>Behavioural signals · logged from day one</SectionLabel>
-        <Card className="divide-y divide-slate-100">
-          {signals.map(([k, v]) => (
-            <div key={k} className="p-3.5">
-              <div className="text-xs font-mono uppercase tracking-wide text-slate-400">{k}</div>
-              <div className="text-sm text-slate-700 mt-0.5">{v}</div>
-            </div>
-          ))}
-        </Card>
-        <p className="text-[11px] text-slate-400 mt-3">Raw signals for knowledge tracing. AI summaries come later — but only if we log now. Consent is required, especially for minors.</p>
+    <div className="max-w-2xl">
+      <SectionLabel>Recent activity</SectionLabel>
+      <div className="relative">
+        {s.activity.map((a, i) => (
+          <div key={i} className="relative pl-8 pb-4">
+            {i < s.activity.length - 1 && <div className="absolute left-2.5 top-6 bottom-0 w-px bg-slate-200" />}
+            <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px]">{icon[a.type] || "•"}</div>
+            <div className="text-sm text-slate-700">{a.detail}</div>
+            <div className="text-xs text-slate-400">{a.when}</div>
+          </div>
+        ))}
       </div>
     </div>
   );

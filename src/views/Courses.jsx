@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronRight, ChevronDown, Lock, ArrowUp, ArrowDown, Trash2, Pencil,
-  Send, Eye, Users, UserPlus, Search, Maximize2, Minimize2, Radio,
+  Eye, Search, Maximize2, Minimize2,
   BookmarkPlus, FolderTree,
 } from "lucide-react";
-import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, Avatar, Modal, StudentCheckList, LevelPill } from "../ui.jsx";
+import { Page, PageHead, Crumbs, Card, Bar, Btn, Pill, SectionLabel, LevelPill } from "../ui.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
-import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail, DAY_LABELS, scheduleLabel } from "../data.jsx";
+import { HUE_SOFT, BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
@@ -24,17 +24,15 @@ export function CoursesView() {
   const { state } = useStore();
   const { go } = useNav();
   const [modal, setModal] = useState(false);
-  const [rosterCourse, setRosterCourse] = useState(null);
   return (
     <Page>
       <PageHead kicker="Teacher Console · Maryam Bayramova" title="Courses"
-        sub="Select a course to view its lessons, pathway content, and active student roster"
+        sub="Build the lesson pathway — rosters and progress live in Classes"
         right={<Btn onClick={() => setModal(true)}><Plus size={16} /> New course</Btn>} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.courses.map((c) => {
           const count = (state.lessons[c.id] || []).length;
-          const enrolled = state.students.filter((s) => s.courseId === c.id);
-          const openRoster = (e) => { e.stopPropagation(); setRosterCourse(c); };
+          const classCount = state.classes.filter((cls) => cls.courseId === c.id).length;
           return (
             <button key={c.id} onClick={() => go({ courseId: c.id })}
               className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5 flex flex-col justify-between">
@@ -44,30 +42,11 @@ export function CoursesView() {
                   <ChevronRight size={16} className="text-slate-300" />
                 </div>
                 <div className="text-lg font-bold mb-1">{c.title}</div>
-                <div className="text-sm text-slate-500 mb-1">
-                  {count} lessons ·{" "}
-                  <span role="button" tabIndex={0} onClick={openRoster} onKeyDown={(e) => e.key === "Enter" && openRoster(e)}
-                    className="hover:text-indigo-600 hover:underline">
-                    {enrolled.length} enrolled students
-                  </span>
-                </div>
+                <div className="text-sm text-slate-500 mb-1">{count} lessons · {classCount} class{classCount === 1 ? "" : "es"}</div>
                 <div className="text-[11px] text-slate-400 mb-4">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
               </div>
 
               <div>
-                {/* Enrolled student avatars preview — also opens the roster */}
-                <div role="button" tabIndex={0} onClick={openRoster} onKeyDown={(e) => e.key === "Enter" && openRoster(e)}
-                  className="flex items-center gap-1.5 mb-4 w-fit">
-                  <div className="flex -space-x-2 overflow-hidden">
-                    {enrolled.slice(0, 4).map((s) => (
-                      <Avatar key={s.id} name={s.name} size={6} />
-                    ))}
-                  </div>
-                  {enrolled.length > 4 && (
-                    <span className="text-xs text-slate-400 font-mono ml-1">+{enrolled.length - 4} more</span>
-                  )}
-                </div>
-
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span>Avg completion</span>
                   <span className="font-mono">{c.completion}%</span>
@@ -79,139 +58,26 @@ export function CoursesView() {
         })}
       </div>
       <NewCourseModal open={modal} onClose={() => setModal(false)} />
-      <CourseRosterModal course={rosterCourse}
-        students={state.students.filter((s) => s.courseId === rosterCourse?.id)}
-        onClose={() => setRosterCourse(null)} />
     </Page>
   );
 }
 
-// Read-only roster popover — "click the enrolled-count to see who" instead
-// of it being static text on the course card.
-function CourseRosterModal({ course, students, onClose }) {
-  if (!course) return null;
-  return (
-    <Modal open onClose={onClose} title={`Enrolled in ${course.title}`}
-      sub={`${students.length} student${students.length === 1 ? "" : "s"}`}
-      footer={<Btn onClick={onClose}>Done</Btn>}>
-      <StudentCheckList students={students} isSelected={() => true} onToggle={() => {}}
-        metaFor={(s) => `${s.level} · ${s.status}`} emptyText="No students enrolled in this course yet." />
-    </Modal>
-  );
-}
-
-/* ----------------------------- course → classes -----------------------------
-   One course owns its lesson content; a Class is one scheduled, rostered
-   instance of it (e.g. a morning group vs. an evening group both working
-   through the same IT English lessons). This sits between the Courses list
-   and the lesson tree — pick a course, then pick which class of it to open. */
-
-export function ClassesView() {
-  const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [days, setDays] = useState([]);
-
-  const course = state.courses.find((c) => c.id === route.courseId);
-  const classes = state.classes.filter((c) => c.courseId === course?.id);
-  if (!course) return null;
-
-  const toggleDay = (i) => setDays((d) => (d.includes(i) ? d.filter((x) => x !== i) : [...d, i].sort()));
-  function createClass() {
-    if (!name.trim()) return toast("Give the class a name", "err");
-    dispatch({ type: "ADD_CLASS", courseId: course.id, name: name.trim(), scheduleDays: days });
-    toast(`“${name.trim()}” class created`);
-    setName(""); setDays([]); setCreating(false);
-  }
-
-  return (
-    <Page>
-      <Crumbs items={[{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
-      <PageHead title={course.title}
-        sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${classes.length} class${classes.length === 1 ? "" : "es"}`}
-        right={<Btn onClick={() => setCreating((v) => !v)}><Plus size={16} /> New class</Btn>} />
-
-      {creating && (
-        <Card className="p-4 mb-6 border-indigo-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <label className="block">
-              <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Class name</span>
-              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. ITler — Morning"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300" />
-            </label>
-            <div>
-              <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Meets on</span>
-              <div className="flex gap-1.5 mt-1.5">
-                {DAY_LABELS.map((d, i) => (
-                  <button key={d} onClick={() => toggleDay(i)}
-                    className={`w-9 h-9 rounded-lg text-xs font-semibold border ${days.includes(i) ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{d}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="outline" size="sm" onClick={() => setCreating(false)}>Cancel</Btn>
-            <Btn size="sm" onClick={createClass}>Create class</Btn>
-          </div>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {classes.map((cls) => {
-          const roster = state.students.filter((s) => s.classId === cls.id);
-          const lessons = state.lessons[course.id] || [];
-          const current = lessons.find((l) => l.current);
-          return (
-            <button key={cls.id} onClick={() => go({ classId: cls.id })}
-              className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5">
-              <div className="flex items-center justify-between mb-4">
-                <span className={`text-xs font-mono px-2 py-1 rounded-md ${HUE_SOFT[course.hue]}`}>{scheduleLabel(cls.scheduleDays)}</span>
-                <ChevronRight size={16} className="text-slate-300" />
-              </div>
-              <div className="text-lg font-bold mb-1">{cls.name}</div>
-              <div className="text-sm text-slate-500 mb-1">{roster.length} student{roster.length === 1 ? "" : "s"} enrolled</div>
-              <div className="text-[11px] text-slate-400 mb-4">{current ? `Current: ${current.title}` : "Not started yet"}</div>
-              <div className="flex -space-x-2 overflow-hidden">
-                {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} size={6} />)}
-                {roster.length > 5 && <span className="text-xs text-slate-400 font-mono ml-3">+{roster.length - 5} more</span>}
-                {!roster.length && <span className="text-xs text-slate-400">No students yet</span>}
-              </div>
-            </button>
-          );
-        })}
-        {!classes.length && !creating && (
-          <Card className="p-8 text-center text-sm text-slate-400 sm:col-span-2 lg:col-span-3">
-            No classes yet — a Class is a scheduled group of students working through {course.title}. Create one to enroll students and start building lessons.
-          </Card>
-        )}
-      </div>
-    </Page>
-  );
-}
-
-/* ----------------------------- course → lessons & users -----------------------------
-   Clean hierarchy: Course -> Lessons List. Each lesson card explicitly lists
-   the students working on that lesson, its pathway steps sequence, and actions. */
+/* ----------------------------- course → lessons -----------------------------
+   Pure content authoring: Course -> Lessons -> Blocks -> Components. No
+   roster, no assignment — rosters, enrollment, and lesson-progress live in
+   the Classes tab (see views/Classes.jsx). A class assigned to this course
+   is just working through whatever's built here. */
 
 export function CourseView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go, startLive } = useNav();
+  const { route, go } = useNav();
   const [modal, setModal] = useState(false);
-  const [manageLesson, setManageLesson] = useState(null);
-  const [enrollOpen, setEnrollOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
   const [expandedBlocks, setExpandedBlocks] = useState({});
 
   const course = state.courses.find((c) => c.id === route.courseId);
-  const cls = state.classes.find((c) => c.id === route.classId);
   const lessons = state.lessons[route.courseId] || [];
-  // Lessons (the pathway content) belong to the Course and are shared by
-  // every Class running it — a Class is just one scheduled roster working
-  // through that shared content, so "enrolled" here means "in this class".
-  const enrolled = state.students.filter((s) => s.classId === cls?.id);
-  const others = state.students.filter((s) => s.classId !== cls?.id);
 
   // Hydrate every lesson's shorthand `parts` into a real `built` array with
   // stable ids as soon as the tree needs to show them — without this, a
@@ -224,7 +90,7 @@ export function CourseView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.courseId, lessons.length]);
 
-  if (!course || !cls) return null;
+  if (!course) return null;
 
   const q = query.trim().toLowerCase();
   const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
@@ -236,7 +102,6 @@ export function CourseView() {
   // block, a matching block reveals its lesson.
   const tree = lessons.map((l) => {
     const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, state.texts) }));
-    const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(l.id));
     const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
 
     let lessonMatch = !!q && l.title.toLowerCase().includes(q);
@@ -251,7 +116,7 @@ export function CourseView() {
       if (blockHit || compHit) { blockMatch[b.id] = true; lessonMatch = true; }
     });
 
-    return { lesson: l, blocks, workingStudents, totalComponents, lessonMatch, blockMatch };
+    return { lesson: l, blocks, totalComponents, lessonMatch, blockMatch };
   });
   const visibleTree = q ? tree.filter((t) => t.lessonMatch) : tree;
 
@@ -264,41 +129,10 @@ export function CourseView() {
 
   return (
     <Page>
-      <Crumbs items={[
-        { label: "Courses", onClick: () => go({ courseId: null }) },
-        { label: course.title, onClick: () => go({ classId: null }) },
-        { label: cls.name },
-      ]} />
-      <PageHead title={cls.name}
-        sub={`${course.title} · ${course.level} · ${scheduleLabel(cls.scheduleDays)} · ${lessons.length} lessons · ${enrolled.length} enrolled students`}
-        right={
-          <div className="flex gap-2">
-            <Btn variant="outline" size="sm" onClick={() => setEnrollOpen((v) => !v)}>
-              <UserPlus size={14} /> Enroll student
-            </Btn>
-            <Btn size="sm" onClick={() => setModal(true)}><Plus size={16} /> New lesson</Btn>
-          </div>
-        } />
-
-      {/* Enroll student panel */}
-      {enrollOpen && (
-        <Card className="p-4 mb-6 border-indigo-200 bg-indigo-50/30">
-          <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-3 font-semibold">Pick a student to enroll in {cls.name}</div>
-          {others.length ? (
-            <div className="flex flex-wrap gap-2">
-              {others.map((s) => (
-                <button key={s.id}
-                  onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 p-2 text-sm shadow-sm transition-all">
-                  <Avatar name={s.name} size={6} />
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{s.level}</span>
-                </button>
-              ))}
-            </div>
-          ) : <p className="text-sm text-slate-400">Every student is already enrolled in this class.</p>}
-        </Card>
-      )}
+      <Crumbs items={[{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
+      <PageHead title={course.title}
+        sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${lessons.length} lessons`}
+        right={<Btn size="sm" onClick={() => setModal(true)}><Plus size={16} /> New lesson</Btn>} />
 
       {/* Course tree: Lesson → Block → Component */}
       <SectionLabel right={
@@ -318,7 +152,7 @@ export function CourseView() {
       </SectionLabel>
 
       <div className="space-y-3 mb-8">
-        {visibleTree.map(({ lesson: l, blocks, workingStudents, totalComponents, blockMatch }) => {
+        {visibleTree.map(({ lesson: l, blocks, totalComponents, blockMatch }) => {
           const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
@@ -338,23 +172,14 @@ export function CourseView() {
                       {l.current && <Pill className="bg-indigo-100 text-indigo-700 font-mono text-[10px] shrink-0">Current Lesson</Pill>}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      {blocks.length} blocks · {totalComponents} components · {workingStudents.length} student{workingStudents.length !== 1 ? "s" : ""} working
+                      {blocks.length} blocks · {totalComponents} components
                     </div>
                   </div>
                 </div>
 
-                {/* Lesson Actions */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-rose-600 !border-rose-200">
-                    <Radio size={13} /> Go live
-                  </Btn>
-                  <Btn variant="outline" size="sm" onClick={() => setManageLesson(l)}>
-                    <Users size={13} /> Manage Users ({workingStudents.length})
-                  </Btn>
-                  <Btn size="sm" onClick={() => go({ lessonId: l.id })}>
-                    Open Lesson Pathway <ChevronRight size={14} />
-                  </Btn>
-                </div>
+                <Btn size="sm" onClick={() => go({ lessonId: l.id })} className="shrink-0">
+                  Open Lesson Pathway <ChevronRight size={14} />
+                </Btn>
               </div>
 
               {/* Block rail — density at a glance, without expanding: one tick
@@ -369,43 +194,6 @@ export function CourseView() {
                 {!blocks.length && <span className="text-xs text-slate-300">No blocks yet</span>}
               </button>
 
-              {/* Users Working on this Lesson List */}
-              <div className="px-5 py-3 border-b border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
-                    <Users size={12} /> Students working on this lesson ({workingStudents.length})
-                  </span>
-                  <button onClick={() => setManageLesson(l)} className="text-xs text-indigo-600 hover:underline font-medium">
-                    + Assign / Remove Students
-                  </button>
-                </div>
-
-                {workingStudents.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                    {workingStudents.map((s) => {
-                      const currentStep = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || blockMeta(blocks[s.step]?.type).label : "Finished";
-                      return (
-                        <div key={s.id} onClick={() => go({ tab: "students", studentId: s.id })}
-                          className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 cursor-pointer transition-colors">
-                          <Avatar name={s.name} size={7} />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-semibold text-slate-800 truncate">{s.name}</div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {s.progress === 100 ? "Completed ✓" : `On Step: ${currentStep}`}
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-mono font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                            {s.progress}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic py-1">No students assigned to this lesson yet. Click "+ Assign / Remove Students" to assign users.</p>
-                )}
-              </div>
-
               {/* Blocks → Components — the two levels beneath the lesson */}
               {isOpen && (
                 <div className="px-5 py-4">
@@ -413,7 +201,6 @@ export function CourseView() {
                     const BT = blockMeta(b.type); const I = BT.icon;
                     const key = `${l.id}:${b.id}`;
                     const bOpen = q ? !!blockMatch[b.id] : !!expandedBlocks[key];
-                    const studentsOnBlock = workingStudents.filter((s) => blocks[s.step] === b);
                     return (
                       <div key={b.id} className="mb-1.5 last:mb-0">
                         <div className="group flex items-center gap-2 py-1.5 rounded-lg hover:bg-slate-50">
@@ -425,7 +212,6 @@ export function CourseView() {
                             <span className="text-sm font-medium text-slate-700 truncate">{b.title || BT.label}</span>
                             <span className="text-[11px] text-slate-400 ml-1.5">
                               {b.components.length} component{b.components.length === 1 ? "" : "s"}
-                              {studentsOnBlock.length ? ` · ${studentsOnBlock.length} student${studentsOnBlock.length === 1 ? "" : "s"} here` : ""}
                             </span>
                           </button>
                           <button title="Save block to My Blocks"
@@ -478,28 +264,7 @@ export function CourseView() {
       </div>
 
       <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} onCreated={(lessonId) => go({ lessonId })} />
-      <ManageLessonStudentsModal lesson={manageLesson} course={course} enrolled={enrolled} onClose={() => setManageLesson(null)} />
     </Page>
-  );
-}
-
-/* Assign / unassign a lesson per student modal */
-function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
-  const { dispatch, toast } = useStore();
-  if (!lesson) return null;
-  return (
-    <Modal open onClose={onClose} title={`Assign Lesson ${lesson.n}: ${lesson.title}`} sub="Select students working on this lesson"
-      footer={<Btn onClick={onClose}>Done</Btn>}>
-      <StudentCheckList students={enrolled}
-        isSelected={(s) => (s.assignedLessons || []).includes(lesson.id)}
-        onToggle={(s) => {
-          const on = (s.assignedLessons || []).includes(lesson.id);
-          dispatch({ type: on ? "UNASSIGN_LESSON" : "ASSIGN_LESSON", studentId: s.id, lessonId: lesson.id });
-          toast(`${on ? "Unassigned from" : "Assigned to"} ${s.name.split(" ")[0]}`);
-        }}
-        metaFor={(s) => `${s.level} · ${(s.assignedLessons || []).length} lessons assigned`}
-        emptyText={`No students enrolled in ${course.title} yet.`} />
-    </Modal>
   );
 }
 
@@ -508,15 +273,13 @@ function ManageLessonStudentsModal({ lesson, course, enrolled, onClose }) {
 
 export function LessonBuilderView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go, startLive } = useNav();
+  const { route, go } = useNav();
   const [addOpen, setAddOpen] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
 
   const course = state.courses.find((c) => c.id === route.courseId);
-  const cls = state.classes.find((c) => c.id === route.classId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
 
   useEffect(() => {
@@ -525,10 +288,6 @@ export function LessonBuilderView() {
 
   if (!lesson || !course) return null;
   const blocks = lesson.built || [];
-  // Scoped to the class the teacher arrived from, if any — the same class
-  // whose roster the course tree/pathway was already showing.
-  const enrolled = state.students.filter((s) => (route.classId ? s.classId === route.classId : s.courseId === course.id));
-  const workingStudents = enrolled.filter((s) => (s.assignedLessons || []).includes(lesson.id));
 
   const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
   const usedCounts = blocks.reduce((acc, b) => ({ ...acc, [b.type]: (acc[b.type] || 0) + 1 }), {});
@@ -555,53 +314,16 @@ export function LessonBuilderView() {
   return (
     <Page>
       <Crumbs items={[
-        { label: "Courses", onClick: () => go({ courseId: null, classId: null, lessonId: null }) },
-        { label: course.title, onClick: () => go({ classId: null, lessonId: null }) },
-        ...(cls ? [{ label: cls.name, onClick: () => go({ lessonId: null }) }] : []),
+        { label: "Courses", onClick: () => go({ courseId: null, lessonId: null }) },
+        { label: course.title, onClick: () => go({ lessonId: null }) },
         { label: `Lesson ${lesson.n}: ${lesson.title}` },
       ]} />
 
-      <PageHead title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level})${cls ? ` · ${cls.name}` : ""} · Structured Pathway Flow (${blocks.length} steps)`}
+      <PageHead title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
         right={<div className="flex gap-2">
-          <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: route.courseId, classId: route.classId, lessonId: route.lessonId })} className="!text-rose-600 !border-rose-200 hover:!border-rose-300">
-            <Radio size={14} /> Go live
-          </Btn>
-          <Btn variant="outline" size="sm" onClick={() => setAssignOpen(true)}><Send size={14} /> Assign Students</Btn>
           <LessonNotesButton onOpen={() => setNotesOpen(true)} hasNotes={!!lesson.teacherNotes?.trim()} />
           <Btn size="sm" onClick={() => setAddOpen(true)}><Plus size={14} /> Add Step</Btn>
         </div>} />
-
-      {/* Active Students Working on this Lesson Bar */}
-      <Card className="p-4 mb-6 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-indigo-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-indigo-600" />
-            <h4 className="font-bold text-sm text-slate-800">Students working on this lesson ({workingStudents.length})</h4>
-          </div>
-          <Btn variant="ghost" size="sm" onClick={() => setAssignOpen(true)} className="text-indigo-600 text-xs">
-            + Manage Students
-          </Btn>
-        </div>
-
-        {workingStudents.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {workingStudents.map((s) => {
-              const stepName = s.step >= 0 && s.step < blocks.length ? blocks[s.step]?.title || BLOCK_TYPES[blocks[s.step]?.type]?.label : "Finished";
-              return (
-                <div key={s.id} onClick={() => go({ tab: "students", studentId: s.id })}
-                  className="flex items-center gap-2 bg-white rounded-xl px-3 py-1.5 border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-300">
-                  <Avatar name={s.name} size={6} />
-                  <span className="text-xs font-semibold text-slate-800">{s.name}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">({stepName})</span>
-                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{s.progress}%</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic">No students assigned to this lesson yet.</p>
-        )}
-      </Card>
 
       {/* Pathway Flow Layout */}
       <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Playground → Homework)</SectionLabel>
@@ -661,7 +383,6 @@ export function LessonBuilderView() {
 
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
         usedCounts={usedCounts} bank={compatibleBank} onPickBank={addFromBank} />
-      <ManageLessonStudentsModal lesson={assignOpen ? lesson : null} course={course} enrolled={enrolled} onClose={() => setAssignOpen(false)} />
       <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={route.courseId} lessonId={lesson.id}
         lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={lesson.teacherNotes} />
     </Page>

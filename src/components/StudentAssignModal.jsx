@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Plus, Send, Boxes } from "lucide-react";
+import { Plus, Send, Boxes } from "lucide-react";
 import { Modal, Btn, Card, Pill } from "../ui.jsx";
 import { useStore, groupBankByParent, bankChildLabel, assignToStudent, kitContents } from "../store.jsx";
 import { blockMeta } from "../data.jsx";
@@ -13,7 +13,6 @@ import { ComponentKindPicker, ComponentStudent, COMPONENT_META, COMPONENT_CATEGO
    ========================================================================= */
 
 const TABS = [
-  { id: "lessons", label: "Lessons" },
   { id: "blocks", label: "My Blocks" },
   { id: "kits", label: "Kits" },
   { id: "words", label: "Word sets" },
@@ -22,20 +21,12 @@ const TABS = [
 
 export function StudentAssignModal({ open, onClose, student }) {
   const { state, dispatch, toast } = useStore();
-  const [tab, setTab] = useState("lessons");
+  const [tab, setTab] = useState("blocks");
   const [preview, setPreview] = useState(null); // { kind, component }
 
-  const close = () => { setPreview(null); setTab("lessons"); onClose(); };
+  const close = () => { setPreview(null); setTab("blocks"); onClose(); };
   if (!student) return null;
 
-  const lessons = state.lessons[student.courseId] || [];
-  const assignedSet = new Set(student.assignedLessons || []);
-
-  function toggleLesson(l) {
-    const on = assignedSet.has(l.id);
-    dispatch({ type: on ? "UNASSIGN_LESSON" : "ASSIGN_LESSON", studentId: student.id, lessonId: l.id });
-    toast(`${on ? "Unassigned" : "Assigned"}: Lesson ${l.n} — ${l.title}`);
-  }
   function assignBlock(item) {
     // categorize by the block's own type (reading, vocabulary, grammar, …) —
     // the same category names used throughout the lesson component list.
@@ -68,25 +59,6 @@ export function StudentAssignModal({ open, onClose, student }) {
           </button>
         ))}
       </div>
-
-      {tab === "lessons" && (
-        <div className="space-y-1.5 max-h-80 overflow-y-auto">
-          {lessons.length ? lessons.map((l) => {
-            const on = assignedSet.has(l.id);
-            return (
-              <button key={l.id} onClick={() => toggleLesson(l)}
-                className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
-                <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${on ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>{l.n}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{l.title}</div>
-                  <div className="text-xs text-slate-400">{on ? "Assigned to this student" : "Not assigned"}</div>
-                </div>
-                {on && <Check size={15} className="text-indigo-600 shrink-0" />}
-              </button>
-            );
-          }) : <p className="text-sm text-slate-400 p-2">{student.name.split(" ")[0]} isn't enrolled in a course yet.</p>}
-        </div>
-      )}
 
       {tab === "blocks" && (
         <div className="space-y-3 max-h-80 overflow-y-auto pr-0.5">

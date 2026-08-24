@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from "react";
-import { Home, LayoutGrid, Library as LibraryIcon, GraduationCap, Users, Sparkles, Bell, Brain, Radio } from "lucide-react";
+import { Home, LayoutGrid, School, Library as LibraryIcon, GraduationCap, Users, Sparkles, Bell, Brain, Radio } from "lucide-react";
 import { StoreProvider, NavProvider } from "./store.jsx";
 import { ToastHost } from "./ui.jsx";
 import { TEACHER } from "./data.jsx";
 import Dashboard from "./views/Dashboard.jsx";
-import { CoursesView, ClassesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
+import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
+import { ClassesView, ClassDetailView } from "./views/Classes.jsx";
 import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
@@ -15,6 +16,7 @@ import LiveSession from "./views/LiveSession.jsx";
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "courses", label: "Courses", icon: LayoutGrid },
+  { id: "classes", label: "Classes", icon: School },
   { id: "library", label: "Library", icon: LibraryIcon },
   { id: "students", label: "Students", icon: Users },
   { id: "levelTests", label: "Level tests", icon: GraduationCap },
@@ -88,7 +90,7 @@ function Sidebar({ route, go }) {
 }
 
 function TopBar({ route, onStartLive }) {
-  const titles = { dashboard: "Dashboard", courses: "Courses", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
+  const titles = { dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
   return (
     <div className="h-16 border-b border-slate-100 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8">
       <div className="text-sm text-slate-400 font-mono uppercase tracking-widest">{titles[route.tab]}</div>
@@ -108,10 +110,10 @@ function Content({ route }) {
   if (route.tab === "courses") {
     if (route.partId) return <PartStudio />;
     if (route.lessonId) return <LessonBuilderView />;
-    if (route.classId) return <CourseView />;
-    if (route.courseId) return <ClassesView />;
+    if (route.courseId) return <CourseView />;
     return <CoursesView />;
   }
+  if (route.tab === "classes") return route.classId ? <ClassDetailView /> : <ClassesView />;
   if (route.tab === "library") return <Library />;
   if (route.tab === "students") return route.studentId ? <StudentDetail /> : <StudentsView />;
   if (route.tab === "levelTests") return <LevelTests />;
