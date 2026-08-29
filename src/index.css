@@ -1,1 +1,94 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 @import "tailwindcss";
+
+/* =========================================================================
+   Design tokens — sourced from the Learniv UI KIT (dpopstudio), with two
+   corrections verified by pixel-sampling the kit's actual rendered screens
+   rather than trusting its exported "Primitive Colors" reference sheet:
+     - that sheet's own "Primary Color" ramp is blue, but every real screen
+       renders the brand accent as orange (#FF5C20, sampled off the Login
+       button) — likely generic boilerplate shared across the studio's kits.
+     - the Neutral ramp WAS verified accurate (muted body text sampled off
+       real screens landed exactly on Neutral-DPOP/black-7, #8c8c8c).
+   Success/Warning/Pending/Info ramps are taken as published (not
+   independently re-verified against a real screen using each of them).
+   ========================================================================= */
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Neutral — verified against real screens */
+  --color-neutral-50: #ffffff;
+  --color-neutral-100: #fcfcfc;
+  --color-neutral-200: #f5f5f5;
+  --color-neutral-300: #f0f0f0;
+  --color-neutral-400: #d9d9d9;
+  --color-neutral-500: #bfbfbf;
+  --color-neutral-600: #8c8c8c;
+  --color-neutral-700: #595959;
+  --color-neutral-800: #454545;
+  --color-neutral-900: #262626;
+  --color-neutral-950: #141414;
+
+  /* Primary (brand orange) — real value pixel-sampled off the Login button
+     fill (#FF5C20, flat, no gradient), placed at 500; surrounding steps
+     interpolated in HSL space at the same hue/saturation. */
+  --color-primary-50: #fff2ed;
+  --color-primary-100: #ffe1d6;
+  --color-primary-200: #ffc3ad;
+  --color-primary-300: #ff9e7a;
+  --color-primary-400: #ff7d4d;
+  --color-primary-500: #ff5c20;
+  --color-primary-600: #f74300;
+  --color-primary-700: #cc3700;
+  --color-primary-800: #9e2b00;
+  --color-primary-900: #701e00;
+  --color-primary-950: #4c1500;
+
+  /* Success (green) — as published in the kit's Primitive Colors sheet */
+  --color-success-50: #eef9e8;
+  --color-success-100: #caecb8;
+  --color-success-200: #b0e396;
+  --color-success-300: #8cd766;
+  --color-success-400: #75cf49;
+  --color-success-500: #53c31b;
+  --color-success-600: #4cb119;
+  --color-success-700: #3b8a13;
+  --color-success-800: #2e6b0f;
+  --color-success-900: #23520b;
+
+  /* Pending (amber) */
+  --color-pending-50: #fff7e8;
+  --color-pending-100: #fde6b6;
+  --color-pending-200: #fdd993;
+  --color-pending-300: #fcc862;
+  --color-pending-400: #fbbd43;
+  --color-pending-500: #faad14;
+  --color-pending-600: #e49d12;
+  --color-pending-700: #b27b0e;
+  --color-pending-800: #8a5f0b;
+  --color-pending-900: #694908;
+
+  /* Warning (red) */
+  --color-warning-50: #ffeded;
+  --color-warning-100: #ffc8c8;
+  --color-warning-200: #ffadae;
+  --color-warning-300: #fe8889;
+  --color-warning-400: #fe7172;
+  --color-warning-500: #fe4d4f;
+  --color-warning-600: #e74648;
+  --color-warning-700: #b43738;
+  --color-warning-800: #8c2a2b;
+  --color-warning-900: #6b2021;
+
+  /* Info (blue) */
+  --color-info-50: #e8f4ff;
+  --color-info-100: #b8ddff;
+  --color-info-200: #95ccff;
+  --color-info-300: #65b5ff;
+  --color-info-400: #47a6ff;
+  --color-info-500: #1990ff;
+  --color-info-600: #1783e8;
+  --color-info-700: #1266b5;
+  --color-info-800: #0e4f8c;
+  --color-info-900: #0b3c6b;
+}
