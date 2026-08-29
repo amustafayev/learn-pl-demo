@@ -1,6 +1,64 @@
 import React from "react";
 import { IconCheck, IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
 
+/* ------------------------------------------------------------------ Modal */
+// The "Add Discussion" dialog sheet: white rounded-2xl card, header with
+// title + X close, footer with an outline secondary action + primary submit.
+export function Modal({ open, onClose, title, sub, children, footer, wide }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl border border-neutral-200 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-5 border-b border-neutral-200 sticky top-0 bg-white rounded-t-2xl">
+          <div>
+            <h3 className="font-bold text-lg tracking-tight text-neutral-950">{title}</h3>
+            {sub && <p className="text-sm text-neutral-500 mt-0.5">{sub}</p>}
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 p-1"><IconX size={18} stroke={1.75} /></button>
+        </div>
+        <div className="p-5">{children}</div>
+        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-200 sticky bottom-0 bg-white rounded-b-2xl">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+export function Field({ label, children }) {
+  return (
+    <label className="block mb-4">
+      <span className="text-xs font-semibold text-neutral-600">{label}</span>
+      <div className="mt-1.5">{children}</div>
+    </label>
+  );
+}
+
+// The shared shape behind every "pick some students" UI (assign content,
+// invite to a live session) — each row an Avatar + name/meta + a checkbox.
+export function StudentCheckList({ students, isSelected, onToggle, metaFor, emptyText = "No students to show." }) {
+  return (
+    <div className="space-y-1.5 max-h-72 overflow-y-auto">
+      {students.map((s) => {
+        const on = isSelected(s);
+        return (
+          <button key={s.id} onClick={() => onToggle(s)}
+            className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
+            <Avatar name={s.name} color={on ? "primary" : "neutral"} />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-sm truncate text-neutral-950">{s.name}</div>
+              <div className="text-xs text-neutral-500">{metaFor(s)}</div>
+            </div>
+            <Checkbox checked={on} />
+          </button>
+        );
+      })}
+      {!students.length && <p className="text-sm text-neutral-500 p-2">{emptyText}</p>}
+    </div>
+  );
+}
+
 /* =========================================================================
    Design-system factory — every primitive here is a faithful reproduction
    of one variant sheet from the Learniv UI KIT (dpopstudio/UI8), not an
