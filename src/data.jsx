@@ -164,7 +164,7 @@ export function scheduleLabel(days) {
 
 /* ------------------------------- teacher ------------------------------- */
 
-export const TEACHER = { name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024" };
+export const TEACHER = { name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024", email: "maria.carey@lucid.app" };
 
 /* ------------------------------- courses / lessons / parts ------------------------------- */
 

@@ -76,13 +76,6 @@ function Sidebar({ route, go }) {
           <NavItem key={n.id} icon={n.icon} label={<span className="hidden sm:inline">{n.label}</span>} active={route.tab === n.id} onClick={() => go({ tab: n.id })} />
         ))}
       </nav>
-      <div className="p-3 border-t border-neutral-200 flex items-center gap-2.5">
-        <Avatar name={TEACHER.name} color="dark" size="sm" />
-        <div className="hidden sm:block leading-none">
-          <div className="text-sm font-semibold text-neutral-950">{TEACHER.name.split(" ")[0]} {TEACHER.name.split(" ")[1]?.[0]}.</div>
-          <div className="text-[11px] text-neutral-500 mt-0.5">Teacher</div>
-        </div>
-      </div>
     </aside>
   );
 }
@@ -90,14 +83,23 @@ function Sidebar({ route, go }) {
 function TopBar({ route, onStartLive }) {
   const titles = { dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
   return (
-    <div className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8">
-      <div className="text-lg font-bold text-neutral-950">{titles[route.tab]}</div>
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-neutral-500 hidden sm:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
+    <div className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
+      <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[route.tab]}</div>
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
         <Button variant="primary" size="sm" onClick={onStartLive}>
           <IconBroadcast size={15} stroke={1.75} /> <span className="hidden sm:inline">Start lesson</span>
         </Button>
-        <button className="relative text-neutral-500 hover:text-neutral-900"><IconBell size={18} stroke={1.75} /><span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-warning-500" /></button>
+        <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-900">
+          <IconBell size={18} stroke={1.75} /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />
+        </button>
+        <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-neutral-200">
+          <Avatar name={TEACHER.name} color="dark" size="sm" />
+          <div className="leading-none">
+            <div className="text-sm font-semibold text-neutral-950">{TEACHER.name}</div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">{TEACHER.email}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

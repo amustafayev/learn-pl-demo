@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   IconPlus, IconChevronRight, IconLock, IconCircleCheck, IconCircle, IconBroadcast, IconUserPlus, IconX, IconUsers,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Modal, Field, TextField, Select } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
@@ -86,7 +86,7 @@ export function ClassesView() {
               <div className="text-[11px] text-neutral-500 mb-4">{current ? `Current: ${current.title}` : course ? "Not started yet" : "—"}</div>
               <div className="flex items-center gap-1.5">
                 <div className="flex -space-x-2 overflow-hidden">
-                  {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} size="xs" />)}
+                  {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={avatarColorFor(s.id)} size="xs" />)}
                 </div>
                 <span className="text-xs text-neutral-500 font-mono ml-1">
                   {roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
@@ -104,6 +104,12 @@ export function ClassesView() {
     </Page>
   );
 }
+
+// Cycles avatar colors deterministically per student so a roster reads as a
+// real group of people, not one repeated color — matches the varied avatar
+// palette on Learniv's Student panel.
+const AVATAR_CYCLE = ["primary", "info", "success", "dark", "pending", "warning"];
+const avatarColorFor = (id) => AVATAR_CYCLE[[...id].reduce((h, c) => h + c.charCodeAt(0), 0) % AVATAR_CYCLE.length];
 
 export function ClassDetailView() {
   const { state, dispatch, toast } = useStore();
@@ -130,95 +136,110 @@ export function ClassDetailView() {
     <Page>
       <Breadcrumbs items={[{ label: "Classes", onClick: () => go({ classId: null }) }, { label: cls.name }]} />
       <PageHeader title={cls.name}
-        sub={`${scheduleLabel(cls.scheduleDays)} · ${roster.length} student${roster.length === 1 ? "" : "s"}${course ? ` · ${course.title}` : " · no course assigned"}`}
-        right={<Button variant="outline" size="sm" onClick={() => setEnrollOpen((v) => !v)}><IconUserPlus size={14} stroke={1.75} /> Enroll student</Button>} />
+        sub={`${scheduleLabel(cls.scheduleDays)} · ${roster.length} student${roster.length === 1 ? "" : "s"}${course ? ` · ${course.title}` : " · no course assigned"}`} />
 
-      <div className="mb-6">
-        <SectionLabel>Course</SectionLabel>
-        <Card className="p-4 flex items-center justify-between gap-3">
-          <div className="text-sm text-neutral-700">{course ? <><b className="text-neutral-950">{course.title}</b> · {course.level}</> : "No course assigned yet"}</div>
-          <Select className="!w-auto" value={cls.courseId || ""} onChange={(e) => dispatch({ type: "SET_CLASS_COURSE", classId: cls.id, courseId: e.target.value || null })}>
-            <option value="">No course</option>
-            {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-          </Select>
-        </Card>
-      </div>
-
-      <div className="mb-6">
-        <SectionLabel>Roster</SectionLabel>
-        {enrollOpen && (
-          <Card className="p-4 mb-3 border-primary-200 bg-primary-50/30">
-            <div className="text-xs font-semibold text-neutral-600 mb-3">Pick a student to enroll in {cls.name}</div>
-            {others.length ? (
-              <div className="flex flex-wrap gap-2">
-                {others.map((s) => (
-                  <button key={s.id}
-                    onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm shadow-sm transition-all">
-                    <Avatar name={s.name} size="xs" />
-                    <span className="font-medium text-neutral-900">{s.name}</span>
-                    <Tag color="neutral">{s.level}</Tag>
-                  </button>
-                ))}
-              </div>
-            ) : <p className="text-sm text-neutral-500">Every student is already enrolled in this class.</p>}
-          </Card>
-        )}
-        <Card className="divide-y divide-neutral-200">
-          {roster.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 p-3.5">
-              <button onClick={() => go({ tab: "students", studentId: s.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:bg-neutral-50 -m-1 p-1 rounded-lg transition-colors">
-                <Avatar name={s.name} size="md" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold truncate text-neutral-950">{s.name}</div>
-                  <div className="text-xs text-neutral-500">{s.level} · {s.status}</div>
-                </div>
-              </button>
-              <div className="w-24 shrink-0 hidden sm:block"><ProgressBar pct={s.progress} /></div>
-              <span className="text-xs font-mono text-neutral-500 w-10 text-right shrink-0">{s.progress}%</span>
-              <button title="Remove from class" onClick={() => setConfirmRemove(s)} className="text-neutral-400 hover:text-warning-600 p-1 shrink-0"><IconX size={14} stroke={1.75} /></button>
-            </div>
-          ))}
-          {!roster.length && <p className="p-4 text-sm text-neutral-500">No students enrolled yet — use "Enroll student" above.</p>}
-        </Card>
-      </div>
-
-      {course ? (
-        <div>
-          <SectionLabel>Lesson progress · {course.title}</SectionLabel>
-          <div className="space-y-2">
-            {lessons.map((l, i) => {
-              const status = currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
-              return (
-                <Card key={l.id} className={`p-4 flex items-center gap-3 ${status === "current" ? "border-primary-300 ring-2 ring-primary-100" : ""}`}>
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    status === "done" ? "bg-success-100 text-success-600" : status === "current" ? "bg-primary-500 text-white" : "bg-neutral-100 text-neutral-400"}`}>
-                    {status === "done" ? <IconCircleCheck size={16} stroke={1.75} /> : status === "locked" ? <IconLock size={13} stroke={1.75} /> : <IconCircle size={14} stroke={1.75} />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate text-neutral-950">L{l.n}: {l.title}</div>
-                    <div className="text-xs text-neutral-500">{lessonBlocks(l).length} steps</div>
-                  </div>
-                  {status !== "current" && (
-                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
-                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
-                  )}
-                  <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })} className="text-xs text-neutral-500 hover:text-primary-600 shrink-0">Edit content</button>
-                  <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
-                    <IconBroadcast size={12} stroke={1.75} /> Go live
-                  </Button>
-                </Card>
-              );
-            })}
-            {!lessons.length && <p className="text-sm text-neutral-500">{course.title} has no lessons yet — build them in Courses.</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* main column — course + lesson progress */}
+        <div className="lg:col-span-2 space-y-6">
+          <div>
+            <SectionLabel>Course</SectionLabel>
+            <Card className="p-4 flex items-center justify-between gap-3">
+              <div className="text-sm text-neutral-700">{course ? <><b className="text-neutral-950">{course.title}</b> · {course.level}</> : "No course assigned yet"}</div>
+              <Select className="!w-auto" value={cls.courseId || ""} onChange={(e) => dispatch({ type: "SET_CLASS_COURSE", classId: cls.id, courseId: e.target.value || null })}>
+                <option value="">No course</option>
+                {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </Select>
+            </Card>
           </div>
+
+          {course ? (
+            <div>
+              <SectionLabel>Lesson progress · {course.title}</SectionLabel>
+              <div className="space-y-2">
+                {lessons.map((l, i) => {
+                  const status = currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
+                  return (
+                    <Card key={l.id} className={`p-4 flex items-center gap-3 ${status === "current" ? "border-primary-300 ring-2 ring-primary-100" : ""}`}>
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        status === "done" ? "bg-success-100 text-success-600" : status === "current" ? "bg-primary-500 text-white" : "bg-neutral-100 text-neutral-400"}`}>
+                        {status === "done" ? <IconCircleCheck size={16} stroke={1.75} /> : status === "locked" ? <IconLock size={13} stroke={1.75} /> : <IconCircle size={14} stroke={1.75} />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold truncate text-neutral-950">L{l.n}: {l.title}</div>
+                        <div className="text-xs text-neutral-500">{lessonBlocks(l).length} steps</div>
+                      </div>
+                      {status !== "current" && (
+                        <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
+                          className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
+                      )}
+                      <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })} className="text-xs text-neutral-500 hover:text-primary-600 shrink-0">Edit content</button>
+                      <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
+                        <IconBroadcast size={12} stroke={1.75} /> Go live
+                      </Button>
+                    </Card>
+                  );
+                })}
+                {!lessons.length && <p className="text-sm text-neutral-500">{course.title} has no lessons yet — build them in Courses.</p>}
+              </div>
+            </div>
+          ) : (
+            <Card className="p-8 text-center text-sm text-neutral-500 flex flex-col items-center gap-2">
+              <IconUsers size={20} stroke={1.75} className="text-neutral-400" />
+              Assign a course above to start tracking lessons for this class.
+            </Card>
+          )}
         </div>
-      ) : (
-        <Card className="p-8 text-center text-sm text-neutral-500 flex flex-col items-center gap-2">
-          <IconUsers size={20} stroke={1.75} className="text-neutral-400" />
-          Assign a course above to start tracking lessons for this class.
-        </Card>
-      )}
+
+        {/* right rail — persistent Student panel */}
+        <div>
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 font-semibold text-neutral-950"><IconUsers size={16} stroke={1.75} /> Student <Badge color="neutral">{roster.length}</Badge></div>
+              <button onClick={() => setEnrollOpen((v) => !v)} title="Enroll student" className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600">
+                <IconUserPlus size={15} stroke={1.75} />
+              </button>
+            </div>
+
+            {enrollOpen && (
+              <div className="mb-3 rounded-xl border border-primary-200 bg-primary-50/30 p-3">
+                <div className="text-xs font-semibold text-neutral-600 mb-2">Pick a student to enroll</div>
+                {others.length ? (
+                  <div className="space-y-1.5">
+                    {others.map((s) => (
+                      <button key={s.id}
+                        onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
+                        className="w-full inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm transition-all">
+                        <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
+                        <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
+                        <Tag color="neutral">{s.level}</Tag>
+                      </button>
+                    ))}
+                  </div>
+                ) : <p className="text-sm text-neutral-500">Every student is already enrolled in this class.</p>}
+              </div>
+            )}
+
+            <div className="divide-y divide-neutral-100">
+              {roster.map((s) => (
+                <div key={s.id} className="flex items-center gap-3 py-2.5 group">
+                  <button onClick={() => go({ tab: "students", studentId: s.id })} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                    <div className="relative shrink-0">
+                      <Avatar name={s.name} color={avatarColorFor(s.id)} size="sm" />
+                      {s.status !== "not started" && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-white" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate text-neutral-950">{s.name}</div>
+                      <div className="text-xs text-neutral-500">{s.progress}% · {s.status}</div>
+                    </div>
+                  </button>
+                  <button title="Remove from class" onClick={() => setConfirmRemove(s)} className="shrink-0 text-neutral-300 hover:text-warning-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><IconX size={13} stroke={1.75} /></button>
+                </div>
+              ))}
+              {!roster.length && <p className="py-4 text-sm text-neutral-500">No students enrolled yet.</p>}
+            </div>
+          </Card>
+        </div>
+      </div>
 
       <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)}
         title="Remove from this class?"

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconLock, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
   IconEye, IconSearch, IconMaximize, IconMinimize,
-  IconBookmarkPlus, IconSitemap,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Badge, Tag } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
@@ -21,6 +21,9 @@ export function partFromBank(item) {
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the level chip.
 const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
+// Each course card gets a pastel band in its own tone, the way Learniv's
+// course grid gives every card a distinct colored header.
+const BAND_BG = { primary: "bg-primary-50", success: "bg-success-50", pending: "bg-pending-50", warning: "bg-warning-50", info: "bg-info-50" };
 
 /* ----------------------------- courses list ----------------------------- */
 
@@ -39,26 +42,30 @@ export function CoursesView() {
           const classCount = state.classes.filter((cls) => cls.courseId === c.id).length;
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
-            <button key={c.id} onClick={() => go({ courseId: c.id })}
-              className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5 flex flex-col justify-between">
-              <div>
+            <Card key={c.id} className="overflow-hidden flex flex-col">
+              <div className={`p-5 ${BAND_BG[tone]}`}>
                 <div className="flex items-center justify-between mb-4">
+                  <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-sm"><IconBook2 size={17} stroke={1.75} /></span>
                   <Tag color={tone}>{c.level}</Tag>
-                  <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
                 </div>
-                <div className="text-lg font-bold mb-1 text-neutral-950">{c.title}</div>
-                <div className="text-sm text-neutral-600 mb-1">{count} lessons · {classCount} class{classCount === 1 ? "" : "es"}</div>
-                <div className="text-[11px] text-neutral-500 mb-4">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
+                <div className="text-lg font-bold text-neutral-950 leading-snug">{c.title}</div>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs text-neutral-500 mb-1">
-                  <span>Avg completion</span>
-                  <span className="font-mono">{c.completion}%</span>
+              <div className="p-5 flex-1 flex flex-col">
+                <div className="text-xs text-neutral-500 mb-3">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
+                <div className="flex items-center gap-4 text-sm text-neutral-700 mb-4">
+                  <span className="inline-flex items-center gap-1.5"><IconSchool size={15} stroke={1.75} className="text-neutral-400" /> {count} lesson{count === 1 ? "" : "s"}</span>
+                  <span className="inline-flex items-center gap-1.5"><IconUsers size={15} stroke={1.75} className="text-neutral-400" /> {classCount} class{classCount === 1 ? "" : "es"}</span>
                 </div>
-                <ProgressBar pct={c.completion} tone={tone} />
+                <div className="mt-auto">
+                  <div className="flex items-center justify-between text-xs text-neutral-500 mb-1.5">
+                    <span className="font-semibold text-neutral-700">Progress</span>
+                    <span className="font-mono">{c.completion}%</span>
+                  </div>
+                  <ProgressBar pct={c.completion} tone={tone} />
+                  <Button variant="outline" className="w-full mt-4" onClick={() => go({ courseId: c.id })}>View Detail</Button>
+                </div>
               </div>
-            </button>
+            </Card>
           );
         })}
       </div>
@@ -139,6 +146,14 @@ export function CourseView() {
         sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${lessons.length} lessons`}
         right={<Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>} />
 
+      <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-baseline gap-2 shrink-0">
+          <span className="text-3xl font-bold text-neutral-950">{course.completion}%</span>
+          <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
+        </div>
+        <div className="flex-1 min-w-[160px]"><ProgressBar pct={course.completion} /></div>
+      </Card>
+
       {/* Course tree: Lesson → Block → Component */}
       <SectionLabel right={
         <div className="flex items-center gap-3">
@@ -182,9 +197,14 @@ export function CourseView() {
                   </div>
                 </div>
 
-                <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })} className="shrink-0">
-                  Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />
-                </Button>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Badge color={l.locked ? "neutral" : l.progress === 100 ? "success" : l.progress > 0 ? "pending" : "primary"}>
+                    {l.locked ? "Locked" : l.progress === 100 ? "Completed" : l.progress > 0 ? "In Progress" : "Not started yet"}
+                  </Badge>
+                  <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })}>
+                    Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />
+                  </Button>
+                </div>
               </div>
 
               {/* Block rail — density at a glance, without expanding: one tick
