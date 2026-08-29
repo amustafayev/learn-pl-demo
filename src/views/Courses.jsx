@@ -4,9 +4,9 @@ import {
   IconEye, IconSearch, IconMaximize, IconMinimize,
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Badge, Tag } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank } from "../store.jsx";
-import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES, TEACHER, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
@@ -19,11 +19,8 @@ export function partFromBank(item) {
 }
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
-// map it onto the design-system's own tone vocabulary for the level chip.
+// map it onto the design-system's own tone vocabulary for the card band.
 const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
-// Each course card gets a pastel band in its own tone, the way Learniv's
-// course grid gives every card a distinct colored header.
-const BAND_BG = { primary: "bg-primary-50", success: "bg-success-50", pending: "bg-pending-50", warning: "bg-warning-50", info: "bg-info-50" };
 
 /* ----------------------------- courses list ----------------------------- */
 
@@ -42,30 +39,11 @@ export function CoursesView() {
           const classCount = state.classes.filter((cls) => cls.courseId === c.id).length;
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
-            <Card key={c.id} className="overflow-hidden flex flex-col">
-              <div className={`p-5 ${BAND_BG[tone]}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-sm"><IconBook2 size={17} stroke={1.75} /></span>
-                  <Tag color={tone}>{c.level}</Tag>
-                </div>
-                <div className="text-lg font-bold text-neutral-950 leading-snug">{c.title}</div>
-              </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="text-xs text-neutral-500 mb-3">{LESSON_TEMPLATES[c.templateId]?.label || "General English"} template</div>
-                <div className="flex items-center gap-4 text-sm text-neutral-700 mb-4">
-                  <span className="inline-flex items-center gap-1.5"><IconSchool size={15} stroke={1.75} className="text-neutral-400" /> {count} lesson{count === 1 ? "" : "s"}</span>
-                  <span className="inline-flex items-center gap-1.5"><IconUsers size={15} stroke={1.75} className="text-neutral-400" /> {classCount} class{classCount === 1 ? "" : "es"}</span>
-                </div>
-                <div className="mt-auto">
-                  <div className="flex items-center justify-between text-xs text-neutral-500 mb-1.5">
-                    <span className="font-semibold text-neutral-700">Progress</span>
-                    <span className="font-mono">{c.completion}%</span>
-                  </div>
-                  <ProgressBar pct={c.completion} tone={tone} />
-                  <Button variant="outline" className="w-full mt-4" onClick={() => go({ courseId: c.id })}>View Detail</Button>
-                </div>
-              </div>
-            </Card>
+            <CourseCard key={c.id} icon={IconBook2} tone={tone} title={c.title}
+              creatorLabel="Designed by" creatorName={TEACHER.name} creatorColor="dark"
+              category={`${LESSON_TEMPLATES[c.templateId]?.label || "General English"} template`}
+              stats={[{ icon: IconUsers, value: `${classCount} class${classCount === 1 ? "" : "es"}` }, { icon: IconSchool, value: `${count} lesson${count === 1 ? "" : "s"}` }]}
+              progressPct={c.completion} onViewDetail={() => go({ courseId: c.id })} />
           );
         })}
       </div>
@@ -151,7 +129,7 @@ export function CourseView() {
           <span className="text-3xl font-bold text-neutral-950">{course.completion}%</span>
           <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
         </div>
-        <div className="flex-1 min-w-[160px]"><ProgressBar pct={course.completion} /></div>
+        <div className="flex-1 min-w-[160px]"><SegmentedBar pct={course.completion} /></div>
       </Card>
 
       {/* Course tree: Lesson → Block → Component */}

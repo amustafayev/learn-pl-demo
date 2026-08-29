@@ -363,34 +363,45 @@ export function SegmentedBar({ pct = 0, cells = 10 }) {
   );
 }
 
-export function CourseCard({ icon: Icon, badgeNew, title, mentorName, mentorColor = "pending", category, students, rating, progressPct, onViewDetail, className = "" }) {
+const BAND_TINT = { primary: "bg-primary-50", success: "bg-success-50", pending: "bg-pending-50", warning: "bg-warning-50", info: "bg-info-50" };
+
+// `stats` is a list of {icon, value} pairs rendered as icon+text side by
+// side (e.g. class count, lesson count) — kept generic rather than hardcoded
+// to "students/rating" since not every consumer has both of those numbers.
+export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel = "Mentor", creatorName, creatorColor = "dark", category, stats = [], progressPct, onViewDetail, className = "" }) {
   return (
     <Card className={`overflow-hidden ${className}`}>
-      <div className="bg-primary-50 p-4">
+      <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-primary-600"><Icon size={18} stroke={1.75} /></span>}
-          {badgeNew && <Badge color="primary">New</Badge>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm"><Icon size={18} stroke={1.75} /></span>}
         </div>
-        <div className="mt-3 text-base font-bold leading-snug text-neutral-950">{title}</div>
+        <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
+        {creatorName && (
+          <div className="mt-4">
+            <div className="text-sm text-neutral-600">{creatorLabel}</div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <Avatar name={creatorName} shape="square" color={creatorColor} size="xs" />
+              <span className="text-sm font-semibold text-neutral-900">{creatorName}</span>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="p-4">
-        <div className="text-xs text-neutral-600">Mentor</div>
-        <div className="mt-1 flex items-center gap-2">
-          <Avatar name={mentorName} color={mentorColor} size="xs" />
-          <span className="text-sm font-semibold text-neutral-900">{mentorName}</span>
-        </div>
-        {category && <div className="mt-3 text-xs text-neutral-600">{category}</div>}
-        <div className="mt-2 flex items-center gap-4 text-xs text-neutral-700">
-          {students != null && <span>{students} students</span>}
-          {rating != null && <span>★ {rating}</span>}
-        </div>
+      <div className="p-5">
+        {category && <div className="text-sm text-neutral-500">{category}</div>}
+        {stats.length > 0 && (
+          <div className="mt-2.5 flex items-center gap-4 text-sm text-neutral-800">
+            {stats.map((s, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5"><s.icon size={16} stroke={1.75} className="text-neutral-500" /> {s.value}</span>
+            ))}
+          </div>
+        )}
         {progressPct != null && (
-          <div className="mt-3">
-            <div className="mb-1.5 text-xs font-semibold text-neutral-800">Progress</div>
+          <div className="mt-4">
+            <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
             <SegmentedBar pct={progressPct} />
           </div>
         )}
-        <Button variant="outline" size="sm" className="mt-4 w-full" onClick={onViewDetail}>View Detail</Button>
+        <Button variant="outline" className="mt-4 w-full !rounded-2xl" onClick={onViewDetail}>View Detail</Button>
       </div>
     </Card>
   );
