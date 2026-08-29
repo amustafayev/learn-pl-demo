@@ -16,6 +16,38 @@ your own version of it.
 | Old/legacy primitives — **being phased out, do not add to it** | `src/ui.jsx` |
 | Icons | `@tabler/icons-react` — the exact icon set the kit itself credits (tablers.io) |
 | Font | **DM Sans**, loaded via Google Fonts `@import` in `index.css`, wired to Tailwind's `font-sans` |
+| Routing (real URLs, `react-router-dom`) | `src/router.jsx` (`Bridge`, `buildPath`, `mergeRoute`, `TAB_PATH`) + `<Routes>` tree in `src/english-platform-prototype.jsx` |
+
+## Routing
+
+The app uses real `react-router-dom` URLs (`BrowserRouter`) — every page has
+its own address, deep-links work, and the browser back button retraces
+in-app navigation. Two layers:
+
+1. **Cross-page navigation** — the shared `useNav()` hook (`route`/`go()`
+   from `src/store.jsx`) that most already-migrated views call. Under the
+   hood, each top-level `<Route>` is wrapped in `<Bridge tab="...">`
+   (`src/router.jsx`), which reconstructs the old `{tab, courseId, classId,
+   lessonId, partId, studentId, filter}` route shape from the real URL
+   params/query, and turns `go(patch)` calls into `navigate(buildPath(...))`.
+   This is what lets a view call `go({ courseId, lessonId })` without caring
+   whether "state" lives in memory or in the URL — it always lives in the URL.
+   Add a new top-level page by adding a `<Route>` in `Content()`
+   (`english-platform-prototype.jsx`) and a case in `buildPath`/`TAB_PATH`
+   (`router.jsx`) if it takes params.
+2. **Page-internal sub-navigation** — a page that owns its own nested
+   tabs/drill-downs (e.g. `Library`'s reading/word-sets/playground tabs and
+   its reader/word-set drill-down, or `StudentDetail`'s overview/words/...
+   tab strip) manages that with `react-router-dom` hooks (`useNavigate`,
+   `useParams`) **directly**, via its own nested `<Routes>` or `:param`,
+   rather than going through `useNav()`. That state is private to the page,
+   not a cross-page resource address — keep it decoupled. See
+   `src/views/Library.jsx` and `StudentDetail` in `src/views/Students.jsx`
+   for the pattern.
+
+Rule of thumb: does another page ever need to navigate straight to this
+state (e.g. a course id, a student id)? Use `useNav()`/`go()`. Is it purely
+"which tab of this page am I on"? Use the page's own router hooks.
 
 ## Color tokens
 
@@ -65,6 +97,27 @@ const CHIP = {
 Every export is a faithful port of one variant sheet from the Learniv kit.
 Build real pages by composing these — don't style raw `<div>`/`<button>` for
 anything one of these already covers.
+
+**Rule: always use the existing ready-made component. Never create a new
+one when one already covers the case.** Before writing any card/button/badge/
+etc. markup by hand, check the inventory below first — if something close
+enough already exists, use it (extend its props if it's missing a small
+option) instead of writing a parallel one-off version next to it.
+
+This isn't hypothetical: `CourseCard` was built correctly early on, but the
+Courses grid page was later written with its own hand-rolled inline card
+instead of calling it — so the page drifted from the kit (wrong "Mentor"
+field, wrong button roundness, a fabricated star rating) even though the
+correct component already existed one file away. The fix was to delete the
+inline version and call the real `CourseCard`. Don't reintroduce that
+mistake: if you're about to write a `<div className="rounded-2xl border...">`
+that looks like a card, stop and check whether `Card`/`CourseCard`/`StatCard`/
+`SessionRow` already does it.
+
+If a screen truly needs something the factory doesn't have at all, add it
+*to the factory* (sourced from the kit's own component/variable sheets, not
+invented) and export it from there — so the next page that needs the same
+thing reuses it too, instead of every page growing its own copy.
 
 - **Layout**: `Page`, `PageHeader` (kicker/title/sub/right), `Breadcrumbs`,
   `SectionLabel`, `ProgressBar`

@@ -1,8 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
+import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain, IconBroadcast,
 } from "@tabler/icons-react";
-import { StoreProvider, NavProvider } from "./store.jsx";
+import { StoreProvider } from "./store.jsx";
+import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { ToastHost } from "./ui.jsx";
 import { Button, NavItem, NavSectionLabel, Avatar } from "./design-system.jsx";
 import { TEACHER } from "./data.jsx";
@@ -27,40 +29,36 @@ const NAV = [
 ];
 
 export default function App() {
-  // one shared route object drives every view
-  const [route, setRoute] = useState({ tab: "dashboard", courseId: null, classId: null, lessonId: null, partId: null, studentId: null });
-  const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
-
-  const go = useCallback((patch) => {
-    setRoute((r) => {
-      // switching top-level tab resets deep selection
-      if (patch.tab && patch.tab !== r.tab) return { tab: patch.tab, courseId: null, classId: null, lessonId: null, partId: null, studentId: null, ...patch };
-      // picking a different course drops any class selected under the old one
-      if (patch.courseId !== undefined && patch.courseId !== r.courseId && patch.classId === undefined) return { ...r, classId: null, lessonId: null, partId: null, ...patch };
-      return { ...r, ...patch };
-    });
-  }, []);
-  const startLive = useCallback((ctx) => setLive(ctx || {}), []);
-  const endLive = useCallback(() => setLive(null), []);
-
   return (
-    <StoreProvider>
-      <NavProvider value={{ route, go, startLive }}>
-        <div className="min-h-screen bg-neutral-50 text-neutral-950 flex font-sans">
-          <Sidebar route={route} go={go} />
-          <main className="flex-1 overflow-y-auto h-screen">
-            <TopBar route={route} onStartLive={() => startLive()} />
-            <Content route={route} />
-          </main>
-          <ToastHost />
-        </div>
-        {live && <LiveSession context={live} onEnd={endLive} />}
-      </NavProvider>
-    </StoreProvider>
+    <BrowserRouter>
+      <StoreProvider>
+        <AppShell />
+      </StoreProvider>
+    </BrowserRouter>
   );
 }
 
-function Sidebar({ route, go }) {
+function AppShell() {
+  const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
+  const startLive = useCallback((ctx) => setLive(ctx || {}), []);
+  const endLive = useCallback(() => setLive(null), []);
+  const { pathname } = useLocation();
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-950 flex font-sans">
+      <Sidebar pathname={pathname} />
+      <main className="flex-1 overflow-y-auto h-screen">
+        <TopBar pathname={pathname} onStartLive={() => startLive()} />
+        <Content startLive={startLive} />
+      </main>
+      <ToastHost />
+      {live && <LiveSession context={live} onEnd={endLive} />}
+    </div>
+  );
+}
+
+function Sidebar({ pathname }) {
+  const navigate = useNavigate();
   return (
     <aside className="w-16 sm:w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
       <div className="h-16 flex items-center gap-2.5 px-4 border-b border-neutral-200">
@@ -73,18 +71,19 @@ function Sidebar({ route, go }) {
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
         <NavSectionLabel>Main Menu</NavSectionLabel>
         {NAV.map((n) => (
-          <NavItem key={n.id} icon={n.icon} label={<span className="hidden sm:inline">{n.label}</span>} active={route.tab === n.id} onClick={() => go({ tab: n.id })} />
+          <NavItem key={n.id} icon={n.icon} label={<span className="hidden sm:inline">{n.label}</span>}
+            active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
     </aside>
   );
 }
 
-function TopBar({ route, onStartLive }) {
+function TopBar({ pathname, onStartLive }) {
   const titles = { dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
   return (
     <div className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
-      <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[route.tab]}</div>
+      <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
         <Button variant="primary" size="sm" onClick={onStartLive}>
@@ -105,18 +104,37 @@ function TopBar({ route, onStartLive }) {
   );
 }
 
-function Content({ route }) {
-  if (route.tab === "dashboard") return <Dashboard />;
-  if (route.tab === "courses") {
-    if (route.partId) return <PartStudio />;
-    if (route.lessonId) return <LessonBuilderView />;
-    if (route.courseId) return <CourseView />;
-    return <CoursesView />;
-  }
-  if (route.tab === "classes") return route.classId ? <ClassDetailView /> : <ClassesView />;
-  if (route.tab === "library") return <Library />;
-  if (route.tab === "students") return route.studentId ? <StudentDetail /> : <StudentsView />;
-  if (route.tab === "levelTests") return <LevelTests />;
-  if (route.tab === "insights") return <Insights />;
-  return null;
+// A student's own URL always carries a `:section` (overview/words/…) —
+// landing on just `/students/:studentId` picks the default one.
+function StudentOverviewRedirect() {
+  const { studentId } = useParams();
+  return <Navigate to={`/students/${studentId}/overview`} replace />;
+}
+
+function Content({ startLive }) {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/dashboard" element={<Bridge tab="dashboard" startLive={startLive}><Dashboard /></Bridge>} />
+
+      <Route path="/courses" element={<Bridge tab="courses" startLive={startLive}><CoursesView /></Bridge>} />
+      <Route path="/courses/:courseId" element={<Bridge tab="courses" startLive={startLive}><CourseView /></Bridge>} />
+      <Route path="/courses/:courseId/lessons/:lessonId" element={<Bridge tab="courses" startLive={startLive}><LessonBuilderView /></Bridge>} />
+      <Route path="/courses/:courseId/lessons/:lessonId/parts/:partId" element={<Bridge tab="courses" startLive={startLive}><PartStudio /></Bridge>} />
+
+      <Route path="/classes" element={<Bridge tab="classes" startLive={startLive}><ClassesView /></Bridge>} />
+      <Route path="/classes/:classId" element={<Bridge tab="classes" startLive={startLive}><ClassDetailView /></Bridge>} />
+
+      <Route path="/library/*" element={<Bridge tab="library" startLive={startLive}><Library /></Bridge>} />
+
+      <Route path="/students" element={<Bridge tab="students" startLive={startLive}><StudentsView /></Bridge>} />
+      <Route path="/students/:studentId" element={<StudentOverviewRedirect />} />
+      <Route path="/students/:studentId/:section" element={<Bridge tab="students" startLive={startLive}><StudentDetail /></Bridge>} />
+
+      <Route path="/level-tests" element={<Bridge tab="levelTests" startLive={startLive}><LevelTests /></Bridge>} />
+      <Route path="/insights" element={<Bridge tab="insights" startLive={startLive}><Insights /></Bridge>} />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
 }

@@ -335,9 +335,12 @@ export function Card({ children, className = "", ...rest }) {
   return <div className={`rounded-2xl border border-neutral-200 bg-white ${className}`} {...rest}>{children}</div>;
 }
 
-export function StatCard({ icon: Icon, label, value, delta, className = "" }) {
+export function StatCard({ icon: Icon, label, value, delta, onClick, className = "" }) {
   return (
-    <Card className={`p-5 ${className}`}>
+    <Card
+      className={`p-5 ${onClick ? "text-left w-full cursor-pointer hover:border-primary-300 hover:shadow-sm transition-all" : ""} ${className}`}
+      onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm text-neutral-700">
           {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100"><Icon size={17} stroke={1.75} /></span>}

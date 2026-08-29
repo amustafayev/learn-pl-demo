@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconRefresh, IconWand,
   IconCheck, IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBoxMultiple, IconBuildingStore,
@@ -18,33 +19,61 @@ import { COMPONENT_META } from "./parts.jsx";
 const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
 const TONE_DOT = { primary: "bg-primary-500", success: "bg-success-500", pending: "bg-pending-500", warning: "bg-warning-500", info: "bg-info-500" };
 
+// Library owns its own nested routing (reading/words/playground/bank/
+// marketplace, plus a reader/word-set drill-down) directly with react-router
+// hooks — this is page-internal navigation, not a cross-page resource, so it
+// doesn't need to go through the shared useNav() shim the other pages use.
+const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "My Blocks"], ["marketplace", "Marketplace"]];
+
 export default function Library() {
-  const [sub, setSub] = useState("reading");
-  const [openText, setOpenText] = useState(null);
-  const [openSet, setOpenSet] = useState(null);
+  const navigate = useNavigate();
+  return (
+    <Routes>
+      <Route index element={<Navigate to="reading" replace />} />
+      <Route path="reading" element={<LibraryHome tab="reading"><ReadingList open={(id) => navigate(`/library/reading/${id}`)} /></LibraryHome>} />
+      <Route path="reading/:textId" element={<ReaderPanelRoute />} />
+      <Route path="words" element={<LibraryHome tab="words"><WordSetsList open={(id) => navigate(`/library/words/${id}`)} /></LibraryHome>} />
+      <Route path="words/:setId" element={<WordSetPanelRoute />} />
+      <Route path="playground" element={<LibraryHome tab="playground"><Playground /></LibraryHome>} />
+      <Route path="bank" element={<LibraryHome tab="bank"><MyBlocks /></LibraryHome>} />
+      <Route path="marketplace" element={
+        <LibraryHome tab="marketplace">
+          <ComingSoon icon={IconBuildingStore} title="Teacher marketplace — coming soon"
+            sub="Publish your own ready-to-use reading, playground, and other lesson blocks for other teachers to buy and drop straight into their lessons." />
+        </LibraryHome>
+      } />
+    </Routes>
+  );
+}
 
-  if (openText) return <ReaderPanel textId={openText} back={() => setOpenText(null)} />;
-  if (openSet) return <WordSetPanel setId={openSet} back={() => setOpenSet(null)} />;
-
+// The tab bar + page header only show at the list level — drilling into one
+// reading text or word set replaces the whole page (its own back-link),
+// exactly like before this was routed.
+function LibraryHome({ tab, children }) {
+  const navigate = useNavigate();
   return (
     <Page>
       <PageHeader kicker="Content library" title="Library" sub="Reading texts, vocabulary sets, and the playground learners explore between lessons." />
       <div className="flex gap-1.5 mb-6 bg-neutral-100 rounded-xl p-1 w-fit">
-        {[["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "My Blocks"], ["marketplace", "Marketplace"]].map(([id, label]) => (
-          <button key={id} onClick={() => setSub(id)}
-            className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${sub === id ? "bg-white shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
+        {LIBRARY_TABS.map(([id, label]) => (
+          <button key={id} onClick={() => navigate(`/library/${id}`)}
+            className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${tab === id ? "bg-white shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
         ))}
       </div>
-      {sub === "reading" && <ReadingList open={setOpenText} />}
-      {sub === "words" && <WordSetsList open={setOpenSet} />}
-      {sub === "playground" && <Playground />}
-      {sub === "bank" && <MyBlocks />}
-      {sub === "marketplace" && (
-        <ComingSoon icon={IconBuildingStore} title="Teacher marketplace — coming soon"
-          sub="Publish your own ready-to-use reading, playground, and other lesson blocks for other teachers to buy and drop straight into their lessons." />
-      )}
+      {children}
     </Page>
   );
+}
+
+function ReaderPanelRoute() {
+  const { textId } = useParams();
+  const navigate = useNavigate();
+  return <ReaderPanel textId={textId} back={() => navigate("/library/reading")} />;
+}
+function WordSetPanelRoute() {
+  const { setId } = useParams();
+  const navigate = useNavigate();
+  return <WordSetPanel setId={setId} back={() => navigate("/library/words")} />;
 }
 
 /* ------------------------------- reading ------------------------------- */

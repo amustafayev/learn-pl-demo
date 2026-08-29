@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   IconSend, IconDownload, IconFlame, IconBrain, IconAlertTriangle, IconCheck, IconX,
   IconCircleCheck, IconCircle, IconLock, IconNotebook, IconSparkles, IconArrowRight, IconClock, IconTrendingUp,
@@ -86,10 +87,14 @@ export function StudentsView() {
 
 /* ------------------------------- detail ------------------------------- */
 
+// The tab strip is real page-internal navigation (/students/:id/:section),
+// managed with router hooks directly rather than the shared useNav() shim —
+// same "decoupled sub-navigation" pattern as Library's own routes.
 export function StudentDetail() {
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
-  const [tab, setTab] = useState("overview");
+  const { section = "overview" } = useParams();
+  const navigate = useNavigate();
   const [assign, setAssign] = useState(false);
   const [pickingClass, setPickingClass] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -185,17 +190,17 @@ export function StudentDetail() {
 
       <div className="flex gap-1 mb-6 border-b border-neutral-200 overflow-x-auto">
         {tabs.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>{label}</button>
+          <button key={id} onClick={() => navigate(`/students/${s.id}/${id}`)}
+            className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-px whitespace-nowrap transition-colors ${section === id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>{label}</button>
         ))}
       </div>
 
-      {tab === "overview" && <Overview s={s} />}
-      {tab === "words" && <Words s={s} />}
-      {tab === "activity" && <Activity s={s} />}
-      {tab === "insights" && <StudentInsights s={s} />}
-      {tab === "notes" && <Notes s={s} />}
-      {tab === "path" && <PathView s={s} />}
+      {section === "overview" && <Overview s={s} />}
+      {section === "words" && <Words s={s} />}
+      {section === "activity" && <Activity s={s} />}
+      {section === "insights" && <StudentInsights s={s} />}
+      {section === "notes" && <Notes s={s} />}
+      {section === "path" && <PathView s={s} />}
 
       <StudentAssignModal open={assign} onClose={() => setAssign(false)} student={s} />
     </Page>
