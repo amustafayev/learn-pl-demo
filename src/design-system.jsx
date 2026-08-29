@@ -1,5 +1,61 @@
 import React from "react";
-import { IconCheck, IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconX } from "@tabler/icons-react";
+
+/* ---------------------------------------------------------------- Layout */
+// Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
+// headers aren't a standalone "component" in the kit), but centralized here
+// so every view shares one typographic treatment instead of re-deriving it.
+export function Page({ children, className = "" }) {
+  return <div className={`p-5 sm:p-8 max-w-6xl mx-auto ${className}`}>{children}</div>;
+}
+
+export function Breadcrumbs({ items }) {
+  return (
+    <div className="flex items-center gap-1.5 text-sm text-neutral-500 mb-4 flex-wrap">
+      {items.map((it, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <IconChevronRight size={14} stroke={1.75} />}
+          {it.onClick ? (
+            <button onClick={it.onClick} className="hover:text-primary-600">{it.label}</button>
+          ) : (
+            <span className="text-neutral-950 font-medium">{it.label}</span>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+export function PageHeader({ kicker, title, sub, right }) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-6">
+      <div>
+        {kicker && <div className="text-sm text-neutral-500 mb-1">{kicker}</div>}
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-950">{title}</h1>
+        {sub && <p className="text-neutral-600 mt-1">{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+export function SectionLabel({ children, right }) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <div className="text-sm font-semibold text-neutral-700">{children}</div>
+      {right}
+    </div>
+  );
+}
+
+export function ProgressBar({ pct, tone = "primary" }) {
+  const fill = { primary: "bg-primary-500", success: "bg-success-500", warning: "bg-warning-500", info: "bg-info-500", neutral: "bg-neutral-700" }[tone];
+  return (
+    <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
+      <div className={`h-full ${fill} transition-all`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ Modal */
 // The "Add Discussion" dialog sheet: white rounded-2xl card, header with

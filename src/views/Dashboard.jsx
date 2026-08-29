@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import {
   IconBookUpload, IconSend, IconAlertTriangle, IconBrain, IconArrowRight, IconBookmark,
 } from "@tabler/icons-react";
-import { Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
+import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
 import { useStore, useNav } from "../store.jsx";
 import { TEACHER, WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
 import { COMPONENT_META } from "./parts.jsx";
@@ -46,18 +46,18 @@ export default function Dashboard() {
   }, [state.blockBank, state.componentBank]);
 
   return (
-    <div className="p-5 sm:p-8 max-w-6xl mx-auto">
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <div className="text-sm text-neutral-500 mb-1">{TEACHER.role} · signed in</div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-950">Good morning, {TEACHER.name.split(" ")[0]}</h1>
-          <p className="text-neutral-600 mt-1">Your teaching cockpit — who to help today, and where they're stuck.</p>
-        </div>
-        <div className="hidden sm:flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setModal("text")}><IconBookUpload size={15} stroke={1.75} /> Add reading</Button>
-          <Button variant="primary" size="sm" onClick={() => setModal("assign")}><IconSend size={15} stroke={1.75} /> Assign</Button>
-        </div>
-      </div>
+    <Page>
+      <PageHeader
+        kicker={`${TEACHER.role} · signed in`}
+        title={`Good morning, ${TEACHER.name.split(" ")[0]}`}
+        sub="Your teaching cockpit — who to help today, and where they're stuck."
+        right={
+          <div className="hidden sm:flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setModal("text")}><IconBookUpload size={15} stroke={1.75} /> Add reading</Button>
+            <Button variant="primary" size="sm" onClick={() => setModal("assign")}><IconSend size={15} stroke={1.75} /> Assign</Button>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="active students" value={active} onClick={() => go({ tab: "students" })} />
@@ -69,10 +69,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* pre-lesson briefs — the teacher-visibility loop */}
         <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold text-neutral-700">Before your next sessions · AI pre-lesson briefs</div>
-            <button onClick={() => go({ tab: "students" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">All students <IconArrowRight size={12} stroke={1.75} /></button>
-          </div>
+          <SectionLabel right={<button onClick={() => go({ tab: "students" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">All students <IconArrowRight size={12} stroke={1.75} /></button>}>
+            Before your next sessions · AI pre-lesson briefs
+          </SectionLabel>
           <div className="space-y-3">
             {briefs.map((s) => (
               <Card key={s.id} className="p-4 hover:border-primary-300 transition-colors">
@@ -96,7 +95,7 @@ export default function Dashboard() {
         {/* needs attention + quick actions */}
         <div className="space-y-6">
           <div>
-            <div className="text-sm font-semibold text-neutral-700 mb-3">Needs attention</div>
+            <SectionLabel>Needs attention</SectionLabel>
             <div className="space-y-2.5">
               {atRisk.map((s) => (
                 <button key={s.id} onClick={() => go({ tab: "students", studentId: s.id })} className="w-full text-left">
@@ -114,7 +113,7 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <div className="text-sm font-semibold text-neutral-700 mb-3">Word of the day</div>
+            <SectionLabel>Word of the day</SectionLabel>
             <Card className="p-4">
               <div className="flex items-start gap-3">
                 <span className="text-3xl leading-none">{WORD_OF_DAY.emoji}</span>
@@ -132,10 +131,9 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-neutral-700">Recently saved</div>
-              <button onClick={() => go({ tab: "library" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">Library <IconArrowRight size={12} stroke={1.75} /></button>
-            </div>
+            <SectionLabel right={<button onClick={() => go({ tab: "library" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">Library <IconArrowRight size={12} stroke={1.75} /></button>}>
+              Recently saved
+            </SectionLabel>
             <Card className="p-2 divide-y divide-neutral-200">
               {recentSaves.length ? recentSaves.map((item) => {
                 const isBlock = item.saveKind === "block";
@@ -161,7 +159,7 @@ export default function Dashboard() {
 
       <AddTextModal open={modal === "text"} onClose={() => setModal(null)} />
       <AssignFromDashboardModal open={modal === "assign"} onClose={() => setModal(null)} />
-    </div>
+    </Page>
   );
 }
 
