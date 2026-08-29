@@ -1,13 +1,13 @@
 import React from "react";
 import {
-  Sparkles, Brain, Mic, Hourglass,
-  ArrowLeftRight, ShieldCheck, ShieldAlert, TrendingUp, TrendingDown,
-  Minus, Gauge, Wand2, Map, Languages,
-} from "lucide-react";
+  IconSparkles, IconBrain, IconMicrophone, IconHourglass,
+  IconArrowsLeftRight, IconShieldCheck, IconShieldExclamation, IconTrendingUp, IconTrendingDown,
+  IconMinus, IconGauge, IconWand, IconMap, IconLanguage,
+} from "@tabler/icons-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
-import { Card, Pill, AiNote, SectionLabel } from "../ui.jsx";
+import { Card, Tag, Alert, SectionLabel } from "../design-system.jsx";
 import { useStore } from "../store.jsx";
 import { studentTrajectory } from "./Insights.jsx";
 
@@ -23,10 +23,19 @@ import { studentTrajectory } from "./Insights.jsx";
    ========================================================================= */
 
 const TREND_TONE = {
-  improving:  { icon: TrendingUp, tone: "text-emerald-600 bg-emerald-50" },
-  plateauing: { icon: Minus, tone: "text-amber-600 bg-amber-50" },
-  regressing: { icon: TrendingDown, tone: "text-rose-600 bg-rose-50" },
-  "just started": { icon: Minus, tone: "text-slate-400 bg-slate-100" },
+  improving:  { icon: IconTrendingUp, tone: "success" },
+  plateauing: { icon: IconMinus, tone: "pending" },
+  regressing: { icon: IconTrendingDown, tone: "warning" },
+  "just started": { icon: IconMinus, tone: "neutral" },
+};
+// Tailwind needs each color class spelled out literally somewhere in source
+// to generate it — a template string like `bg-${tone}-50` is invisible to
+// its scanner, so trajectory tones are looked up here instead.
+const TRAJECTORY_CHIP = {
+  success: "bg-success-50 text-success-600",
+  pending: "bg-pending-50 text-pending-600",
+  warning: "bg-warning-50 text-warning-600",
+  neutral: "bg-neutral-100 text-neutral-500",
 };
 
 // remedial-suggestion lookup — maps a stuck concept to a concrete next step
@@ -119,18 +128,18 @@ export default function StudentInsights({ s }) {
     <div className="space-y-6">
       {/* readiness + you vs last month */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Card className={`p-4 flex items-center gap-3 ${ready.ready ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"}`}>
-          {ready.ready ? <ShieldCheck size={22} className="text-emerald-600 shrink-0" /> : <ShieldAlert size={22} className="text-amber-600 shrink-0" />}
+        <Card className={`p-4 flex items-center gap-3 ${ready.ready ? "border-success-200 bg-success-50" : "border-pending-200 bg-pending-50"}`}>
+          {ready.ready ? <IconShieldCheck size={22} stroke={1.75} className="text-success-600 shrink-0" /> : <IconShieldExclamation size={22} stroke={1.75} className="text-pending-600 shrink-0" />}
           <div className="min-w-0">
-            <div className="text-sm font-semibold">{ready.ready ? "Ready to advance" : "Needs reinforcement"}</div>
-            <div className="text-xs text-slate-500">{ready.reason}</div>
+            <div className="text-sm font-semibold text-neutral-950">{ready.ready ? "Ready to advance" : "Needs reinforcement"}</div>
+            <div className="text-xs text-neutral-600">{ready.reason}</div>
           </div>
         </Card>
         <Card className="p-4 flex items-center gap-3">
-          <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${overallTraj.tone}`}><overallTraj.icon size={18} /></span>
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${TRAJECTORY_CHIP[overallTraj.tone]}`}><overallTraj.icon size={18} stroke={1.75} /></span>
           <div className="min-w-0">
-            <div className="text-sm font-semibold">You vs last month</div>
-            <div className="text-xs text-slate-500">{mom ? `${mom.beforeLabel} → ${mom.nowLabel}: ${mom.delta >= 0 ? "+" : ""}${mom.delta} CEFR · ${overallTraj.label}` : "Not enough history yet."}</div>
+            <div className="text-sm font-semibold text-neutral-950">You vs last month</div>
+            <div className="text-xs text-neutral-600">{mom ? `${mom.beforeLabel} → ${mom.nowLabel}: ${mom.delta >= 0 ? "+" : ""}${mom.delta} CEFR · ${overallTraj.label}` : "Not enough history yet."}</div>
           </div>
         </Card>
       </div>
@@ -140,9 +149,9 @@ export default function StudentInsights({ s }) {
         <SectionLabel>Trajectory per skill</SectionLabel>
         <Card className="p-4 flex flex-wrap gap-2">
           {Object.entries(perSkill).map(([skill, tr]) => (
-            <Pill key={skill} className={tr.tone}><tr.icon size={11} /> <span className="capitalize">{skill}</span> · {tr.label}</Pill>
+            <Tag key={skill} color={tr.tone}><tr.icon size={11} stroke={1.75} /> <span className="capitalize">{skill}</span> · {tr.label}</Tag>
           ))}
-          {!Object.keys(perSkill).length && <span className="text-sm text-slate-400">No skill data yet.</span>}
+          {!Object.keys(perSkill).length && <span className="text-sm text-neutral-500">No skill data yet.</span>}
         </Card>
       </div>
 
@@ -150,21 +159,21 @@ export default function StudentInsights({ s }) {
       <div>
         <SectionLabel>Where {s.name.split(" ")[0]} got stuck</SectionLabel>
         {t.stuckPoints?.length ? (
-          <Card className="divide-y divide-slate-100">
+          <Card className="divide-y divide-neutral-200">
             {t.stuckPoints.map((p, i) => (
               <div key={i} className="p-3.5 flex items-start gap-3">
-                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><Hourglass size={15} /></span>
+                <span className="w-8 h-8 rounded-lg bg-warning-50 text-warning-600 flex items-center justify-center shrink-0"><IconHourglass size={15} stroke={1.75} /></span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm"><b>{p.concept}</b> <span className="text-slate-400">· {p.activity}</span></div>
-                  <div className="text-xs text-slate-400">{p.retries} retries · revisited {p.revisits}× · {p.when}</div>
-                  <div className="text-xs text-indigo-600 mt-1 flex items-center gap-1"><Wand2 size={11} /> {remedialFor(p.concept)}</div>
+                  <div className="text-sm text-neutral-900"><b>{p.concept}</b> <span className="text-neutral-500">· {p.activity}</span></div>
+                  <div className="text-xs text-neutral-500">{p.retries} retries · revisited {p.revisits}× · {p.when}</div>
+                  <div className="text-xs text-primary-600 mt-1 flex items-center gap-1"><IconWand size={11} stroke={1.75} /> {remedialFor(p.concept)}</div>
                 </div>
                 <button onClick={() => toast(`Added a ${p.concept} refresher to ${s.name.split(" ")[0]}'s next session`)}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 shrink-0">Refresh it</button>
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Refresh it</button>
               </div>
             ))}
           </Card>
-        ) : <Card className="p-5 text-sm text-slate-400">No stuck points detected — fails + high dwell + revisits haven't clustered anywhere yet.</Card>}
+        ) : <Card className="p-5 text-sm text-neutral-500">No stuck points detected — fails + high dwell + revisits haven't clustered anywhere yet.</Card>}
       </div>
 
       {/* confidence calibration */}
@@ -176,36 +185,36 @@ export default function StudentInsights({ s }) {
               const off = Math.abs(c.predicted - c.actual);
               return (
                 <div key={i}>
-                  <div className="flex justify-between text-xs mb-1"><span className="text-slate-600 font-medium">{c.concept}</span><span className={`font-mono ${off >= 20 ? "text-amber-600" : "text-slate-400"}`}>{c.predicted}% predicted vs {c.actual}% actual</span></div>
-                  <div className="relative h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="absolute h-full bg-slate-300" style={{ width: `${c.predicted}%` }} />
-                    <div className="absolute h-full bg-indigo-500" style={{ width: `${c.actual}%` }} />
+                  <div className="flex justify-between text-xs mb-1"><span className="text-neutral-700 font-medium">{c.concept}</span><span className={`font-mono ${off >= 20 ? "text-pending-600" : "text-neutral-500"}`}>{c.predicted}% predicted vs {c.actual}% actual</span></div>
+                  <div className="relative h-2 rounded-full bg-neutral-200 overflow-hidden">
+                    <div className="absolute h-full bg-neutral-400" style={{ width: `${c.predicted}%` }} />
+                    <div className="absolute h-full bg-primary-500" style={{ width: `${c.actual}%` }} />
                   </div>
                 </div>
               );
             })}
-            <p className="text-[11px] text-slate-400 flex items-center gap-1"><Gauge size={11} /> Grey = self-rated confidence, indigo = actual score. A big gap means they don't know what they don't know.</p>
+            <p className="text-[11px] text-neutral-500 flex items-center gap-1"><IconGauge size={11} stroke={1.75} /> Grey = self-rated confidence, orange = actual score. A big gap means they don't know what they don't know.</p>
           </Card>
-        ) : <Card className="p-5 text-sm text-slate-400">No self-assessment data yet — ask “how confident are you?” before a quiz to start tracking this.</Card>}
+        ) : <Card className="p-5 text-sm text-neutral-500">No self-assessment data yet — ask “how confident are you?” before a quiz to start tracking this.</Card>}
       </div>
 
       {gap && (
-        <AiNote icon={ArrowLeftRight} tone="sky" title="Cross-skill gap">
+        <Alert icon={IconArrowsLeftRight} tone="info" title="Cross-skill gap">
           Strong in <b>{gap.strongIn}</b> ({gap.strongPct}%) but weak in <b>{gap.weakIn}</b> ({gap.weakPct}%) — knowledge in one skill isn't transferring. Worth a targeted {gap.weakIn} activity.
-        </AiNote>
+        </Alert>
       )}
 
       {/* transparent knowledge map — what the learner themselves would see */}
       <div>
-        <SectionLabel><span className="inline-flex items-center gap-1.5"><Map size={13} /> {s.name.split(" ")[0]}'s map of English · learner-facing</span></SectionLabel>
+        <SectionLabel><span className="inline-flex items-center gap-1.5"><IconMap size={13} stroke={1.75} /> {s.name.split(" ")[0]}'s map of English · learner-facing</span></SectionLabel>
         <Card className="p-6">
-          <p className="text-xs text-slate-400 mb-2">Shown to the student in their own app — not hidden from them.</p>
+          <p className="text-xs text-neutral-500 mb-2">Shown to the student in their own app — not hidden from them.</p>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData} outerRadius="70%">
-                <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="concept" tick={{ fontSize: 10, fill: "#64748b" }} />
-                <Radar dataKey="mastery" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.35} />
+                <PolarGrid stroke="#e5e5e5" />
+                <PolarAngleAxis dataKey="concept" tick={{ fontSize: 10, fill: "#8c8c8c" }} />
+                <Radar dataKey="mastery" stroke="#ff5c20" fill="#ff5c20" fillOpacity={0.35} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -214,8 +223,8 @@ export default function StudentInsights({ s }) {
 
       {/* weekly plain-language summary, in Azerbaijani */}
       <div>
-        <SectionLabel><span className="inline-flex items-center gap-1.5"><Languages size={13} /> Weekly summary · what {s.name.split(" ")[0]} reads</span></SectionLabel>
-        <AiNote icon={Sparkles} tone="violet">{weeklySummaryAz(s, mom)}</AiNote>
+        <SectionLabel><span className="inline-flex items-center gap-1.5"><IconLanguage size={13} stroke={1.75} /> Weekly summary · what {s.name.split(" ")[0]} reads</span></SectionLabel>
+        <Alert icon={IconSparkles} tone="primary">{weeklySummaryAz(s, mom)}</Alert>
       </div>
 
       {/* recording summary */}
@@ -223,11 +232,11 @@ export default function StudentInsights({ s }) {
         <SectionLabel>Last recorded lesson</SectionLabel>
         {s.lastRecording?.summary ? (
           <Card className="p-5">
-            <div className="flex items-center gap-2 text-xs text-slate-400 mb-2"><Mic size={13} /> {s.lastRecording.date} · {s.lastRecording.durationMin}m recorded</div>
-            <AiNote icon={Sparkles} tone="violet">{s.lastRecording.summary}</AiNote>
+            <div className="flex items-center gap-2 text-xs text-neutral-500 mb-2"><IconMicrophone size={13} stroke={1.75} /> {s.lastRecording.date} · {s.lastRecording.durationMin}m recorded</div>
+            <Alert icon={IconSparkles} tone="primary">{s.lastRecording.summary}</Alert>
           </Card>
         ) : (
-          <Card className="p-5 text-sm text-slate-400 flex items-center gap-2"><Brain size={15} className="text-slate-300" /> No recorded session yet — turn on voice recording in a live lesson to get an AI summary here.</Card>
+          <Card className="p-5 text-sm text-neutral-500 flex items-center gap-2"><IconBrain size={15} stroke={1.75} className="text-neutral-400" /> No recorded session yet — turn on voice recording in a live lesson to get an AI summary here.</Card>
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconVolume, IconX } from "@tabler/icons-react";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -106,7 +106,11 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
               <div className="font-medium text-sm truncate text-neutral-950">{s.name}</div>
               <div className="text-xs text-neutral-500">{metaFor(s)}</div>
             </div>
-            <Checkbox checked={on} />
+            {/* visual only — the whole row is already the click target, so
+                this can't be a real nested <button> like Checkbox itself is */}
+            <span className={`flex h-5 w-5 items-center justify-center rounded-md border shrink-0 ${on ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-white"}`}>
+              {on && <IconCheck size={13} stroke={3} className="text-white" />}
+            </span>
           </button>
         );
       })}
@@ -181,6 +185,20 @@ export function TextField({ state = "default", className = "", ...rest }) {
       className={`w-full h-11 rounded-xl border px-3.5 text-sm outline-none transition-colors ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
       {...rest}
     />
+  );
+}
+
+// A native <select>, styled to the same field treatment as TextField —
+// the kit's Input-form sheet doesn't show a distinct select variant, so this
+// reuses that same visual language rather than inventing a new one.
+export function Select({ className = "", children, ...rest }) {
+  return (
+    <select
+      className={`w-full h-11 rounded-xl border px-3.5 text-sm outline-none transition-colors bg-neutral-100 border-transparent text-neutral-900 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 ${className}`}
+      {...rest}
+    >
+      {children}
+    </select>
   );
 }
 
@@ -275,17 +293,23 @@ export function Tag({ color = "neutral", onRemove, children }) {
 }
 
 /* ----------------------------------------------------------------- Alert */
-export function Alert({ tone = "primary", icon: Icon, actionLabel, onAction, onClose, children }) {
-  const tint = {
-    primary: "bg-primary-50 border-primary-200 text-neutral-900",
-    warning: "bg-warning-50 border-warning-200 text-neutral-900",
-  }[tone] || "bg-primary-50 border-primary-200 text-neutral-900";
+const ALERT_TONE = {
+  primary: { bg: "bg-primary-50 border-primary-200", icon: "text-primary-600", action: "text-primary-600 hover:text-primary-700" },
+  success: { bg: "bg-success-50 border-success-200", icon: "text-success-600", action: "text-success-600 hover:text-success-700" },
+  warning: { bg: "bg-warning-50 border-warning-200", icon: "text-warning-600", action: "text-warning-600 hover:text-warning-700" },
+  pending: { bg: "bg-pending-50 border-pending-200", icon: "text-pending-600", action: "text-pending-600 hover:text-pending-700" },
+  info: { bg: "bg-info-50 border-info-200", icon: "text-info-600", action: "text-info-600 hover:text-info-700" },
+};
+
+export function Alert({ tone = "primary", icon: Icon, title, actionLabel, onAction, onClose, children }) {
+  const t = ALERT_TONE[tone] || ALERT_TONE.primary;
   return (
-    <div className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm ${tint}`}>
-      {Icon && <Icon size={18} stroke={1.75} className="shrink-0 text-primary-600" />}
-      <span className="flex-1">
+    <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-neutral-900 ${t.bg}`}>
+      {Icon && <Icon size={18} stroke={1.75} className={`shrink-0 mt-0.5 ${t.icon}`} />}
+      <span className="flex-1 leading-relaxed">
+        {title && <span className="block font-semibold mb-0.5 text-neutral-950">{title}</span>}
         {children}{" "}
-        {actionLabel && <button onClick={onAction} className="font-semibold text-primary-600 hover:text-primary-700">{actionLabel}</button>}
+        {actionLabel && <button onClick={onAction} className={`font-semibold ${t.action}`}>{actionLabel}</button>}
       </span>
       {onClose && <button onClick={onClose} className="shrink-0 text-neutral-500 hover:text-neutral-800"><IconX size={16} stroke={1.75} /></button>}
     </div>
@@ -382,6 +406,42 @@ export function SessionRow({ title, subtitle, active, className = "" }) {
         {subtitle && <div className={`text-xs ${active ? "text-primary-600" : "text-neutral-500"}`}>{subtitle}</div>}
       </div>
     </div>
+  );
+}
+
+// A placeholder shell for a section that isn't built yet — one empty state
+// reused everywhere instead of each spot inventing its own.
+export function ComingSoon({ icon: Icon, title, sub }) {
+  return (
+    <Card className="p-10 text-center max-w-lg mx-auto">
+      {Icon && <span className="w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4"><Icon size={22} stroke={1.75} /></span>}
+      <div className="font-bold text-lg mb-1.5 text-neutral-950">{title}</div>
+      <p className="text-sm text-neutral-500">{sub}</p>
+    </Card>
+  );
+}
+
+// Speaks a word/phrase via the browser's built-in TTS — one button per
+// accent, since US/UK vowel differences are exactly what a learner needs to
+// hear apart. Not from a Learniv sheet; kept in the factory since it's a
+// small reusable primitive touched from several pages.
+export function SpeakButton({ text, className = "" }) {
+  function speak(accent) {
+    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = accent === "uk" ? "en-GB" : "en-US";
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }
+  return (
+    <span className={`inline-flex items-center gap-0.5 ${className}`}>
+      {["us", "uk"].map((accent) => (
+        <button key={accent} type="button" title={`Play ${accent.toUpperCase()} pronunciation`} onClick={(e) => { e.stopPropagation(); speak(accent); }}
+          className="inline-flex items-center gap-0.5 text-[10px] font-mono text-neutral-500 hover:text-primary-600 rounded px-1 py-0.5 hover:bg-neutral-100 transition-colors">
+          <IconVolume size={12} stroke={1.75} /> {accent.toUpperCase()}
+        </button>
+      ))}
+    </span>
   );
 }
 

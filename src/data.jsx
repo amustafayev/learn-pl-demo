@@ -118,9 +118,9 @@ export const ROLE = {
 
 // Saved-word mastery (spaced repetition status)
 export const WORD_STATUS = {
-  weak:   { label: "weak",   dot: "bg-rose-500",    pill: "bg-rose-50 text-rose-700" },
-  medium: { label: "medium", dot: "bg-amber-500",   pill: "bg-amber-50 text-amber-700" },
-  strong: { label: "strong", dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700" },
+  weak:   { label: "weak",   tone: "warning" },
+  medium: { label: "medium", tone: "pending" },
+  strong: { label: "strong", tone: "success" },
 };
 // Reading word status — colours the word ON the page as the learner reads.
 export const READ_STATUS = {
@@ -149,10 +149,11 @@ export function heat(v) {
   if (v >= 50) return "bg-amber-300 text-amber-900";
   return "bg-rose-300 text-rose-900";
 }
+// Returns a design-system Tag `color` token for a student's status.
 export function statusPill(status) {
-  if (status === "completed") return "bg-emerald-50 text-emerald-700";
-  if (status === "in progress") return "bg-indigo-50 text-indigo-700";
-  return "bg-slate-100 text-slate-400";
+  if (status === "completed") return "success";
+  if (status === "in progress") return "primary";
+  return "neutral";
 }
 
 // A class's meeting days (indices into DAY_LABELS), rendered as "Mon, Wed" —

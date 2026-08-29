@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
-  Plus, ChevronRight, Lock, CheckCircle2, Circle, Radio, UserPlus, X, Users,
-} from "lucide-react";
-import { Page, PageHead, Crumbs, Card, Bar, Btn, SectionLabel, Avatar, Modal } from "../ui.jsx";
+  IconPlus, IconChevronRight, IconLock, IconCircleCheck, IconCircle, IconBroadcast, IconUserPlus, IconX, IconUsers,
+} from "@tabler/icons-react";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Modal, Field, TextField, Select } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
@@ -35,39 +35,35 @@ export function ClassesView() {
 
   return (
     <Page>
-      <PageHead kicker="Rosters, schedule & progress" title="Classes"
+      <PageHeader kicker="Rosters, schedule & progress" title="Classes"
         sub="A Class is the durable thing — students belong to a class, and a class studies a course"
-        right={<Btn onClick={() => setCreating((v) => !v)}><Plus size={16} /> New class</Btn>} />
+        right={<Button variant="primary" onClick={() => setCreating((v) => !v)}><IconPlus size={16} stroke={1.75} /> New class</Button>} />
 
       {creating && (
-        <Card className="p-4 mb-6 border-indigo-200">
+        <Card className="p-4 mb-6 border-primary-200">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <label className="block">
-              <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Class name</span>
-              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. ITler — Morning"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Course (optional — pick later)</span>
-              <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300">
+            <Field label="Class name">
+              <TextField autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. ITler — Morning" />
+            </Field>
+            <Field label="Course (optional — pick later)">
+              <Select value={courseId} onChange={(e) => setCourseId(e.target.value)}>
                 <option value="">No course yet</option>
                 {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            </label>
+              </Select>
+            </Field>
           </div>
           <div className="mb-3">
-            <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Meets on</span>
+            <span className="text-xs font-semibold text-neutral-600">Meets on</span>
             <div className="flex gap-1.5 mt-1.5">
               {DAY_LABELS.map((d, i) => (
                 <button key={d} onClick={() => toggleDay(i)}
-                  className={`w-9 h-9 rounded-lg text-xs font-semibold border ${days.includes(i) ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{d}</button>
+                  className={`w-9 h-9 rounded-lg text-xs font-semibold border transition-colors ${days.includes(i) ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-300 text-neutral-600"}`}>{d}</button>
               ))}
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Btn variant="outline" size="sm" onClick={() => setCreating(false)}>Cancel</Btn>
-            <Btn size="sm" onClick={createClass}>Create class</Btn>
+            <Button variant="outline" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={createClass}>Create class</Button>
           </div>
         </Card>
       )}
@@ -80,19 +76,19 @@ export function ClassesView() {
           const current = lessons.find((l) => l.id === cls.currentLessonId);
           return (
             <button key={cls.id} onClick={() => go({ tab: "classes", classId: cls.id })}
-              className="text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-5">
+              className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-mono px-2 py-1 rounded-md bg-slate-100 text-slate-500">{scheduleLabel(cls.scheduleDays)}</span>
-                <ChevronRight size={16} className="text-slate-300" />
+                <Tag color="neutral">{scheduleLabel(cls.scheduleDays)}</Tag>
+                <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
               </div>
-              <div className="text-lg font-bold mb-1">{cls.name}</div>
-              <div className="text-sm text-slate-500 mb-1">{course ? course.title : "No course assigned"}</div>
-              <div className="text-[11px] text-slate-400 mb-4">{current ? `Current: ${current.title}` : course ? "Not started yet" : "—"}</div>
+              <div className="text-lg font-bold mb-1 text-neutral-950">{cls.name}</div>
+              <div className="text-sm text-neutral-600 mb-1">{course ? course.title : "No course assigned"}</div>
+              <div className="text-[11px] text-neutral-500 mb-4">{current ? `Current: ${current.title}` : course ? "Not started yet" : "—"}</div>
               <div className="flex items-center gap-1.5">
                 <div className="flex -space-x-2 overflow-hidden">
-                  {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} size={6} />)}
+                  {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} size="xs" />)}
                 </div>
-                <span className="text-xs text-slate-400 font-mono ml-1">
+                <span className="text-xs text-neutral-500 font-mono ml-1">
                   {roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
                 </span>
               </div>
@@ -100,7 +96,7 @@ export function ClassesView() {
           );
         })}
         {!state.classes.length && !creating && (
-          <Card className="p-8 text-center text-sm text-slate-400 sm:col-span-2 lg:col-span-3">
+          <Card className="p-8 text-center text-sm text-neutral-500 sm:col-span-2 lg:col-span-3">
             No classes yet — create one to enroll students and assign a course.
           </Card>
         )}
@@ -132,59 +128,58 @@ export function ClassDetailView() {
 
   return (
     <Page>
-      <Crumbs items={[{ label: "Classes", onClick: () => go({ classId: null }) }, { label: cls.name }]} />
-      <PageHead title={cls.name}
+      <Breadcrumbs items={[{ label: "Classes", onClick: () => go({ classId: null }) }, { label: cls.name }]} />
+      <PageHeader title={cls.name}
         sub={`${scheduleLabel(cls.scheduleDays)} · ${roster.length} student${roster.length === 1 ? "" : "s"}${course ? ` · ${course.title}` : " · no course assigned"}`}
-        right={<Btn variant="outline" size="sm" onClick={() => setEnrollOpen((v) => !v)}><UserPlus size={14} /> Enroll student</Btn>} />
+        right={<Button variant="outline" size="sm" onClick={() => setEnrollOpen((v) => !v)}><IconUserPlus size={14} stroke={1.75} /> Enroll student</Button>} />
 
       <div className="mb-6">
         <SectionLabel>Course</SectionLabel>
         <Card className="p-4 flex items-center justify-between gap-3">
-          <div className="text-sm text-slate-600">{course ? <><b>{course.title}</b> · {course.level}</> : "No course assigned yet"}</div>
-          <select value={cls.courseId || ""} onChange={(e) => dispatch({ type: "SET_CLASS_COURSE", classId: cls.id, courseId: e.target.value || null })}
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300">
+          <div className="text-sm text-neutral-700">{course ? <><b className="text-neutral-950">{course.title}</b> · {course.level}</> : "No course assigned yet"}</div>
+          <Select className="!w-auto" value={cls.courseId || ""} onChange={(e) => dispatch({ type: "SET_CLASS_COURSE", classId: cls.id, courseId: e.target.value || null })}>
             <option value="">No course</option>
             {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-          </select>
+          </Select>
         </Card>
       </div>
 
       <div className="mb-6">
         <SectionLabel>Roster</SectionLabel>
         {enrollOpen && (
-          <Card className="p-4 mb-3 border-indigo-200 bg-indigo-50/30">
-            <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-3 font-semibold">Pick a student to enroll in {cls.name}</div>
+          <Card className="p-4 mb-3 border-primary-200 bg-primary-50/30">
+            <div className="text-xs font-semibold text-neutral-600 mb-3">Pick a student to enroll in {cls.name}</div>
             {others.length ? (
               <div className="flex flex-wrap gap-2">
                 {others.map((s) => (
                   <button key={s.id}
                     onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 p-2 text-sm shadow-sm transition-all">
-                    <Avatar name={s.name} size={6} />
-                    <span className="font-medium">{s.name}</span>
-                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{s.level}</span>
+                    className="inline-flex items-center gap-2 rounded-xl bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm shadow-sm transition-all">
+                    <Avatar name={s.name} size="xs" />
+                    <span className="font-medium text-neutral-900">{s.name}</span>
+                    <Tag color="neutral">{s.level}</Tag>
                   </button>
                 ))}
               </div>
-            ) : <p className="text-sm text-slate-400">Every student is already enrolled in this class.</p>}
+            ) : <p className="text-sm text-neutral-500">Every student is already enrolled in this class.</p>}
           </Card>
         )}
-        <Card className="divide-y divide-slate-100">
+        <Card className="divide-y divide-neutral-200">
           {roster.map((s) => (
             <div key={s.id} className="flex items-center gap-3 p-3.5">
-              <button onClick={() => go({ tab: "students", studentId: s.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:bg-slate-50 -m-1 p-1 rounded-lg transition-colors">
-                <Avatar name={s.name} size={8} />
+              <button onClick={() => go({ tab: "students", studentId: s.id })} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:bg-neutral-50 -m-1 p-1 rounded-lg transition-colors">
+                <Avatar name={s.name} size="md" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold truncate">{s.name}</div>
-                  <div className="text-xs text-slate-400">{s.level} · {s.status}</div>
+                  <div className="text-sm font-semibold truncate text-neutral-950">{s.name}</div>
+                  <div className="text-xs text-neutral-500">{s.level} · {s.status}</div>
                 </div>
               </button>
-              <div className="w-24 shrink-0 hidden sm:block"><Bar pct={s.progress} /></div>
-              <span className="text-xs font-mono text-slate-400 w-10 text-right shrink-0">{s.progress}%</span>
-              <button title="Remove from class" onClick={() => setConfirmRemove(s)} className="text-slate-300 hover:text-rose-500 p-1 shrink-0"><X size={14} /></button>
+              <div className="w-24 shrink-0 hidden sm:block"><ProgressBar pct={s.progress} /></div>
+              <span className="text-xs font-mono text-neutral-500 w-10 text-right shrink-0">{s.progress}%</span>
+              <button title="Remove from class" onClick={() => setConfirmRemove(s)} className="text-neutral-400 hover:text-warning-600 p-1 shrink-0"><IconX size={14} stroke={1.75} /></button>
             </div>
           ))}
-          {!roster.length && <p className="p-4 text-sm text-slate-400">No students enrolled yet — use "Enroll student" above.</p>}
+          {!roster.length && <p className="p-4 text-sm text-neutral-500">No students enrolled yet — use "Enroll student" above.</p>}
         </Card>
       </div>
 
@@ -195,32 +190,32 @@ export function ClassDetailView() {
             {lessons.map((l, i) => {
               const status = currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
               return (
-                <Card key={l.id} className={`p-4 flex items-center gap-3 ${status === "current" ? "border-indigo-300 ring-2 ring-indigo-100" : ""}`}>
+                <Card key={l.id} className={`p-4 flex items-center gap-3 ${status === "current" ? "border-primary-300 ring-2 ring-primary-100" : ""}`}>
                   <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    status === "done" ? "bg-emerald-100 text-emerald-600" : status === "current" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                    {status === "done" ? <CheckCircle2 size={16} /> : status === "locked" ? <Lock size={13} /> : <Circle size={14} />}
+                    status === "done" ? "bg-success-100 text-success-600" : status === "current" ? "bg-primary-500 text-white" : "bg-neutral-100 text-neutral-400"}`}>
+                    {status === "done" ? <IconCircleCheck size={16} stroke={1.75} /> : status === "locked" ? <IconLock size={13} stroke={1.75} /> : <IconCircle size={14} stroke={1.75} />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">L{l.n}: {l.title}</div>
-                    <div className="text-xs text-slate-400">{lessonBlocks(l).length} steps</div>
+                    <div className="text-sm font-semibold truncate text-neutral-950">L{l.n}: {l.title}</div>
+                    <div className="text-xs text-neutral-500">{lessonBlocks(l).length} steps</div>
                   </div>
                   {status !== "current" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 shrink-0">Set as current</button>
+                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
                   )}
-                  <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })} className="text-xs text-slate-400 hover:text-indigo-600 shrink-0">Edit content</button>
-                  <Btn variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-rose-600 !border-rose-200 shrink-0">
-                    <Radio size={12} /> Go live
-                  </Btn>
+                  <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })} className="text-xs text-neutral-500 hover:text-primary-600 shrink-0">Edit content</button>
+                  <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
+                    <IconBroadcast size={12} stroke={1.75} /> Go live
+                  </Button>
                 </Card>
               );
             })}
-            {!lessons.length && <p className="text-sm text-slate-400">{course.title} has no lessons yet — build them in Courses.</p>}
+            {!lessons.length && <p className="text-sm text-neutral-500">{course.title} has no lessons yet — build them in Courses.</p>}
           </div>
         </div>
       ) : (
-        <Card className="p-8 text-center text-sm text-slate-400 flex flex-col items-center gap-2">
-          <Users size={20} className="text-slate-300" />
+        <Card className="p-8 text-center text-sm text-neutral-500 flex flex-col items-center gap-2">
+          <IconUsers size={20} stroke={1.75} className="text-neutral-400" />
           Assign a course above to start tracking lessons for this class.
         </Card>
       )}
@@ -228,8 +223,8 @@ export function ClassDetailView() {
       <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)}
         title="Remove from this class?"
         sub={confirmRemove ? `${confirmRemove.name} — ${cls.name}` : ""}
-        footer={<><Btn variant="outline" onClick={() => setConfirmRemove(null)}>Cancel</Btn><Btn variant="danger" onClick={() => removeStudent(confirmRemove)}><X size={14} /> Remove</Btn></>}>
-        <p className="text-sm text-slate-500">They'll lose access to this class's course and lessons. You can re-enroll them (here or in a different class) any time.</p>
+        footer={<><Button variant="outline" onClick={() => setConfirmRemove(null)}>Cancel</Button><Button variant="primary" className="!bg-warning-600 hover:!bg-warning-700" onClick={() => removeStudent(confirmRemove)}><IconX size={14} stroke={1.75} /> Remove</Button></>}>
+        <p className="text-sm text-neutral-600">They'll lose access to this class's course and lessons. You can re-enroll them (here or in a different class) any time.</p>
       </Modal>
     </Page>
   );

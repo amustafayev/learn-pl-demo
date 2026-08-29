@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Languages, Bookmark, Check, Volume2, ArrowRight } from "lucide-react";
 import { ROLE, READ_STATUS, WORD_STATUS, HIGHLIGHT_COLORS } from "../data.jsx";
 import { Pill } from "../ui.jsx";
+import { Tag } from "../design-system.jsx";
 
 // Place N items evenly around a circle of the given radius (px), centered on
 // a relative container — shared by the conjugation wheel and word web. `deg`
@@ -358,5 +359,5 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
 /* small helper reused by student word rows */
 export function WordStatusPill({ status }) {
   const s = WORD_STATUS[status] || WORD_STATUS.medium;
-  return <Pill className={s.pill}><span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.label}</Pill>;
+  return <Tag color={s.tone}><span className="w-1.5 h-1.5 rounded-full bg-current" /> {s.label}</Tag>;
 }
