@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  IconPlus, IconChevronRight, IconUserPlus, IconX, IconUsers,
+  IconPlus, IconChevronRight, IconUserPlus, IconX, IconUsers, IconSchool,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard } from "../design-system.jsx";
 import { useStore, useNav, activeClassCourse } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
+
+// A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
+// map it onto the design-system's own tone vocabulary, same as Courses.jsx.
+const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
 
 /* =========================================================================
    Classes — the top-level, durable thing: a roster of students on a
@@ -89,26 +93,16 @@ function ClassesView() {
           const active = activeClassCourse(cls);
           const course = state.courses.find((c) => c.id === active?.courseId);
           const lessons = state.lessons[active?.courseId] || [];
-          const current = lessons.find((l) => l.id === active?.currentLessonId);
+          const currentIndex = lessons.findIndex((l) => l.id === active?.currentLessonId);
+          const current = lessons[currentIndex];
+          const progressPct = active ? (active.status === "done" ? 100 : lessons.length ? Math.round(((currentIndex + 1) / lessons.length) * 100) : 0) : null;
           return (
-            <button key={cls.id} onClick={() => navigate(`/classes/${cls.id}`)}
-              className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
-              <div className="flex items-center justify-between mb-4">
-                <Tag color="neutral">{scheduleLabel(cls.scheduleDays)}</Tag>
-                <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
-              </div>
-              <div className="text-lg font-bold mb-1 text-neutral-950">{cls.name}</div>
-              <div className="text-sm text-neutral-600 mb-1">{course ? course.title : "No course assigned"}</div>
-              <div className="text-[11px] text-neutral-500 mb-4">{current ? `Current: ${current.title}` : course ? "Not started yet" : "—"}</div>
-              <div className="flex items-center gap-1.5">
-                <div className="flex -space-x-2 overflow-hidden">
-                  {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={avatarColorFor(s.id)} size="xs" />)}
-                </div>
-                <span className="text-xs text-neutral-500 font-mono ml-1">
-                  {roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
-                </span>
-              </div>
-            </button>
+            <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
+              title={cls.name} scheduleLabel={scheduleLabel(cls.scheduleDays)}
+              courseTitle={course ? course.title : "No course assigned"} currentLessonTitle={current?.title}
+              roster={roster.map((s) => ({ id: s.id, name: s.name, color: avatarColorFor(s.id) }))}
+              studentCountLabel={roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
+              progressPct={progressPct} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
           );
         })}
         {!state.classes.length && !creating && (

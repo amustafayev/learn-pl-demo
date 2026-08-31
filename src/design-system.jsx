@@ -1,5 +1,5 @@
 import React from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconVolume, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -274,9 +274,9 @@ const BADGE_SOLID = {
   info: "bg-info-500 text-white", neutral: "bg-neutral-800 text-white",
 };
 const TAG_SOFT = {
-  primary: "text-primary-600 border-primary-500", success: "text-success-600 border-success-500",
-  pending: "text-pending-600 border-pending-500", warning: "text-warning-600 border-warning-500",
-  info: "text-info-600 border-info-500", neutral: "text-neutral-700 border-neutral-500",
+  primary: "bg-primary-50 text-primary-600 border-primary-500", success: "bg-success-50 text-success-600 border-success-500",
+  pending: "bg-pending-50 text-pending-600 border-pending-500", warning: "bg-warning-50 text-warning-600 border-warning-500",
+  info: "bg-info-50 text-info-600 border-info-500", neutral: "bg-neutral-200 text-neutral-700 border-neutral-500",
 };
 
 export function Badge({ color = "primary", children, className = "" }) {
@@ -285,7 +285,7 @@ export function Badge({ color = "primary", children, className = "" }) {
 
 export function Tag({ color = "neutral", onRemove, children }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-lg border-l-[3px] bg-white pl-2 pr-2.5 py-1 text-xs font-semibold ${TAG_SOFT[color]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-lg border-l-[3px] pl-2 pr-2.5 py-1 text-xs font-semibold ${TAG_SOFT[color]}`}>
       {children}
       {onRemove && <button onClick={onRemove} className="opacity-60 hover:opacity-100"><IconX size={12} stroke={2} /></button>}
     </span>
@@ -398,6 +398,42 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
             ))}
           </div>
         )}
+        {progressPct != null && (
+          <div className="mt-4">
+            <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
+            <SegmentedBar pct={progressPct} />
+          </div>
+        )}
+        <Button variant="outline" className="mt-4 w-full !rounded-2xl" onClick={onViewDetail}>View Detail</Button>
+      </div>
+    </Card>
+  );
+}
+
+// Same band+body shell as CourseCard (tinted header, stats row, progress
+// bar, full-width "View Detail" button) — a Class just fills it with
+// roster/schedule instead of a creator credit, since it's a roster on a
+// schedule, not authored content. `roster` is a list of {id, name, color}
+// rendered as an overlapping avatar stack, same as the Student panel.
+export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, currentLessonTitle, roster = [], studentCountLabel, progressPct, onViewDetail, className = "" }) {
+  return (
+    <Card className={`overflow-hidden ${className}`}>
+      <div className={`p-5 ${BAND_TINT[tone]}`}>
+        <div className="flex items-start justify-between gap-2">
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
+          {scheduleLabel && <Tag color="neutral">{scheduleLabel}</Tag>}
+        </div>
+        <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
+        <div className="mt-1.5 text-sm text-neutral-600">{courseTitle}</div>
+      </div>
+      <div className="p-5">
+        <div className="text-sm text-neutral-500 min-h-[1.25rem]">{currentLessonTitle ? `Current: ${currentLessonTitle}` : ""}</div>
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="flex -space-x-2 overflow-hidden">
+            {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={s.color} size="xs" />)}
+          </div>
+          <span className="text-sm text-neutral-800">{studentCountLabel}</span>
+        </div>
         {progressPct != null && (
           <div className="mt-4">
             <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
