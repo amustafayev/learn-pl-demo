@@ -6,7 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse } from "../store.jsx";
-import { BLOCK_TYPES, LESSON_TEMPLATES, TEACHER, blockMeta, blockRail } from "../data.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
@@ -40,7 +40,7 @@ export function CoursesView() {
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
             <CourseCard key={c.id} icon={IconBook2} tone={tone} title={c.title}
-              creatorLabel="Designed by" creatorName={TEACHER.name} creatorColor="dark"
+              creatorLabel="Designed by" creatorName={state.teacher.name} creatorColor="dark"
               category={`${LESSON_TEMPLATES[c.templateId]?.label || "General English"} template`}
               stats={[{ icon: IconUsers, value: `${classCount} class${classCount === 1 ? "" : "es"}` }, { icon: IconSchool, value: `${count} lesson${count === 1 ? "" : "s"}` }]}
               progressPct={c.completion} onViewDetail={() => go({ courseId: c.id })} />

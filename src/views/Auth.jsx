@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IconBrandApple, IconBrandFacebook, IconBrandGoogle, IconSparkles } from "@tabler/icons-react";
-import { Field, TextField, PasswordField, Button, SocialButton } from "../design-system.jsx";
-import { TEACHER } from "../data.jsx";
+import { Field, TextField, PasswordField, Button, SocialButton, ImagePlaceholder } from "../design-system.jsx";
+import { useStore } from "../store.jsx";
 
 /* =========================================================================
    Login / Sign up — the Learniv kit's Auth sheet: a left image panel (just a
@@ -14,24 +14,6 @@ import { TEACHER } from "../data.jsx";
    layer section) — submitting either form just navigates into the app,
    the same way the rest of this prototype has no login gate today.
    ========================================================================= */
-
-// The Learniv reference has no real artwork to source for this panel — a
-// checkerboard "no image yet" placeholder is more honest than inventing a
-// stock illustration that isn't part of the kit.
-function ImagePlaceholder({ className = "" }) {
-  return (
-    <div
-      className={`rounded-2xl ${className}`}
-      style={{
-        backgroundColor: "#f7f7f7",
-        backgroundImage:
-          "linear-gradient(45deg, #e9e9e9 25%, transparent 25%), linear-gradient(-45deg, #e9e9e9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e9e9e9 75%), linear-gradient(-45deg, transparent 75%, #e9e9e9 75%)",
-        backgroundSize: "28px 28px",
-        backgroundPosition: "0 0, 0 14px, 14px -14px, -14px 0",
-      }}
-    />
-  );
-}
 
 function AuthShell({ children }) {
   return (
@@ -60,10 +42,11 @@ const SOCIALS = [
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { state } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
-  const firstName = TEACHER.name.split(" ")[0];
+  const firstName = state.teacher.name.split(" ")[0];
 
   function submit(e) {
     e.preventDefault();

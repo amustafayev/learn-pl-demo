@@ -28,6 +28,8 @@ export const TAB_PATH = {
   students: "/students",
   levelTests: "/level-tests",
   insights: "/insights",
+  settings: "/settings",
+  help: "/help",
 };
 
 export function tabForPath(pathname) {
@@ -37,6 +39,8 @@ export function tabForPath(pathname) {
   if (pathname.startsWith("/students")) return "students";
   if (pathname.startsWith("/level-tests")) return "levelTests";
   if (pathname.startsWith("/insights")) return "insights";
+  if (pathname.startsWith("/settings")) return "settings";
+  if (pathname.startsWith("/help")) return "help";
   return "dashboard";
 }
 

@@ -164,7 +164,19 @@ export function scheduleLabel(days) {
 
 /* ------------------------------- teacher ------------------------------- */
 
-export const TEACHER = { name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024", email: "maria.carey@lucid.app" };
+// Seed for `state.teacher` (see db/mockDb.jsx) — the mutable copy Settings
+// edits. `TEACHER` itself stays a static export for anything that only ever
+// needs the seed values, not the live edited ones.
+export const TEACHER = {
+  name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024",
+  email: "maria.carey@lucid.app", phone: "+1 415 555 0142",
+  twoFactorEnabled: true,
+  linkedAccounts: [
+    { id: "instagram", label: "Instagram", handle: "@maria.teaches.english" },
+    { id: "linkedin", label: "LinkedIn", handle: "maria-carey-elt" },
+    { id: "discord", label: "Discord", handle: "@mariac" },
+  ],
+};
 
 /* ------------------------------- courses / lessons / parts ------------------------------- */
 

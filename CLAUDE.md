@@ -161,7 +161,8 @@ thing reuses it too, instead of every page growing its own copy.
 - **Buttons**: `Button` — variants `primary` (orange fill) / `dark` (black
   fill) / `light` (gray fill) / `outline` (white, black border) / `disabled`;
   props `size` (`md`/`sm`), `chevron` (dropdown caret), `iconOnly`
-- **Fields**: `TextField`, `SearchField` (with optional `shortcut` badge),
+- **Fields**: `TextField`, `PasswordField` (`TextField` + a built-in
+  show/hide eye toggle), `SearchField` (with optional `shortcut` badge),
   `TextArea`, `TagField` (chip input), `Select`, `Field` (label wrapper) — all
   share one state system: default / focus (orange ring) / error (red)
 - **People**: `Avatar` (photo or initials, `circle`/`square`, sizes
@@ -169,7 +170,9 @@ thing reuses it too, instead of every page growing its own copy.
 - **Status & feedback**: `Badge` (solid fill, e.g. "New"), `Tag` (soft fill +
   colored left rule — the default choice for small status labels), `Alert`
   (icon + title + body, tones = the 5 color tokens), `ChatBubble`
-- **Cards**: `Card` (base), `StatCard`, `CourseCard`, `SessionRow`,
+- **Cards**: `Card` (base), `StatCard`, `CourseCard`, `ClassCard` (shares
+  `CourseCard`'s tinted-band/progress/"View Detail" shell — a Class fills it
+  with roster/schedule instead of a creator credit), `SessionRow`,
   `SegmentedBar` (the dashed multi-cell progress bar on course cards)
 - **Controls**: `Switch`, `Checkbox`, `SegmentedToggle` (pill-shaped 2-option
   switcher, e.g. Light/Dark)
@@ -180,7 +183,10 @@ thing reuses it too, instead of every page growing its own copy.
   `Checkbox` button, since the whole row is already the click target and a
   `<button>` can't contain another `<button>`)
 - **Misc**: `ComingSoon` (empty-state shell), `SpeakButton` (US/UK
-  pronunciation via browser TTS)
+  pronunciation via browser TTS), `SocialButton` (icon+label pill for
+  "log in / sign up with X" rows), `ImagePlaceholder` (checkerboard "no
+  image sourced yet" box — Auth's side panel, Settings' avatar — used
+  instead of inventing stock art that isn't part of the kit)
 
 When a real Learniv page needs a pattern not listed above, add it to
 `design-system.jsx` first (sourced from the kit's own component/variable
@@ -197,8 +203,9 @@ lint → click through it with zero console errors).
 `Courses.jsx`, `Classes.jsx`, `Students.jsx`, `Library.jsx`, `LevelTests.jsx`,
 `Insights.jsx`, `StudentInsights.jsx`, `LiveSession.jsx`,
 `src/components/modals.jsx` (`NewCourseModal`, `NewLessonModal`,
-`AddBlockModal`, `AssignModal`, `AddTextModal`). `data.jsx`'s
-`statusPill`/`WORD_STATUS` return factory color tokens now, not class strings.
+`AddBlockModal`, `AssignModal`, `AddTextModal`), `Auth.jsx` (`LoginPage`,
+`SignupPage`), `Settings.jsx`. `data.jsx`'s `statusPill`/`WORD_STATUS`
+return factory color tokens now, not class strings.
 
 **Not yet migrated — still on the old `ui.jsx` look:**
 - `src/components/StudentAssignModal.jsx`

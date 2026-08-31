@@ -2,12 +2,12 @@ import React, { useCallback, useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain, IconBroadcast,
+  IconSettings2, IconHelpCircle, IconSun, IconMoon,
 } from "@tabler/icons-react";
-import { StoreProvider } from "./store.jsx";
+import { StoreProvider, useStore } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { ToastHost } from "./ui.jsx";
-import { Button, NavItem, NavSectionLabel, Avatar } from "./design-system.jsx";
-import { TEACHER } from "./data.jsx";
+import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon } from "./design-system.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
 import Classes from "./views/Classes.jsx";
@@ -18,6 +18,7 @@ import Insights from "./views/Insights.jsx";
 import LevelTests from "./views/LevelTests.jsx";
 import LiveSession from "./views/LiveSession.jsx";
 import { LoginPage, SignupPage } from "./views/Auth.jsx";
+import Settings from "./views/Settings.jsx";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: IconHome2 },
@@ -27,6 +28,11 @@ const NAV = [
   { id: "students", label: "Students", icon: IconUsers },
   { id: "levelTests", label: "Level tests", icon: IconCertificate },
   { id: "insights", label: "AI Insights", icon: IconBrain },
+];
+
+const LIGHT_DARK_OPTIONS = [
+  { id: "light", label: <span className="inline-flex items-center gap-1.5"><IconSun size={14} stroke={1.75} /> Light</span> },
+  { id: "dark", label: <span className="inline-flex items-center gap-1.5"><IconMoon size={14} stroke={1.75} /> Dark</span> },
 ];
 
 export default function App() {
@@ -64,6 +70,7 @@ function AppShell() {
 
 function Sidebar({ pathname }) {
   const navigate = useNavigate();
+  const { toast } = useStore();
   return (
     <aside className="w-16 sm:w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
       <div className="h-16 flex items-center gap-2.5 px-4 border-b border-neutral-200">
@@ -80,12 +87,27 @@ function Sidebar({ pathname }) {
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
+      <div className="px-3 py-2 border-t border-neutral-200">
+        <NavSectionLabel>Other</NavSectionLabel>
+        <NavItem icon={IconSettings2} label={<span className="hidden sm:inline">Setting</span>}
+          active={pathname.startsWith("/settings")} onClick={() => navigate("/settings")} />
+        <NavItem icon={IconHelpCircle} label={<span className="hidden sm:inline">Help & Support</span>}
+          active={pathname.startsWith("/help")} onClick={() => navigate("/help")} />
+        <div className="hidden sm:block mt-2">
+          <SegmentedToggle value="light" options={LIGHT_DARK_OPTIONS}
+            onChange={(v) => v === "dark" && toast("Dark mode isn't available in this prototype yet")} />
+        </div>
+      </div>
     </aside>
   );
 }
 
 function TopBar({ pathname, onStartLive }) {
-  const titles = { dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students", levelTests: "Level tests", insights: "AI Insights" };
+  const { state } = useStore();
+  const titles = {
+    dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students",
+    levelTests: "Level tests", insights: "AI Insights", settings: "Setting", help: "Help & Support",
+  };
   return (
     <div className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
@@ -98,10 +120,10 @@ function TopBar({ pathname, onStartLive }) {
           <IconBell size={18} stroke={1.75} /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />
         </button>
         <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-neutral-200">
-          <Avatar name={TEACHER.name} color="dark" size="sm" />
+          <Avatar name={state.teacher.name} color="dark" size="sm" />
           <div className="leading-none">
-            <div className="text-sm font-semibold text-neutral-950">{TEACHER.name}</div>
-            <div className="text-[11px] text-neutral-500 mt-0.5">{TEACHER.email}</div>
+            <div className="text-sm font-semibold text-neutral-950">{state.teacher.name}</div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">{state.teacher.email}</div>
           </div>
         </div>
       </div>
@@ -137,6 +159,13 @@ function Content({ startLive }) {
 
       <Route path="/level-tests" element={<Bridge tab="levelTests" startLive={startLive}><LevelTests /></Bridge>} />
       <Route path="/insights" element={<Bridge tab="insights" startLive={startLive}><Insights /></Bridge>} />
+
+      <Route path="/settings/*" element={<Bridge tab="settings" startLive={startLive}><Settings /></Bridge>} />
+      <Route path="/help" element={
+        <Bridge tab="help" startLive={startLive}>
+          <Page><ComingSoon icon={IconHelpCircle} title="Help & support — coming soon" sub="Docs, FAQs, and a way to reach the Lucid team will live here." /></Page>
+        </Bridge>
+      } />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

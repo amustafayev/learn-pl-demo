@@ -4,7 +4,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
 import { useStore, useNav } from "../store.jsx";
-import { TEACHER, WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
+import { WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
 import { COMPONENT_META } from "./parts.jsx";
 import { AddTextModal } from "../components/modals.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
@@ -48,8 +48,8 @@ export default function Dashboard() {
   return (
     <Page>
       <PageHeader
-        kicker={`${TEACHER.role} · signed in`}
-        title={`Good morning, ${TEACHER.name.split(" ")[0]}`}
+        kicker={`${state.teacher.role} · signed in`}
+        title={`Good morning, ${state.teacher.name.split(" ")[0]}`}
         sub="Your teaching cockpit — who to help today, and where they're stuck."
         right={
           <div className="hidden sm:flex gap-2">

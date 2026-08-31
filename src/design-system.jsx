@@ -395,6 +395,25 @@ export function SegmentedBar({ pct = 0, cells = 10 }) {
   );
 }
 
+// An honest "no image sourced yet" placeholder (the classic transparent-PNG
+// checkerboard) — used wherever the kit shows artwork/a photo this prototype
+// has no real asset for (Auth's side panel, Settings' avatar), rather than
+// inventing stock art that isn't part of the Learniv kit.
+export function ImagePlaceholder({ className = "" }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        backgroundColor: "#f7f7f7",
+        backgroundImage:
+          "linear-gradient(45deg, #e9e9e9 25%, transparent 25%), linear-gradient(-45deg, #e9e9e9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e9e9e9 75%), linear-gradient(-45deg, transparent 75%, #e9e9e9 75%)",
+        backgroundSize: "28px 28px",
+        backgroundPosition: "0 0, 0 14px, 14px -14px, -14px 0",
+      }}
+    />
+  );
+}
+
 const BAND_TINT = { primary: "bg-primary-50", success: "bg-success-50", pending: "bg-pending-50", warning: "bg-warning-50", info: "bg-info-50" };
 
 // `stats` is a list of {icon, value} pairs rendered as icon+text side by

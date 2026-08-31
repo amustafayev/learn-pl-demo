@@ -1,6 +1,6 @@
 import {
   SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_KITS, SEED_CLASSES,
-  BLOCK_TYPES, LESSON_TEMPLATES,
+  TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
 /* =========================================================================
@@ -90,6 +90,7 @@ export function createInitialState() {
     blockBank: clone(SEED_BLOCK_BANK),
     componentBank: savedComponentBank(),
     kits: clone(SEED_KITS),
+    teacher: clone(TEACHER),
     toasts: [],
   };
 }
@@ -335,6 +336,10 @@ export function reducer(state, action) {
       const students = state.students.map((s) => (s.id === studentId ? { ...s, lastRecording: recording } : s));
       return { ...state, students };
     }
+    case "UPDATE_TEACHER_PROFILE":
+      return { ...state, teacher: { ...state.teacher, ...action.patch } };
+    case "SET_TEACHER_2FA":
+      return { ...state, teacher: { ...state.teacher, twoFactorEnabled: action.enabled } };
     case "PUSH_TOAST":
       return { ...state, toasts: [...state.toasts, { id: action.id, text: action.text, tone: action.tone || "ok" }] };
     case "DISMISS_TOAST":
