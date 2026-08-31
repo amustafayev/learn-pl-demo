@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconLock, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
   IconEye, IconSearch, IconMaximize, IconMinimize,
-  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse } from "../store.jsx";
@@ -56,11 +56,17 @@ export function CoursesView() {
    Pure content authoring: Course -> Lessons -> Blocks -> Components. No
    roster, no assignment — rosters, enrollment, and lesson-progress live in
    the Classes tab (see views/Classes.jsx). A class assigned to this course
-   is just working through whatever's built here. */
+   is just working through whatever's built here.
+
+   This is also the SAME page a Class's course card opens — clicking a
+   course from a Class (Classes.jsx) sends you here with ?classId= set, so
+   the identical page shows that class's own progress (current lesson,
+   locked/done state) instead of the course's generic authored state. Two
+   different pieces of metadata layered onto one page, not two pages. */
 
 export function CourseView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go } = useNav();
+  const { route, go, startLive } = useNav();
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
@@ -68,6 +74,13 @@ export function CourseView() {
 
   const course = state.courses.find((c) => c.id === route.courseId);
   const lessons = state.lessons[route.courseId] || [];
+
+  // Viewed "as" a specific class (?classId=) — its progress replaces the
+  // course's own authored lock/current/progress fields below. Absent this,
+  // the tree shows the course's generic template state (no class taken it).
+  const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
+  const classCourse = cls?.courses.find((c) => c.courseId === course?.id) || null;
+  const classCurrentIndex = classCourse ? lessons.findIndex((l) => l.id === classCourse.currentLessonId) : -1;
 
   // Hydrate every lesson's shorthand `parts` into a real `built` array with
   // stable ids as soon as the tree needs to show them — without this, a
@@ -86,11 +99,23 @@ export function CourseView() {
   const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
   const toggleBlock = (key) => setExpandedBlocks((m) => ({ ...m, [key]: !m[key] }));
 
+  // Overrides a lesson's own authored locked/progress/current with this
+  // class's actual position when viewed through a class; otherwise the
+  // lesson's own authored fields stand (plain, un-taken course state).
+  function classLessonView(l, i) {
+    if (!classCourse) return { locked: l.locked, progress: l.progress, current: l.current };
+    if (classCourse.status === "done") return { locked: false, progress: 100, current: false };
+    if (classCurrentIndex < 0) return { locked: false, progress: 0, current: false };
+    if (i < classCurrentIndex) return { locked: false, progress: 100, current: false };
+    if (i === classCurrentIndex) return { locked: false, progress: 50, current: true };
+    return { locked: true, progress: 0, current: false };
+  }
+
   // The whole tree (Lesson → Block → Component), built once per render so
   // the header row, the block rail and the expanded body all read off the
   // same numbers. Search matches roll up: a matching component reveals its
   // block, a matching block reveals its lesson.
-  const tree = lessons.map((l) => {
+  const tree = lessons.map((l, i) => {
     const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, state.texts) }));
     const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
 
@@ -106,7 +131,7 @@ export function CourseView() {
       if (blockHit || compHit) { blockMatch[b.id] = true; lessonMatch = true; }
     });
 
-    return { lesson: l, blocks, totalComponents, lessonMatch, blockMatch };
+    return { lesson: l, view: classLessonView(l, i), blocks, totalComponents, lessonMatch, blockMatch };
   });
   const visibleTree = q ? tree.filter((t) => t.lessonMatch) : tree;
 
@@ -117,19 +142,39 @@ export function CourseView() {
   }
   const collapseAll = () => { setExpandedLessons({}); setExpandedBlocks({}); };
 
+  const overallPct = classCourse
+    ? (classCourse.status === "done" ? 100 : lessons.length ? Math.round(((classCurrentIndex + 1) / lessons.length) * 100) : 0)
+    : course.completion;
+
   return (
     <Page>
-      <Breadcrumbs items={[{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
+      <Breadcrumbs items={cls ? [
+        { label: "Classes", onClick: () => go({ tab: "classes", classId: null }) },
+        { label: cls.name, onClick: () => go({ tab: "classes", classId: cls.id }) },
+        { label: course.title },
+      ] : [{ label: "Courses", onClick: () => go({ courseId: null }) }, { label: course.title }]} />
       <PageHeader title={course.title}
-        sub={`${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${lessons.length} lessons`}
-        right={<Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>} />
+        sub={cls ? `${cls.name} · ${course.level} · ${lessons.length} lessons` : `${course.level} · ${LESSON_TEMPLATES[course.templateId]?.label || "General English"} · ${lessons.length} lessons`}
+        right={<div className="flex items-center gap-2">
+          {classCourse && (
+            <Button variant="light" size="sm" onClick={() => {
+              const next = classCourse.status === "done" ? "in-progress" : "done";
+              dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: next });
+              toast(next === "done" ? `${course.title} marked completed for ${cls.name}` : `${course.title} reopened for ${cls.name}`);
+            }}>
+              {classCourse.status === "done" ? "Reopen course" : <><IconCircleCheck size={14} stroke={1.75} /> Mark as completed</>}
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>
+        </div>} />
 
       <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-baseline gap-2 shrink-0">
-          <span className="text-3xl font-bold text-neutral-950">{course.completion}%</span>
+          <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
           <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
         </div>
-        <div className="flex-1 min-w-[160px]"><SegmentedBar pct={course.completion} /></div>
+        <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
+        {classCourse && <Badge color={classCourse.status === "done" ? "success" : "pending"} className="shrink-0">{classCourse.status === "done" ? "Completed" : "In Progress"}</Badge>}
       </Card>
 
       {/* Course tree: Lesson → Block → Component */}
@@ -150,24 +195,24 @@ export function CourseView() {
       </SectionLabel>
 
       <div className="space-y-3 mb-8">
-        {visibleTree.map(({ lesson: l, blocks, totalComponents, blockMatch }) => {
+        {visibleTree.map(({ lesson: l, view, blocks, totalComponents, blockMatch }) => {
           const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
-            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${l.current ? "border-primary-300 ring-2 ring-primary-100" : "hover:border-neutral-300"}`}>
+            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${view.current ? "border-primary-300 ring-2 ring-primary-100" : "hover:border-neutral-300"}`}>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 pb-4 border-b border-neutral-200">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleLesson(l.id)} className="text-neutral-400 hover:text-primary-600 shrink-0 p-1 -ml-1">
                     {isOpen ? <IconChevronDown size={16} stroke={1.75} /> : <IconChevronRight size={16} stroke={1.75} />}
                   </button>
                   <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
-                    l.locked ? "bg-neutral-100 text-neutral-400" : l.progress === 100 ? "bg-success-500 text-white" : "bg-primary-500 text-white"}`}>
-                    {l.locked ? <IconLock size={14} stroke={1.75} /> : `L${l.n}`}
+                    view.locked ? "bg-neutral-100 text-neutral-400" : view.progress === 100 ? "bg-success-500 text-white" : "bg-primary-500 text-white"}`}>
+                    {view.locked ? <IconLock size={14} stroke={1.75} /> : `L${l.n}`}
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-base text-neutral-900 truncate">{l.title}</h3>
-                      {l.current && <Tag color="primary">Current Lesson</Tag>}
+                      {view.current && <Tag color="primary">Current Lesson</Tag>}
                     </div>
                     <div className="text-xs text-neutral-500 mt-0.5">
                       {blocks.length} blocks · {totalComponents} components
@@ -176,8 +221,17 @@ export function CourseView() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <Badge color={l.locked ? "neutral" : l.progress === 100 ? "success" : l.progress > 0 ? "pending" : "primary"}>
-                    {l.locked ? "Locked" : l.progress === 100 ? "Completed" : l.progress > 0 ? "In Progress" : "Not started yet"}
+                  {classCourse && classCourse.status !== "done" && !view.current && (
+                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
+                      className="text-xs font-semibold text-primary-600 hover:text-primary-700">Set as current</button>
+                  )}
+                  {classCourse && (
+                    <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200">
+                      <IconBroadcast size={12} stroke={1.75} /> Go live
+                    </Button>
+                  )}
+                  <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"}>
+                    {view.locked ? "Locked" : view.progress === 100 ? "Completed" : view.progress > 0 ? "In Progress" : "Not started yet"}
                   </Badge>
                   <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })}>
                     Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />

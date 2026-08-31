@@ -58,7 +58,10 @@ function buildPath(r) {
     case "courses":
       if (r.partId) return `/courses/${r.courseId}/lessons/${r.lessonId}/parts/${r.partId}`;
       if (r.lessonId) return `/courses/${r.courseId}/lessons/${r.lessonId}`;
-      if (r.courseId) return `/courses/${r.courseId}`;
+      // classId here means "viewed through this class's progress" (set when
+      // opening a course from its card on a Class page) — carried as a query
+      // param since the course itself still lives at /courses/:courseId.
+      if (r.courseId) return `/courses/${r.courseId}${r.classId ? `?classId=${r.classId}` : ""}`;
       return "/courses";
     case "classes":
       return r.classId ? `/classes/${r.classId}` : "/classes";
@@ -82,7 +85,9 @@ export function Bridge({ tab, startLive, children }) {
   const route = useMemo(() => ({
     tab,
     courseId: params.courseId || null,
-    classId: params.classId || null,
+    // classId comes from the URL param on /classes/:classId, or from the
+    // ?classId= query when a course is opened "as" a specific class.
+    classId: params.classId || searchParams.get("classId") || null,
     lessonId: params.lessonId || null,
     partId: params.partId || null,
     studentId: params.studentId || null,

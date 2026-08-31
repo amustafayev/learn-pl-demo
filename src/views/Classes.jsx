@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  IconPlus, IconChevronRight, IconBroadcast, IconUserPlus, IconX, IconUsers, IconDots, IconCircleCheck,
+  IconPlus, IconChevronRight, IconUserPlus, IconX, IconUsers,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, PillTabs, SegmentedBar } from "../design-system.jsx";
-import { useStore, useNav, lessonBlocks, activeClassCourse } from "../store.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar } from "../design-system.jsx";
+import { useStore, useNav, activeClassCourse } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
 /* =========================================================================
@@ -12,12 +12,14 @@ import { DAY_LABELS, scheduleLabel } from "../data.jsx";
    schedule. Courses get assigned to a class over time (`class.courses`,
    its assignment history — see SEED_CLASSES), not the other way around.
    Entering a class shows every course it has studied (in progress / done);
-   opening one drills into that course's own lesson-by-lesson progress —
-   that drill-down is page-internal (own nested route, like Library's
-   reader/word-set drill-down), while the Student roster panel stays
-   pinned on the class-level page since it's the class's own persistent
-   resource, not something scoped to one course. Courses.jsx stays pure
-   content authoring; this file owns roster, enrollment, and progress.
+   opening one goes to the SAME Course detail page Courses.jsx uses
+   (/courses/:courseId) — not a separate view — just opened "as" this class
+   (?classId=) so its lesson tree reflects this class's own progress instead
+   of the course's generic authored state (see CourseView in Courses.jsx).
+   The Student roster panel stays pinned on the class-level page since it's
+   the class's own persistent resource, not something scoped to one course.
+   Courses.jsx stays pure content authoring; this file owns roster,
+   enrollment, and progress.
    ========================================================================= */
 
 export default function Classes() {
@@ -25,7 +27,6 @@ export default function Classes() {
     <Routes>
       <Route index element={<ClassesView />} />
       <Route path=":classId" element={<ClassDetailRoute />} />
-      <Route path=":classId/courses/:courseId" element={<ClassCourseDetailRoute />} />
       <Route path="*" element={<Navigate to="/classes" replace />} />
     </Routes>
   );
@@ -132,10 +133,6 @@ function ClassDetailRoute() {
   const { classId } = useParams();
   return <ClassDetailView classId={classId} />;
 }
-function ClassCourseDetailRoute() {
-  const { classId, courseId } = useParams();
-  return <ClassCourseDetailView classId={classId} courseId={courseId} />;
-}
 
 function ClassDetailView({ classId }) {
   const { state, dispatch, toast } = useStore();
@@ -200,7 +197,7 @@ function ClassDetailView({ classId }) {
               const pct = entry.status === "done" ? 100 : lessons.length ? Math.round(((currentIndex + 1) / lessons.length) * 100) : 0;
               const current = lessons[currentIndex];
               return (
-                <button key={course.id} onClick={() => navigate(`/classes/${cls.id}/courses/${course.id}`)}
+                <button key={course.id} onClick={() => go({ tab: "courses", courseId: course.id, classId: cls.id })}
                   className="w-full text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
@@ -283,139 +280,6 @@ function ClassDetailView({ classId }) {
         footer={<><Button variant="outline" onClick={() => setConfirmRemove(null)}>Cancel</Button><Button variant="primary" className="!bg-warning-600 hover:!bg-warning-700" onClick={() => removeStudent(confirmRemove)}><IconX size={14} stroke={1.75} /> Remove</Button></>}>
         <p className="text-sm text-neutral-600">They'll lose access to this class's course and lessons. You can re-enroll them (here or in a different class) any time.</p>
       </Modal>
-    </Page>
-  );
-}
-
-// One course's lesson-by-lesson progress within one class — drilled into
-// from the course card above. No Student panel here: the roster is the
-// class's own resource, not scoped to whichever course is open right now.
-function ClassCourseDetailView({ classId, courseId }) {
-  const { state, dispatch, toast } = useStore();
-  const { go, startLive } = useNav();
-  const navigate = useNavigate();
-  const [sessionFilter, setSessionFilter] = useState("all");
-  const [openMenu, setOpenMenu] = useState(null); // lesson id whose "..." menu is open
-
-  const cls = state.classes.find((c) => c.id === classId);
-  const entry = cls?.courses.find((c) => c.courseId === courseId);
-  const course = state.courses.find((c) => c.id === courseId);
-  if (!cls || !entry || !course) return null;
-
-  const lessons = state.lessons[course.id] || [];
-  const currentIndex = lessons.findIndex((l) => l.id === entry.currentLessonId);
-  const overallPct = entry.status === "done" ? 100 : lessons.length ? Math.round(((currentIndex + 1) / lessons.length) * 100) : 0;
-
-  // Coarse per-lesson status — the class only tracks one "current" pointer,
-  // not fine-grained per-lesson completion, so status is derived from
-  // position relative to currentIndex rather than a stored percentage.
-  const sessions = lessons.map((l, i) => {
-    const status = entry.status === "done" ? "done" : currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
-    return { lesson: l, i, status, steps: lessonBlocks(l).length };
-  });
-  const doneCount = sessions.filter((s) => s.status === "done").length;
-  const inProgressCount = sessions.filter((s) => s.status === "current").length;
-  const visibleSessions = sessions.filter((s) =>
-    sessionFilter === "all" ? true : sessionFilter === "progress" ? s.status === "current" : s.status === "done");
-
-  return (
-    <Page>
-      <Breadcrumbs items={[
-        { label: "Classes", onClick: () => navigate("/classes") },
-        { label: cls.name, onClick: () => navigate(`/classes/${cls.id}`) },
-        { label: course.title },
-      ]} />
-      <PageHeader title={course.title}
-        sub={`${cls.name} · ${course.level}`}
-        right={entry.status === "done" ? (
-          <Button variant="light" size="sm" onClick={() => { dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: "in-progress" }); toast(`${course.title} reopened for ${cls.name}`); }}>
-            Reopen course
-          </Button>
-        ) : (
-          <Button variant="light" size="sm" onClick={() => { dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: "done" }); toast(`${course.title} marked completed for ${cls.name}`); }}>
-            <IconCircleCheck size={14} stroke={1.75} /> Mark as completed
-          </Button>
-        )} />
-
-      <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-baseline gap-2 shrink-0">
-          <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
-          <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
-        </div>
-        <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
-        <Badge color={entry.status === "done" ? "success" : "pending"} className="shrink-0">{entry.status === "done" ? "Completed" : "In Progress"}</Badge>
-      </Card>
-
-      <SectionLabel right={
-        <PillTabs value={sessionFilter} onChange={setSessionFilter} tabs={[
-          { id: "all", label: "All" },
-          { id: "progress", label: "In progress", count: inProgressCount },
-          { id: "done", label: "Completed", count: doneCount },
-        ]} />
-      }>Session</SectionLabel>
-
-      <Card className="!p-0 overflow-hidden relative">
-        {openMenu && <button className="fixed inset-0 z-[5] cursor-default" onClick={() => setOpenMenu(null)} aria-label="Close menu" />}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                <th className="px-5 py-3 font-semibold">Session</th>
-                <th className="px-5 py-3 font-semibold">Progress</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {visibleSessions.map(({ lesson: l, status, steps }) => {
-                const pct = status === "done" ? 100 : status === "current" ? 50 : 0;
-                const statusLabel = status === "done" ? "Completed" : status === "current" ? "In Progress" : status === "locked" ? "Locked" : "Not started yet";
-                const statusColor = status === "done" ? "success" : status === "current" ? "pending" : status === "locked" ? "neutral" : "primary";
-                return (
-                  <tr key={l.id} className={status === "current" ? "bg-primary-50/30" : ""}>
-                    <td className="px-5 py-4 align-top">
-                      <div className="font-bold text-neutral-950">L{l.n}: {l.title}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">{steps} step{steps === 1 ? "" : "s"}</div>
-                    </td>
-                    <td className="px-5 py-4 align-top min-w-[160px]">
-                      <div className="text-xs font-semibold text-neutral-700 mb-1.5">{pct}%</div>
-                      <SegmentedBar pct={pct} />
-                    </td>
-                    <td className="px-5 py-4 align-top">
-                      <Badge color={statusColor}>{statusLabel}</Badge>
-                    </td>
-                    <td className="px-5 py-4 align-top relative">
-                      <button onClick={() => setOpenMenu(openMenu === l.id ? null : l.id)}
-                        className="text-neutral-400 hover:text-neutral-700 p-1 rounded-lg hover:bg-neutral-100">
-                        <IconDots size={16} stroke={1.75} />
-                      </button>
-                      {openMenu === l.id && (
-                        <div className="absolute right-5 top-10 z-10 w-44 rounded-xl border border-neutral-200 bg-white shadow-lg py-1.5">
-                          {status !== "current" && entry.status !== "done" && (
-                            <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); setOpenMenu(null); }}
-                              className="w-full text-left px-3.5 py-2 text-sm text-neutral-700 hover:bg-neutral-50">Set as current</button>
-                          )}
-                          <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })}
-                            className="w-full text-left px-3.5 py-2 text-sm text-neutral-700 hover:bg-neutral-50">Edit content</button>
-                          <button onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })}
-                            className="w-full text-left px-3.5 py-2 text-sm text-warning-600 hover:bg-neutral-50">
-                            <IconBroadcast size={12} stroke={1.75} className="inline mr-1.5 -mt-0.5" /> Go live
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {!visibleSessions.length && (
-                <tr><td colSpan={4} className="px-5 py-6 text-sm text-neutral-500">
-                  {lessons.length ? "No sessions match this filter." : `${course.title} has no lessons yet — build them in Courses.`}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </Page>
   );
 }
