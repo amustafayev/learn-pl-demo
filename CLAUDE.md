@@ -17,6 +17,9 @@ your own version of it.
 | Icons | `@tabler/icons-react` — the exact icon set the kit itself credits (tablers.io) |
 | Font | **DM Sans**, loaded via Google Fonts `@import` in `index.css`, wired to Tailwind's `font-sans` |
 | Routing (real URLs, `react-router-dom`) | `src/router.jsx` (`Bridge`, `buildPath`, `mergeRoute`, `TAB_PATH`) + `<Routes>` tree in `src/english-platform-prototype.jsx` |
+| Mock "database" (persistence rules — the only layer to replace for a real backend) | `src/db/mockDb.jsx` (`reducer`, `createInitialState`) |
+| Seed fixtures + static UI config (labels, templates, icons) | `src/data.jsx` |
+| React binding over the mock db (Context/Provider, `useStore()`/`useNav()`) | `src/store.jsx` — no persistence logic of its own |
 
 ## Routing
 
@@ -48,6 +51,40 @@ in-app navigation. Two layers:
 Rule of thumb: does another page ever need to navigate straight to this
 state (e.g. a course id, a student id)? Use `useNav()`/`go()`. Is it purely
 "which tab of this page am I on"? Use the page's own router hooks.
+
+## Data layer
+
+No backend — but the mock persistence is deliberately isolated behind one
+seam so a real one can be dropped in later without touching any view:
+
+- **`src/db/mockDb.jsx`** — the mock "database". Owns `reducer` (every
+  state-mutation rule, one `case` per action type) and `createInitialState()`
+  (deep-copies the seed data into the live in-memory shape). This is the
+  **only** file that should change to plug in a real backend — e.g. turn
+  `reducer`'s cases into API calls and have `StoreProvider` fetch/await
+  instead of `useReducer`. It also owns the handful of pure selector/derive
+  functions that describe how the mock data relates to itself (`lessonBlocks`,
+  `activeClassCourse`, `groupBankByParent`, `kitContents`, …) — a real backend
+  would either replicate this logic or return it pre-joined, so it lives next
+  to the state shape it describes, not in the React layer.
+- **`src/data.jsx`** — static seed fixtures (`SEED_COURSES`, `SEED_STUDENTS`,
+  …, what a real backend's database would already contain) plus static UI
+  config that isn't per-teacher data at all (`BLOCK_TYPES`, `LESSON_TEMPLATES`,
+  icon/label maps, `DAY_LABELS`). Only `db/mockDb.jsx` treats it as a data
+  source; views only ever pull config constants from it directly.
+- **`src/store.jsx`** — the React binding, nothing else. Wires `db/mockDb.jsx`'s
+  reducer into a `Context`, exposes `useStore()` (`{state, dispatch, toast}`)
+  and `useNav()`, and re-exports the db layer's selector functions so every
+  view's existing `import { lessonBlocks, ... } from "./store.jsx"` keeps
+  working untouched. It also keeps a few dispatch-wrapper helpers
+  (`saveBlockToBank`, `buildRecapLesson`, …) that bundle a `dispatch` call
+  with its matching toast message — convenience for callers, not persistence
+  rules, so they stay here rather than in the db layer.
+
+Views never import `src/db/mockDb.jsx` directly — always go through
+`useStore()`/`useNav()` from `store.jsx`. That's what keeps the swap
+one-file: nothing in `src/views/` or `src/components/` knows or cares that
+the "backend" is a `useReducer` today.
 
 ## Color tokens
 
@@ -158,12 +195,12 @@ lint → click through it with zero console errors).
 
 **Done:** `english-platform-prototype.jsx` (shell/nav), `Dashboard.jsx`,
 `Courses.jsx`, `Classes.jsx`, `Students.jsx`, `Library.jsx`, `LevelTests.jsx`,
-`Insights.jsx`, `StudentInsights.jsx`, `LiveSession.jsx`. `data.jsx`'s
+`Insights.jsx`, `StudentInsights.jsx`, `LiveSession.jsx`,
+`src/components/modals.jsx` (`NewCourseModal`, `NewLessonModal`,
+`AddBlockModal`, `AssignModal`, `AddTextModal`). `data.jsx`'s
 `statusPill`/`WORD_STATUS` return factory color tokens now, not class strings.
 
 **Not yet migrated — still on the old `ui.jsx` look:**
-- `src/components/modals.jsx` (`NewCourseModal`, `NewLessonModal`,
-  `AddBlockModal`, `AssignModal`, `AddTextModal`)
 - `src/components/StudentAssignModal.jsx`
 - `src/views/parts.jsx` — every block/component editor and student-facing
   renderer (quizzes, flashcards, matching games, etc.)
