@@ -10,7 +10,7 @@ import { Button, NavItem, NavSectionLabel, Avatar } from "./design-system.jsx";
 import { TEACHER } from "./data.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
-import { ClassesView, ClassDetailView } from "./views/Classes.jsx";
+import Classes from "./views/Classes.jsx";
 import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
@@ -122,8 +122,7 @@ function Content({ startLive }) {
       <Route path="/courses/:courseId/lessons/:lessonId" element={<Bridge tab="courses" startLive={startLive}><LessonBuilderView /></Bridge>} />
       <Route path="/courses/:courseId/lessons/:lessonId/parts/:partId" element={<Bridge tab="courses" startLive={startLive}><PartStudio /></Bridge>} />
 
-      <Route path="/classes" element={<Bridge tab="classes" startLive={startLive}><ClassesView /></Bridge>} />
-      <Route path="/classes/:classId" element={<Bridge tab="classes" startLive={startLive}><ClassDetailView /></Bridge>} />
+      <Route path="/classes/*" element={<Bridge tab="classes" startLive={startLive}><Classes /></Bridge>} />
 
       <Route path="/library/*" element={<Bridge tab="library" startLive={startLive}><Library /></Bridge>} />
 

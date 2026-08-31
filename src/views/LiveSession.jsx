@@ -5,7 +5,7 @@ import {
   IconChevronLeft, IconChevronRight, IconUsersGroup, IconUser, IconNotebook,
 } from "@tabler/icons-react";
 import { Card, Button, Tag, Alert, Field, Select, StudentCheckList, Avatar } from "../design-system.jsx";
-import { useStore, lessonBlocks } from "../store.jsx";
+import { useStore, lessonBlocks, activeClassCourse } from "../store.jsx";
 import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
 import { LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
@@ -37,14 +37,15 @@ const PRESENCE = {
 export default function LiveSession({ context, onEnd }) {
   const { state } = useStore();
   const [phase, setPhase] = useState("setup");
-  const firstClass = () => state.classes.find((c) => c.courseId === context?.courseId) || state.classes[0];
+  const firstClass = () => state.classes.find((c) => activeClassCourse(c)?.courseId === context?.courseId) || state.classes[0];
   const [classId, setClassId] = useState(context?.classId || firstClass()?.id || null);
   const [lessonId, setLessonId] = useState(context?.lessonId || null);
   const [invited, setInvited] = useState([]); // student ids
 
   const cls = state.classes.find((c) => c.id === classId);
-  const course = state.courses.find((c) => c.id === cls?.courseId);
-  const lessons = state.lessons[cls?.courseId] || [];
+  const activeCourseId = activeClassCourse(cls)?.courseId;
+  const course = state.courses.find((c) => c.id === activeCourseId);
+  const lessons = state.lessons[activeCourseId] || [];
   const lesson = lessons.find((l) => l.id === lessonId);
 
   if (phase === "setup") {
@@ -104,7 +105,7 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
                   <Field label="Class">
                     <Select value={classId || ""} onChange={(e) => setClassId(e.target.value)}>
                       {state.classes.map((c) => {
-                        const courseTitle = state.courses.find((co) => co.id === c.courseId)?.title || "—";
+                        const courseTitle = state.courses.find((co) => co.id === activeClassCourse(c)?.courseId)?.title || "—";
                         return <option key={c.id} value={c.id}>{c.name} · {courseTitle}</option>;
                       })}
                     </Select>

@@ -35,6 +35,11 @@ export const lessonBlocks = (l) =>
     ? l.built
     : (l.parts || []).map((t) => ({ id: uid("p"), type: t, title: BLOCK_TYPES[t]?.label || t, meta: "—" }));
 
+// A class's `courses` is its assignment history (see SEED_CLASSES); the
+// student-facing/live-session views only care about the one it's actively
+// studying right now.
+export const activeClassCourse = (cls) => (cls?.courses || []).find((c) => c.status === "in-progress") || null;
+
 // One place to save a Block (with all its Components) into the teacher's
 // reusable bank and confirm it via toast — used by both the lesson builder
 // and Block Studio so the message and payload never drift apart.
@@ -295,21 +300,36 @@ function reducer(state, action) {
     }
     case "ADD_CLASS": {
       const { courseId, name, scheduleDays } = action;
-      const cls = { id: uid("cls"), courseId: courseId || null, name, scheduleDays: scheduleDays || [], studentIds: [], currentLessonId: null };
+      const cls = { id: uid("cls"), name, scheduleDays: scheduleDays || [], studentIds: [],
+        courses: courseId ? [{ courseId, currentLessonId: null, status: "in-progress" }] : [] };
       return { ...state, classes: [...state.classes, cls] };
     }
-    // Assigning/changing which course a class is currently studying —
-    // switching invalidates the old "which lesson is the class on" pointer.
-    case "SET_CLASS_COURSE": {
+    // Assigns a new course to a class's history — a class can study several
+    // courses over time (see SEED_CLASSES), so this appends rather than
+    // replaces. No-op if the course is already in the class's history.
+    case "ASSIGN_CLASS_COURSE": {
       const { classId, courseId } = action;
-      const classes = state.classes.map((c) => (c.id === classId ? { ...c, courseId: courseId || null, currentLessonId: null } : c));
+      const classes = state.classes.map((c) => {
+        if (c.id !== classId || c.courses.some((x) => x.courseId === courseId)) return c;
+        return { ...c, courses: [...c.courses, { courseId, currentLessonId: null, status: "in-progress" }] };
+      });
       return { ...state, classes };
     }
-    // Which lesson of its assigned course the whole class is currently on —
-    // the class-level equivalent of the old per-student lesson assignment.
+    // Marks one of a class's courses done/in-progress — e.g. "the class
+    // finished this course, move on to the next one".
+    case "SET_CLASS_COURSE_STATUS": {
+      const { classId, courseId, status } = action;
+      const classes = state.classes.map((c) => (c.id !== classId ? c :
+        { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? { ...x, status } : x)) }));
+      return { ...state, classes };
+    }
+    // Which lesson of one of its assigned courses the whole class is
+    // currently on — the class-level equivalent of the old per-student
+    // lesson assignment.
     case "SET_CLASS_CURRENT_LESSON": {
-      const { classId, lessonId } = action;
-      const classes = state.classes.map((c) => (c.id === classId ? { ...c, currentLessonId: lessonId } : c));
+      const { classId, courseId, lessonId } = action;
+      const classes = state.classes.map((c) => (c.id !== classId ? c :
+        { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? { ...x, currentLessonId: lessonId } : x)) }));
       return { ...state, classes };
     }
     case "SET_STUDENT_CLASS": {
@@ -327,7 +347,7 @@ function reducer(state, action) {
         return studentIds === c.studentIds ? c : { ...c, studentIds };
       });
       const students = state.students.map((s) =>
-        s.id === studentId ? { ...s, classId: classId || null, courseId: target?.courseId || null } : s);
+        s.id === studentId ? { ...s, classId: classId || null, courseId: activeClassCourse(target)?.courseId || null } : s);
       return { ...state, students, classes };
     }
     case "SET_RECORDING_SUMMARY": {

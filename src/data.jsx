@@ -221,10 +221,26 @@ export const SEED_LESSONS = {
 // assigned/unassigned to lessons, they're on whatever lesson their class is on.
 export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// A class's `courses` is its assignment history — every course it has ever
+// studied, each with its own progress pointer. At most one entry is
+// normally "in-progress" at a time; earlier ones are "done". A class isn't
+// locked into a single course forever — see ASSIGN_CLASS_COURSE in store.jsx.
 export const SEED_CLASSES = [
-  { id: "cls_it_morning", courseId: "it", name: "ITler — Morning", scheduleDays: [1, 3], studentIds: ["s_rashad", "s_nigar", "s_leyla"], currentLessonId: "it4" },
-  { id: "cls_it_evening", courseId: "it", name: "ITler — Evening", scheduleDays: [2, 4], studentIds: ["s_elvin", "s_kamran"], currentLessonId: "it1" },
-  { id: "cls_ielts_main", courseId: "ielts", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5], studentIds: ["s_aysel"], currentLessonId: "ie2" },
+  {
+    id: "cls_it_morning", name: "ITler — Morning", scheduleDays: [1, 3], studentIds: ["s_rashad", "s_nigar", "s_leyla"],
+    courses: [
+      { courseId: "every", currentLessonId: null, status: "done" },
+      { courseId: "it", currentLessonId: "it4", status: "in-progress" },
+    ],
+  },
+  {
+    id: "cls_it_evening", name: "ITler — Evening", scheduleDays: [2, 4], studentIds: ["s_elvin", "s_kamran"],
+    courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress" }],
+  },
+  {
+    id: "cls_ielts_main", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5], studentIds: ["s_aysel"],
+    courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress" }],
+  },
 ];
 
 /* ------------------------------- reading library ------------------------------- */
