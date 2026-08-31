@@ -17,6 +17,7 @@ import { StudentsView, StudentDetail } from "./views/Students.jsx";
 import Insights from "./views/Insights.jsx";
 import LevelTests from "./views/LevelTests.jsx";
 import LiveSession from "./views/LiveSession.jsx";
+import { LoginPage, SignupPage } from "./views/Auth.jsx";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: IconHome2 },
@@ -32,7 +33,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <StoreProvider>
-        <AppShell />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/*" element={<AppShell />} />
+        </Routes>
       </StoreProvider>
     </BrowserRouter>
   );

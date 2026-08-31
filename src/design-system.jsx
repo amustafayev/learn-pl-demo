@@ -1,5 +1,5 @@
-import React from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
+import React, { useState } from "react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -170,6 +170,19 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
   );
 }
 
+// A "log in / sign up with X" button — same neutral-100 fill as Button's
+// light variant, just icon+label centered rather than left-aligned, since
+// these always sit in an even row of equal-width brand buttons.
+export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-sm font-medium text-neutral-900 transition-colors ${className}`}>
+      {Icon && <Icon size={17} stroke={1.75} />}
+      {label}
+    </button>
+  );
+}
+
 /* ----------------------------------------------------------------- Input */
 // Text/search fields carry 4 states from the kit's Input-form sheet:
 // default (muted placeholder, neutral-100 fill), focus (white fill, orange
@@ -185,6 +198,22 @@ export function TextField({ state = "default", className = "", ...rest }) {
       className={`w-full h-11 rounded-xl border px-3.5 text-sm outline-none transition-colors ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
       {...rest}
     />
+  );
+}
+
+// TextField plus a show/hide toggle — the Input-form sheet's password
+// variant. Owns its own visibility state since every consumer wants the
+// same eye-icon behavior, not a prop the parent has to wire up each time.
+export function PasswordField({ state = "default", className = "", ...rest }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <TextField type={show ? "text" : "password"} state={state} className={`pr-10 ${className}`} {...rest} />
+      <button type="button" onClick={() => setShow((v) => !v)} tabIndex={-1}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-800">
+        {show ? <IconEyeOff size={17} stroke={1.75} /> : <IconEye size={17} stroke={1.75} />}
+      </button>
+    </div>
   );
 }
 
