@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
-  IconPlus, IconChevronRight, IconLock, IconCircleCheck, IconCircle, IconBroadcast, IconUserPlus, IconX, IconUsers,
+  IconPlus, IconChevronRight, IconBroadcast, IconUserPlus, IconX, IconUsers, IconDots,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, PillTabs, SegmentedBar } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
@@ -117,6 +117,9 @@ export function ClassDetailView() {
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null); // student pending removal
 
+  const [sessionFilter, setSessionFilter] = useState("all");
+  const [openMenu, setOpenMenu] = useState(null); // lesson id whose "..." menu is open
+
   const cls = state.classes.find((c) => c.id === route.classId);
   if (!cls) return null;
 
@@ -125,6 +128,18 @@ export function ClassDetailView() {
   const others = state.students.filter((s) => s.classId !== cls.id);
   const lessons = state.lessons[cls.courseId] || [];
   const currentIndex = lessons.findIndex((l) => l.id === cls.currentLessonId);
+
+  // Coarse per-lesson status — the class only tracks one "current" pointer,
+  // not fine-grained per-lesson completion, so status is derived from
+  // position relative to currentIndex rather than a stored percentage.
+  const sessions = lessons.map((l, i) => {
+    const status = currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
+    return { lesson: l, i, status, steps: lessonBlocks(l).length };
+  });
+  const doneCount = sessions.filter((s) => s.status === "done").length;
+  const inProgressCount = sessions.filter((s) => s.status === "current").length;
+  const visibleSessions = sessions.filter((s) =>
+    sessionFilter === "all" ? true : sessionFilter === "progress" ? s.status === "current" : s.status === "done");
 
   function removeStudent(s) {
     dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: null });
@@ -154,33 +169,76 @@ export function ClassDetailView() {
 
           {course ? (
             <div>
-              <SectionLabel>Lesson progress · {course.title}</SectionLabel>
-              <div className="space-y-2">
-                {lessons.map((l, i) => {
-                  const status = currentIndex < 0 ? "upcoming" : i < currentIndex ? "done" : i === currentIndex ? "current" : "locked";
-                  return (
-                    <Card key={l.id} className={`p-4 flex items-center gap-3 ${status === "current" ? "border-primary-300 ring-2 ring-primary-100" : ""}`}>
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        status === "done" ? "bg-success-100 text-success-600" : status === "current" ? "bg-primary-500 text-white" : "bg-neutral-100 text-neutral-400"}`}>
-                        {status === "done" ? <IconCircleCheck size={16} stroke={1.75} /> : status === "locked" ? <IconLock size={13} stroke={1.75} /> : <IconCircle size={14} stroke={1.75} />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold truncate text-neutral-950">L{l.n}: {l.title}</div>
-                        <div className="text-xs text-neutral-500">{lessonBlocks(l).length} steps</div>
-                      </div>
-                      {status !== "current" && (
-                        <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
-                          className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
+              <SectionLabel right={
+                <PillTabs value={sessionFilter} onChange={setSessionFilter} tabs={[
+                  { id: "all", label: "All" },
+                  { id: "progress", label: "In progress", count: inProgressCount },
+                  { id: "done", label: "Completed", count: doneCount },
+                ]} />
+              }>Session · {course.title}</SectionLabel>
+
+              <Card className="!p-0 overflow-hidden relative">
+                {openMenu && <button className="fixed inset-0 z-[5] cursor-default" onClick={() => setOpenMenu(null)} aria-label="Close menu" />}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        <th className="px-5 py-3 font-semibold">Session</th>
+                        <th className="px-5 py-3 font-semibold">Progress</th>
+                        <th className="px-5 py-3 font-semibold">Status</th>
+                        <th className="w-10" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {visibleSessions.map(({ lesson: l, status, steps }) => {
+                        const pct = status === "done" ? 100 : status === "current" ? 50 : 0;
+                        const statusLabel = status === "done" ? "Completed" : status === "current" ? "In Progress" : status === "locked" ? "Locked" : "Not started yet";
+                        const statusColor = status === "done" ? "success" : status === "current" ? "pending" : status === "locked" ? "neutral" : "primary";
+                        return (
+                          <tr key={l.id} className={status === "current" ? "bg-primary-50/30" : ""}>
+                            <td className="px-5 py-4 align-top">
+                              <div className="font-bold text-neutral-950">L{l.n}: {l.title}</div>
+                              <div className="text-xs text-neutral-500 mt-0.5">{steps} step{steps === 1 ? "" : "s"}</div>
+                            </td>
+                            <td className="px-5 py-4 align-top min-w-[160px]">
+                              <div className="text-xs font-semibold text-neutral-700 mb-1.5">{pct}%</div>
+                              <SegmentedBar pct={pct} />
+                            </td>
+                            <td className="px-5 py-4 align-top">
+                              <Badge color={statusColor}>{statusLabel}</Badge>
+                            </td>
+                            <td className="px-5 py-4 align-top relative">
+                              <button onClick={() => setOpenMenu(openMenu === l.id ? null : l.id)}
+                                className="text-neutral-400 hover:text-neutral-700 p-1 rounded-lg hover:bg-neutral-100">
+                                <IconDots size={16} stroke={1.75} />
+                              </button>
+                              {openMenu === l.id && (
+                                <div className="absolute right-5 top-10 z-10 w-44 rounded-xl border border-neutral-200 bg-white shadow-lg py-1.5">
+                                  {status !== "current" && (
+                                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); setOpenMenu(null); }}
+                                      className="w-full text-left px-3.5 py-2 text-sm text-neutral-700 hover:bg-neutral-50">Set as current</button>
+                                  )}
+                                  <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })}
+                                    className="w-full text-left px-3.5 py-2 text-sm text-neutral-700 hover:bg-neutral-50">Edit content</button>
+                                  <button onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })}
+                                    className="w-full text-left px-3.5 py-2 text-sm text-warning-600 hover:bg-neutral-50">
+                                    <IconBroadcast size={12} stroke={1.75} className="inline mr-1.5 -mt-0.5" /> Go live
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {!visibleSessions.length && (
+                        <tr><td colSpan={4} className="px-5 py-6 text-sm text-neutral-500">
+                          {lessons.length ? "No sessions match this filter." : `${course.title} has no lessons yet — build them in Courses.`}
+                        </td></tr>
                       )}
-                      <button onClick={() => go({ tab: "courses", courseId: course.id, lessonId: l.id })} className="text-xs text-neutral-500 hover:text-primary-600 shrink-0">Edit content</button>
-                      <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
-                        <IconBroadcast size={12} stroke={1.75} /> Go live
-                      </Button>
-                    </Card>
-                  );
-                })}
-                {!lessons.length && <p className="text-sm text-neutral-500">{course.title} has no lessons yet — build them in Courses.</p>}
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
           ) : (
             <Card className="p-8 text-center text-sm text-neutral-500 flex flex-col items-center gap-2">
