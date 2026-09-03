@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-do
 import {
   IconPlus, IconChevronRight, IconUserPlus, IconX, IconUsers, IconSchool,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, PRESS, PRESS_FLAT } from "../design-system.jsx";
 import { useStore, useNav, activeClassCourse } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
@@ -222,7 +222,7 @@ function ClassDetailView({ classId }) {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 font-semibold text-neutral-950"><IconUsers size={16} stroke={1.75} /> Student <Badge color="neutral">{roster.length}</Badge></div>
-              <button onClick={() => setEnrollOpen((v) => !v)} title="Enroll student" className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600">
+              <button onClick={() => setEnrollOpen((v) => !v)} title="Enroll student" className={`flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600 ${PRESS}`}>
                 <IconUserPlus size={15} stroke={1.75} />
               </button>
             </div>
@@ -235,7 +235,7 @@ function ClassDetailView({ classId }) {
                     {others.map((s) => (
                       <button key={s.id}
                         onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                        className="w-full inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm transition-all">
+                        className={`w-full inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
                         <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
                         <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
                         <Tag color="neutral">{s.level}</Tag>
@@ -249,7 +249,7 @@ function ClassDetailView({ classId }) {
             <div className="divide-y divide-neutral-100">
               {roster.map((s) => (
                 <div key={s.id} className="flex items-center gap-3 py-2.5 group">
-                  <button onClick={() => go({ tab: "students", studentId: s.id })} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                  <button onClick={() => go({ tab: "students", studentId: s.id })} className={`flex items-center gap-2.5 min-w-0 flex-1 text-left ${PRESS_FLAT}`}>
                     <div className="relative shrink-0">
                       <Avatar name={s.name} color={avatarColorFor(s.id)} size="sm" />
                       {s.status !== "not started" && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-white" />}
@@ -259,7 +259,7 @@ function ClassDetailView({ classId }) {
                       <div className="text-xs text-neutral-500">{s.progress}% · {s.status}</div>
                     </div>
                   </button>
-                  <button title="Remove from class" onClick={() => setConfirmRemove(s)} className="shrink-0 text-neutral-300 hover:text-warning-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><IconX size={13} stroke={1.75} /></button>
+                  <button title="Remove from class" onClick={() => setConfirmRemove(s)} className={`shrink-0 text-neutral-300 hover:text-warning-600 p-1 opacity-0 group-hover:opacity-100 ${PRESS_FLAT}`}><IconX size={13} stroke={1.75} /></button>
                 </div>
               ))}
               {!roster.length && <p className="py-4 text-sm text-neutral-500">No students enrolled yet.</p>}

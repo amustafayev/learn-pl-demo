@@ -209,11 +209,14 @@ export function LibraryPickList({ groups, onPick }) {
 // quick scale-down on press plus a soft shadow lift on hover, so clicking
 // something feels physical (like pressing a real button) instead of just an
 // instant color swap. One constant so the feel stays identical everywhere
-// and can be tuned in one place.
-const PRESS = "transition-all duration-150 hover:shadow-md active:scale-[0.97] active:shadow-sm";
+// and can be tuned in one place. Exported (not just used internally) so a
+// view's own hand-rolled clickable row — one that doesn't match any single
+// factory component, e.g. Classes.jsx's roster rows — can still opt into the
+// exact same feel instead of inventing its own.
+export const PRESS = "transition-all duration-150 hover:shadow-md active:scale-[0.97] active:shadow-sm";
 // Lighter touch for flat/text-only controls (underline tabs, nav rows) where
 // a shadow would look odd with no card/fill behind it — press-scale only.
-const PRESS_FLAT = "transition-all duration-150 active:scale-[0.97]";
+export const PRESS_FLAT = "transition-all duration-150 active:scale-[0.97]";
 
 // 5 fills x {icon-only, label, label+chevron} from the kit's Button sheet.
 const BUTTON_FILL = {
