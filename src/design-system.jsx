@@ -100,7 +100,7 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
         const on = isSelected(s);
         return (
           <button key={s.id} onClick={() => onToggle(s)}
-            className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
+            className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left ${PRESS} ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
             <Avatar name={s.name} color={on ? "primary" : "neutral"} />
             <div className="min-w-0 flex-1">
               <div className="font-medium text-sm truncate text-neutral-950">{s.name}</div>
@@ -137,7 +137,7 @@ export function CategoryPicker({ groups, onPick, columns = 2 }) {
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => onPick(item.id)}
-                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
+                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
                   {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
                   {/* item.icon is whatever set provided the catalog entry (this
                       app's block/component catalogs are still lucide-react,
@@ -177,7 +177,7 @@ export function LibraryPickList({ groups, onPick }) {
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => onPick(item.id)}
-                  className="w-full flex items-center gap-2.5 rounded-xl border border-primary-200 bg-primary-50/50 hover:bg-primary-100/70 p-2.5 text-left transition-colors">
+                  className={`w-full flex items-center gap-2.5 rounded-xl border border-primary-200 bg-primary-50/50 hover:bg-primary-100/70 p-2.5 text-left ${PRESS}`}>
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={15} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate text-neutral-900">{item.label}</span>
@@ -205,6 +205,16 @@ export function LibraryPickList({ groups, onPick }) {
    ========================================================================= */
 
 /* ---------------------------------------------------------------- Button */
+// Shared tactile feedback for every clickable primitive in the factory — a
+// quick scale-down on press plus a soft shadow lift on hover, so clicking
+// something feels physical (like pressing a real button) instead of just an
+// instant color swap. One constant so the feel stays identical everywhere
+// and can be tuned in one place.
+const PRESS = "transition-all duration-150 hover:shadow-md active:scale-[0.97] active:shadow-sm";
+// Lighter touch for flat/text-only controls (underline tabs, nav rows) where
+// a shadow would look odd with no card/fill behind it — press-scale only.
+const PRESS_FLAT = "transition-all duration-150 active:scale-[0.97]";
+
 // 5 fills x {icon-only, label, label+chevron} from the kit's Button sheet.
 const BUTTON_FILL = {
   primary: "bg-primary-500 hover:bg-primary-600 text-white",
@@ -226,7 +236,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
     return (
       <button
         disabled={isDisabled}
-        className={`inline-flex items-center justify-center rounded-full font-semibold transition-colors ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-full font-semibold ${PRESS} ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
         {...rest}
       >
         {Icon && <Icon size={size === "sm" ? 16 : 18} stroke={1.75} />}
@@ -236,7 +246,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
   return (
     <button
       disabled={isDisabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-colors ${fill} ${BUTTON_SIZE[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold ${PRESS} ${fill} ${BUTTON_SIZE[size]} ${className}`}
       {...rest}
     >
       {children}
@@ -251,7 +261,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
 export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
   return (
     <button type="button" onClick={onClick}
-      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-sm font-medium text-neutral-900 transition-colors ${className}`}>
+      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-sm font-medium text-neutral-900 ${PRESS} ${className}`}>
       {Icon && <Icon size={17} stroke={1.75} />}
       {label}
     </button>
@@ -442,7 +452,7 @@ export function Card({ children, className = "", ...rest }) {
 export function StatCard({ icon: Icon, label, value, delta, onClick, className = "" }) {
   return (
     <Card
-      className={`p-5 ${onClick ? "text-left w-full cursor-pointer hover:border-primary-300 hover:shadow-sm transition-all" : ""} ${className}`}
+      className={`p-5 ${onClick ? `text-left w-full cursor-pointer hover:border-primary-300 ${PRESS}` : ""} ${className}`}
       onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex items-center justify-between">
@@ -623,7 +633,7 @@ export function Switch({ checked, onChange, className = "" }) {
   return (
     <button
       onClick={() => onChange?.(!checked)}
-      className={`relative h-6 w-11 rounded-full transition-colors ${checked ? "bg-primary-500" : "bg-neutral-300"} ${className}`}
+      className={`relative h-6 w-11 rounded-full ${PRESS_FLAT} ${checked ? "bg-primary-500" : "bg-neutral-300"} ${className}`}
     >
       <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? "left-5" : "left-0.5"}`} />
     </button>
@@ -634,7 +644,7 @@ export function Checkbox({ checked, onChange, className = "" }) {
   return (
     <button
       onClick={() => onChange?.(!checked)}
-      className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${checked ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-white"} ${className}`}
+      className={`flex h-5 w-5 items-center justify-center rounded-md border ${PRESS_FLAT} ${checked ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-white"} ${className}`}
     >
       {checked && <IconCheck size={13} stroke={3} className="text-white" />}
     </button>
@@ -649,7 +659,7 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
         <button
           key={o.id}
           onClick={() => onChange?.(o.id)}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${value === o.id ? "bg-neutral-950 text-white" : "text-neutral-500 hover:text-neutral-800"}`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${PRESS_FLAT} ${value === o.id ? "bg-neutral-950 text-white" : "text-neutral-500 hover:text-neutral-800"}`}
         >
           {o.icon && <o.icon size={14} stroke={1.75} />}
           {o.label}
@@ -666,7 +676,7 @@ export function NavItem({ icon: Icon, label, active, onClick, badge }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? "bg-neutral-100 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-50"}`}
+      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${PRESS_FLAT} ${active ? "bg-neutral-100 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100"}`}
     >
       {Icon && <Icon size={18} stroke={1.75} />}
       <span className="flex-1 text-left">{label}</span>
@@ -687,7 +697,7 @@ export function TabBar({ tabs, value, onChange }) {
         <button
           key={t.id}
           onClick={() => onChange?.(t.id)}
-          className={`-mb-px border-b-2 pb-3 text-sm font-semibold transition-colors ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+          className={`-mb-px border-b-2 pb-3 text-sm font-semibold ${PRESS_FLAT} ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
         >
           {t.label}
         </button>
@@ -704,7 +714,7 @@ export function PillTabs({ tabs, value, onChange }) {
         <button
           key={t.id}
           onClick={() => onChange?.(t.id)}
-          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-3 text-sm font-semibold transition-colors ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-3 text-sm font-semibold ${PRESS_FLAT} ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
         >
           {t.label}
           {t.count != null && (
