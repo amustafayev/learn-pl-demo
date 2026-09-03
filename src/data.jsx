@@ -196,30 +196,34 @@ const TENSE_PARTS = [
 ];
 
 export const SEED_COURSES = [
-  { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, completion: 78, templateId: "general" },
-  { id: "it",    title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, completion: 62, templateId: "general" },
-  { id: "ielts", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  completion: 41, templateId: "ielts" },
+  { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, templateId: "general" },
+  { id: "it",    title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, templateId: "general" },
+  { id: "ielts", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  templateId: "ielts" },
 ];
 
-// lessons keyed by course
+// Lessons keyed by course — pure authored content. No `progress`/`locked`/
+// `current` here: a lesson has none of those on its own, only per class
+// (see Courses.jsx's classLessonView / db/mockDb.jsx's classesOnCourse).
+// `active` is a separate, real metric (how many students engaged with this
+// lesson), kept as-is.
 export const SEED_LESSONS = {
   it: [
-    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14, progress: 100 },
-    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14, progress: 88 },
-    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],        active: 13, progress: 64 },
-    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"], active: 11, progress: 29, current: true },
-    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                                  active: 4,  progress: 6,  locked: true },
-    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],                     active: 0,  progress: 0,  locked: true },
+    { id: "it1", n: 1, title: "Introducing yourself on a team",      parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14 },
+    { id: "it2", n: 2, title: "Describing what you work on",         parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                    active: 14 },
+    { id: "it3", n: 3, title: "Talking about a bug in standup",      parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],        active: 13 },
+    { id: "it4", n: 4, title: "Tense forms", built: TENSE_PARTS,     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"], active: 11 },
+    { id: "it5", n: 5, title: "Writing clear code-review comments",  parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"],                                  active: 4 },
+    { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],                     active: 0 },
   ],
   every: [
-    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice", "homework"],        active: 21, progress: 96 },
-    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice", "homework"],      active: 20, progress: 84 },
-    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"], active: 18, progress: 71, current: true },
-    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice", "homework"],                   active: 9,  progress: 22, locked: true },
+    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice", "homework"],        active: 21 },
+    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice", "homework"],      active: 20 },
+    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"], active: 18 },
+    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice", "homework"],                   active: 9 },
   ],
   ielts: [
-    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9,  progress: 55 },
-    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary", "practice", "homework"], active: 7,  progress: 38, current: true },
+    { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9 },
+    { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary", "practice", "homework"], active: 7 },
   ],
 };
 

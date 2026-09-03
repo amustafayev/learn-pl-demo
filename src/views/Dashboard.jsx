@@ -29,7 +29,10 @@ export default function Dashboard() {
   const students = state.students;
   const active = students.filter((s) => s.status !== "not started").length;
   const atRisk = students.filter((s) => s.atRisk);
-  const avg = Math.round(state.courses.reduce((a, c) => a + c.completion, 0) / state.courses.length);
+  // A course has no completion of its own (see Courses.jsx) — this is a
+  // teacher-facing "how's my roster doing" number, so it averages students'
+  // own progress, not a static per-course field.
+  const avg = students.length ? Math.round(students.reduce((a, s) => a + s.progress, 0) / students.length) : 0;
   // three students to brief before their next session (most recently active, not-at-risk first)
   const briefs = students.filter((s) => s.status === "in progress").slice(0, 3);
   // most recently saved Blocks/Components, interleaved — both banks are

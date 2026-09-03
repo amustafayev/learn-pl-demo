@@ -5,7 +5,7 @@ import {
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
-import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse } from "../store.jsx";
+import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
@@ -43,7 +43,7 @@ export function CoursesView() {
               creatorLabel="Designed by" creatorName={state.teacher.name} creatorColor="dark"
               category={`${LESSON_TEMPLATES[c.templateId]?.label || "General English"} template`}
               stats={[{ icon: IconUsers, value: `${classCount} class${classCount === 1 ? "" : "es"}` }, { icon: IconSchool, value: `${count} lesson${count === 1 ? "" : "s"}` }]}
-              progressPct={c.completion} onViewDetail={() => go({ courseId: c.id })} />
+              progressPct={courseAvgProgress(state, c.id)} onViewDetail={() => go({ courseId: c.id })} />
           );
         })}
       </div>
@@ -99,11 +99,13 @@ export function CourseView() {
   const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
   const toggleBlock = (key) => setExpandedBlocks((m) => ({ ...m, [key]: !m[key] }));
 
-  // Overrides a lesson's own authored locked/progress/current with this
-  // class's actual position when viewed through a class; otherwise the
-  // lesson's own authored fields stand (plain, un-taken course state).
+  // A lesson has no progress/lock/current state of its own — a course is
+  // pure authored content until a class is actually assigned to it. Viewed
+  // through a class (?classId=), the tree shows THAT class's real position;
+  // viewed plainly from Courses, `progress` comes back `null` so the badge
+  // and lock icon disappear entirely rather than showing a made-up state.
   function classLessonView(l, i) {
-    if (!classCourse) return { locked: l.locked, progress: l.progress, current: l.current };
+    if (!classCourse) return { locked: false, progress: null, current: false };
     if (classCourse.status === "done") return { locked: false, progress: 100, current: false };
     if (classCurrentIndex < 0) return { locked: false, progress: 0, current: false };
     if (i < classCurrentIndex) return { locked: false, progress: 100, current: false };
@@ -144,7 +146,10 @@ export function CourseView() {
 
   const overallPct = classCourse
     ? (classCourse.status === "done" ? 100 : lessons.length ? Math.round(((classCurrentIndex + 1) / lessons.length) * 100) : 0)
-    : course.completion;
+    : null;
+  // Plain course view (no ?classId=) — there's no single "progress" to show
+  // for the course itself, only for each class actually assigned to it.
+  const onCourse = !cls ? classesOnCourse(state, course.id) : [];
 
   return (
     <Page>
@@ -168,14 +173,39 @@ export function CourseView() {
           <Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>
         </div>} />
 
-      <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-baseline gap-2 shrink-0">
-          <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
-          <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
-        </div>
-        <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
-        {classCourse && <Badge color={classCourse.status === "done" ? "success" : "pending"} className="shrink-0">{classCourse.status === "done" ? "Completed" : "In Progress"}</Badge>}
-      </Card>
+      {classCourse ? (
+        <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
+            <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
+          </div>
+          <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
+          <Badge color={classCourse.status === "done" ? "success" : "pending"} className="shrink-0">{classCourse.status === "done" ? "Completed" : "In Progress"}</Badge>
+        </Card>
+      ) : (
+        // No class context — a course has no progress of its own, only as
+        // many progress numbers as classes actually assigned to it.
+        <Card className="p-5 mb-6">
+          <div className="text-sm font-semibold text-neutral-600 mb-3">
+            {onCourse.length ? `Taught in ${onCourse.length} class${onCourse.length === 1 ? "" : "es"}` : "Not assigned to any class yet"}
+          </div>
+          {onCourse.length ? (
+            <div className="space-y-3">
+              {onCourse.map(({ cls: c, entry, pct }) => (
+                <button key={c.id} onClick={() => go({ tab: "classes", classId: c.id, courseId: course.id })}
+                  className="w-full flex items-center gap-3 text-left hover:opacity-80">
+                  <span className="text-sm font-medium text-neutral-900 w-40 truncate shrink-0">{c.name}</span>
+                  <div className="flex-1 min-w-[120px]"><SegmentedBar pct={pct} /></div>
+                  <span className="text-xs font-mono text-neutral-500 w-10 text-right shrink-0">{pct}%</span>
+                  <Badge color={entry.status === "done" ? "success" : "pending"} className="shrink-0">{entry.status === "done" ? "Completed" : "In Progress"}</Badge>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">Assign this course to a class in Classes to start tracking progress.</p>
+          )}
+        </Card>
+      )}
 
       {/* Course tree: Lesson → Block → Component */}
       <SectionLabel right={
@@ -206,7 +236,7 @@ export function CourseView() {
                     {isOpen ? <IconChevronDown size={16} stroke={1.75} /> : <IconChevronRight size={16} stroke={1.75} />}
                   </button>
                   <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
-                    view.locked ? "bg-neutral-100 text-neutral-400" : view.progress === 100 ? "bg-success-500 text-white" : "bg-primary-500 text-white"}`}>
+                    view.locked ? "bg-neutral-100 text-neutral-400" : view.progress === 100 ? "bg-success-500 text-white" : view.progress == null ? "bg-neutral-100 text-neutral-700" : "bg-primary-500 text-white"}`}>
                     {view.locked ? <IconLock size={14} stroke={1.75} /> : `L${l.n}`}
                   </span>
                   <div className="min-w-0">
@@ -230,9 +260,11 @@ export function CourseView() {
                       <IconBroadcast size={12} stroke={1.75} /> Go live
                     </Button>
                   )}
-                  <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"}>
-                    {view.locked ? "Locked" : view.progress === 100 ? "Completed" : view.progress > 0 ? "In Progress" : "Not started yet"}
-                  </Badge>
+                  {view.progress != null && (
+                    <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"}>
+                      {view.locked ? "Locked" : view.progress === 100 ? "Completed" : view.progress > 0 ? "In Progress" : "Not started yet"}
+                    </Badge>
+                  )}
                   <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })}>
                     Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />
                   </Button>

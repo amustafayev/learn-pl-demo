@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
-import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, groupBankByParent, bankChildLabel, kitContents, COMPONENT_BANK_KEY } from "./db/mockDb.jsx";
+import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, COMPONENT_BANK_KEY } from "./db/mockDb.jsx";
 
 /* =========================================================================
    React binding on top of the mock "database" (src/db/mockDb.jsx). This
@@ -14,7 +14,7 @@ import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, grou
 // Re-exported so every view that already does `import { lessonBlocks, ... }
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
-export { lessonBlocks, activeClassCourse, groupBankByParent, bankChildLabel, kitContents };
+export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents };
 
 // One place to save a Block (with all its Components) into the teacher's
 // reusable bank and confirm it via toast — used by both the lesson builder

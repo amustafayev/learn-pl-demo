@@ -48,6 +48,35 @@ export const lessonBlocks = (l) =>
 // studying right now.
 export const activeClassCourse = (cls) => (cls?.courses || []).find((c) => c.status === "in-progress") || null;
 
+// A course has no progress of its own — it's just authored content until a
+// class is actually assigned to it. Progress only exists per class: a done
+// course-entry reads 100%, an in-progress one reads by how far its current
+// lesson sits in the course, and a class that hasn't started yet reads 0%.
+// Returns one row per class actually assigned to `courseId` — empty if none
+// are, which is the "this course isn't being taught anywhere yet" case.
+export function classesOnCourse(state, courseId) {
+  const lessons = state.lessons[courseId] || [];
+  return state.classes
+    .map((cls) => ({ cls, entry: cls.courses.find((c) => c.courseId === courseId) }))
+    .filter((x) => x.entry)
+    .map(({ cls, entry }) => {
+      const pct = entry.status === "done"
+        ? 100
+        : lessons.length
+          ? Math.max(0, Math.round(((lessons.findIndex((l) => l.id === entry.currentLessonId) + 1) / lessons.length) * 100))
+          : 0;
+      return { cls, entry, pct };
+    });
+}
+
+// The single number a course card can show — the average of every class
+// actually taking it, or `null` (not 0%) when no class has been assigned,
+// since "no progress yet" and "0% progress" are different facts.
+export function courseAvgProgress(state, courseId) {
+  const rows = classesOnCourse(state, courseId);
+  return rows.length ? Math.round(rows.reduce((sum, r) => sum + r.pct, 0) / rows.length) : null;
+}
+
 // Group bank items (saved Blocks or saved Components) by the course/parent
 // they were saved from — every "reuse a saved thing" picker (My Blocks, the
 // Add-block dialog, the Component Library) organizes its list the same way,

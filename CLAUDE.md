@@ -71,9 +71,19 @@ seam so a real one can be dropped in later without touching any view:
   `reducer`'s cases into API calls and have `StoreProvider` fetch/await
   instead of `useReducer`. It also owns the handful of pure selector/derive
   functions that describe how the mock data relates to itself (`lessonBlocks`,
-  `activeClassCourse`, `groupBankByParent`, `kitContents`, …) — a real backend
-  would either replicate this logic or return it pre-joined, so it lives next
-  to the state shape it describes, not in the React layer.
+  `activeClassCourse`, `classesOnCourse`, `courseAvgProgress`,
+  `groupBankByParent`, `kitContents`, …) — a real backend would either
+  replicate this logic or return it pre-joined, so it lives next to the state
+  shape it describes, not in the React layer. `classesOnCourse`/
+  `courseAvgProgress` encode a load-bearing rule: **a course has no progress
+  of its own** — it's authored content (lessons/blocks/components) until a
+  class is actually assigned to it (see `SEED_CLASSES`' `courses` array).
+  Progress, "locked", "current lesson", and completion % all live per
+  class-course pairing, never on the course or lesson record directly. A
+  plain `/courses/:id` view (no `?classId=`) must never render a progress
+  number/badge for the course itself — only "which classes are taking this,
+  and how far is each one" (`Courses.jsx`'s `CourseView`, no-`classCourse`
+  branch), or nothing at all if no class has been assigned yet.
 - **`src/db/apiClient.js`** — not called by anything yet (the reducer is
   fully synchronous), but the seam a real backend plugs into: `createApiClient(baseURL)`
   wraps `fetch` and normalizes every failure into a typed `ApiError`
