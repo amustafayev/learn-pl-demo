@@ -22,6 +22,10 @@ const weakest = (c) => Object.entries(c).sort((a, b) => a[1] - b[1])[0];
 
 /* ------------------------------- roster ------------------------------- */
 
+// Roster card follows the kit's "Student" list widget (course detail sheet):
+// title + count pill + a plain avatar/name/status list, not a data table.
+const presence = (last) => (/^\d+m ago$/.test(last) ? "online" : "offline");
+
 export function StudentsView() {
   const { state } = useStore();
   const { route, go } = useNav();
@@ -47,39 +51,30 @@ export function StudentsView() {
             </div>
           </div>
         } />
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-neutral-500 text-xs">
-            <tr>
-              <th className="text-left font-medium p-4">Student</th>
-              <th className="text-left font-medium p-4 hidden md:table-cell">Course</th>
-              <th className="text-left font-medium p-4">Level</th>
-              <th className="text-left font-medium p-4">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-200">
-            {list.map((s) => (
-              <tr key={s.id} onClick={() => go({ studentId: s.id })} className="hover:bg-neutral-50 cursor-pointer">
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={s.name} />
-                    <div>
-                      <div className="font-medium text-neutral-950 flex items-center gap-1.5">
-                        {s.name}
-                        {className(s.classId) && <Tag color="neutral">{className(s.classId)}</Tag>}
-                        {s.atRisk && <IconAlertTriangle size={13} stroke={1.75} className="text-warning-500" />}
-                      </div>
-                      <div className="text-xs text-neutral-500">{s.goal}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4 text-neutral-600 hidden md:table-cell">{courseName(s.courseId)}</td>
-                <td className="p-4 font-mono text-neutral-600">{s.level}</td>
-                <td className="p-4"><Tag color={statusPill(s.status)}>{s.status}</Tag></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <Card className="p-0 overflow-hidden">
+        <div className="flex items-center gap-2 p-4 border-b border-neutral-200">
+          <span className="font-semibold text-neutral-950">Student</span>
+          <span className="rounded-full bg-neutral-200 text-neutral-600 px-1.5 py-0.5 text-[11px] font-bold">{list.length}</span>
+        </div>
+        <div className="divide-y divide-neutral-200">
+          {list.map((s) => (
+            <div key={s.id} onClick={() => go({ studentId: s.id })}
+              className="flex items-center gap-3 p-4 hover:bg-neutral-50 cursor-pointer">
+              <Avatar name={s.name} status={presence(s.last)} />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-neutral-950 flex items-center gap-1.5 truncate">
+                  {s.name}
+                  {className(s.classId) && <Tag color="neutral">{className(s.classId)}</Tag>}
+                  {s.atRisk && <IconAlertTriangle size={13} stroke={1.75} className="text-warning-500 shrink-0" />}
+                </div>
+                <div className="text-xs text-neutral-500 truncate">{courseName(s.courseId)} · {s.goal}</div>
+              </div>
+              <span className="font-mono text-xs text-neutral-500 hidden sm:inline shrink-0">{s.level}</span>
+              <Tag color={statusPill(s.status)}>{s.status}</Tag>
+            </div>
+          ))}
+          {!list.length && <p className="text-sm text-neutral-500 p-8 text-center">No students match.</p>}
+        </div>
       </Card>
     </Page>
   );
