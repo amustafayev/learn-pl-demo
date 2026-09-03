@@ -4,7 +4,7 @@ import {
   IconEye, IconSearch, IconMaximize, IconMinimize,
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, PillTabs } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
@@ -71,6 +71,7 @@ export function CourseView() {
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
   const [expandedBlocks, setExpandedBlocks] = useState({});
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const course = state.courses.find((c) => c.id === route.courseId);
   const lessons = state.lessons[route.courseId] || [];
@@ -135,7 +136,17 @@ export function CourseView() {
 
     return { lesson: l, view: classLessonView(l, i), blocks, totalComponents, lessonMatch, blockMatch };
   });
-  const visibleTree = q ? tree.filter((t) => t.lessonMatch) : tree;
+  // Status filter only means anything once a class gives these lessons a
+  // real progress number — see classLessonView above.
+  const progressCount = tree.filter((t) => t.view.progress > 0 && t.view.progress < 100).length;
+  const doneCount = tree.filter((t) => t.view.progress === 100).length;
+  const visibleTree = tree
+    .filter((t) => !q || t.lessonMatch)
+    .filter((t) => {
+      if (statusFilter === "progress") return t.view.progress > 0 && t.view.progress < 100;
+      if (statusFilter === "done") return t.view.progress === 100;
+      return true;
+    });
 
   function expandAll() {
     const nextL = {}; const nextB = {};
@@ -207,8 +218,24 @@ export function CourseView() {
         </Card>
       )}
 
-      {/* Course tree: Lesson → Block → Component */}
-      <SectionLabel right={
+      {/* Course tree: Lesson → Block → Component — one table-like card,
+          rows divided by a hairline (not a stack of separate cards), with
+          a status filter mirroring the kit's "Session" list: All / In
+          Progress / Completed pill tabs, only meaningful (so only shown)
+          once a class gives these lessons a real progress number. */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="text-sm font-semibold text-neutral-700 inline-flex items-center gap-1.5">
+            <IconSitemap size={14} stroke={1.75} /> Course tree ({lessons.length} lessons) — lessons → blocks → components
+          </span>
+          {classCourse && (
+            <PillTabs value={statusFilter} onChange={setStatusFilter} tabs={[
+              { id: "all", label: "All" },
+              { id: "progress", label: "In Progress", count: progressCount },
+              { id: "done", label: "Completed", count: doneCount },
+            ]} />
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <IconSearch size={13} stroke={1.75} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -218,19 +245,16 @@ export function CourseView() {
           <button onClick={expandAll} className="text-xs text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1"><IconMaximize size={12} stroke={1.75} /> Expand all</button>
           <button onClick={collapseAll} className="text-xs text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1"><IconMinimize size={12} stroke={1.75} /> Collapse all</button>
         </div>
-      }>
-        <span className="inline-flex items-center gap-1.5">
-          <IconSitemap size={14} stroke={1.75} /> Course tree ({lessons.length} lessons) — lessons → blocks → components
-        </span>
-      </SectionLabel>
+      </div>
 
-      <div className="space-y-3 mb-8">
+      <Card className="overflow-hidden mb-8">
+        <div className="divide-y divide-neutral-200">
         {visibleTree.map(({ lesson: l, view, blocks, totalComponents, blockMatch }) => {
           const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
-            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${view.current ? "border-primary-300 ring-2 ring-primary-100" : "hover:border-primary-200 hover:shadow-md"}`}>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 pb-4 border-b border-neutral-200">
+            <div key={l.id} className={`transition-colors ${view.current ? "bg-primary-50/40" : "hover:bg-neutral-50"}`}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleLesson(l.id)} className="text-neutral-400 hover:text-primary-600 shrink-0 p-1 -ml-1">
                     {isOpen ? <IconChevronDown size={16} stroke={1.75} /> : <IconChevronRight size={16} stroke={1.75} />}
@@ -250,22 +274,28 @@ export function CourseView() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  {classCourse && classCourse.status !== "done" && !view.current && (
-                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
-                      className="text-xs font-semibold text-primary-600 hover:text-primary-700">Set as current</button>
-                  )}
-                  {classCourse && (
-                    <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200">
-                      <IconBroadcast size={12} stroke={1.75} /> Go live
-                    </Button>
+                <div className="flex items-center gap-4 shrink-0">
+                  {view.progress != null && (
+                    <div className="flex items-center gap-2 w-36">
+                      <div className="flex-1"><SegmentedBar pct={view.progress} /></div>
+                      <span className="text-xs font-mono text-neutral-500 w-9 text-right shrink-0">{view.progress}%</span>
+                    </div>
                   )}
                   {view.progress != null && (
-                    <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"}>
+                    <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"} className="shrink-0">
                       {view.locked ? "Locked" : view.progress === 100 ? "Completed" : view.progress > 0 ? "In Progress" : "Not started yet"}
                     </Badge>
                   )}
-                  <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })}>
+                  {classCourse && classCourse.status !== "done" && !view.current && (
+                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
+                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
+                  )}
+                  {classCourse && (
+                    <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
+                      <IconBroadcast size={12} stroke={1.75} /> Go live
+                    </Button>
+                  )}
+                  <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })} className="shrink-0">
                     Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />
                   </Button>
                 </div>
@@ -273,7 +303,7 @@ export function CourseView() {
 
               {/* Blocks → Components — the two levels beneath the lesson */}
               {isOpen && (
-                <div className="px-5 py-4">
+                <div className="px-5 pb-5 border-t border-neutral-200 pt-4">
                   {blocks.map((b) => {
                     const BT = blockMeta(b.type); const I = BT.icon;
                     const key = `${l.id}:${b.id}`;
@@ -329,16 +359,17 @@ export function CourseView() {
                   {!blocks.length && <p className="text-xs text-neutral-500">No blocks in this lesson yet — open it to add the first one.</p>}
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
 
         {!visibleTree.length && (
           <p className="text-sm text-neutral-500 p-4">
-            {q ? `No blocks or components match “${query}”.` : "No lessons in this course yet."}
+            {q ? `No blocks or components match “${query}”.` : statusFilter !== "all" ? "No lessons match this filter." : "No lessons in this course yet."}
           </p>
         )}
-      </div>
+        </div>
+      </Card>
 
       <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} onCreated={(lessonId) => go({ lessonId })} />
     </Page>
