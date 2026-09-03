@@ -35,9 +35,16 @@ in-app navigation. Two layers:
    params/query, and turns `go(patch)` calls into `navigate(buildPath(...))`.
    This is what lets a view call `go({ courseId, lessonId })` without caring
    whether "state" lives in memory or in the URL — it always lives in the URL.
-   Add a new top-level page by adding a `<Route>` in `Content()`
-   (`english-platform-prototype.jsx`) and a case in `buildPath`/`TAB_PATH`
-   (`router.jsx`) if it takes params.
+   `buildPath` itself is just a dispatcher over one **named path-builder
+   function per destination** (`coursesPath`, `courseDetailPath`,
+   `lessonPath`, `partPath`, `classesPath`, `classDetailPath`, `studentsPath`,
+   `studentDetailPath` — all exported from `router.jsx`), the same shape as a
+   real Xsolla project's `usePaths()`: one source of truth per URL a view
+   might actually need a real href for (not just a `go()` call), instead of
+   a path string-templated wherever it's needed. Add a new top-level page by
+   adding a `<Route>` in `Content()` (`english-platform-prototype.jsx`), a
+   case in `TAB_PATH`, and — if it takes params — a named path builder plus
+   a case in `buildPath` that calls it.
 2. **Page-internal sub-navigation** — a page that owns its own nested
    tabs/drill-downs (e.g. `Library`'s reading/word-sets/playground tabs and
    its reader/word-set drill-down, or `StudentDetail`'s overview/words/...
@@ -73,9 +80,12 @@ seam so a real one can be dropped in later without touching any view:
   (`{code, description}`), so a reducer case that starts awaiting a real
   request fails the same way every other one does, and callers can toast
   `err.description` directly instead of branching on raw `Response`/`TypeError`
-  shapes. Modeled on a real Xsolla project's axios client factory
-  (one factory, one normalized error contract) — swapped to `fetch` since
-  there's no axios dependency to justify yet.
+  shapes. The returned client also carries `setAuthToken`/`clearAuthToken`,
+  so logging in sets the token once and every subsequent call carries it,
+  rather than threading it through every function signature. Modeled on a
+  real Xsolla project's axios client factory (one client instance, one
+  normalized error contract, `setHTTPToken`/`clearHTTPToken`) — swapped to
+  `fetch` since there's no axios dependency to justify yet.
 - **`src/data.jsx`** — static seed fixtures (`SEED_COURSES`, `SEED_STUDENTS`,
   …, what a real backend's database would already contain) plus static UI
   config that isn't per-teacher data at all (`BLOCK_TYPES`, `LESSON_TEMPLATES`,

@@ -57,22 +57,35 @@ function mergeRoute(r, patch) {
   return { ...r, ...patch };
 }
 
+// Named path builders — one function per destination, each the single
+// source of truth for that URL shape, the same way a real Xsolla project's
+// `usePaths()` gives every settings page its own `xSettingsPath(id)`
+// function instead of a path string-templated wherever it's needed.
+// `buildPath` below is just a dispatcher over these; anything that needs a
+// real href (not just a `go()` call) can import the specific builder it needs.
+export const coursesPath = () => "/courses";
+export const courseDetailPath = (courseId, classId) => `/courses/${courseId}${classId ? `?classId=${classId}` : ""}`;
+export const lessonPath = (courseId, lessonId) => `/courses/${courseId}/lessons/${lessonId}`;
+export const partPath = (courseId, lessonId, partId) => `/courses/${courseId}/lessons/${lessonId}/parts/${partId}`;
+export const classesPath = () => "/classes";
+export const classDetailPath = (classId) => `/classes/${classId}`;
+export const studentsPath = (filter) => `/students${filter ? `?filter=${filter}` : ""}`;
+export const studentDetailPath = (studentId, filter) => `/students/${studentId}/overview${filter ? `?filter=${filter}` : ""}`;
+
 function buildPath(r) {
   switch (r.tab) {
     case "courses":
-      if (r.partId) return `/courses/${r.courseId}/lessons/${r.lessonId}/parts/${r.partId}`;
-      if (r.lessonId) return `/courses/${r.courseId}/lessons/${r.lessonId}`;
+      if (r.partId) return partPath(r.courseId, r.lessonId, r.partId);
+      if (r.lessonId) return lessonPath(r.courseId, r.lessonId);
       // classId here means "viewed through this class's progress" (set when
       // opening a course from its card on a Class page) — carried as a query
       // param since the course itself still lives at /courses/:courseId.
-      if (r.courseId) return `/courses/${r.courseId}${r.classId ? `?classId=${r.classId}` : ""}`;
-      return "/courses";
+      if (r.courseId) return courseDetailPath(r.courseId, r.classId);
+      return coursesPath();
     case "classes":
-      return r.classId ? `/classes/${r.classId}` : "/classes";
-    case "students": {
-      const qs = r.filter ? `?filter=${r.filter}` : "";
-      return r.studentId ? `/students/${r.studentId}/overview${qs}` : `/students${qs}`;
-    }
+      return r.classId ? classDetailPath(r.classId) : classesPath();
+    case "students":
+      return r.studentId ? studentDetailPath(r.studentId, r.filter) : studentsPath(r.filter);
     default:
       return TAB_PATH[r.tab] || "/dashboard";
   }

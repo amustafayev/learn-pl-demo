@@ -5,9 +5,12 @@
    endpoint fails the same way: a typed ApiError with a {code, description}
    shape a toast can render directly, never a raw Response/TypeError.
 
-   Modeled after login-pa-module's axios client factory (setupApi.ts +
-   getApiError.ts) — same "one factory, normalized error" contract, just
-   fetch-based since this prototype has no axios dependency to justify. */
+   Modeled after a real Xsolla project's axios client factory (setupApi.ts +
+   getApiError.ts): one client instance created once, a response step that
+   normalizes every failure the same way, and setAuthToken/clearAuthToken
+   that mutate that instance so every call after login carries the token
+   without threading it through every function signature. Swapped to
+   fetch since this prototype has no axios dependency to justify yet. */
 
 export class ApiError extends Error {
   constructor(code, description) {
@@ -18,7 +21,9 @@ export class ApiError extends Error {
   }
 }
 
-export function createApiClient(baseURL, { token } = {}) {
+export function createApiClient(baseURL) {
+  let token = null;
+
   async function request(path, { method = "GET", body, headers } = {}) {
     let res;
     try {
@@ -47,5 +52,7 @@ export function createApiClient(baseURL, { token } = {}) {
     post: (path, body) => request(path, { method: "POST", body }),
     put: (path, body) => request(path, { method: "PUT", body }),
     delete: (path) => request(path, { method: "DELETE" }),
+    setAuthToken: (nextToken) => { token = nextToken; },
+    clearAuthToken: () => { token = null; },
   };
 }
