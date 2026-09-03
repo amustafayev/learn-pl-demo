@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Languages, Bookmark, Check, Volume2, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { IconLanguage, IconBookmark, IconCheck, IconVolume } from "@tabler/icons-react";
 import { ROLE, READ_STATUS, WORD_STATUS, HIGHLIGHT_COLORS } from "../data.jsx";
 import { Pill } from "../ui.jsx";
-import { Tag } from "../design-system.jsx";
+import { Tag, Switch, Button } from "../design-system.jsx";
 
 // Place N items evenly around a circle of the given radius (px), centered on
 // a relative container — shared by the conjugation wheel and word web. `deg`
@@ -284,22 +285,19 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
     <div>
       <div className="flex items-center flex-wrap gap-3 mb-4 text-sm">
         <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-          <span className={`w-9 h-5 rounded-full relative transition-colors ${translate ? "bg-indigo-600" : "bg-slate-300"}`}>
-            <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: translate ? 18 : 2 }} />
-          </span>
-          <span className="inline-flex items-center gap-1 text-slate-600"><Languages size={14} /> Instant AZ translation</span>
-          <input type="checkbox" className="sr-only" checked={translate} onChange={(e) => setTranslate(e.target.checked)} />
+          <Switch checked={translate} onChange={setTranslate} />
+          <span className="inline-flex items-center gap-1 text-neutral-600"><IconLanguage size={14} stroke={1.75} /> Instant AZ translation</span>
         </label>
         {showStatusColors && (
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
-            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-sky-100 border border-sky-200" /> new</span>
-            <span className="inline-flex items-center gap-1"><span className="w-4 border-b-2 border-amber-400" /> learning</span>
-            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100" /> known</span>
+          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
+            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-info-100 border border-info-200" /> new</span>
+            <span className="inline-flex items-center gap-1"><span className="w-4 border-b-2 border-pending-500" /> learning</span>
+            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-neutral-100" /> known</span>
           </div>
         )}
       </div>
 
-      <div className="text-[17px] leading-8 text-slate-800">
+      <div className="text-[17px] leading-8 text-neutral-800">
         {text.body.map((tok, i) => {
           const highlightCls = tok.color ? `${HIGHLIGHT_COLORS[tok.color]?.bg || ""} rounded px-0.5` : "";
           if (!tok.term) return <span key={i} className={highlightCls}>{tok.text}</span>;
@@ -309,43 +307,44 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
             <span key={i} className="relative inline-block">
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className={`cursor-pointer hover:bg-indigo-50 rounded px-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-indigo-100" : ""}`}
+                className={`cursor-pointer hover:bg-primary-50 rounded px-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-primary-100" : ""}`}
               >
                 {tok.term}
               </button>
               {open === i && (
-                <span className="absolute z-20 left-0 top-full mt-1 w-64 bg-white rounded-xl border border-slate-200 shadow-xl p-3.5 text-left block">
+                <span className="absolute z-20 left-0 top-full mt-1 w-64 bg-white rounded-xl border border-neutral-200 shadow-xl p-3.5 text-left block">
                   <span className="flex items-start justify-between gap-2">
-                    <b className="text-slate-900">{tok.term}</b>
+                    <b className="text-neutral-950">{tok.term}</b>
                     {tok.emoji && <span className="text-2xl leading-none" title="picture definition">{tok.emoji}</span>}
                   </span>
                   {/* UK / US pronunciation, Cambridge-style */}
                   <span className="flex items-center gap-1.5 mt-1.5">
                     {[["uk", "UK", tok.ipaUk], ["us", "US", tok.ipaUs]].map(([id, label, ipa]) => (
                       <button key={id} onClick={() => play(`${i}-${id}`)}
-                        className={`inline-flex items-center gap-1 text-[10px] font-mono rounded-md px-1.5 py-0.5 border transition-colors ${playing === `${i}-${id}` ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600"}`}>
-                        <Volume2 size={10} /> {label}{ipa ? ` ${ipa}` : ""}
+                        className={`inline-flex items-center gap-1 text-[10px] font-mono rounded-md px-1.5 py-0.5 border transition-colors ${playing === `${i}-${id}` ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
+                        <IconVolume size={10} stroke={1.75} /> {label}{ipa ? ` ${ipa}` : ""}
                       </button>
                     ))}
                   </span>
                   {/* definition first — translation is one tap away, not in your face */}
-                  <span className="block text-sm text-slate-600 mt-2">{tok.def}</span>
-                  <span className="block text-xs text-slate-400 italic mt-1.5">“{tok.example}”</span>
+                  <span className="block text-sm text-neutral-600 mt-2">{tok.def}</span>
+                  <span className="block text-xs text-neutral-500 italic mt-1.5">“{tok.example}”</span>
                   {(translate || revealedAz[i])
-                    ? <span className="block text-indigo-600 font-medium text-sm mt-1.5">🇦🇿 {tok.az}</span>
+                    ? <span className="block text-primary-600 font-medium text-sm mt-1.5">🇦🇿 {tok.az}</span>
                     : <button onClick={() => setRevealedAz((r) => ({ ...r, [i]: true }))}
-                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-md px-2 py-0.5">
-                        <Languages size={11} /> AZ tərcümə
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:text-primary-700 border border-primary-200 rounded-md px-2 py-0.5">
+                        <IconLanguage size={11} stroke={1.75} /> AZ tərcümə
                       </button>}
-                  <button
-                    onClick={() => { setSaved((s) => ({ ...s, [tok.term]: true })); if (onSaveWord) onSaveWord(tok); }}
-                    disabled={isSaved}
-                    className={`mt-2.5 w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 ${
-                      isSaved ? "bg-emerald-50 text-emerald-700" : "bg-indigo-600 text-white hover:bg-indigo-700"
-                    }`}
-                  >
-                    {isSaved ? <><Check size={13} /> Saved with its sentence</> : <><Bookmark size={13} /> Save word</>}
-                  </button>
+                  {isSaved ? (
+                    <span className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-success-50 px-3 py-1.5 text-xs font-semibold text-success-700">
+                      <IconCheck size={13} stroke={1.75} /> Saved with its sentence
+                    </span>
+                  ) : (
+                    <Button variant="primary" size="sm" className="mt-2.5 w-full"
+                      onClick={() => { setSaved((s) => ({ ...s, [tok.term]: true })); if (onSaveWord) onSaveWord(tok); }}>
+                      <IconBookmark size={13} stroke={1.75} /> Save word
+                    </Button>
+                  )}
                 </span>
               )}
             </span>

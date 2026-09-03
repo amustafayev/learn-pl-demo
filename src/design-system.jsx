@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconPlus, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -115,6 +115,81 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
         );
       })}
       {!students.length && <p className="text-sm text-neutral-500 p-2">{emptyText}</p>}
+    </div>
+  );
+}
+
+// The shared shape behind every "pick one of many, grouped into named
+// categories" surface — "Add a block" and "pick a component" both offer a
+// big catalog of icon+label options sorted into sections, each with a small
+// used-count badge if already placed in the lesson. One factory component so
+// every picker in the app looks and behaves identically, instead of each
+// screen growing its own near-duplicate grid.
+export function CategoryPicker({ groups, onPick, columns = 2 }) {
+  const gridCols = columns === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2";
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.id}>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500 mb-1.5">{g.label}</div>
+          <div className={`grid gap-2 ${gridCols}`}>
+            {g.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.id} onClick={() => onPick(item.id)}
+                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
+                  {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
+                  {/* item.icon is whatever set provided the catalog entry (this
+                      app's block/component catalogs are still lucide-react,
+                      whose stroke-width prop is `strokeWidth` not `stroke` —
+                      don't pass a tabler-style `stroke` here or it overrides
+                      the SVG's actual stroke color and the glyph vanishes) */}
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={17} /></span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-neutral-900">{item.label}</span>
+                    {item.description && <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{item.description}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// A saved-library row — "From My Blocks" / "Insert from My Component
+// Library" both reuse a saved item into a fresh spot, grouped by the
+// course/lesson it was saved from so a growing library reads as folders
+// instead of one flat pile. Same shape as CategoryPicker's cards (icon +
+// label + meta) but single-column, denser, and ends in a plain "insert" cue
+// instead of a used-count badge, since a saved item can be reused any number
+// of times.
+export function LibraryPickList({ groups, onPick }) {
+  return (
+    <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
+      {groups.map((g) => (
+        <div key={g.id}>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-primary-600/80 mb-1.5 px-0.5">{g.label}</div>
+          <div className="space-y-1.5">
+            {g.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.id} onClick={() => onPick(item.id)}
+                  className="w-full flex items-center gap-2.5 rounded-xl border border-primary-200 bg-primary-50/50 hover:bg-primary-100/70 p-2.5 text-left transition-colors">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={15} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium truncate text-neutral-900">{item.label}</span>
+                    {item.description && <span className="block text-[11px] text-neutral-500 truncate">{item.description}</span>}
+                  </span>
+                  <IconPlus size={14} stroke={1.75} className="text-primary-600 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -574,8 +649,9 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
         <button
           key={o.id}
           onClick={() => onChange?.(o.id)}
-          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${value === o.id ? "bg-neutral-950 text-white" : "text-neutral-500 hover:text-neutral-800"}`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${value === o.id ? "bg-neutral-950 text-white" : "text-neutral-500 hover:text-neutral-800"}`}
         >
+          {o.icon && <o.icon size={14} stroke={1.75} />}
           {o.label}
         </button>
       ))}

@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Eye, Pencil, Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
-  GraduationCap, Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown, ArrowRight,
+  Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
+  Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown, ArrowRight,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  BookmarkPlus, Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
+  Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
 } from "lucide-react";
+import {
+  IconArrowLeft, IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
+} from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
+import { Button, SegmentedToggle, CategoryPicker, LibraryPickList } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -101,34 +105,15 @@ const SAMPLE_WORDS = [
 // "assign a quick task" surface look and behave identically.
 export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
   const groups = COMPONENT_CATEGORIES
-    .map((cat) => ({ ...cat, kinds: cat.kinds.filter((k) => kinds.includes(k)) }))
-    .filter((cat) => cat.kinds.length);
-  return (
-    <div className="space-y-4">
-      {groups.map((cat) => (
-        <div key={cat.id}>
-          <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{cat.label}</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {cat.kinds.map((k) => {
-              const M = COMPONENT_META[k]; const I = M.icon;
-              const used = usedCounts[k] || 0;
-              return (
-                <button key={k} onClick={() => onPick(k)}
-                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"}`}>
-                  {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><I size={16} /></span>
-                  <span className="min-w-0">
-                    <span className="text-sm font-medium block">{M.label}</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5 leading-snug">{M.hint}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+    .map((cat) => ({
+      id: cat.id, label: cat.label,
+      items: cat.kinds.filter((k) => kinds.includes(k)).map((k) => {
+        const M = COMPONENT_META[k];
+        return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: usedCounts[k] || 0 };
+      }),
+    }))
+    .filter((cat) => cat.items.length);
+  return <CategoryPicker groups={groups} onPick={onPick} />;
 }
 
 // Playground's purely gamified kinds draw from the shared, cross-level Word
@@ -392,87 +377,87 @@ export default function BlockStudio() {
 
   return (
     <div className="p-5 sm:p-8 max-w-5xl mx-auto">
-      <button onClick={() => go({ partId: null })} className="text-sm text-slate-400 hover:text-indigo-600 inline-flex items-center gap-1 mb-4">
-        <ArrowLeft size={14} /> {course.title} · Lesson {lesson.n}
+      <button onClick={() => go({ partId: null })} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4">
+        <IconArrowLeft size={14} stroke={1.75} /> {course.title} · Lesson {lesson.n}
       </button>
 
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div className="flex items-center gap-3">
           <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${BT.tone}`}><I size={20} /></span>
           <div>
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
-            <h1 className="text-xl font-bold tracking-tight">{block.title || BT.label}</h1>
+            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
+            <h1 className="text-xl font-bold tracking-tight text-neutral-950">{block.title || BT.label}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Btn variant="outline" size="sm"
+          <Button variant="outline" size="sm"
             onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
-            <BookmarkPlus size={14} /> Save Block to Bank
-          </Btn>
-          <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
-            <button onClick={() => setMode("student")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "student" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Eye size={14} /> As student</button>
-            <button onClick={() => setMode("edit")} className={`text-sm font-semibold rounded-lg px-3.5 py-1.5 inline-flex items-center gap-1.5 ${mode === "edit" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}><Pencil size={14} /> Edit content</button>
-          </div>
+            <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
+          </Button>
+          <SegmentedToggle value={mode} onChange={setMode} options={[
+            { id: "student", label: "As student", icon: IconEye },
+            { id: "edit", label: "Edit content", icon: IconPencil },
+          ]} />
         </div>
       </div>
 
       {mode === "student" ? (
         <div>
-          <div className="mb-4 flex items-center gap-2 text-xs text-slate-400"><GraduationCap size={14} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
+          <div className="mb-4 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
           <div className="space-y-8">
             {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
+              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
               const CI = M.icon;
               const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
               return (
-                <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-indigo-100" : ""}>
+                <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
-                    <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Component {i + 1} · {M.label}</span>
                     <LevelPill level={c.level} />
-                    {linkedPassage && <span className="text-[11px] text-indigo-400">↳ for its passage above</span>}
+                    {linkedPassage && <span className="text-[11px] text-primary-500">↳ for its passage above</span>}
                   </div>
                   <ComponentStudent component={c} />
                 </div>
               );
             })}
-            {!components.length && <Card className="p-8 text-center text-slate-400 text-sm">No components yet — switch to Edit to add some.</Card>}
+            {!components.length && <Card className="p-8 text-center text-neutral-500 text-sm">No components yet — switch to Edit to add some.</Card>}
           </div>
         </div>
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Components · add, reorder, duplicate & save to library</div>
-            <Btn size="sm" variant="soft" onClick={() => { toast("Block saved"); go({ partId: null }); }}><Check size={14} /> Save & close</Btn>
+            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">Components · add, reorder, duplicate & save to library</div>
+            <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
           <div className="space-y-4">
             {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-slate-100 text-slate-600" };
+              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
               const CI = M.icon;
               const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
               return (
-                <Card key={c.id} className={`p-4 ${linkedPassage ? "ml-6 border-indigo-100" : ""}`}>
-                  <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-slate-100">
+                <Card key={c.id} className={`p-4 ${linkedPassage ? "ml-6 border-primary-100" : ""}`}>
+                  <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-neutral-100">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
                     <div className="flex-1">
-                      <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Component {i + 1}{linkedPassage ? " · ↳ for its passage" : ""}</span>
-                      <div className="font-semibold text-sm">{M.label}</div>
+                      <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-500">Component {i + 1}{linkedPassage ? " · ↳ for its passage" : ""}</span>
+                      <div className="font-semibold text-sm text-neutral-950">{M.label}</div>
                     </div>
                     {c.level !== undefined && (
-                      <label className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <label className="flex items-center gap-1 text-[11px] text-neutral-500">
                         Level
                         <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                          className="border border-slate-200 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-200">
+                          className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-200">
                           {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
                       </label>
                     )}
-                    <div className="flex items-center gap-1 text-slate-400">
-                      <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><BookmarkPlus size={14} /></button>
-                      <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-indigo-600 p-1.5 rounded hover:bg-slate-100"><Copy size={14} /></button>
-                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-rose-500 p-1.5 rounded hover:bg-slate-100"><Trash2 size={14} /></button>
+                    <div className="flex items-center gap-1 text-neutral-500">
+                      <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
+                      <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><Copy size={14} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><ArrowUp size={14} /></button>
+                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><ArrowDown size={14} /></button>
+                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><Trash2 size={14} /></button>
                     </div>
                   </div>
                   <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
@@ -484,54 +469,40 @@ export default function BlockStudio() {
             {adding ? (
               <Card className="p-5 space-y-4">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono uppercase tracking-wide text-slate-400">Pick a component or insert from saved library</span>
-                  <button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                  <span className="text-xs font-mono uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
+                  <Button variant="light" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
                 </div>
 
                 {state.componentBank && state.componentBank.length > 0 && (
-                  <div className="border-b border-slate-100 pb-4">
-                    <div className="text-[11px] font-mono uppercase tracking-wide text-indigo-600 font-semibold mb-2 flex items-center gap-1">
-                      <BookmarkPlus size={13} /> Insert from My Component Library
+                  <div className="border-b border-neutral-100 pb-4">
+                    <div className="text-[11px] font-mono uppercase tracking-wide text-primary-600 font-semibold mb-2 flex items-center gap-1">
+                      <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
                     </div>
                     {/* grouped by the course/parent it was saved from, so the
                         library reads as folders instead of one flat pile */}
-                    <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
-                      {groupBankByParent(state.componentBank).map(({ parent, items }) => (
-                        <div key={parent}>
-                          <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-500/80 mb-1.5 px-0.5">{parent}</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {items.map((item) => {
-                              const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-slate-100 text-slate-600", icon: Layers };
-                              const KI = M.icon;
-                              const child = bankChildLabel(item);
-                              return (
-                                <button key={item.id} onClick={() => insertSavedComponent(item)}
-                                  className="flex items-center gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 p-2.5 text-left transition-all shadow-sm">
-                                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><KI size={14} /></span>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-bold text-slate-800 truncate">{item.title}</div>
-                                    <div className="text-[10px] text-slate-400 truncate">{M.label}{child ? ` · ${child}` : ""}</div>
-                                  </div>
-                                  <Plus size={14} className="text-indigo-600 shrink-0" />
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <LibraryPickList
+                      groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                        id: parent, label: parent,
+                        items: items.map((item) => {
+                          const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                          const child = bankChildLabel(item);
+                          return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                        }),
+                      }))}
+                      onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                    />
                   </div>
                 )}
 
                 <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Create new component — grouped by what it's for</div>
+                  <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
                   <ComponentKindPicker kinds={palette}
                     usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
                     onPick={addComponent} />
                 </div>
               </Card>
             ) : (
-              <button onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 text-sm font-medium">
+              <button onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-neutral-300 rounded-xl p-4 text-neutral-500 hover:border-primary-300 hover:text-primary-600 text-sm font-medium">
                 <Plus size={16} className="inline mr-1" /> Add component
               </button>
             )}
@@ -612,10 +583,10 @@ export function ComponentStudent({ component }) {
 function PassageComponent({ component }) {
   const { state, toast } = useStore();
   const text = state.texts.find((t) => t.id === component.textId) || state.texts[0];
-  if (!text) return <Card className="p-6 text-slate-400 text-sm">No reading text linked. Edit to choose one.</Card>;
+  if (!text) return <Card className="p-6 text-neutral-500 text-sm">No reading text linked. Edit to choose one.</Card>;
   return (
     <Card className="p-6">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-3">{text.title} · {text.topic} · {text.level} · {text.wordCount} words</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-500 mb-3">{text.title} · {text.topic} · {text.level} · {text.wordCount} words</div>
       <Reader text={text} onSaveWord={() => toast("Word saved to the personal list")} />
     </Card>
   );

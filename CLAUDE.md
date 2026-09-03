@@ -67,6 +67,15 @@ seam so a real one can be dropped in later without touching any view:
   `activeClassCourse`, `groupBankByParent`, `kitContents`, …) — a real backend
   would either replicate this logic or return it pre-joined, so it lives next
   to the state shape it describes, not in the React layer.
+- **`src/db/apiClient.js`** — not called by anything yet (the reducer is
+  fully synchronous), but the seam a real backend plugs into: `createApiClient(baseURL)`
+  wraps `fetch` and normalizes every failure into a typed `ApiError`
+  (`{code, description}`), so a reducer case that starts awaiting a real
+  request fails the same way every other one does, and callers can toast
+  `err.description` directly instead of branching on raw `Response`/`TypeError`
+  shapes. Modeled on a real Xsolla project's axios client factory
+  (one factory, one normalized error contract) — swapped to `fetch` since
+  there's no axios dependency to justify yet.
 - **`src/data.jsx`** — static seed fixtures (`SEED_COURSES`, `SEED_STUDENTS`,
   …, what a real backend's database would already contain) plus static UI
   config that isn't per-teacher data at all (`BLOCK_TYPES`, `LESSON_TEMPLATES`,
@@ -175,13 +184,18 @@ thing reuses it too, instead of every page growing its own copy.
   with roster/schedule instead of a creator credit), `SessionRow`,
   `SegmentedBar` (the dashed multi-cell progress bar on course cards)
 - **Controls**: `Switch`, `Checkbox`, `SegmentedToggle` (pill-shaped 2-option
-  switcher, e.g. Light/Dark)
+  switcher, e.g. Light/Dark — options may carry an optional `icon`)
 - **Navigation**: `NavItem`, `NavSectionLabel`, `TabBar` (underline tabs),
   `PillTabs` (filter pills with a count badge)
 - **Overlays**: `Modal`, `StudentCheckList` (the shared "pick some students"
   list — renders a purely visual checkbox indicator, not the interactive
   `Checkbox` button, since the whole row is already the click target and a
-  `<button>` can't contain another `<button>`)
+  `<button>` can't contain another `<button>`), `CategoryPicker` (a big
+  catalog of icon+label options grouped into named sections, each with an
+  optional used-count badge — "Add a block", "pick a component"),
+  `LibraryPickList` (the denser, single-column "insert a saved item, grouped
+  by where it was saved from" list — "From My Blocks", "Insert from My
+  Component Library")
 - **Misc**: `ComingSoon` (empty-state shell), `SpeakButton` (US/UK
   pronunciation via browser TTS), `SocialButton` (icon+label pill for
   "log in / sign up with X" rows), `ImagePlaceholder` (checkerboard "no

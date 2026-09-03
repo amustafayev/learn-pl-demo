@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
-import { Modal, Field, TextField, Select, Button, StudentCheckList } from "../design-system.jsx";
+import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker, LibraryPickList } from "../design-system.jsx";
 import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS } from "../data.jsx";
 
@@ -257,64 +257,33 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, b
   // Categorized so a teacher picks "Reading" and sees reading-shaped block
   // types, instead of every block type from every template thrown at once.
   const groups = BLOCK_CATEGORIES
-    .map((cat) => ({ ...cat, types: cat.types.filter((t) => types.includes(t)) }))
-    .filter((cat) => cat.types.length);
+    .map((cat) => ({
+      id: cat.id, label: cat.label,
+      items: cat.types.filter((t) => types.includes(t)).map((type) => {
+        const BT = BLOCK_TYPES[type];
+        return { id: type, icon: BT.icon, tone: BT.tone, label: BT.label, description: BT.description, used: usedCounts[type] || 0 };
+      }),
+    }))
+    .filter((cat) => cat.items.length);
+
+  const bankGroups = groupBankByParent(bank).map(({ parent, items }) => ({
+    id: parent, label: parent,
+    items: items.map((item) => {
+      const BT = BLOCK_TYPES[item.type];
+      const child = bankChildLabel(item);
+      return { id: item.id, icon: BT.icon, tone: BT.tone, label: item.title, description: `${BT.label} · ${(item.content?.components || []).length} components${child ? ` · ${child}` : ""}` };
+    }),
+  }));
+
   return (
     <Modal open={open} onClose={onClose} title="Add a block" sub="A lesson is built from skill blocks — each can hold several components">
-      <div className="space-y-4">
-        {groups.map((cat) => (
-          <div key={cat.id}>
-            <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500 mb-1.5">{cat.label}</div>
-            <div className="grid grid-cols-2 gap-2">
-              {cat.types.map((type) => {
-                const BT = BLOCK_TYPES[type]; const I = BT.icon;
-                const used = usedCounts[type] || 0;
-                return (
-                  <button key={type} onClick={() => { onPick(type); onClose(); }}
-                    className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors ${used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
-                    {used > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center">{used}</span>}
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={17} /></span>
-                    <span>
-                      <span className="text-sm font-medium block text-neutral-900">{BT.label}</span>
-                      {BT.description && <span className="text-[11px] text-neutral-500 block mt-0.5">{BT.description}</span>}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <CategoryPicker groups={groups} onPick={(type) => { onPick(type); onClose(); }} />
 
-      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson.
-          Grouped by the course/parent it was saved from, so a growing bank
-          reads as folders instead of one flat list. */}
+      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson. */}
       {bank.length > 0 && onPickBank && (
         <div className="mt-4 pt-4 border-t border-neutral-200">
           <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">From My Blocks · ready-made, drops in with all its content</div>
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
-            {groupBankByParent(bank).map(({ parent, items }) => (
-              <div key={parent}>
-                <div className="text-[10px] font-bold uppercase tracking-wide text-primary-600/80 mb-1.5 px-0.5">{parent}</div>
-                <div className="space-y-1.5">
-                  {items.map((item) => {
-                    const BT = BLOCK_TYPES[item.type]; const I = BT.icon;
-                    const child = bankChildLabel(item);
-                    return (
-                      <button key={item.id} onClick={() => { onPickBank(item); onClose(); }}
-                        className="w-full flex items-center gap-2.5 rounded-xl border border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40 p-2.5 text-left transition-colors">
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={15} /></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="text-sm font-medium block truncate text-neutral-900">{item.title}</span>
-                          <span className="text-[11px] text-neutral-500 block truncate">{BT.label} · {(item.content?.components || []).length} components{child ? ` · ${child}` : ""}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LibraryPickList groups={bankGroups} onPick={(id) => { onPickBank(bank.find((b) => b.id === id)); onClose(); }} />
         </div>
       )}
     </Modal>

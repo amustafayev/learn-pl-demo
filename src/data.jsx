@@ -124,8 +124,8 @@ export const WORD_STATUS = {
 };
 // Reading word status — colours the word ON the page as the learner reads.
 export const READ_STATUS = {
-  new:      "bg-sky-100 text-sky-900 rounded px-0.5",
-  learning: "underline decoration-2 decoration-amber-400 underline-offset-2",
+  new:      "bg-info-100 text-info-900 rounded px-0.5",
+  learning: "underline decoration-2 decoration-pending-500 underline-offset-2",
   known:    "",
 };
 // Manual highlight colours a teacher can apply to any selected run of a
