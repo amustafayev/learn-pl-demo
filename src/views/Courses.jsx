@@ -6,7 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard } from "../design-system.jsx";
 import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress } from "../store.jsx";
-import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta, blockRail } from "../data.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
@@ -229,7 +229,7 @@ export function CourseView() {
           const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
-            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${view.current ? "border-primary-300 ring-2 ring-primary-100" : "hover:border-neutral-300"}`}>
+            <Card key={l.id} className={`!p-0 overflow-hidden transition-all ${view.current ? "border-primary-300 ring-2 ring-primary-100" : "hover:border-primary-200 hover:shadow-md"}`}>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 pb-4 border-b border-neutral-200">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleLesson(l.id)} className="text-neutral-400 hover:text-primary-600 shrink-0 p-1 -ml-1">
@@ -270,18 +270,6 @@ export function CourseView() {
                   </Button>
                 </div>
               </div>
-
-              {/* Block rail — density at a glance, without expanding: one tick
-                  per Block, taller/filled ticks hold more Components. */}
-              <button onClick={() => toggleLesson(l.id)} title="Click to expand the blocks below"
-                className="w-full flex items-end gap-1 px-5 py-3 border-b border-neutral-200 hover:bg-neutral-50 transition-colors">
-                {blocks.map((b) => (
-                  <span key={b.id} title={`${blockMeta(b.type).label} · ${b.components.length} component${b.components.length === 1 ? "" : "s"}`}
-                    className={`flex-1 rounded-full ${blockRail(b.type)} ${blockMatch[b.id] ? "ring-2 ring-offset-1 ring-primary-400" : ""}`}
-                    style={{ height: `${Math.min(14, 5 + b.components.length * 2)}px`, opacity: b.components.length ? 1 : .3 }} />
-                ))}
-                {!blocks.length && <span className="text-xs text-neutral-400">No blocks yet</span>}
-              </button>
 
               {/* Blocks → Components — the two levels beneath the lesson */}
               {isOpen && (
