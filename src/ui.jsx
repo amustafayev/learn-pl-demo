@@ -1,7 +1,6 @@
 import React from "react";
 import { ChevronRight, X, Check, Volume2 } from "lucide-react";
 import { HUE, initials } from "./data.jsx";
-import { useStore } from "./store.jsx";
 
 /* Shared presentational primitives used across every view. */
 
@@ -233,22 +232,3 @@ export function Field({ label, children }) {
 }
 export const inputCls = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300";
 
-/* Toast host — reads ephemeral toasts from the store. */
-export function ToastHost() {
-  const { state, dispatch } = useStore();
-  return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 items-end">
-      {state.toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`text-sm rounded-xl px-4 py-2.5 shadow-lg border flex items-center gap-2 animate-[fadeIn_.15s_ease] ${
-            t.tone === "err" ? "bg-rose-600 text-white border-rose-700" : "bg-slate-900 text-white border-slate-800"
-          }`}
-        >
-          {t.text}
-          <button onClick={() => dispatch({ type: "DISMISS_TOAST", id: t.id })} className="opacity-60 hover:opacity-100"><X size={14} /></button>
-        </div>
-      ))}
-    </div>
-  );
-}

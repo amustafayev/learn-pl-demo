@@ -595,6 +595,25 @@ export function SessionRow({ title, subtitle, active, className = "" }) {
   );
 }
 
+// Toast stack — bottom-right, pure/prop-driven like everything else here:
+// the shell wires it to real state (`state.toasts`, dismiss dispatch) since
+// this file never reads the store directly. `tone: "err"` is the only
+// non-default case the app dispatches today (see store.jsx's `toast()`).
+export function ToastHost({ toasts = [], onDismiss }) {
+  return (
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 items-end">
+      {toasts.map((t) => (
+        <div key={t.id}
+          className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm shadow-lg ${
+            t.tone === "err" ? "bg-warning-600 text-white border-warning-700" : "bg-neutral-950 text-white border-neutral-800"}`}>
+          {t.text}
+          <button onClick={() => onDismiss?.(t.id)} className="opacity-60 hover:opacity-100"><IconX size={14} stroke={1.75} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // A placeholder shell for a section that isn't built yet — one empty state
 // reused everywhere instead of each spot inventing its own.
 export function ComingSoon({ icon: Icon, title, sub }) {

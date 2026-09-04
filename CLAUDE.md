@@ -216,7 +216,9 @@ thing reuses it too, instead of every page growing its own copy.
   `LibraryPickList` (the denser, single-column "insert a saved item, grouped
   by where it was saved from" list — "From My Blocks", "Insert from My
   Component Library")
-- **Misc**: `ComingSoon` (empty-state shell), `SpeakButton` (US/UK
+- **Misc**: `ToastHost` (the bottom-right toast stack — pure/prop-driven,
+  `toasts`/`onDismiss`, wired to the store by the shell, not the factory),
+  `ComingSoon` (empty-state shell), `SpeakButton` (US/UK
   pronunciation via browser TTS), `SocialButton` (icon+label pill for
   "log in / sign up with X" rows), `ImagePlaceholder` (checkerboard "no
   image sourced yet" box — Auth's side panel, Settings' avatar — used
@@ -233,30 +235,43 @@ The app is being moved off the old `src/ui.jsx` primitives onto the factory
 above, one file at a time, verified live in a browser after each one (build →
 lint → click through it with zero console errors).
 
-**Done:** `english-platform-prototype.jsx` (shell/nav), `Dashboard.jsx`,
-`Courses.jsx`, `Classes.jsx`, `Students.jsx`, `Library.jsx`, `LevelTests.jsx`,
-`Insights.jsx`, `StudentInsights.jsx`, `LiveSession.jsx`,
-`src/components/modals.jsx` (`NewCourseModal`, `NewLessonModal`,
-`AddBlockModal`, `AssignModal`, `AddTextModal`), `Auth.jsx` (`LoginPage`,
-`SignupPage`), `Settings.jsx`. `data.jsx`'s `statusPill`/`WORD_STATUS`
-return factory color tokens now, not class strings.
+**Done:** `english-platform-prototype.jsx` (shell/nav, including `ToastHost`,
+now in the factory), `Dashboard.jsx`, `Courses.jsx`, `Classes.jsx`,
+`Students.jsx`, `Library.jsx`, `LevelTests.jsx`, `Insights.jsx`,
+`StudentInsights.jsx`, `LiveSession.jsx`, `src/components/modals.jsx`
+(`NewCourseModal`, `NewLessonModal`, `AddBlockModal`, `AssignModal`,
+`AddTextModal`), `Auth.jsx` (`LoginPage`, `SignupPage`), `Settings.jsx`.
+`data.jsx`'s `statusPill`/`WORD_STATUS` return factory color tokens now, not
+class strings.
 
-**Not yet migrated — still on the old `ui.jsx` look:**
+**Partially migrated — most of the file is still the old `ui.jsx` look:**
+- `src/views/parts.jsx` — `BlockStudio`'s header/toolbar and the "Add a
+  component" panel (`ComponentKindPicker`) are done. Every actual quiz,
+  flashcard, matching game, drag-and-drop component and their teacher-side
+  editors are still on `Card, Btn, Pill, AiNote, inputCls` from `ui.jsx`.
+- `src/views/grammar.jsx` — the `Reader` component (translation toggle,
+  word-status legend, save-word action) is done. `RoleLegend`,
+  `ColorSentence`, `TenseTimeline`, `PrepositionScene`, `ConjugationWheel`,
+  `ConditionalFlow`, `ComparisonLadder`, `WordWeb` are still raw slate/indigo
+  + the old `Pill`.
+
+**Not yet migrated at all — still on the old `ui.jsx` look:**
 - `src/components/StudentAssignModal.jsx`
-- `src/views/parts.jsx` — every block/component editor and student-facing
-  renderer (quizzes, flashcards, matching games, etc.)
-- `src/views/grammar.jsx` — the `Reader` component (the AZ-translation toggle
-  and word-status highlight colors are still the old indigo/slate), plus two
-  remaining raw `Pill` usages
 - `src/views/playground.jsx`
 
-Until these are migrated, anywhere a page renders a lesson block, a quiz, or
-the reading-passage toggle, you'll see the old palette leak through — that's
-expected, not a regression. Migrate them the same way as everything else: read
-the file, port it to `design-system.jsx` components/tokens, verify visually.
+**Dead code, not a migration target:** `src/views/Statistics.jsx` is fully on
+old primitives but isn't imported or routed anywhere — it's orphaned, not a
+live page. Either delete it or wire it up before migrating it; migrating an
+unused file just to tick a box isn't worth doing.
 
-Once every file above is migrated and nothing imports from `ui.jsx` anymore,
-delete `ui.jsx`.
+Until the partial/not-migrated files above are finished, anywhere a page
+renders a lesson block, a quiz, or a grammar visual (timeline, wheel, etc.)
+you'll see the old palette leak through — that's expected, not a regression.
+Migrate them the same way as everything else: read the file, port it to
+`design-system.jsx` components/tokens, verify visually.
+
+Once every file above is migrated (and `Statistics.jsx` is deleted or
+migrated) and nothing imports from `ui.jsx` anymore, delete `ui.jsx`.
 
 ## Verification checklist for any UI change
 

@@ -6,8 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { StoreProvider, useStore } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
-import { ToastHost } from "./ui.jsx";
-import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon } from "./design-system.jsx";
+import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost } from "./design-system.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
 import Classes from "./views/Classes.jsx";
@@ -50,6 +49,7 @@ export default function App() {
 }
 
 function AppShell() {
+  const { state, dispatch } = useStore();
   const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
   const startLive = useCallback((ctx) => setLive(ctx || {}), []);
   const endLive = useCallback(() => setLive(null), []);
@@ -62,7 +62,7 @@ function AppShell() {
         <TopBar pathname={pathname} onStartLive={() => startLive()} />
         <Content startLive={startLive} />
       </main>
-      <ToastHost />
+      <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
       {live && <LiveSession context={live} onEnd={endLive} />}
     </div>
   );
