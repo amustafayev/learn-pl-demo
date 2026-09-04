@@ -248,6 +248,15 @@ export function CourseView() {
       </div>
 
       <Card className="overflow-hidden mb-8">
+        {/* Column header, like the kit's own "Session" list — the single
+            biggest thing separating a real data table from a plain stack of
+            rows. Progress/Status headers only appear when the rows below
+            actually carry those columns (viewed through a class). */}
+        <div className="flex items-center gap-4 bg-neutral-50 px-5 py-2.5 border-b border-neutral-200">
+          <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Session</span>
+          {classCourse && <span className="w-36 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Progress</span>}
+          {classCourse && <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Status</span>}
+        </div>
         <div className="divide-y divide-neutral-200">
         {visibleTree.map(({ lesson: l, view, blocks, totalComponents, blockMatch }) => {
           const isOpen = q ? true : !!expandedLessons[l.id];
