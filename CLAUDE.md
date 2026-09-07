@@ -215,7 +215,10 @@ thing reuses it too, instead of every page growing its own copy.
   optional used-count badge — "Add a block", "pick a component"),
   `LibraryPickList` (the denser, single-column "insert a saved item, grouped
   by where it was saved from" list — "From My Blocks", "Insert from My
-  Component Library")
+  Component Library"), `RailItem` (a compact, selectable row for a
+  builder's object rail — the draw.io/PowerPoint "every item shown small,
+  one focused in a canvas" pattern used by Block Studio's component list;
+  drag-to-reorder wiring is the caller's, attached via `...rest`)
 - **Misc**: `ToastHost` (the bottom-right toast stack — pure/prop-driven,
   `toasts`/`onDismiss`, wired to the store by the shell, not the factory),
   `ComingSoon` (empty-state shell), `SpeakButton` (US/UK

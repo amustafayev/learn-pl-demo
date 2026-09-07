@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconPlus, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconGripVertical, IconPlus, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -191,6 +191,31 @@ export function LibraryPickList({ groups, onPick }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// A compact, selectable row for a builder's object rail — the "always see
+// every item, edit one at a time" pattern shared by drag-and-drop tools like
+// draw.io/PowerPoint (a slide panel, a shape outline): every item shown
+// small in a list, one click focuses it in a separate canvas/editor panel.
+// Drag-to-reorder wiring (`draggable`, `onDragStart`, `onDragOver`,
+// `onDrop`, `onDragEnd`) is the caller's to attach via `...rest` — which
+// list is reorderable and how is app logic, not a factory concern; this
+// component only renders the grip as a visual affordance.
+export function RailItem({ icon: Icon, tone, label, meta, selected, className = "", ...rest }) {
+  return (
+    <button
+      className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left cursor-grab active:cursor-grabbing ${PRESS_FLAT} ${
+        selected ? "border-primary-400 bg-primary-50 shadow-sm" : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"} ${className}`}
+      {...rest}
+    >
+      <IconGripVertical size={14} stroke={1.75} className="text-neutral-300 shrink-0" />
+      {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon size={16} /></span>}
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium truncate text-neutral-900">{label}</span>
+        {meta && <span className="block text-[11px] text-neutral-500 truncate">{meta}</span>}
+      </span>
+    </button>
   );
 }
 

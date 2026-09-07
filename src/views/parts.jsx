@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
-  Sparkles, RotateCcw, ChevronRight, ArrowUp, ArrowDown, ArrowRight,
+  Sparkles, RotateCcw, ChevronRight, ArrowRight,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
@@ -10,9 +10,10 @@ import {
 } from "lucide-react";
 import {
   IconArrowLeft, IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, LibraryPickList } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -327,6 +328,12 @@ export default function BlockStudio() {
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
   const [adding, setAdding] = useState(false);
+  // Edit mode is a rail-and-canvas builder (draw.io/PowerPoint pattern):
+  // every component shown small in the left rail, one selected at a time
+  // fills the main canvas. Selection is tracked by id, not index, so it
+  // survives reordering/inserting/removing without pointing at the wrong item.
+  const [selectedId, setSelectedId] = useState(null);
+  const [dragId, setDragId] = useState(null);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = (lesson?.built || []).find((p) => p.id === route.partId);
@@ -343,26 +350,63 @@ export default function BlockStudio() {
     }
   }, [block, route.courseId, route.lessonId, dispatch, state.texts]);
 
+  // Nothing selected yet (first visit, or the selected one got removed) —
+  // default the canvas to the first component instead of leaving it blank.
+  useEffect(() => {
+    const comps = block?.content?.components;
+    if (mode === "edit" && comps?.length && !comps.some((c) => c.id === selectedId)) {
+      setSelectedId(comps[0].id);
+    }
+  }, [mode, block, selectedId]);
+
   if (!block) return null;
   const content = block.content?.components ? block.content : toComponents(block, state.texts);
   const components = content.components;
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
   const palette = BT.components || [];
 
+  const selectedIndex = components.findIndex((c) => c.id === selectedId);
+  const selected = selectedIndex >= 0 ? components[selectedIndex] : null;
+
   const setComponents = (next) =>
     dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id, patch: { content: { ...content, components: next } } });
   const updateComponent = (i, patch) => setComponents(components.map((c, j) => (j === i ? { ...c, ...patch } : c)));
-  const removeComponent = (i) => setComponents(components.filter((_, j) => j !== i));
+  const removeComponent = (i) => {
+    const removedId = components[i].id;
+    const next = components.filter((_, j) => j !== i);
+    setComponents(next);
+    // Selection follows the neighbor that slides into the removed spot,
+    // same as closing a tab — never left pointing at something gone.
+    if (removedId === selectedId) setSelectedId(next[Math.min(i, next.length - 1)]?.id ?? null);
+  };
   const moveComponent = (i, dir) => {
     const j = i + dir; if (j < 0 || j >= components.length) return;
     const next = [...components]; [next[i], next[j]] = [next[j], next[i]]; setComponents(next);
   };
-  const addComponent = (kind) => { setComponents([...components, defaultComponent(kind, state.texts)]); setAdding(false); toast(`Added ${COMPONENT_META[kind].label}`); };
+  // Drag-to-reorder for the rail — pick up one component, drop it on
+  // another to swap it into that spot, the draw.io/PowerPoint way rather
+  // than one-at-a-time move-up/down buttons.
+  const reorderComponent = (fromId, toId) => {
+    if (!fromId || fromId === toId) return;
+    const from = components.findIndex((c) => c.id === fromId);
+    const to = components.findIndex((c) => c.id === toId);
+    if (from < 0 || to < 0) return;
+    const next = [...components];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setComponents(next);
+  };
+  const addComponent = (kind) => {
+    const next = defaultComponent(kind, state.texts);
+    setComponents([...components, next]); setAdding(false); setSelectedId(next.id);
+    toast(`Added ${COMPONENT_META[kind].label}`);
+  };
 
   const duplicateComponent = (i) => {
     const copy = JSON.parse(JSON.stringify(components[i]));
     copy.id = cid();
     const next = [...components]; next.splice(i + 1, 0, copy); setComponents(next);
+    setSelectedId(copy.id);
     toast("Component duplicated");
   };
   const handleSaveComponent = (c) => saveComponentToBank(dispatch, toast, c,
@@ -372,6 +416,7 @@ export default function BlockStudio() {
     copy.id = cid();
     setComponents([...components, copy]);
     setAdding(false);
+    setSelectedId(copy.id);
     toast(`Inserted “${item.title}” from Component Library`);
   };
 
@@ -427,85 +472,118 @@ export default function BlockStudio() {
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">Components · add, reorder, duplicate & save to library</div>
+            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">Components · drag to reorder, click one to edit it</div>
             <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
-          <div className="space-y-4">
-            {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-              const CI = M.icon;
-              const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
-              return (
-                <Card key={c.id} className={`p-4 ${linkedPassage ? "ml-6 border-primary-100" : ""}`}>
-                  <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-neutral-100">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={16} /></span>
-                    <div className="flex-1">
-                      <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-500">Component {i + 1}{linkedPassage ? " · ↳ for its passage" : ""}</span>
-                      <div className="font-semibold text-sm text-neutral-950">{M.label}</div>
-                    </div>
-                    {c.level !== undefined && (
-                      <label className="flex items-center gap-1 text-[11px] text-neutral-500">
-                        Level
-                        <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                          className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-200">
-                          {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                        </select>
-                      </label>
-                    )}
-                    <div className="flex items-center gap-1 text-neutral-500">
-                      <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
-                      <button title="Duplicate component" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><Copy size={14} /></button>
-                      <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><ArrowDown size={14} /></button>
-                      <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                  <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                    passages={components.filter((x) => x.kind === "passage")} />
-                </Card>
-              );
-            })}
 
-            {adding ? (
-              <Card className="p-5 space-y-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
-                  <Button variant="light" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
-                </div>
-
-                {state.componentBank && state.componentBank.length > 0 && (
-                  <div className="border-b border-neutral-100 pb-4">
-                    <div className="text-[11px] font-mono uppercase tracking-wide text-primary-600 font-semibold mb-2 flex items-center gap-1">
-                      <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
-                    </div>
-                    {/* grouped by the course/parent it was saved from, so the
-                        library reads as folders instead of one flat pile */}
-                    <LibraryPickList
-                      groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                        id: parent, label: parent,
-                        items: items.map((item) => {
-                          const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                          const child = bankChildLabel(item);
-                          return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                        }),
-                      }))}
-                      onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
-                  <ComponentKindPicker kinds={palette}
-                    usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
-                    onPick={addComponent} />
-                </div>
-              </Card>
-            ) : (
-              <button onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-neutral-300 rounded-xl p-4 text-neutral-500 hover:border-primary-300 hover:text-primary-600 text-sm font-medium">
-                <Plus size={16} className="inline mr-1" /> Add component
+          {/* Rail + canvas — draw.io/PowerPoint's pattern: every component
+              shown small on the left so the whole block stays visible at a
+              glance, one selected at a time fills the canvas on the right
+              instead of every editor being open and stacked at once. */}
+          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-5 items-start">
+            <div className="space-y-1.5">
+              {components.map((c, i) => {
+                const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                return (
+                  <RailItem key={c.id}
+                    icon={M.icon} tone={M.tone} label={M.label}
+                    meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                    selected={c.id === selectedId}
+                    onClick={() => setSelectedId(c.id)}
+                    draggable
+                    onDragStart={() => setDragId(c.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
+                    onDragEnd={() => setDragId(null)}
+                    className={dragId === c.id ? "opacity-40" : ""}
+                  />
+                );
+              })}
+              {!components.length && <p className="text-xs text-neutral-500 px-1">No components yet.</p>}
+              <button onClick={() => setAdding(true)}
+                className="w-full border-2 border-dashed border-neutral-300 rounded-xl p-3 text-neutral-500 hover:border-primary-300 hover:text-primary-600 text-sm font-medium mt-2">
+                <Plus size={15} className="inline mr-1" /> Add component
               </button>
-            )}
+            </div>
+
+            <Card className="p-5 min-h-[320px]">
+              {adding ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-mono uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
+                    <Button variant="light" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
+                  </div>
+
+                  {state.componentBank && state.componentBank.length > 0 && (
+                    <div className="border-b border-neutral-100 pb-4 mb-4">
+                      <div className="text-[11px] font-mono uppercase tracking-wide text-primary-600 font-semibold mb-2 flex items-center gap-1">
+                        <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
+                      </div>
+                      {/* grouped by the course/parent it was saved from, so the
+                          library reads as folders instead of one flat pile */}
+                      <LibraryPickList
+                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                          id: parent, label: parent,
+                          items: items.map((item) => {
+                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                            const child = bankChildLabel(item);
+                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                          }),
+                        }))}
+                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
+                    <ComponentKindPicker kinds={palette}
+                      usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
+                      onPick={addComponent} />
+                  </div>
+                </>
+              ) : selected ? (
+                (() => {
+                  const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                  const CI = M.icon;
+                  return (
+                    <>
+                      <div className="flex items-center gap-3 pb-4 mb-4 border-b border-neutral-100">
+                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><CI size={18} /></span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[11px] font-mono uppercase text-neutral-500">Component {selectedIndex + 1} of {components.length}</div>
+                          <div className="font-semibold text-base text-neutral-950 truncate">{M.label}</div>
+                        </div>
+                        {selected.level !== undefined && (
+                          <label className="flex items-center gap-1 text-[11px] text-neutral-500 shrink-0">
+                            Level
+                            <select value={selected.level || ""} onChange={(e) => updateComponent(selectedIndex, { level: e.target.value })}
+                              className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-200">
+                              {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                          </label>
+                        )}
+                        <div className="flex items-center gap-1 text-neutral-500 shrink-0">
+                          <button title="Save component to library" onClick={() => handleSaveComponent(selected)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
+                          <button title="Duplicate component" onClick={() => duplicateComponent(selectedIndex)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
+                          <button title="Move up" disabled={selectedIndex === 0} onClick={() => moveComponent(selectedIndex, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                          <button title="Move down" disabled={selectedIndex === components.length - 1} onClick={() => moveComponent(selectedIndex, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                          <button title="Remove" onClick={() => { removeComponent(selectedIndex); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                        </div>
+                      </div>
+                      <ComponentEditor component={selected} onChange={(patch) => updateComponent(selectedIndex, patch)} roster={assignedToLesson}
+                        passages={components.filter((x) => x.kind === "passage")} />
+                    </>
+                  );
+                })()
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center text-neutral-500 py-16">
+                  <IconStack2 size={28} stroke={1.5} className="text-neutral-300 mb-3" />
+                  Select a component on the left, or add a new one to get started.
+                </div>
+              )}
+            </Card>
           </div>
         </div>
       )}
