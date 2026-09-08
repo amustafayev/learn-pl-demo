@@ -282,7 +282,7 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, b
       {/* reuse a saved block — deep-copied in, so edits stay local to this lesson. */}
       {bank.length > 0 && onPickBank && (
         <div className="mt-4 pt-4 border-t border-neutral-200">
-          <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">From My Blocks · ready-made, drops in with all its content</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">From My Blocks · ready-made, drops in with all its content</div>
           <LibraryPickList groups={bankGroups} onPick={(id) => { onPickBank(bank.find((b) => b.id === id)); onClose(); }} />
         </div>
       )}

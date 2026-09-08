@@ -430,7 +430,7 @@ export default function BlockStudio() {
         <div className="flex items-center gap-3">
           <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${BT.tone}`}><I size={20} /></span>
           <div>
-            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
             <h1 className="text-xl font-bold tracking-tight text-neutral-950">{block.title || BT.label}</h1>
           </div>
         </div>
@@ -458,7 +458,7 @@ export default function BlockStudio() {
                 <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
-                    <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Component {i + 1} · {M.label}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Component {i + 1} · {M.label}</span>
                     <LevelPill level={c.level} />
                     {linkedPassage && <span className="text-[11px] text-primary-500">↳ for its passage above</span>}
                   </div>
@@ -472,7 +472,7 @@ export default function BlockStudio() {
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-widest text-neutral-500">Components · drag to reorder, click one to edit it</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · drag to reorder, click one to edit it</div>
             <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
 
@@ -511,13 +511,13 @@ export default function BlockStudio() {
               {adding ? (
                 <>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-mono uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
                     <Button variant="light" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
                   </div>
 
                   {state.componentBank && state.componentBank.length > 0 && (
                     <div className="border-b border-neutral-100 pb-4 mb-4">
-                      <div className="text-[11px] font-mono uppercase tracking-wide text-primary-600 font-semibold mb-2 flex items-center gap-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-primary-600 mb-2 flex items-center gap-1">
                         <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
                       </div>
                       {/* grouped by the course/parent it was saved from, so the
@@ -537,7 +537,7 @@ export default function BlockStudio() {
                   )}
 
                   <div>
-                    <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
                     <ComponentKindPicker kinds={palette}
                       usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
                       onPick={addComponent} />
@@ -552,14 +552,14 @@ export default function BlockStudio() {
                       <div className="flex items-center gap-3 pb-4 mb-4 border-b border-neutral-100">
                         <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><CI size={18} /></span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-mono uppercase text-neutral-500">Component {selectedIndex + 1} of {components.length}</div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Component {selectedIndex + 1} of {components.length}</div>
                           <div className="font-semibold text-base text-neutral-950 truncate">{M.label}</div>
                         </div>
                         {selected.level !== undefined && (
                           <label className="flex items-center gap-1 text-[11px] text-neutral-500 shrink-0">
                             Level
                             <select value={selected.level || ""} onChange={(e) => updateComponent(selectedIndex, { level: e.target.value })}
-                              className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-200">
+                              className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200">
                               {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                             </select>
                           </label>
