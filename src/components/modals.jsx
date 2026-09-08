@@ -32,7 +32,7 @@ export function NewCourseModal({ open, onClose }) {
         <div className="flex gap-2">
           {HUES.map((h) => (
             <button key={h} type="button" onClick={() => setHue(h)}
-              className={`w-8 h-8 rounded-lg ${HUE_SWATCH[h]} flex items-center justify-center transition-all ${hue === h ? "ring-2 ring-offset-2 ring-neutral-400" : ""}`}>
+              className={`w-8 h-8 rounded-lg ${HUE_SWATCH[h]} flex items-center justify-center transition duration-(--dur-fast) ${hue === h ? "ring-2 ring-offset-2 ring-neutral-400" : ""}`}>
               {hue === h && <IconCheck size={15} stroke={2.5} className="text-white" />}
             </button>
           ))}
@@ -229,7 +229,7 @@ export function AddTextModal({ open, onClose }) {
           <div className="flex items-center gap-1.5">
             {HIGHLIGHT_LIST.map((c) => (
               <button key={c.id} type="button" onClick={() => setPopover((p) => ({ ...p, color: p.color === c.id ? null : c.id }))}
-                className={`w-6 h-6 rounded-full ${c.swatch} transition-all ${popover.color === c.id ? "ring-2 ring-offset-1 ring-neutral-500" : ""}`} title={c.id} />
+                className={`w-6 h-6 rounded-full ${c.swatch} transition duration-(--dur-fast) ${popover.color === c.id ? "ring-2 ring-offset-1 ring-neutral-500" : ""}`} title={c.id} />
             ))}
             <span className="text-[10px] text-neutral-500 ml-1">highlight colour</span>
           </div>

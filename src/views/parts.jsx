@@ -792,7 +792,7 @@ function WheelComponent({ component }) {
       <h3 className="font-semibold mb-5">{component.title || "Spin for a prompt"}</h3>
       <div className="relative mx-auto w-52 h-52">
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-slate-800" />
-        <button onClick={spin} aria-label="Spin the vocabulary wheel" className="w-full h-full rounded-full border-8 border-white shadow-lg transition-transform duration-700 ease-out" style={{ background: `conic-gradient(${slices})`, transform: `rotate(${turn * 720}deg)` }}>
+        <button onClick={spin} aria-label="Spin the vocabulary wheel" className="w-full h-full rounded-full border-8 border-white shadow-lg transition-transform duration-(--dur-deliberate) ease-soft-out" style={{ background: `conic-gradient(${slices})`, transform: `rotate(${turn * 720}deg)` }}>
           <span className="absolute inset-[35%] rounded-full bg-white shadow flex items-center justify-center text-xs font-bold text-violet-700">SPIN</span>
         </button>
       </div>
@@ -1475,7 +1475,7 @@ function MemoryComponent({ component }) {
           const isFlipped = flipped.some((f) => f.id === c.id) || matched[c.pairId];
           return (
             <button key={c.id} onClick={() => flip(c)} disabled={isFlipped}
-              className={`h-16 rounded-xl border text-xs font-semibold flex items-center justify-center text-center px-1.5 transition-all ${
+              className={`h-16 rounded-xl border text-xs font-semibold flex items-center justify-center text-center px-1.5 transition duration-(--dur-fast) ${
                 matched[c.pairId] ? "border-emerald-300 bg-emerald-50 text-emerald-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-slate-200 bg-slate-800 text-slate-800 hover:border-pink-300"}`}>
               {isFlipped ? c.text : ""}
             </button>
@@ -1677,7 +1677,7 @@ function SpeedRoundComponent({ component }) {
         <Pill className="bg-red-50 text-red-700 font-mono">{time}s</Pill>
         <span className="font-mono text-sm text-slate-500">{score} pts</span>
       </div>
-      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-4"><div className="h-full bg-red-400 transition-all" style={{ width: `${(time / seconds) * 100}%` }} /></div>
+      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-4"><div className="h-full w-full origin-left bg-red-400 transition-transform duration-(--dur-base) ease-soft-out" style={{ transform: `scaleX(${(time / seconds)})` }} /></div>
       <div className="text-lg font-semibold mb-3">{q.q}</div>
       <div className="space-y-2">
         {q.options.map((o, oi) => <button key={oi} onClick={() => answer(oi)} className="w-full rounded-lg border border-slate-200 hover:border-red-300 p-3 text-sm text-left transition-colors">{o}</button>)}

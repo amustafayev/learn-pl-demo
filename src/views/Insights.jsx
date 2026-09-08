@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   IconTrendingUp, IconTrendingDown, IconMinus, IconAlertTriangle, IconArrowsShuffle, IconAdjustments,
-  IconClock, IconArrowUpRight, IconArrowDownRight, IconGauge,
+  IconClock, IconArrowUpRight, IconArrowDownRight, IconGauge, IconEyeOff,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -112,10 +112,10 @@ export default function Insights() {
         } />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard value={forgetting.length} label="words about to be forgotten" />
-        <StatCard value={confusions.length} label="confusion pairs detected" />
-        <StatCard value={adjustments.length} label="difficulty auto-adjustments" />
-        <StatCard value={mismatches.length} label="effort-outcome mismatches" />
+        <StatCard icon={IconEyeOff} value={forgetting.length} label="words about to be forgotten" />
+        <StatCard icon={IconArrowsShuffle} value={confusions.length} label="confusion pairs detected" />
+        <StatCard icon={IconAdjustments} value={adjustments.length} label="difficulty auto-adjustments" />
+        <StatCard icon={IconGauge} value={mismatches.length} label="effort-outcome mismatches" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">

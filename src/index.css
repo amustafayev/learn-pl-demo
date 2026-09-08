@@ -2,16 +2,19 @@
 @import "tailwindcss";
 
 /* =========================================================================
-   Design tokens — sourced from the Learniv UI KIT (dpopstudio), with two
-   corrections verified by pixel-sampling the kit's actual rendered screens
-   rather than trusting its exported "Primitive Colors" reference sheet:
-     - that sheet's own "Primary Color" ramp is blue, but every real screen
-       renders the brand accent as orange (#FF5C20, sampled off the Login
-       button) — likely generic boilerplate shared across the studio's kits.
-     - the Neutral ramp WAS verified accurate (muted body text sampled off
-       real screens landed exactly on Neutral-DPOP/black-7, #8c8c8c).
-   Success/Warning/Pending/Info ramps are taken as published (not
-   independently re-verified against a real screen using each of them).
+   Design tokens — sourced from the Learniv UI KIT (dpopstudio), cross-checked
+   against BOTH the kit's "Primitive Colors" / "Token Colors" sheets and its
+   real rendered screens:
+     - the Primary ramp's printed hex captions on that sheet are blue
+       boilerplate left over from another product, but the swatches actually
+       drawn there are orange and match the screens — so the orange fills are
+       the real ramp (see the Primary block below).
+     - the Neutral ramp is accurate as published; the kit publishes 13 steps
+       (black-1…black-13) and they compress onto the 11 slots below. The two
+       dropped steps are black-11 (#1f1f1f) and black-13 (#000000), so
+       `neutral-950` (#141414 = black-12) stands in for the kit's pure-black
+       `text-bold` / `bg-bold` token.
+     - Success/Warning/Pending/Info match the kit's sheets exactly.
    ========================================================================= */
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
@@ -29,20 +32,25 @@
   --color-neutral-900: #262626;
   --color-neutral-950: #141414;
 
-  /* Primary (brand orange) — real value pixel-sampled off the Login button
-     fill (#FF5C20, flat, no gradient), placed at 500; surrounding steps
-     interpolated in HSL space at the same hue/saturation. */
-  --color-primary-50: #fff2ed;
-  --color-primary-100: #ffe1d6;
-  --color-primary-200: #ffc3ad;
-  --color-primary-300: #ff9e7a;
-  --color-primary-400: #ff7d4d;
+  /* Primary (brand orange) — the kit's own published ramp, read off the
+     rendered swatch fills on the "Primitive Colors" sheet (the hex captions
+     printed next to them are stale blue boilerplate; the fills themselves
+     were retargeted to orange). That sheet draws 10 steps; they land on
+     50/100/200/400…950 here, with the one visible lightness gap (between
+     #ffbda5 and #ff7c4d) filled by an interpolated 300. #ff5c20 stays at
+     500 — it's the value every real screen renders the primary button with,
+     and the kit's own token sheet maps bg-primary-normal → primary/500. */
+  --color-primary-50: #ffefe9;
+  --color-primary-100: #ffddd3;
+  --color-primary-200: #ffbda5;
+  --color-primary-300: #ff9e7a; /* interpolated — the ramp's one gap */
+  --color-primary-400: #ff7c4d;
   --color-primary-500: #ff5c20;
-  --color-primary-600: #f74300;
-  --color-primary-700: #cc3700;
-  --color-primary-800: #9e2b00;
-  --color-primary-900: #701e00;
-  --color-primary-950: #4c1500;
+  --color-primary-600: #d84d1a;
+  --color-primary-700: #b33d13;
+  --color-primary-800: #8c2f0c;
+  --color-primary-900: #661f07;
+  --color-primary-950: #521803;
 
   /* Success (green) — as published in the kit's Primitive Colors sheet */
   --color-success-50: #eef9e8;
@@ -91,4 +99,90 @@
   --color-info-700: #1266b5;
   --color-info-800: #0e4f8c;
   --color-info-900: #0b3c6b;
+}
+
+/* =========================================================================
+   Motion — the single source of truth for every duration, easing and
+   keyframe in the app. Nothing else declares a timing: CSS consumes these as
+   normal Tailwind utilities (`duration-(--dur-base)`, `ease-soft-out`,
+   `animate-panel-in`), and the few places that need the same value as a
+   *number* in JS read these very properties back through `src/motion.js`
+   instead of keeping a second copy that could drift. Retune here, once.
+
+   Tailwind v4 note: `--ease-*` and `--animate-*` ARE theme namespaces and
+   generate `ease-*` / `animate-*` utilities. `--dur-*` is NOT — a bare
+   `duration-base` class compiles to nothing at all, silently. Always consume
+   a duration as `duration-(--dur-base)`.
+   ========================================================================= */
+@theme {
+  /* One rule behind these three: entering decelerates, leaving accelerates,
+     moving-in-place is symmetric. */
+  --ease-soft-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-soft-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --dur-fast: 120ms; /* press / hover state feedback */
+  --dur-base: 180ms; /* small entrances, indicator slide */
+  --dur-slow: 260ms; /* overlays, toasts, panels */
+  --dur-deliberate: 600ms; /* progress fills, scene moves */
+
+  /* Not motion: how long a toast stays readable before it self-dismisses.
+     It lives here so all timing lives in one file, but `src/motion.js` reads
+     it with `cssMs()` rather than `motionMs()`, so a reduced-motion
+     preference never shortens how long someone has to read it. */
+  --dur-toast-life: 2600ms;
+
+  --animate-fade-rise: fade-rise var(--dur-base) var(--ease-soft-out) both;
+  --animate-overlay-in: fade-in var(--dur-slow) var(--ease-soft-out) both;
+  --animate-overlay-out: fade-out var(--dur-slow) var(--ease-soft-in) both;
+  --animate-panel-in: panel-in var(--dur-slow) var(--ease-soft-out) both;
+  --animate-panel-out: panel-out var(--dur-slow) var(--ease-soft-in) both;
+  --animate-toast-in: toast-in var(--dur-slow) var(--ease-soft-out) both;
+  --animate-toast-out: toast-out var(--dur-slow) var(--ease-soft-in) both;
+
+  /* Separate in/out keyframes on purpose: a same-named animation that only
+     flips `direction` does not restart, so an out-animation built by
+     reversing the in-animation silently snaps instead of playing. */
+  @keyframes fade-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes panel-out {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(8px) scale(0.98); }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(8px); }
+  }
+}
+
+/* The OS "reduce motion" preference, honoured once, globally — so no
+   component has to remember its own `motion-reduce:` variant. 0.01ms rather
+   than 0 keeps `transitionend`/`animationend` listeners firing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -96,7 +96,7 @@ export function WordTower() {
                             return (
                               <button key={i} title={wd.term}
                                 onClick={() => setOpenWin(isOpen ? null : { setId: ws.id, i })}
-                                className={`w-8 h-10 rounded-t-md border transition-all ${WINDOW_STYLE[status]} ${isOpen ? "ring-2 ring-amber-300 scale-110 -translate-y-0.5" : "hover:scale-105"}`}>
+                                className={`w-8 h-10 rounded-t-md border transition duration-(--dur-fast) ${WINDOW_STYLE[status]} ${isOpen ? "ring-2 ring-amber-300 scale-110 -translate-y-0.5" : "hover:scale-105"}`}>
                                 {isOpen && <span className="text-xs">✨</span>}
                               </button>
                             );

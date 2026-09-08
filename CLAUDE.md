@@ -12,6 +12,8 @@ your own version of it.
 | What | File |
 |---|---|
 | Color tokens, font | `src/index.css` (`@theme` block) |
+| Motion tokens — every duration, easing, keyframe | `src/index.css` (second `@theme` block) |
+| Motion helpers for the few JS-side needs | `src/motion.js` (`MOTION`, `cssMs`, `motionMs`, `usePresence`, `usePresenceList`) |
 | Component factory (Button, Card, Tag, Modal, …) | `src/design-system.jsx` |
 | Old/legacy primitives — **being phased out, do not add to it** | `src/ui.jsx` |
 | Icons | `@tabler/icons-react` — the exact icon set the kit itself credits (tablers.io) |
@@ -121,14 +123,25 @@ Five semantic scales, each `50`–`900`/`950`, defined as CSS custom properties 
 `index.css` and available as normal Tailwind utilities (`bg-primary-500`,
 `text-neutral-600`, `border-warning-200`, …):
 
-- **`primary`** — the brand orange. Anchored on `#FF5C20`, pixel-sampled directly
-  off the kit's real rendered buttons — **not** the blue shown in the kit's own
-  "Primitive Colors" reference sheet, which was confirmed (by direct pixel
-  comparison) to be generic boilerplate reused across the studio's other
-  products, not retargeted for this kit. If you ever need to re-verify a color
-  against the source kit, sample real rendered screens, not that reference page.
-- **`neutral`** — grays. Verified accurate against real screens (muted body text
-  landed exactly on the kit's published `Neutral-DPOP/black-7`).
+- **`primary`** — the brand orange, now the kit's own published ramp. The
+  "Primitive Colors" sheet's Primary panel is genuinely confusing: the **hex
+  captions printed under each swatch are blue** (`#e6ecfe … #001a67`, leftover
+  boilerplate from another dpopstudio product), but the **swatches themselves
+  are drawn orange** and match every real rendered screen. So the fills are the
+  truth and the captions are the boilerplate — not the whole panel. The sheet
+  draws 10 orange steps; they map onto `50/100/200/400…950` here, with a single
+  interpolated `300` filling the one visible lightness gap (between `#ffbda5`
+  and `#ff7c4d`). `#ff5c20` stays at `500`: that's what every screen renders a
+  primary button with, and the kit's Token Colors sheet maps
+  `bg-primary-normal → primary-DPOP/500`. (The Primary panel's own step labels
+  put `#ff5c20` at 400 — another artifact of the stale boilerplate; the screens
+  and the token sheet outvote it.)
+- **`neutral`** — grays, accurate as published. The kit ships **13** steps
+  (`black-1`…`black-13`: `#ffffff #fcfcfc #f5f5f5 #f0f0f0 #d9d9d9 #bfbfbf
+  #8c8c8c #595959 #454545 #262626 #1f1f1f #141414 #000000`) compressed onto the
+  11 slots here; the dropped ones are `black-11` (`#1f1f1f`) and `black-13`
+  (`#000000`), so `neutral-950` (`#141414`) stands in for the kit's pure-black
+  `text-bold`/`bg-bold` token.
 - **`success`** (green), **`warning`** (red), **`pending`** (amber), **`info`**
   (blue) — taken as published in the kit's own sheets, used for semantic status
   only (never as decoration): success = completed/done, warning = error/danger/
@@ -157,6 +170,61 @@ const CHIP = {
 };
 <span className={CHIP[tone]} />
 ```
+
+## Shape scale (radii) — measured off the kit's rendered screens
+
+**Nothing in the Learniv kit is a pill.** A sweep of every filled, rounded,
+control-sized rectangle across all 111 exported screens (52 desktop + 59
+mobile) found **zero** shapes whose corner radius reaches half their height,
+apart from progress bars, toggle switches, status dots and small count
+badges. Buttons, badges, fields, nav rows, selects and avatars are all
+rounded *rectangles*. The app shipped with `rounded-full` buttons/badges for a
+while; that was wrong and has been corrected.
+
+| Element | Kit geometry | Tailwind |
+|---|---|---|
+| Buttons (all variants), badges, alerts, list rows, nav rows, icon buttons, selects, text fields, textareas | r **8** | `rounded-lg` |
+| Search field, Course/Class card shell | r **12** | `rounded-xl` |
+| Dashboard-style cards, modals | r **14** | `rounded-[14px]` |
+| Avatars | r ≈ **0.19 × size** (32px→6, 48px→9) | `rounded`/`rounded-md`/`rounded-lg` per size |
+| Segmented toggle (Light/Dark) | r **8** track, r **4** inner pill | `rounded-lg` + `rounded` |
+| Progress bars, switches, status dots, count badges | fully round | `rounded-full` |
+
+Other measured constants worth matching:
+
+- **Hairline borders are `#d9d9d9` = `neutral-400`**, on white. That's the only
+  border color the light-mode screens use for controls and cards (89 of 89
+  bordered controls). There is **no black-bordered** button anywhere — the
+  kit's secondary/"outline" button is white with a `neutral-400` hairline.
+- **Field / gray-button fill is `#f5f5f5` = `neutral-200`** (not `neutral-100`).
+- **Active nav row fill is `#f0f0f0` = `neutral-300`**.
+- The kit draws **no divider hairlines** around the sidebar or topbar — the
+  shell is borderless whitespace; only the active nav pill carries a fill.
+- Kit control heights: text field **50**, primary button **46**, select /
+  icon button **40**, social button **56**, nav row **44**. The app currently
+  runs `h-11` (44) for fields and buttons — close, deliberately not chased.
+
+## Type scale — the kit runs one notch larger than this app does
+
+Measured both from the kit's Typography sheet and from real rendered screens
+(they agree exactly). DM Sans throughout:
+
+| Kit token | px | Where it shows up |
+|---|---|---|
+| Heading 1 | 64 | — (not used on any exported screen) |
+| Heading 2 | 48 | Login/Signup page title, the big "50%" figure |
+| Heading 3 | 32 | page H1 ("Welcome, Zaid!"), stat-card values |
+| Heading 4 | 24 | card section titles ("Activity", "Progress Course") |
+| Heading 5 / Text 4 | 16 | **the base size** — nav labels, field labels, button labels, body copy, table cells, chart axes |
+| Text 3 | 18 | text typed into / placeholdered in an input |
+| Text 5 | 12 | micro text (deltas, captions, the email under a name) |
+
+**The app is still one notch below this**: `text-sm` (14px) is its de-facto
+body size (~240 uses) and `PageHeader` renders its H1 at `text-2xl` (24px)
+where the kit uses 32px. 14px appears nowhere in the kit. Closing this gap is
+a real re-typesetting pass (~560 class occurrences across ~15 view files) and
+reflows every screen, so it hasn't been done — **treat it as the one known
+open divergence from the kit**, not as a settled decision.
 
 ## The component factory (`src/design-system.jsx`)
 
@@ -188,14 +256,18 @@ thing reuses it too, instead of every page growing its own copy.
 - **Layout**: `Page`, `PageHeader` (kicker/title/sub/right), `Breadcrumbs`,
   `SectionLabel`, `ProgressBar`
 - **Buttons**: `Button` — variants `primary` (orange fill) / `dark` (black
-  fill) / `light` (gray fill) / `outline` (white, black border) / `disabled`;
-  props `size` (`md`/`sm`), `chevron` (dropdown caret), `iconOnly`
+  fill) / `light` (gray fill, no border) / `outline` (white + a `neutral-400`
+  hairline, the kit's only secondary treatment) / `disabled`; props `size`
+  (`md`/`sm`), `chevron` (dropdown caret), `iconOnly`. All at r8 — see the
+  shape scale above; don't reintroduce `rounded-full`
 - **Fields**: `TextField`, `PasswordField` (`TextField` + a built-in
   show/hide eye toggle), `SearchField` (with optional `shortcut` badge),
   `TextArea`, `TagField` (chip input), `Select`, `Field` (label wrapper) — all
   share one state system: default / focus (orange ring) / error (red)
-- **People**: `Avatar` (photo or initials, `circle`/`square`, sizes
-  `xs`/`sm`/`md`/`lg`, optional `status` dot)
+- **People**: `Avatar` (photo or initials, sizes `xs`/`sm`/`md`/`lg`, optional
+  `status` dot). Defaults to **`square`** — a rounded square at the kit's
+  ~0.19x-size radius — because the kit draws every avatar that way and never
+  draws a circular one; `shape="circle"` stays available but is off-kit.
 - **Status & feedback**: `Badge` (solid fill, e.g. "New"), `Tag` (soft fill +
   colored left rule — the default choice for small status labels), `Alert`
   (icon + title + body, tones = the 5 color tokens), `ChatBubble`
@@ -203,8 +275,9 @@ thing reuses it too, instead of every page growing its own copy.
   `CourseCard`'s tinted-band/progress/"View Detail" shell — a Class fills it
   with roster/schedule instead of a creator credit), `SessionRow`,
   `SegmentedBar` (the dashed multi-cell progress bar on course cards)
-- **Controls**: `Switch`, `Checkbox`, `SegmentedToggle` (pill-shaped 2-option
-  switcher, e.g. Light/Dark — options may carry an optional `icon`)
+- **Controls**: `Switch`, `Checkbox`, `SegmentedToggle` (the Light/Dark
+  switcher — an r8 `neutral-300` track with an r4 white inner tab, not a pill;
+  options may carry an optional `icon`)
 - **Navigation**: `NavItem`, `NavSectionLabel`, `TabBar` (underline tabs),
   `PillTabs` (filter pills with a count badge)
 - **Overlays**: `Modal`, `StudentCheckList` (the shared "pick some students"
@@ -275,6 +348,93 @@ Migrate them the same way as everything else: read the file, port it to
 
 Once every file above is migrated (and `Statistics.jsx` is deleted or
 migrated) and nothing imports from `ui.jsx` anymore, delete `ui.jsx`.
+
+## Motion
+
+The kit ships **no** motion spec — 111 static frames, zero timing data — so
+this is the one part of the UI that isn't a reproduction of anything. It still
+has to stay in character: the kit is crisp, flat and functional, so motion is
+short, small, and almost entirely `opacity` + `transform`. No springs, no
+bounce, nothing playful.
+
+**Every timing lives in exactly one place: the motion `@theme` block in
+`index.css`.** Nothing else in the codebase declares a duration or an easing.
+
+- CSS consumes them as ordinary Tailwind utilities:
+  `duration-(--dur-base)`, `ease-soft-out`, `animate-panel-in`.
+- The handful of places that need the same value as a **number** at runtime
+  (an element must stay mounted at least as long as its exit animation; a
+  `setTimeout` can't read a class) go through `src/motion.js`, which reads
+  those very custom properties back. It never re-declares a value.
+- Adding a motion? Add the keyframe + `--animate-*` shorthand to that block
+  and consume it by name. Don't write `duration-200` or an inline
+  `transition: 250ms` at a call site.
+
+| Token | Value | For |
+|---|---|---|
+| `--dur-fast` | 120ms | press / hover state feedback (`PRESS`) |
+| `--dur-base` | 180ms | small entrances, indicator slides, page entrance |
+| `--dur-slow` | 260ms | overlays, toasts, panels (enter **and** exit) |
+| `--dur-deliberate` | 600ms | progress fills, grammar-scene moves |
+| `--dur-toast-life` | 2600ms | not motion — how long a toast stays readable |
+| `--ease-soft-out` | `cubic-bezier(.2,0,0,1)` | anything **entering** (decelerate) |
+| `--ease-soft-in` | `cubic-bezier(.4,0,1,1)` | anything **leaving** (accelerate) |
+| `--ease-standard` | `cubic-bezier(.4,0,.2,1)` | anything **moving in place** |
+
+Two gotchas that already cost time here, so don't rediscover them:
+
+- **`--dur-*` is not a Tailwind v4 theme namespace.** `--ease-*` and
+  `--animate-*` are (they generate `ease-*` / `animate-*` utilities), but a
+  bare `duration-base` class compiles to **nothing, silently**. Durations must
+  be consumed as `duration-(--dur-base)`.
+- **In and out animations need different keyframe names.** An out-animation
+  built by reversing the in-animation (`… reverse`) does not restart, because
+  only `animation-direction` changed — it snaps instead of playing. Hence the
+  separate `panel-in`/`panel-out`, `toast-in`/`toast-out` pairs.
+
+### Rules
+
+- Animate `transform` and `opacity`. For auto height, `grid-template-rows:
+  0fr → 1fr`. **Never** `width`/`height`/`top`/`left`/`margin` — that's a
+  layout pass every frame. `ProgressBar` uses `scaleX` and `Switch` uses
+  `translate-x` for exactly this reason.
+- `transition`, never `transition-all`. Bare `transition` covers the safe
+  property set; `transition-all` drags layout properties in and defeats the
+  compositor. (Two `transition-[left]`-style exceptions survive in
+  `grammar.jsx`, where the widgets genuinely position by percentage `left` —
+  scoped rather than converted, deliberately.)
+- **Reduced motion is handled once, globally**, by a
+  `@media (prefers-reduced-motion: reduce)` block in `index.css`. No component
+  carries its own `motion-reduce:` variant, and none should. `motionMs()`
+  mirrors it on the JS side by collapsing to 0; `cssMs()` deliberately does
+  not, so a reduced-motion preference never shortens a toast's *reading* time.
+- `will-change-transform` only on things that animate repeatedly (the tab
+  underline, the segmented-toggle tab). Blanket use forces layers and costs
+  memory.
+- Nothing over ~300ms on a click the user initiated. No looping animation
+  except a genuine live indicator (the `animate-ping` dots on the LIVE badge).
+- No stagger on re-render or filter change — first mount only, if at all.
+
+### What's wired up
+
+`PRESS` (one constant now; `PRESS_FLAT` is an alias kept for readability),
+page entrance on tab change, `Modal` + `ToastHost` enter/exit via
+`usePresence`/`usePresenceList`, one sliding underline shared by `TabBar` and
+`PillTabs` (`useUnderline` + `Underline`, so the measurement exists once), the
+`SegmentedToggle` tab sliding between equal halves, `ProgressBar` and `Switch`
+on transforms.
+
+**Not done, still available:** first-mount list stagger, number/progress
+count-up, auto-height accordions for the Library word-sets and lesson block
+lists, and the View Transitions API for course card → detail (react-router 7
+supports `<Link viewTransition>`). Skeleton/shimmer loaders are deliberately
+**not** worth adding until `db/apiClient.js` is actually wired up — the
+reducer is synchronous, so nothing loads and a skeleton would animate a wait
+that doesn't exist.
+
+**No new dependency.** All of the above is CSS + Tailwind + ~110 lines in
+`src/motion.js`. Don't reach for `motion`/framer-motion: it's ~35KB gzip on a
+bundle Vite already warns about, and nothing here needs it.
 
 ## Verification checklist for any UI change
 

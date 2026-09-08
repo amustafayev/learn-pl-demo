@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconGripVertical, IconPlus, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
+import { usePresence, usePresenceList } from "./motion.js";
 
 /* ---------------------------------------------------------------- Layout */
 // Page-shell helpers — not from a Learniv variant sheet (breadcrumbs/page
@@ -52,7 +53,11 @@ export function ProgressBar({ pct, tone = "primary" }) {
   const fill = { primary: "bg-primary-500", success: "bg-success-500", warning: "bg-warning-500", info: "bg-info-500", neutral: "bg-neutral-700" }[tone];
   return (
     <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
-      <div className={`h-full ${fill} transition-all`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+      {/* scaleX rather than width: transform animates on the compositor, so
+          a bar filling in never triggers layout. Safe here — the bar has no
+          children for the scale to distort. */}
+      <div className={`h-full w-full origin-left ${fill} transition-transform duration-(--dur-deliberate) ease-soft-out`}
+        style={{ transform: `scaleX(${Math.max(0, Math.min(100, pct)) / 100})` }} />
     </div>
   );
 }
@@ -61,14 +66,18 @@ export function ProgressBar({ pct, tone = "primary" }) {
 // The "Add Discussion" dialog sheet: white rounded-2xl card, header with
 // title + X close, footer with an outline secondary action + primary submit.
 export function Modal({ open, onClose, title, sub, children, footer, wide }) {
-  if (!open) return null;
+  // Stay mounted while the exit animation plays — `open` drives the classes,
+  // `present` drives mounting. The delay comes from the same token the
+  // animation does, so the two can't fall out of step.
+  const present = usePresence(open);
+  if (!present) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/40 backdrop-blur-sm" onClick={onClose}>
+    <div className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/40 backdrop-blur-sm ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
       <div
-        className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl border border-neutral-200 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto`}
+        className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto ${open ? "animate-panel-in" : "animate-panel-out"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between p-5 border-b border-neutral-200 sticky top-0 bg-white rounded-t-2xl">
+        <div className="flex items-start justify-between p-5 border-b border-neutral-200 sticky top-0 bg-white rounded-t-[14px]">
           <div>
             <h3 className="font-bold text-lg tracking-tight text-neutral-950">{title}</h3>
             {sub && <p className="text-sm text-neutral-500 mt-0.5">{sub}</p>}
@@ -76,7 +85,7 @@ export function Modal({ open, onClose, title, sub, children, footer, wide }) {
           <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 p-1"><IconX size={18} stroke={1.75} /></button>
         </div>
         <div className="p-5">{children}</div>
-        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-200 sticky bottom-0 bg-white rounded-b-2xl">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-200 sticky bottom-0 bg-white rounded-b-[14px]">{footer}</div>}
       </div>
     </div>
   );
@@ -100,7 +109,7 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
         const on = isSelected(s);
         return (
           <button key={s.id} onClick={() => onToggle(s)}
-            className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left ${PRESS} ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
+            className={`w-full flex items-center gap-3 rounded-lg border p-2.5 text-left ${PRESS} ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
             <Avatar name={s.name} color={on ? "primary" : "neutral"} />
             <div className="min-w-0 flex-1">
               <div className="font-medium text-sm truncate text-neutral-950">{s.name}</div>
@@ -137,7 +146,7 @@ export function CategoryPicker({ groups, onPick, columns = 2 }) {
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => onPick(item.id)}
-                  className={`relative flex items-start gap-2.5 rounded-xl border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
+                  className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
                   {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
                   {/* item.icon is whatever set provided the catalog entry (this
                       app's block/component catalogs are still lucide-react,
@@ -177,7 +186,7 @@ export function LibraryPickList({ groups, onPick }) {
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => onPick(item.id)}
-                  className={`w-full flex items-center gap-2.5 rounded-xl border border-primary-200 bg-primary-50/50 hover:bg-primary-100/70 p-2.5 text-left ${PRESS}`}>
+                  className={`w-full flex items-center gap-2.5 rounded-lg border border-primary-200 bg-primary-50/50 hover:bg-primary-100/70 p-2.5 text-left ${PRESS}`}>
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={15} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate text-neutral-900">{item.label}</span>
@@ -238,18 +247,21 @@ export function RailItem({ icon: Icon, tone, label, meta, selected, className = 
 // view's own hand-rolled clickable row — one that doesn't match any single
 // factory component, e.g. Classes.jsx's roster rows — can still opt into the
 // exact same feel instead of inventing its own.
-export const PRESS = "transition-all duration-150 hover:shadow-md active:scale-[0.97] active:shadow-sm";
-// Lighter touch for flat/text-only controls (underline tabs, nav rows) where
-// a shadow would look odd with no card/fill behind it — press-scale only.
-export const PRESS_FLAT = "transition-all duration-150 active:scale-[0.97]";
+export const PRESS = "transition duration-(--dur-fast) ease-standard active:scale-[0.97]";
+// `PRESS_FLAT` used to be a shadowless twin of `PRESS`. The two collapsed
+// into one when the hover shadow came off: the kit's controls are flat (no
+// button in 111 exported frames carries a shadow), so there was nothing left
+// to distinguish them. Kept as an alias so existing call sites still read
+// naturally; prefer `PRESS` in new code.
+export const PRESS_FLAT = PRESS;
 
 // 5 fills x {icon-only, label, label+chevron} from the kit's Button sheet.
 const BUTTON_FILL = {
   primary: "bg-primary-500 hover:bg-primary-600 text-white",
   dark: "bg-neutral-950 hover:bg-black text-white",
-  light: "bg-neutral-100 hover:bg-neutral-200 text-neutral-900 border border-neutral-300",
-  outline: "bg-white hover:bg-neutral-50 text-neutral-900 border border-neutral-950",
-  disabled: "bg-neutral-200 text-neutral-500 cursor-not-allowed",
+  light: "bg-neutral-200 hover:bg-neutral-300 text-neutral-900",
+  outline: "bg-white hover:bg-neutral-200 text-neutral-900 border border-neutral-400",
+  disabled: "bg-neutral-200 text-neutral-600 cursor-not-allowed",
 };
 const BUTTON_SIZE = {
   md: "h-11 px-4 text-sm",
@@ -264,7 +276,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
     return (
       <button
         disabled={isDisabled}
-        className={`inline-flex items-center justify-center rounded-full font-semibold ${PRESS} ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-lg font-semibold ${PRESS} ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
         {...rest}
       >
         {Icon && <Icon size={size === "sm" ? 16 : 18} stroke={1.75} />}
@@ -274,7 +286,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
   return (
     <button
       disabled={isDisabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold ${PRESS} ${fill} ${BUTTON_SIZE[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold ${PRESS} ${fill} ${BUTTON_SIZE[size]} ${className}`}
       {...rest}
     >
       {children}
@@ -289,7 +301,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
 export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
   return (
     <button type="button" onClick={onClick}
-      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-sm font-medium text-neutral-900 ${PRESS} ${className}`}>
+      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-sm font-medium text-neutral-900 ${PRESS} ${className}`}>
       {Icon && <Icon size={17} stroke={1.75} />}
       {label}
     </button>
@@ -301,14 +313,14 @@ export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
 // default (muted placeholder, neutral-100 fill), focus (white fill, orange
 // ring), filled (neutral text, neutral-100 fill), error (rose fill+text).
 const FIELD_STATE = {
-  default: "bg-neutral-100 border-transparent text-neutral-900 placeholder:text-neutral-600 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
+  default: "bg-neutral-200 border-transparent text-neutral-900 placeholder:text-neutral-600 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
   error: "bg-warning-50 border-warning-500 text-warning-700 placeholder:text-warning-400",
 };
 
 export function TextField({ state = "default", className = "", ...rest }) {
   return (
     <input
-      className={`w-full h-11 rounded-xl border px-3.5 text-sm outline-none transition-colors ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
+      className={`w-full h-11 rounded-lg border px-3.5 text-sm outline-none transition-colors ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
       {...rest}
     />
   );
@@ -336,7 +348,7 @@ export function PasswordField({ state = "default", className = "", ...rest }) {
 export function Select({ className = "", children, ...rest }) {
   return (
     <select
-      className={`w-full h-11 rounded-xl border px-3.5 text-sm outline-none transition-colors bg-neutral-100 border-transparent text-neutral-900 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 ${className}`}
+      className={`w-full h-11 rounded-lg border px-3.5 text-sm outline-none transition-colors bg-neutral-200 border-transparent text-neutral-900 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 ${className}`}
       {...rest}
     >
       {children}
@@ -349,7 +361,7 @@ export function SearchField({ shortcut, className = "", ...rest }) {
     <div className={`relative ${className}`}>
       <IconSearch size={16} stroke={1.75} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-600" />
       <input
-        className="w-full h-11 rounded-xl border border-transparent bg-neutral-100 pl-10 pr-14 text-sm text-neutral-900 placeholder:text-neutral-600 outline-none transition-colors focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+        className="w-full h-11 rounded-xl border border-transparent bg-neutral-200 pl-10 pr-14 text-sm text-neutral-900 placeholder:text-neutral-600 outline-none transition-colors focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
         {...rest}
       />
       {shortcut && (
@@ -364,7 +376,7 @@ export function SearchField({ shortcut, className = "", ...rest }) {
 export function TextArea({ state = "default", className = "", ...rest }) {
   return (
     <textarea
-      className={`w-full min-h-[112px] rounded-xl border px-3.5 py-3 text-sm outline-none transition-colors resize-none ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
+      className={`w-full min-h-[112px] rounded-lg border px-3.5 py-3 text-sm outline-none transition-colors resize-none ${FIELD_STATE[state] || FIELD_STATE.default} ${className}`}
       {...rest}
     />
   );
@@ -374,7 +386,7 @@ export function TextArea({ state = "default", className = "", ...rest }) {
 // "Tags" pattern in the Input-form sheet (e.g. PHP / API / Relevant / Laravel).
 export function TagField({ tags = [], onRemove, placeholder = "Add a tag…", className = "" }) {
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 min-h-[112px] rounded-xl border border-neutral-300 bg-neutral-100 p-3 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-1.5 min-h-[112px] rounded-lg border border-neutral-400 bg-neutral-200 p-3 ${className}`}>
       {tags.map((t, i) => (
         <Tag key={i} color={t.color || "neutral"} onRemove={onRemove ? () => onRemove(i) : undefined}>{t.label}</Tag>
       ))}
@@ -391,8 +403,13 @@ const AVATAR_COLOR = {
 };
 const STATUS_DOT = { online: "bg-success-500", offline: "bg-neutral-400" };
 
-export function Avatar({ src, name, color = "primary", shape = "circle", size = "md", status, className = "" }) {
-  const shapeCls = shape === "square" ? "rounded-lg" : "rounded-full";
+// The kit never draws a circular avatar — every one is a rounded square at
+// roughly 0.19 x its size (32px -> r6, 48px -> r9), so `square` is the
+// default and `circle` stays available for anything that genuinely needs it.
+const AVATAR_RADIUS = { xs: "rounded", sm: "rounded-md", md: "rounded-lg", lg: "rounded-[10px]" };
+
+export function Avatar({ src, name, color = "primary", shape = "square", size = "md", status, className = "" }) {
+  const shapeCls = shape === "circle" ? "rounded-full" : AVATAR_RADIUS[size];
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   return (
     <span className={`relative inline-flex shrink-0 ${className}`}>
@@ -422,7 +439,7 @@ const TAG_SOFT = {
 };
 
 export function Badge({ color = "primary", children, className = "" }) {
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${BADGE_SOLID[color]} ${className}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${BADGE_SOLID[color]} ${className}`}>{children}</span>;
 }
 
 export function Tag({ color = "neutral", onRemove, children }) {
@@ -446,7 +463,7 @@ const ALERT_TONE = {
 export function Alert({ tone = "primary", icon: Icon, title, actionLabel, onAction, onClose, children }) {
   const t = ALERT_TONE[tone] || ALERT_TONE.primary;
   return (
-    <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-neutral-900 ${t.bg}`}>
+    <div className={`flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm text-neutral-900 ${t.bg}`}>
       {Icon && <Icon size={18} stroke={1.75} className={`shrink-0 mt-0.5 ${t.icon}`} />}
       <span className="flex-1 leading-relaxed">
         {title && <span className="block font-semibold mb-0.5 text-neutral-950">{title}</span>}
@@ -461,10 +478,10 @@ export function Alert({ tone = "primary", icon: Icon, title, actionLabel, onActi
 /* ------------------------------------------------------------ ChatBubble */
 export function ChatBubble({ onReply, children }) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl bg-neutral-100 px-4 py-3 text-sm text-neutral-800">
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-neutral-200 px-4 py-3 text-sm text-neutral-800">
       <span className="flex-1">{children}</span>
       {onReply && (
-        <button onClick={onReply} className="shrink-0 rounded-full border border-neutral-950 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 hover:bg-neutral-50">
+        <button onClick={onReply} className="shrink-0 rounded-lg border border-neutral-400 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 hover:bg-neutral-200">
           Reply
         </button>
       )}
@@ -474,7 +491,7 @@ export function ChatBubble({ onReply, children }) {
 
 /* ------------------------------------------------------------------ Card */
 export function Card({ children, className = "", ...rest }) {
-  return <div className={`rounded-2xl border border-neutral-200 bg-white ${className}`} {...rest}>{children}</div>;
+  return <div className={`rounded-[14px] border border-neutral-400 bg-white ${className}`} {...rest}>{children}</div>;
 }
 
 export function StatCard({ icon: Icon, label, value, delta, onClick, className = "" }) {
@@ -485,7 +502,7 @@ export function StatCard({ icon: Icon, label, value, delta, onClick, className =
     >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm text-neutral-700">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100"><Icon size={17} stroke={1.75} /></span>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200"><Icon size={17} stroke={1.75} /></span>}
           {label}
         </span>
       </div>
@@ -534,10 +551,10 @@ const BAND_TINT = { primary: "bg-primary-50", success: "bg-success-50", pending:
 // to "students/rating" since not every consumer has both of those numbers.
 export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel = "Mentor", creatorName, creatorColor = "dark", category, stats = [], progressPct, onViewDetail, className = "" }) {
   return (
-    <Card className={`overflow-hidden ${className}`}>
+    <Card className={`overflow-hidden !rounded-xl ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm"><Icon size={18} stroke={1.75} /></span>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm"><Icon size={18} stroke={1.75} /></span>}
         </div>
         <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
         {creatorName && (
@@ -565,7 +582,7 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
             <SegmentedBar pct={progressPct} />
           </div>
         )}
-        <Button variant="outline" className="mt-4 w-full !rounded-2xl" onClick={onViewDetail}>View Detail</Button>
+        <Button variant="outline" className="mt-4 w-full" onClick={onViewDetail}>View Detail</Button>
       </div>
     </Card>
   );
@@ -578,10 +595,10 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
 // rendered as an overlapping avatar stack, same as the Student panel.
 export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, currentLessonTitle, roster = [], studentCountLabel, progressPct, onViewDetail, className = "" }) {
   return (
-    <Card className={`overflow-hidden ${className}`}>
+    <Card className={`overflow-hidden !rounded-xl ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between gap-2">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
           {scheduleLabel && <Tag color="neutral">{scheduleLabel}</Tag>}
         </div>
         <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
@@ -601,7 +618,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
             <SegmentedBar pct={progressPct} />
           </div>
         )}
-        <Button variant="outline" className="mt-4 w-full !rounded-2xl" onClick={onViewDetail}>View Detail</Button>
+        <Button variant="outline" className="mt-4 w-full" onClick={onViewDetail}>View Detail</Button>
       </div>
     </Card>
   );
@@ -610,7 +627,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
 // The radio-marked device/session row from Settings → Login Activity.
 export function SessionRow({ title, subtitle, active, className = "" }) {
   return (
-    <div className={`flex items-center gap-3 rounded-xl px-4 py-3 ${active ? "bg-neutral-100" : ""} ${className}`}>
+    <div className={`flex items-center gap-3 rounded-lg px-4 py-3 ${active ? "bg-neutral-200" : ""} ${className}`}>
       <span className={`h-2 w-2 rounded-full ${active ? "bg-primary-500" : "bg-neutral-400"}`} />
       <div>
         <div className="text-sm font-semibold text-neutral-900">{title}</div>
@@ -625,14 +642,19 @@ export function SessionRow({ title, subtitle, active, className = "" }) {
 // this file never reads the store directly. `tone: "err"` is the only
 // non-default case the app dispatches today (see store.jsx's `toast()`).
 export function ToastHost({ toasts = [], onDismiss }) {
+  // A toast that leaves `toasts` keeps rendering just long enough to play its
+  // out-animation. Handled here rather than in the reducer so the store stays
+  // the owner of *what* toasts exist and this stays purely prop-driven —
+  // works the same for a manual dismiss and the store's own auto-dismiss.
+  const entries = usePresenceList(toasts);
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 items-end">
-      {toasts.map((t) => (
-        <div key={t.id}
-          className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm shadow-lg ${
-            t.tone === "err" ? "bg-warning-600 text-white border-warning-700" : "bg-neutral-950 text-white border-neutral-800"}`}>
-          {t.text}
-          <button onClick={() => onDismiss?.(t.id)} className="opacity-60 hover:opacity-100"><IconX size={14} stroke={1.75} /></button>
+      {entries.map(({ key, item, exiting }) => (
+        <div key={key}
+          className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg ${exiting ? "animate-toast-out" : "animate-toast-in"} ${
+            item.tone === "err" ? "bg-warning-600 text-white border-warning-700" : "bg-neutral-950 text-white border-neutral-800"}`}>
+          {item.text}
+          <button onClick={() => onDismiss?.(item.id)} className="opacity-60 hover:opacity-100 transition-opacity duration-(--dur-fast)"><IconX size={14} stroke={1.75} /></button>
         </div>
       ))}
     </div>
@@ -644,7 +666,7 @@ export function ToastHost({ toasts = [], onDismiss }) {
 export function ComingSoon({ icon: Icon, title, sub }) {
   return (
     <Card className="p-10 text-center max-w-lg mx-auto">
-      {Icon && <span className="w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4"><Icon size={22} stroke={1.75} /></span>}
+      {Icon && <span className="w-12 h-12 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4"><Icon size={22} stroke={1.75} /></span>}
       <div className="font-bold text-lg mb-1.5 text-neutral-950">{title}</div>
       <p className="text-sm text-neutral-500">{sub}</p>
     </Card>
@@ -682,7 +704,7 @@ export function Switch({ checked, onChange, className = "" }) {
       onClick={() => onChange?.(!checked)}
       className={`relative h-6 w-11 rounded-full ${PRESS_FLAT} ${checked ? "bg-primary-500" : "bg-neutral-300"} ${className}`}
     >
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? "left-5" : "left-0.5"}`} />
+      <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-(--dur-fast) ease-standard ${checked ? "translate-x-5" : "translate-x-0"}`} />
     </button>
   );
 }
@@ -698,15 +720,22 @@ export function Checkbox({ checked, onChange, className = "" }) {
   );
 }
 
-// The pill-shaped Light/Dark segmented switcher used in the sidebar footer.
+// The Light/Dark segmented switcher in the sidebar footer: an r8 track with
+// an r4 white tab that *slides* between equal halves rather than the fill
+// hard-swapping from one button to the other. Equal halves match the kit,
+// which draws a 275x52 track around a 131x44 tab.
 export function SegmentedToggle({ value, onChange, options = [{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }] }) {
+  const index = Math.max(0, options.findIndex((o) => o.id === value));
   return (
-    <div className="inline-flex rounded-full border border-neutral-300 bg-white p-1">
+    <div className="relative inline-flex w-full rounded-lg border border-neutral-400 bg-neutral-300 p-1">
+      <span aria-hidden
+        className="absolute top-1 bottom-1 left-1 rounded bg-white shadow-sm will-change-transform transition-transform duration-(--dur-base) ease-soft-out"
+        style={{ width: `calc((100% - 0.5rem) / ${options.length})`, transform: `translateX(${index * 100}%)` }} />
       {options.map((o) => (
         <button
           key={o.id}
           onClick={() => onChange?.(o.id)}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${PRESS_FLAT} ${value === o.id ? "bg-neutral-950 text-white" : "text-neutral-500 hover:text-neutral-800"}`}
+          className={`relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 rounded px-3.5 py-1.5 text-xs font-semibold ${PRESS} ${value === o.id ? "text-neutral-950" : "text-neutral-600 hover:text-neutral-900"}`}
         >
           {o.icon && <o.icon size={14} stroke={1.75} />}
           {o.label}
@@ -723,7 +752,7 @@ export function NavItem({ icon: Icon, label, active, onClick, badge }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${PRESS_FLAT} ${active ? "bg-neutral-100 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100"}`}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium ${PRESS_FLAT} ${active ? "bg-neutral-300 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"}`}
     >
       {Icon && <Icon size={18} stroke={1.75} />}
       <span className="flex-1 text-left">{label}</span>
@@ -736,41 +765,81 @@ export function NavSectionLabel({ children }) {
   return <div className="px-3 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{children}</div>;
 }
 
+// One sliding underline, shared by both tab bars below so the measurement
+// logic exists once. Returns a ref for the tab strip and the transform for a
+// single rule that tracks the active tab, instead of each tab owning its own
+// border that pops on/off.
+function useUnderline(value, tabs) {
+  const strip = useRef(null);
+  const [rule, setRule] = useState(null);
+  useEffect(() => {
+    const host = strip.current;
+    const active = host?.querySelector(`[data-tab="${value}"]`);
+    if (!host || !active) return;
+    const measure = () => setRule({ x: active.offsetLeft, w: active.offsetWidth, total: host.offsetWidth });
+    measure();
+    // Re-measure when the strip reflows (window resize, sidebar collapse) —
+    // otherwise the rule drifts off its tab.
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [value, tabs]);
+  return [strip, rule];
+}
+
+// `translateX` + `scaleX` on one full-width rule, so the indicator moves and
+// resizes entirely on the compositor. `origin-left` keeps the scale anchored
+// to the left edge, which is what makes the two transforms compose cleanly.
+function Underline({ rule }) {
+  if (!rule) return null;
+  return (
+    <span aria-hidden
+      className="absolute -bottom-px left-0 h-0.5 w-full origin-left bg-neutral-950 will-change-transform transition-transform duration-(--dur-base) ease-soft-out"
+      style={{ transform: `translateX(${rule.x}px) scaleX(${rule.total ? rule.w / rule.total : 0})` }} />
+  );
+}
+
 // Underline tab bar — Detail / Assignment / Discussion / Report issue.
 export function TabBar({ tabs, value, onChange }) {
+  const [strip, rule] = useUnderline(value, tabs);
   return (
-    <div className="flex items-center gap-6 border-b border-neutral-200">
+    <div ref={strip} className="relative flex items-center gap-6 border-b border-neutral-200">
       {tabs.map((t) => (
         <button
           key={t.id}
+          data-tab={t.id}
           onClick={() => onChange?.(t.id)}
-          className={`-mb-px border-b-2 pb-3 text-sm font-semibold ${PRESS_FLAT} ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+          className={`pb-3 text-sm font-semibold ${PRESS} ${value === t.id ? "text-neutral-950" : "text-neutral-500 hover:text-neutral-800"}`}
         >
           {t.label}
         </button>
       ))}
+      <Underline rule={rule} />
     </div>
   );
 }
 
 // Filter pills with a trailing count badge — All / Unread(13) / Mentioned(4).
 export function PillTabs({ tabs, value, onChange }) {
+  const [strip, rule] = useUnderline(value, tabs);
   return (
-    <div className="flex items-center gap-6 border-b border-neutral-200">
+    <div ref={strip} className="relative flex items-center gap-6 border-b border-neutral-200">
       {tabs.map((t) => (
         <button
           key={t.id}
+          data-tab={t.id}
           onClick={() => onChange?.(t.id)}
-          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-3 text-sm font-semibold ${PRESS_FLAT} ${value === t.id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+          className={`flex items-center gap-1.5 pb-3 text-sm font-semibold ${PRESS} ${value === t.id ? "text-neutral-950" : "text-neutral-500 hover:text-neutral-800"}`}
         >
           {t.label}
           {t.count != null && (
-            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${value === t.id ? "bg-neutral-950 text-white" : "bg-neutral-200 text-neutral-600"}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors duration-(--dur-fast) ${value === t.id ? "bg-neutral-950 text-white" : "bg-neutral-200 text-neutral-600"}`}>
               {t.count}
             </span>
           )}
         </button>
       ))}
+      <Underline rule={rule} />
     </div>
   );
 }

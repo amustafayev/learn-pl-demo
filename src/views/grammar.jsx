@@ -80,7 +80,7 @@ export function TenseTimeline() {
         <div className="absolute top-1 left-2 text-[10px] font-mono uppercase tracking-wide text-slate-300">past</div>
         <div className="absolute top-1 right-2 text-[10px] font-mono uppercase tracking-wide text-slate-300">future</div>
         {/* event marker */}
-        <div className="absolute top-4 flex flex-col items-center -translate-x-1/2 transition-all duration-500" style={{ left: `${e.pos}%` }}>
+        <div className="absolute top-4 flex flex-col items-center -translate-x-1/2 transition-[left] duration-(--dur-deliberate) ease-soft-out" style={{ left: `${e.pos}%` }}>
           <span className={`text-[10px] font-semibold text-white rounded px-1.5 py-0.5 mb-1 ${e.color}`}>{e.when}</span>
           <div className={`w-4 h-4 rounded-full ${e.color} ring-4 ${e.ring}`} />
         </div>
@@ -121,7 +121,7 @@ export function PrepositionScene({ object = "🐈", anchor = "🗄️", subject 
     <div>
       <div className="relative h-48 rounded-2xl border border-slate-200 bg-slate-50 mb-4 overflow-hidden">
         {/* the object, moves with the chosen preposition */}
-        <span className="absolute text-5xl transition-all duration-500 -translate-x-1/2 -translate-y-1/2"
+        <span className="absolute text-5xl transition-[top,left,transform] duration-(--dur-deliberate) ease-soft-out -translate-x-1/2 -translate-y-1/2"
           style={{ top: p.obj.top, left: p.obj.left, transform: `translate(-50%,-50%) scale(${p.scale})`, zIndex: p.behind ? 0 : 2 }}>{object}</span>
         {/* the anchor object (box / shelf) */}
         <span className="absolute text-6xl -translate-x-1/2 -translate-y-1/2" style={{ top: "50%", left: "50%", zIndex: 1 }}>{anchor}</span>
@@ -166,7 +166,7 @@ export function ConjugationWheel({ verb = "go", tenses }) {
           const isActive = p === active;
           return (
             <button key={p} onClick={() => setActive(p)}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 text-xs font-semibold rounded-full px-3 py-2 border transition-all ${isActive ? "border-blue-400 bg-blue-600 text-white shadow-md scale-110" : "border-slate-200 bg-white text-slate-500 hover:border-blue-300"}`}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 text-xs font-semibold rounded-full px-3 py-2 border transition duration-(--dur-fast) ${isActive ? "border-blue-400 bg-blue-600 text-white shadow-md scale-110" : "border-slate-200 bg-white text-slate-500 hover:border-blue-300"}`}
               style={{ left: pos.left, top: pos.top }}>{p}</button>
           );
         })}
@@ -223,7 +223,7 @@ export function ComparisonLadder({ forms, examples }) {
       <div className="flex items-end justify-center gap-3 mb-5" style={{ height: 128 }}>
         {steps.map(([key, h, tone]) => (
           <button key={key} onClick={() => setActive(key)} className="flex flex-col items-center gap-1.5 group">
-            <span className={`w-20 rounded-t-lg flex items-end justify-center pb-1.5 font-bold text-sm transition-all ${h} ${tone} ${active === key ? "ring-2 ring-offset-2 ring-emerald-400" : "opacity-80 group-hover:opacity-100"}`}>{F[key]}</span>
+            <span className={`w-20 rounded-t-lg flex items-end justify-center pb-1.5 font-bold text-sm transition-[height,opacity,box-shadow] duration-(--dur-base) ease-soft-out ${h} ${tone} ${active === key ? "ring-2 ring-offset-2 ring-emerald-400" : "opacity-80 group-hover:opacity-100"}`}>{F[key]}</span>
             <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400 capitalize">{key}</span>
           </button>
         ))}
@@ -254,7 +254,7 @@ export function WordWeb({ center = "meeting", branches }) {
         const pos = radial(i, list.length, radius);
         return (
           <button key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 text-xs font-medium rounded-lg px-2.5 py-1.5 border transition-all whitespace-nowrap ${hover === i ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700 scale-105" : "border-slate-200 bg-white text-slate-600"}`}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 text-xs font-medium rounded-lg px-2.5 py-1.5 border transition duration-(--dur-fast) whitespace-nowrap ${hover === i ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700 scale-105" : "border-slate-200 bg-white text-slate-600"}`}
             style={{ left: pos.left, top: pos.top }}>{b.label}</button>
         );
       })}

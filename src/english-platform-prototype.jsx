@@ -60,7 +60,12 @@ function AppShell() {
       <Sidebar pathname={pathname} />
       <main className="flex-1 overflow-y-auto h-screen">
         <TopBar pathname={pathname} onStartLive={() => startLive()} />
-        <Content startLive={startLive} />
+        {/* Keyed on the top-level tab, not the full pathname: drilling from
+            /courses into /courses/:id shouldn't remount the subtree and
+            re-run its effects just to replay a 180ms entrance. */}
+        <div key={tabForPath(pathname)} className="animate-fade-rise">
+          <Content startLive={startLive} />
+        </div>
       </main>
       <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
       {live && <LiveSession context={live} onEnd={endLive} />}
@@ -72,8 +77,8 @@ function Sidebar({ pathname }) {
   const navigate = useNavigate();
   const { toast } = useStore();
   return (
-    <aside className="w-16 sm:w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
-      <div className="h-16 flex items-center gap-2.5 px-4 border-b border-neutral-200">
+    <aside className="w-16 sm:w-64 shrink-0 bg-white flex flex-col h-screen sticky top-0">
+      <div className="h-16 flex items-center gap-2.5 px-4">
         <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white shrink-0"><IconSparkles size={18} stroke={1.75} /></div>
         <div className="hidden sm:block leading-none">
           <div className="font-bold tracking-tight text-neutral-950">Lucid</div>
@@ -87,7 +92,7 @@ function Sidebar({ pathname }) {
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
-      <div className="px-3 py-2 border-t border-neutral-200">
+      <div className="px-3 py-2">
         <NavSectionLabel>Other</NavSectionLabel>
         <NavItem icon={IconSettings2} label={<span className="hidden sm:inline">Setting</span>}
           active={pathname.startsWith("/settings")} onClick={() => navigate("/settings")} />
@@ -109,17 +114,17 @@ function TopBar({ pathname, onStartLive }) {
     levelTests: "Level tests", insights: "AI Insights", settings: "Setting", help: "Help & Support",
   };
   return (
-    <div className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
+    <div className="h-16 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
         <Button variant="primary" size="sm" onClick={onStartLive}>
           <IconBroadcast size={15} stroke={1.75} /> <span className="hidden sm:inline">Start lesson</span>
         </Button>
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-900">
+        <button className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-400 text-neutral-500 hover:border-neutral-500 hover:text-neutral-900">
           <IconBell size={18} stroke={1.75} /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />
         </button>
-        <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-neutral-200">
+        <div className="hidden sm:flex items-center gap-2.5 pl-3">
           <Avatar name={state.teacher.name} color="dark" size="sm" />
           <div className="leading-none">
             <div className="text-sm font-semibold text-neutral-950">{state.teacher.name}</div>

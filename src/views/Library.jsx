@@ -96,7 +96,7 @@ function ReadingList({ open }) {
       <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>Reading texts · grouped by topic & level</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.texts.map((t) => (
-          <button key={t.id} onClick={() => open(t.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
+          <button key={t.id} onClick={() => open(t.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
             <div className="flex items-center justify-between mb-3">
               <Tag color="neutral">{t.topic}</Tag>
               <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
@@ -154,7 +154,7 @@ function WordSetsList({ open }) {
       <SectionLabel>Category word sets</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {state.wordSets.map((ws) => (
-          <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
+          <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
             <div className="flex items-center justify-between mb-3">
               <Tag color="primary">{ws.category}</Tag>
               <span className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center"><IconStack2 size={16} stroke={1.75} /></span>

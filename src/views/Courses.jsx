@@ -456,7 +456,7 @@ export function LessonBuilderView() {
                 {i + 1}
               </div>
 
-              <div className="group bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 p-4 transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="group bg-white rounded-xl border border-neutral-400 hover:border-primary-300 p-4 transition duration-(--dur-fast) shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <button onClick={() => go({ partId: b.id })} className="flex items-center gap-3.5 min-w-0 flex-1 text-left">
                   <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${BT.tone}`}><I size={18} /></span>
                   <div className="min-w-0 flex-1">
@@ -492,7 +492,7 @@ export function LessonBuilderView() {
         })}
 
         {!blocks.length && (
-          <button onClick={() => setAddOpen(true)} className="w-full border-2 border-dashed border-neutral-300 rounded-2xl p-8 text-neutral-500 hover:border-primary-400 hover:text-primary-600 text-sm font-medium">
+          <button onClick={() => setAddOpen(true)} className="w-full border-2 border-dashed border-neutral-400 rounded-xl p-8 text-neutral-500 hover:border-primary-400 hover:text-primary-600 text-sm font-medium">
             <IconPlus size={18} stroke={1.75} className="inline mr-1" /> Add the first step to the pathway
           </button>
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
   IconBookUpload, IconSend, IconAlertTriangle, IconBrain, IconArrowRight, IconBookmark,
+  IconUsers, IconChartBar, IconVocabulary,
 } from "@tabler/icons-react";
 import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
 import { useStore, useNav } from "../store.jsx";
@@ -63,10 +64,10 @@ export default function Dashboard() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="active students" value={active} onClick={() => go({ tab: "students" })} />
-        <StatCard label="avg completion" value={`${avg}%`} delta="on track" />
-        <StatCard label="need attention" value={atRisk.length} onClick={() => go({ tab: "students", filter: "atRisk" })} />
-        <StatCard label="words → known / learner·wk" value="9.1" />
+        <StatCard icon={IconUsers} label="active students" value={active} onClick={() => go({ tab: "students" })} />
+        <StatCard icon={IconChartBar} label="avg completion" value={`${avg}%`} delta="on track" />
+        <StatCard icon={IconAlertTriangle} label="need attention" value={atRisk.length} onClick={() => go({ tab: "students", filter: "atRisk" })} />
+        <StatCard icon={IconVocabulary} label="words → known / learner·wk" value="9.1" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

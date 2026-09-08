@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
 import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, COMPONENT_BANK_KEY } from "./db/mockDb.jsx";
+import { MOTION, cssMs } from "./motion.js";
 
 /* =========================================================================
    React binding on top of the mock "database" (src/db/mockDb.jsx). This
@@ -67,7 +68,11 @@ export function StoreProvider({ children }) {
   const toast = useCallback((text, tone) => {
     const id = uid("toast");
     dispatch({ type: "PUSH_TOAST", id, text, tone });
-    setTimeout(() => dispatch({ type: "DISMISS_TOAST", id }), 2600);
+    // How long a toast stays up is a timing setting like any other, so it
+    // lives in `index.css` with the rest of them and is read back here.
+    // `cssMs` (not `motionMs`) on purpose: a reduced-motion preference must
+    // not cut short how long someone has to read it.
+    setTimeout(() => dispatch({ type: "DISMISS_TOAST", id }), cssMs(MOTION.toastLife));
     return id;
   }, []);
 

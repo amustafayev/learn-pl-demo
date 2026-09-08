@@ -192,7 +192,7 @@ function ClassDetailView({ classId }) {
               const current = lessons[currentIndex];
               return (
                 <button key={course.id} onClick={() => go({ tab: "courses", courseId: course.id, classId: cls.id })}
-                  className="w-full text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all p-5">
+                  className="w-full text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
                       <div className="font-bold text-neutral-950 truncate">{course.title}</div>

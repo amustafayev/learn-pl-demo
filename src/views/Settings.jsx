@@ -208,7 +208,7 @@ function LinkedAccountPanel() {
           <div className="font-bold text-neutral-950 mb-1">Linked Account</div>
           <p className="text-sm text-neutral-500">Link accounts for a seamless experience. Connect to manage settings and access services in one place.</p>
         </div>
-        <span className="shrink-0 inline-flex items-center justify-center h-11 px-4 rounded-2xl border border-neutral-950 text-sm font-semibold text-neutral-900">Linked now</span>
+        <span className="shrink-0 inline-flex items-center justify-center h-11 px-4 rounded-lg border border-neutral-400 text-sm font-semibold text-neutral-900">Linked now</span>
       </div>
       <SectionLabel>Status</SectionLabel>
       <div className="divide-y divide-neutral-100">

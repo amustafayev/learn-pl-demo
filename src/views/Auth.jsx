@@ -17,12 +17,15 @@ import { useStore } from "../store.jsx";
 
 function AuthShell({ children }) {
   return (
-    <div className="min-h-screen bg-neutral-200 flex items-center justify-center p-4 sm:p-8 font-sans">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-2">
-        <div className="hidden lg:block p-8">
-          <ImagePlaceholder className="h-full min-h-[520px]" />
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-8 font-sans">
+      {/* No card: the kit sits the image panel and the form straight on the
+          white page. Measured off the 1440px frame — image 638px, form 540px,
+          47px gutter, 1225px of content centered. */}
+      <div className="w-full max-w-[1225px] grid grid-cols-1 items-center gap-8 lg:grid-cols-[638fr_540fr] lg:gap-12">
+        <div className="hidden lg:block">
+          <ImagePlaceholder className="h-full min-h-[640px] !rounded-xl" />
         </div>
-        <div className="p-8 sm:p-12 flex flex-col justify-center">
+        <div className="flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
             <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white shrink-0"><IconSparkles size={18} stroke={1.75} /></div>
             <span className="font-bold tracking-tight text-neutral-950">Lucid</span>
@@ -75,7 +78,7 @@ export function LoginPage() {
             onChange={(e) => { setPassword(e.target.value); setError(false); }} placeholder="Enter password" />
         </Field>
 
-        <Button type="submit" variant="primary" className="w-full !rounded-2xl">Login</Button>
+        <Button type="submit" variant="primary" className="w-full">Login</Button>
       </form>
 
       <div className="text-center text-xs text-neutral-500 mt-6 mb-3">Login with</div>
@@ -134,7 +137,7 @@ export function SignupPage() {
         </Field>
         {error === "mismatch" && <p className="text-xs text-warning-600 -mt-2 mb-4">Passwords don't match.</p>}
 
-        <Button type="submit" variant="primary" className="w-full !rounded-2xl">Sign up</Button>
+        <Button type="submit" variant="primary" className="w-full">Sign up</Button>
       </form>
 
       <div className="text-center text-xs text-neutral-500 mt-6 mb-3">Sign up with</div>
