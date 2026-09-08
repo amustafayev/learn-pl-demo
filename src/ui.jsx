@@ -203,7 +203,7 @@ export function AiNote({ icon: Icon, tone = "violet", title, children }) {
 export function Modal({ open, onClose, title, sub, children, footer, wide }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-slate-900/20" onClick={onClose}>
       <div
         className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl border border-slate-200 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}

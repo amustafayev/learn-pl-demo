@@ -72,7 +72,7 @@ export function Modal({ open, onClose, title, sub, children, footer, wide }) {
   const present = usePresence(open);
   if (!present) return null;
   return (
-    <div className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/40 backdrop-blur-sm ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
+    <div className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/20 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
       <div
         className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto ${open ? "animate-panel-in" : "animate-panel-out"}`}
         onClick={(e) => e.stopPropagation()}
