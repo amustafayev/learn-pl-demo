@@ -69,7 +69,11 @@ export function BlockIdentity({ icon: Icon, tone, kicker, title, titleTag = "div
     <div className={`flex items-center gap-2 min-w-0 ${className}`}>
       {Icon && <span className={`shrink-0 flex items-center justify-center ${box} ${tone}`}><Icon size={glyph} /></span>}
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 truncate">{kicker}</div>
+        {/* mb-1 only when a title follows — matches PageHeader's own
+            kicker-to-title gap; a kicker with nothing under it (the
+            per-component rows) stays a single line so the icon still
+            centers against it correctly. */}
+        <div className={`text-xs font-semibold uppercase tracking-wide text-neutral-500 truncate ${title ? "mb-1" : ""}`}>{kicker}</div>
         {title && <Title className={`text-neutral-950 truncate ${size === "lg" ? "text-xl font-bold tracking-tight" : "font-semibold"}`}>{title}</Title>}
       </div>
     </div>

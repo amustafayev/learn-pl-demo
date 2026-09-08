@@ -9,7 +9,7 @@ import {
   Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
 } from "lucide-react";
 import {
-  IconArrowLeft, IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
+  IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
@@ -422,10 +422,6 @@ export default function BlockStudio() {
 
   return (
     <div className="p-5 sm:p-8 max-w-5xl mx-auto">
-      <button onClick={() => go({ partId: null })} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4">
-        <IconArrowLeft size={14} stroke={1.75} /> {course.title} · Lesson {lesson.n}
-      </button>
-
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
           kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
@@ -445,13 +441,13 @@ export default function BlockStudio() {
       {mode === "student" ? (
         <div>
           <div className="mb-4 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
-          <div className="space-y-8">
+          <div>
             {components.map((c, i) => {
               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
               const CI = M.icon;
               const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
               return (
-                <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}>
+                <div key={c.id} className={`${i > 0 ? "mt-8 pt-8 border-t border-neutral-300" : ""} ${linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
                     <LevelPill level={c.level} />
@@ -589,16 +585,15 @@ export default function BlockStudio() {
 export function BlockStudentView({ block }) {
   const { state } = useStore();
   const components = blockComponents(block, state.texts);
-  if (!components.length) return <Card className="p-8 text-center text-slate-400 text-sm">No components in this block yet.</Card>;
+  if (!components.length) return <Card className="p-8 text-center text-neutral-500 text-sm">No components in this block yet.</Card>;
   return (
-    <div className="space-y-8">
+    <div>
       {components.map((c, i) => {
         const M = COMPONENT_META[c.kind]; const CI = M.icon;
         return (
-          <div key={c.id}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Component {i + 1} · {M.label}</span>
+          <div key={c.id} className={i > 0 ? "mt-8 pt-8 border-t border-neutral-300" : ""}>
+            <div className="mb-3">
+              <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
             </div>
             <ComponentStudent component={c} />
           </div>
