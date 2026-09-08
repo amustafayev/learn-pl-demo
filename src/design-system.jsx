@@ -49,6 +49,33 @@ export function SectionLabel({ children, right }) {
   );
 }
 
+// A block (or one of its components) identifies itself the same way
+// everywhere it's shown: an icon tile, a small uppercase "N · kind" kicker,
+// and — for a whole block, not a single component — a bold title under it.
+// BlockStudio used to hand-roll this three times (its own page header, the
+// per-component row in student view, the selected-component header in the
+// editor), each with a different icon size, a different gap, and a
+// different text layout for the exact same information. One shared shape
+// here means none of them can drift from the other two again.
+const BLOCK_IDENTITY_ICON = {
+  sm: { box: "h-7 w-7 rounded-lg", glyph: 15 },
+  md: { box: "h-9 w-9 rounded-lg", glyph: 18 },
+  lg: { box: "h-11 w-11 rounded-xl", glyph: 20 },
+};
+export function BlockIdentity({ icon: Icon, tone, kicker, title, titleTag = "div", size = "lg", className = "" }) {
+  const { box, glyph } = BLOCK_IDENTITY_ICON[size];
+  const Title = titleTag;
+  return (
+    <div className={`flex items-center gap-2 min-w-0 ${className}`}>
+      {Icon && <span className={`shrink-0 flex items-center justify-center ${box} ${tone}`}><Icon size={glyph} /></span>}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 truncate">{kicker}</div>
+        {title && <Title className={`text-neutral-950 truncate ${size === "lg" ? "text-xl font-bold tracking-tight" : "font-semibold"}`}>{title}</Title>}
+      </div>
+    </div>
+  );
+}
+
 export function ProgressBar({ pct, tone = "primary" }) {
   const fill = { primary: "bg-primary-500", success: "bg-success-500", warning: "bg-warning-500", info: "bg-info-500", neutral: "bg-neutral-700" }[tone];
   return (

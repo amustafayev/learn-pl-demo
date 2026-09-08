@@ -13,7 +13,7 @@ import {
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem, BlockIdentity } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -427,13 +427,9 @@ export default function BlockStudio() {
       </button>
 
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${BT.tone}`}><I size={20} /></span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{BT.label} block · {components.length} {components.length === 1 ? "component" : "components"}</div>
-            <h1 className="text-xl font-bold tracking-tight text-neutral-950">{block.title || BT.label}</h1>
-          </div>
-        </div>
+        <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
+          kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
+          title={block.title || BT.label} />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm"
             onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
@@ -457,8 +453,7 @@ export default function BlockStudio() {
               return (
                 <div key={c.id} className={linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${M.tone}`}><CI size={15} /></span>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Component {i + 1} · {M.label}</span>
+                    <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
                     <LevelPill level={c.level} />
                     {linkedPassage && <span className="text-[11px] text-primary-500">↳ for its passage above</span>}
                   </div>
@@ -550,11 +545,7 @@ export default function BlockStudio() {
                   return (
                     <>
                       <div className="flex items-center gap-3 pb-4 mb-4 border-b border-neutral-100">
-                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${M.tone}`}><CI size={18} /></span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Component {selectedIndex + 1} of {components.length}</div>
-                          <div className="font-semibold text-base text-neutral-950 truncate">{M.label}</div>
-                        </div>
+                        <BlockIdentity icon={CI} tone={M.tone} size="md" kicker={`Component ${selectedIndex + 1} · ${M.label}`} className="flex-1" />
                         {selected.level !== undefined && (
                           <label className="flex items-center gap-1 text-[11px] text-neutral-500 shrink-0">
                             Level
