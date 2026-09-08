@@ -46,22 +46,48 @@ export function ColorSentence({ tokens }) {
 }
 
 /* The tense timeline — past · now · future, with two events placed on it. */
+/* Tone -> tense mapping for the timeline: each tense gets one of the app's
+   semantic color tokens (not a raw Tailwind color), used consistently across
+   the tab, the marker on the line, and the explanation box below — the
+   file's own "one colour = one meaning" rule, applied to its own chrome. */
+const TENSE_TONE = {
+  past: {
+    markerBg: "bg-pending-500",
+    markerRing: "ring-pending-200",
+    tabActive: "border-pending-500 bg-pending-50 text-pending-700",
+    box: "bg-pending-50 border-pending-200",
+    text: "text-pending-900",
+    note: "text-pending-700",
+  },
+  perfect: {
+    markerBg: "bg-warning-500",
+    markerRing: "ring-warning-200",
+    tabActive: "border-warning-500 bg-warning-50 text-warning-700",
+    box: "bg-warning-50 border-warning-200",
+    text: "text-warning-900",
+    note: "text-warning-700",
+  },
+};
+
 export function TenseTimeline() {
   const [active, setActive] = useState("perfect");
   const events = {
-    past: { label: "Past simple", when: "yesterday", pos: 18, color: "bg-amber-500", ring: "ring-amber-200", text: "I shipped the login screen.", note: "Finished. A point in the past — we say when." },
-    perfect: { label: "Present perfect", when: "before now", pos: 62, color: "bg-rose-500", ring: "ring-rose-200", text: "I have resolved the payment bug.", note: "Done, but it still matters now — we don't say exactly when." },
+    past: { label: "Past simple", when: "yesterday", pos: 18, text: "I shipped the login screen.", note: "Finished. A point in the past — we say when." },
+    perfect: { label: "Present perfect", when: "before now", pos: 62, text: "I have resolved the payment bug.", note: "Done, but it still matters now — we don't say exactly when." },
   };
   const e = events[active];
+  const tone = TENSE_TONE[active];
   return (
     <div>
-      <div className="flex gap-2 mb-5">
+      {/* 1. Which tense — a real tab, not a caption, so it reads as a
+             choice rather than a label. */}
+      <div className="flex gap-2 mb-6">
         {Object.entries(events).map(([k, v]) => (
           <button
             key={k}
             onClick={() => setActive(k)}
-            className={`text-xs font-semibold rounded-lg px-3 py-1.5 border transition-colors ${
-              active === k ? `${ROLE.verb.chip} border-current` : "border-slate-200 text-slate-500 hover:border-slate-300"
+            className={`text-sm font-semibold rounded-lg px-3.5 py-2 border transition-colors duration-(--dur-fast) ${
+              active === k ? TENSE_TONE[k].tabActive : "border-neutral-300 text-neutral-500 hover:border-neutral-400 hover:text-neutral-700"
             }`}
           >
             {v.label}
@@ -69,26 +95,30 @@ export function TenseTimeline() {
         ))}
       </div>
 
-      {/* the line */}
-      <div className="relative h-20">
-        <div className="absolute top-9 left-0 right-0 h-0.5 bg-slate-200" />
+      {/* 2. The line itself — its own row, clearly above the explanation. */}
+      <div className="relative h-20 mb-6">
+        <div className="absolute top-9 left-0 right-0 h-0.5 bg-neutral-300" />
         {/* NOW marker */}
         <div className="absolute top-6 left-[85%] flex flex-col items-center -translate-x-1/2">
-          <div className="w-3 h-3 rounded-full bg-slate-900 ring-4 ring-slate-100" />
-          <span className="text-[10px] font-mono uppercase tracking-wide text-slate-500 mt-1">now</span>
+          <div className="w-3 h-3 rounded-full bg-neutral-950 ring-4 ring-neutral-100" />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 mt-1">now</span>
         </div>
-        <div className="absolute top-1 left-2 text-[10px] font-mono uppercase tracking-wide text-slate-300">past</div>
-        <div className="absolute top-1 right-2 text-[10px] font-mono uppercase tracking-wide text-slate-300">future</div>
+        <div className="absolute top-1 left-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">past</div>
+        <div className="absolute top-1 right-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">future</div>
         {/* event marker */}
         <div className="absolute top-4 flex flex-col items-center -translate-x-1/2 transition-[left] duration-(--dur-deliberate) ease-soft-out" style={{ left: `${e.pos}%` }}>
-          <span className={`text-[10px] font-semibold text-white rounded px-1.5 py-0.5 mb-1 ${e.color}`}>{e.when}</span>
-          <div className={`w-4 h-4 rounded-full ${e.color} ring-4 ${e.ring}`} />
+          <span className={`text-[10px] font-semibold text-white rounded px-1.5 py-0.5 mb-1 ${tone.markerBg}`}>{e.when}</span>
+          <div className={`w-4 h-4 rounded-full ${tone.markerBg} ring-4 ${tone.markerRing}`} />
         </div>
       </div>
 
-      <div className="mt-2 rounded-xl border border-slate-200 p-4">
-        <div className="text-slate-800 font-medium">{e.text}</div>
-        <p className="text-sm text-slate-500 mt-1.5">{e.note}</p>
+      {/* 3. The explanation — its own tinted, bordered block (not a faint
+             outline on white), colour-matched to the active tab/marker so
+             the three pieces read as one selection instead of three
+             unrelated rows. */}
+      <div className={`rounded-xl border px-4 py-3.5 ${tone.box}`}>
+        <div className={`font-semibold ${tone.text}`}>{e.text}</div>
+        <p className={`text-sm mt-1 ${tone.note}`}>{e.note}</p>
       </div>
     </div>
   );
