@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
-  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Drawer } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -504,66 +504,8 @@ export default function BlockStudio() {
               </button>
             </div>
 
-            <Card className={adding ? "p-0 overflow-hidden min-h-[320px]" : "p-5 min-h-[320px]"}>
-              {adding ? (
-                // Inline, not a modal — a category nav on the left (same
-                // shape as Settings' own Profile/Security/Linked Account
-                // sidebar) and that category's components on the right.
-                // Clicking a component adds it directly; there's no
-                // separate confirm step. "My Component Library" sits in the
-                // same nav list as every kind-category, not as a block that
-                // hangs around above them regardless of which one is active.
-                <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-full">
-                  <div className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3">
-                    <div className="flex items-center justify-between px-2 mb-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Add a component</span>
-                      <button onClick={() => setAdding(false)} className="text-neutral-500 hover:text-neutral-900 p-1 rounded hover:bg-neutral-100"><IconX size={14} stroke={1.75} /></button>
-                    </div>
-                    <nav className="space-y-0.5 max-h-[480px] overflow-y-auto">
-                      {state.componentBank && state.componentBank.length > 0 && (
-                        <NavItem icon={IconBookmarkPlus} label="My Component Library"
-                          active={addCategory === "library"} onClick={() => setAddCategory("library")} />
-                      )}
-                      {/* No icon here on purpose: NavItem's stroke={1.75}
-                          is tuned for tabler icons (every other NavItem in
-                          the app), and COMPONENT_META's icons are
-                          lucide-react — same library mismatch the
-                          CategoryPickerGrid comment above already warns
-                          about, so it's not worth fighting for a category
-                          label that reads fine on its own. */}
-                      {COMPONENT_CATEGORIES.map((cat) => (
-                        <NavItem key={cat.id} label={cat.label}
-                          active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
-                      ))}
-                    </nav>
-                  </div>
-                  <div className="p-4 max-h-[480px] overflow-y-auto">
-                    {addCategory === "library" ? (
-                      // grouped by the course/parent it was saved from, so
-                      // the library reads as folders instead of one flat pile
-                      <LibraryPickList
-                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                          id: parent, label: parent,
-                          items: items.map((item) => {
-                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                            const child = bankChildLabel(item);
-                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                          }),
-                        }))}
-                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                      />
-                    ) : (
-                      <CategoryPickerGrid
-                        items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
-                          const M = COMPONENT_META[k];
-                          return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
-                        })}
-                        onPick={addComponent}
-                      />
-                    )}
-                  </div>
-                </div>
-              ) : selected ? (
+            <Card className="p-5 min-h-[320px]">
+              {selected ? (
                 (() => {
                   const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                   const CI = M.icon;
@@ -601,6 +543,60 @@ export default function BlockStudio() {
               )}
             </Card>
           </div>
+
+          {/* A Drawer, not a third column squeezed next to the rail — this
+              needs real room (a nav list beside a full grid), and sliding
+              over the canvas from the edge reads as "the workspace
+              extending sideways" rather than fighting the existing
+              rail+canvas layout for the same width. "My Component Library"
+              sits in the same nav list as every kind-category rather than
+              a block that hangs around above them regardless of which one
+              is active — pick one, see only that one's things. */}
+          <Drawer open={adding} onClose={() => setAdding(false)} title="Add a component" width="max-w-3xl">
+            <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-full">
+              <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
+                {state.componentBank && state.componentBank.length > 0 && (
+                  <NavItem icon={IconBookmarkPlus} label="My Component Library"
+                    active={addCategory === "library"} onClick={() => setAddCategory("library")} />
+                )}
+                {/* No icon here on purpose: NavItem's stroke={1.75} is tuned
+                    for tabler icons (every other NavItem in the app), and
+                    COMPONENT_META's icons are lucide-react — same library
+                    mismatch the CategoryPickerGrid comment already warns
+                    about, so it's not worth fighting for a category label
+                    that reads fine on its own. */}
+                {COMPONENT_CATEGORIES.map((cat) => (
+                  <NavItem key={cat.id} label={cat.label}
+                    active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
+                ))}
+              </nav>
+              <div className="p-5 overflow-y-auto">
+                {addCategory === "library" ? (
+                  // grouped by the course/parent it was saved from, so the
+                  // library reads as folders instead of one flat pile
+                  <LibraryPickList
+                    groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                      id: parent, label: parent,
+                      items: items.map((item) => {
+                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                        const child = bankChildLabel(item);
+                        return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                      }),
+                    }))}
+                    onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                  />
+                ) : (
+                  <CategoryPickerGrid
+                    items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
+                      const M = COMPONENT_META[k];
+                      return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+                    })}
+                    onPick={addComponent}
+                  />
+                )}
+              </div>
+            </div>
+          </Drawer>
         </div>
       )}
     </div>

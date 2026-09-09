@@ -122,6 +122,39 @@ export function Modal({ open, onClose, title, sub, children, footer, wide }) {
   );
 }
 
+/* ----------------------------------------------------------------- Drawer */
+// A right-anchored, full-height panel that slides over the page — for a
+// task that needs real room (a nav list next to a grid, a long scratchpad)
+// but shouldn't stop everything the way a centered Modal does. It dims and
+// disables the page behind it exactly like Modal, but enters/exits by
+// sliding from the edge instead of rising+scaling from the center, which is
+// what makes it read as "the canvas extending sideways" rather than "a
+// dialog interrupting you". Same usePresence lifecycle as Modal — stays
+// mounted through its own exit animation instead of just vanishing.
+export function Drawer({ open, onClose, title, sub, children, width = "max-w-md" }) {
+  const present = usePresence(open);
+  if (!present) return null;
+  return (
+    <div className={`fixed inset-0 z-40 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
+      <div className="absolute inset-0 bg-neutral-950/20" />
+      <div onClick={(e) => e.stopPropagation()}
+        className={`absolute top-0 right-0 h-full w-full ${width} bg-white border-l border-neutral-300 shadow-xl flex flex-col will-change-transform ${open ? "animate-drawer-in" : "animate-drawer-out"}`}
+      >
+        {(title || sub) && (
+          <div className="flex items-start justify-between p-5 border-b border-neutral-200 shrink-0">
+            <div className="min-w-0">
+              {title && <h3 className="font-bold text-lg tracking-tight text-neutral-950 truncate">{title}</h3>}
+              {sub && <p className="text-sm text-neutral-500 mt-0.5">{sub}</p>}
+            </div>
+            <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function Field({ label, children }) {
   return (
     <label className="block mb-4">

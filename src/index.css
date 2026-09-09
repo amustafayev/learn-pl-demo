@@ -139,6 +139,8 @@
   --animate-panel-out: panel-out var(--dur-slow) var(--ease-soft-in) both;
   --animate-toast-in: toast-in var(--dur-slow) var(--ease-soft-out) both;
   --animate-toast-out: toast-out var(--dur-slow) var(--ease-soft-in) both;
+  --animate-drawer-in: drawer-in var(--dur-slow) var(--ease-soft-out) both;
+  --animate-drawer-out: drawer-out var(--dur-slow) var(--ease-soft-in) both;
 
   /* Separate in/out keyframes on purpose: a same-named animation that only
      flips `direction` does not restart, so an out-animation built by
@@ -170,6 +172,18 @@
   @keyframes toast-out {
     from { opacity: 1; transform: none; }
     to { opacity: 0; transform: translateY(8px); }
+  }
+  /* An edge-anchored panel slides, rather than the centered Modal's
+     rise+scale — the direction reads as "sliding the canvas over" instead
+     of "a dialog appearing", which is the point of using a drawer instead
+     of a modal in the first place. */
+  @keyframes drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes drawer-out {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
   }
 }
 
