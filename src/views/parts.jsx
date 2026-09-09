@@ -13,7 +13,7 @@ import {
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem, BlockIdentity } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem, BlockIdentity, Modal } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -91,6 +91,8 @@ export const COMPONENT_CATEGORIES = [
   { id: "peer", label: "Peer & group work", kinds: ["peertask"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
+
+const ALL_COMPONENT_KINDS = Object.keys(COMPONENT_META);
 
 const SAMPLE_WORDS = [
   { term: "introduce", az: "təqdim etmək", def: "to present someone or yourself", example: "Let me introduce myself." },
@@ -363,7 +365,6 @@ export default function BlockStudio() {
   const content = block.content?.components ? block.content : toComponents(block, state.texts);
   const components = content.components;
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
-  const palette = BT.components || [];
 
   const selectedIndex = components.findIndex((c) => c.id === selectedId);
   const selected = selectedIndex >= 0 ? components[selectedIndex] : null;
@@ -499,42 +500,7 @@ export default function BlockStudio() {
             </div>
 
             <Card className="p-5 min-h-[320px]">
-              {adding ? (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Pick a component or insert from saved library</span>
-                    <Button variant="light" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
-                  </div>
-
-                  {state.componentBank && state.componentBank.length > 0 && (
-                    <div className="border-b border-neutral-100 pb-4 mb-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-primary-600 mb-2 flex items-center gap-1">
-                        <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
-                      </div>
-                      {/* grouped by the course/parent it was saved from, so the
-                          library reads as folders instead of one flat pile */}
-                      <LibraryPickList
-                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                          id: parent, label: parent,
-                          items: items.map((item) => {
-                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                            const child = bankChildLabel(item);
-                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                          }),
-                        }))}
-                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">Create new component — grouped by what it's for</div>
-                    <ComponentKindPicker kinds={palette}
-                      usedCounts={Object.fromEntries(palette.map((k) => [k, components.filter((c) => c.kind === k).length]))}
-                      onPick={addComponent} />
-                  </div>
-                </>
-              ) : selected ? (
+              {selected ? (
                 (() => {
                   const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                   const CI = M.icon;
@@ -572,6 +538,45 @@ export default function BlockStudio() {
               )}
             </Card>
           </div>
+
+          {/* A real modal, not the canvas swapping its own content — same
+              pattern as AddBlockModal, so "add a component" and "add a
+              block" feel like the same action at two different depths.
+              kinds is every component the app has, not just this block
+              type's usual palette: a teacher may deliberately want a
+              Grammar block to end with a Homework-style writing prompt,
+              and CategoryPicker's own grouping already tells kinds apart
+              by what they're for, so nothing is lost by not pre-filtering. */}
+          <Modal open={adding} onClose={() => setAdding(false)} title="Add a component"
+            sub="Every component the app has, grouped by what it's for — not only what this block type usually uses." wide>
+            {state.componentBank && state.componentBank.length > 0 && (
+              <div className="border-b border-neutral-200 pb-4 mb-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-primary-600 mb-2 flex items-center gap-1">
+                  <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
+                </div>
+                {/* grouped by the course/parent it was saved from, so the
+                    library reads as folders instead of one flat pile */}
+                <LibraryPickList
+                  groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                    id: parent, label: parent,
+                    items: items.map((item) => {
+                      const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                      const child = bankChildLabel(item);
+                      return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                    }),
+                  }))}
+                  onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">All components, by category</div>
+              <ComponentKindPicker kinds={ALL_COMPONENT_KINDS}
+                usedCounts={Object.fromEntries(ALL_COMPONENT_KINDS.map((k) => [k, components.filter((c) => c.kind === k).length]))}
+                onPick={addComponent} />
+            </div>
+          </Modal>
         </div>
       )}
     </div>
