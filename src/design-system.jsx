@@ -165,11 +165,12 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
 // used-count badge if already placed in the lesson. One factory component so
 // every picker in the app looks and behaves identically, instead of each
 // screen growing its own near-duplicate grid.
-// One grid of item buttons for a group/category — shared by both
-// CategoryPicker layouts below so there is exactly one place that draws
-// "an icon tile + a label + a description", no matter whether it's reached
-// by scrolling past a group label or by switching to a tab.
-function CategoryPickerGrid({ items, onPick, gridCols }) {
+// One grid of item buttons for a group/category. Exported on its own (not
+// just used inside CategoryPicker below) so a screen that needs a custom
+// surrounding layout — e.g. BlockStudio's "add a component" picker, a
+// sidebar of categories next to one category's grid, Settings-panel style —
+// can reuse the exact same item button instead of redrawing it.
+export function CategoryPickerGrid({ items, onPick, gridCols = "grid-cols-1 sm:grid-cols-2" }) {
   return (
     <div className={`grid gap-2 ${gridCols}`}>
       {items.map((item) => {
@@ -196,28 +197,14 @@ function CategoryPickerGrid({ items, onPick, gridCols }) {
 }
 
 // "Pick one of several categorized options" — a big catalog of icon+label
-// options grouped into named sections ("Add a block", "pick a component").
-// Two layouts share the exact same item button (CategoryPickerGrid above):
-//   - "stacked" (default): every group's label + grid, one after another —
-//     fine for a short catalog like the block-type picker (~6 groups, 1-2
-//     items each).
-//   - "tabs": a TabBar of group labels, showing only the active group's
-//     grid below it — for a catalog too long to read as one scroll (the
-//     full component picker: 9 groups, some with 9+ items).
-export function CategoryPicker({ groups, onPick, columns = 2, layout = "stacked" }) {
+// options grouped into named sections ("Add a block", "pick a component"),
+// each group's label followed by its grid. Fine for a short catalog read
+// top-to-bottom (the block-type picker: ~6 groups, 1-2 items each). A
+// catalog with many more/larger groups shouldn't force everything through
+// this one shape — see CategoryPickerGrid above for building a sidebar- or
+// tab-switched version instead, the way BlockStudio's component picker does.
+export function CategoryPicker({ groups, onPick, columns = 2 }) {
   const gridCols = columns === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2";
-  const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
-  if (layout === "tabs") {
-    const active = groups.find((g) => g.id === activeGroup) || groups[0];
-    return (
-      <div>
-        <TabBar tabs={groups.map((g) => ({ id: g.id, label: g.label }))} value={active?.id} onChange={setActiveGroup} />
-        <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-          {active && <CategoryPickerGrid items={active.items} onPick={onPick} gridCols={gridCols} />}
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="space-y-4">
       {groups.map((g) => (

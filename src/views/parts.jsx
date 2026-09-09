@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
-  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, LibraryPickList, RailItem, BlockIdentity, Modal } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -92,8 +92,6 @@ export const COMPONENT_CATEGORIES = [
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
 
-const ALL_COMPONENT_KINDS = Object.keys(COMPONENT_META);
-
 const SAMPLE_WORDS = [
   { term: "introduce", az: "təqdim etmək", def: "to present someone or yourself", example: "Let me introduce myself." },
   { term: "colleague", az: "həmkar", def: "a person you work with", example: "She is my colleague." },
@@ -106,7 +104,7 @@ const SAMPLE_WORDS = [
 // A categorized "pick a component kind" grid — every used-count badge and
 // hover style lives here once, so Block Studio's own palette and any other
 // "assign a quick task" surface look and behave identically.
-export function ComponentKindPicker({ kinds, usedCounts = {}, onPick, layout = "stacked" }) {
+export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
   const groups = COMPONENT_CATEGORIES
     .map((cat) => ({
       id: cat.id, label: cat.label,
@@ -116,7 +114,7 @@ export function ComponentKindPicker({ kinds, usedCounts = {}, onPick, layout = "
       }),
     }))
     .filter((cat) => cat.items.length);
-  return <CategoryPicker groups={groups} onPick={onPick} layout={layout} />;
+  return <CategoryPicker groups={groups} onPick={onPick} />;
 }
 
 // Playground's purely gamified kinds draw from the shared, cross-level Word
@@ -330,6 +328,13 @@ export default function BlockStudio() {
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
   const [adding, setAdding] = useState(false);
+  // Which category is showing on the right, in the "add a component"
+  // picker below — a plain nav-list-and-content split (the same shape as
+  // Settings' own Profile/Security/Linked Account sidebar), not a modal or
+  // a row of tabs: with 9 categories a horizontal tab strip either wraps to
+  // two lines or runs off the edge, while a vertical list scales to any
+  // number of entries without either problem.
+  const [addCategory, setAddCategory] = useState(COMPONENT_CATEGORIES[0].id);
   // Edit mode is a rail-and-canvas builder (draw.io/PowerPoint pattern):
   // every component shown small in the left rail, one selected at a time
   // fills the main canvas. Selection is tracked by id, not index, so it
@@ -499,8 +504,66 @@ export default function BlockStudio() {
               </button>
             </div>
 
-            <Card className="p-5 min-h-[320px]">
-              {selected ? (
+            <Card className={adding ? "p-0 overflow-hidden min-h-[320px]" : "p-5 min-h-[320px]"}>
+              {adding ? (
+                // Inline, not a modal — a category nav on the left (same
+                // shape as Settings' own Profile/Security/Linked Account
+                // sidebar) and that category's components on the right.
+                // Clicking a component adds it directly; there's no
+                // separate confirm step. "My Component Library" sits in the
+                // same nav list as every kind-category, not as a block that
+                // hangs around above them regardless of which one is active.
+                <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-full">
+                  <div className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3">
+                    <div className="flex items-center justify-between px-2 mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Add a component</span>
+                      <button onClick={() => setAdding(false)} className="text-neutral-500 hover:text-neutral-900 p-1 rounded hover:bg-neutral-100"><IconX size={14} stroke={1.75} /></button>
+                    </div>
+                    <nav className="space-y-0.5 max-h-[480px] overflow-y-auto">
+                      {state.componentBank && state.componentBank.length > 0 && (
+                        <NavItem icon={IconBookmarkPlus} label="My Component Library"
+                          active={addCategory === "library"} onClick={() => setAddCategory("library")} />
+                      )}
+                      {/* No icon here on purpose: NavItem's stroke={1.75}
+                          is tuned for tabler icons (every other NavItem in
+                          the app), and COMPONENT_META's icons are
+                          lucide-react — same library mismatch the
+                          CategoryPickerGrid comment above already warns
+                          about, so it's not worth fighting for a category
+                          label that reads fine on its own. */}
+                      {COMPONENT_CATEGORIES.map((cat) => (
+                        <NavItem key={cat.id} label={cat.label}
+                          active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
+                      ))}
+                    </nav>
+                  </div>
+                  <div className="p-4 max-h-[480px] overflow-y-auto">
+                    {addCategory === "library" ? (
+                      // grouped by the course/parent it was saved from, so
+                      // the library reads as folders instead of one flat pile
+                      <LibraryPickList
+                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                          id: parent, label: parent,
+                          items: items.map((item) => {
+                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                            const child = bankChildLabel(item);
+                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                          }),
+                        }))}
+                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                      />
+                    ) : (
+                      <CategoryPickerGrid
+                        items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
+                          const M = COMPONENT_META[k];
+                          return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+                        })}
+                        onPick={addComponent}
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : selected ? (
                 (() => {
                   const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                   const CI = M.icon;
@@ -538,45 +601,6 @@ export default function BlockStudio() {
               )}
             </Card>
           </div>
-
-          {/* A real modal, not the canvas swapping its own content — same
-              pattern as AddBlockModal, so "add a component" and "add a
-              block" feel like the same action at two different depths.
-              kinds is every component the app has, not just this block
-              type's usual palette: a teacher may deliberately want a
-              Grammar block to end with a Homework-style writing prompt,
-              and CategoryPicker's own grouping already tells kinds apart
-              by what they're for, so nothing is lost by not pre-filtering. */}
-          <Modal open={adding} onClose={() => setAdding(false)} title="Add a component"
-            sub="Every component the app has, grouped by what it's for — not only what this block type usually uses." wide>
-            {state.componentBank && state.componentBank.length > 0 && (
-              <div className="border-b border-neutral-200 pb-4 mb-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-primary-600 mb-2 flex items-center gap-1">
-                  <IconBookmarkPlus size={13} stroke={1.75} /> Insert from My Component Library
-                </div>
-                {/* grouped by the course/parent it was saved from, so the
-                    library reads as folders instead of one flat pile */}
-                <LibraryPickList
-                  groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                    id: parent, label: parent,
-                    items: items.map((item) => {
-                      const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                      const child = bankChildLabel(item);
-                      return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                    }),
-                  }))}
-                  onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                />
-              </div>
-            )}
-
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">All components, by category</div>
-              <ComponentKindPicker kinds={ALL_COMPONENT_KINDS} layout="tabs"
-                usedCounts={Object.fromEntries(ALL_COMPONENT_KINDS.map((k) => [k, components.filter((c) => c.kind === k).length]))}
-                onPick={addComponent} />
-            </div>
-          </Modal>
         </div>
       )}
     </div>
