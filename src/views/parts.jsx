@@ -106,7 +106,7 @@ const SAMPLE_WORDS = [
 // A categorized "pick a component kind" grid — every used-count badge and
 // hover style lives here once, so Block Studio's own palette and any other
 // "assign a quick task" surface look and behave identically.
-export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
+export function ComponentKindPicker({ kinds, usedCounts = {}, onPick, layout = "stacked" }) {
   const groups = COMPONENT_CATEGORIES
     .map((cat) => ({
       id: cat.id, label: cat.label,
@@ -116,7 +116,7 @@ export function ComponentKindPicker({ kinds, usedCounts = {}, onPick }) {
       }),
     }))
     .filter((cat) => cat.items.length);
-  return <CategoryPicker groups={groups} onPick={onPick} />;
+  return <CategoryPicker groups={groups} onPick={onPick} layout={layout} />;
 }
 
 // Playground's purely gamified kinds draw from the shared, cross-level Word
@@ -572,7 +572,7 @@ export default function BlockStudio() {
 
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">All components, by category</div>
-              <ComponentKindPicker kinds={ALL_COMPONENT_KINDS}
+              <ComponentKindPicker kinds={ALL_COMPONENT_KINDS} layout="tabs"
                 usedCounts={Object.fromEntries(ALL_COMPONENT_KINDS.map((k) => [k, components.filter((c) => c.kind === k).length]))}
                 onPick={addComponent} />
             </div>

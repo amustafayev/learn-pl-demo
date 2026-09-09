@@ -165,34 +165,65 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
 // used-count badge if already placed in the lesson. One factory component so
 // every picker in the app looks and behaves identically, instead of each
 // screen growing its own near-duplicate grid.
-export function CategoryPicker({ groups, onPick, columns = 2 }) {
+// One grid of item buttons for a group/category — shared by both
+// CategoryPicker layouts below so there is exactly one place that draws
+// "an icon tile + a label + a description", no matter whether it's reached
+// by scrolling past a group label or by switching to a tab.
+function CategoryPickerGrid({ items, onPick, gridCols }) {
+  return (
+    <div className={`grid gap-2 ${gridCols}`}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button key={item.id} onClick={() => onPick(item.id)}
+            className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
+            {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
+            {/* item.icon is whatever set provided the catalog entry (this
+                app's block/component catalogs are still lucide-react,
+                whose stroke-width prop is `strokeWidth` not `stroke` —
+                don't pass a tabler-style `stroke` here or it overrides
+                the SVG's actual stroke color and the glyph vanishes) */}
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={17} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-neutral-900">{item.label}</span>
+              {item.description && <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{item.description}</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// "Pick one of several categorized options" — a big catalog of icon+label
+// options grouped into named sections ("Add a block", "pick a component").
+// Two layouts share the exact same item button (CategoryPickerGrid above):
+//   - "stacked" (default): every group's label + grid, one after another —
+//     fine for a short catalog like the block-type picker (~6 groups, 1-2
+//     items each).
+//   - "tabs": a TabBar of group labels, showing only the active group's
+//     grid below it — for a catalog too long to read as one scroll (the
+//     full component picker: 9 groups, some with 9+ items).
+export function CategoryPicker({ groups, onPick, columns = 2, layout = "stacked" }) {
   const gridCols = columns === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2";
+  const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
+  if (layout === "tabs") {
+    const active = groups.find((g) => g.id === activeGroup) || groups[0];
+    return (
+      <div>
+        <TabBar tabs={groups.map((g) => ({ id: g.id, label: g.label }))} value={active?.id} onChange={setActiveGroup} />
+        <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+          {active && <CategoryPickerGrid items={active.items} onPick={onPick} gridCols={gridCols} />}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       {groups.map((g) => (
         <div key={g.id}>
           <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500 mb-1.5">{g.label}</div>
-          <div className={`grid gap-2 ${gridCols}`}>
-            {g.items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button key={item.id} onClick={() => onPick(item.id)}
-                  className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
-                  {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
-                  {/* item.icon is whatever set provided the catalog entry (this
-                      app's block/component catalogs are still lucide-react,
-                      whose stroke-width prop is `strokeWidth` not `stroke` —
-                      don't pass a tabler-style `stroke` here or it overrides
-                      the SVG's actual stroke color and the glyph vanishes) */}
-                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={17} /></span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-neutral-900">{item.label}</span>
-                    {item.description && <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{item.description}</span>}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <CategoryPickerGrid items={g.items} onPick={onPick} gridCols={gridCols} />
         </div>
       ))}
     </div>
