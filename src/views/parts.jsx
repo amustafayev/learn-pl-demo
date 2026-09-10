@@ -511,7 +511,7 @@ export default function BlockStudio() {
               rendered exactly as a student sees it, selectable in place.
               Nothing here is an overlay; the panel and the canvas are both
               always visible and interactive. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start">
             <Card className="p-0 overflow-hidden lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] flex flex-col">
               {panel === "settings" && selected ? (
                 // Settings for the selected component. `key` remounts on
@@ -567,12 +567,13 @@ export default function BlockStudio() {
                         />
                       );
                     })}
+                    {/* No "Add component" button here — the preview on the
+                        right already has a "+" slot after every component
+                        (and one at the very start/end), so a component
+                        always gets added exactly where it visually lands.
+                        A second, position-less "add to the end" button here
+                        would just be a redundant way to do the same thing. */}
                     {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
-                    <button onClick={() => setInsertAt(components.length)}
-                      className={`w-full border-2 border-dashed rounded-xl p-3 text-sm font-medium mt-1 transition duration-(--dur-fast) ${
-                        insertAt === components.length ? "border-primary-300 bg-primary-50 text-primary-600" : "border-neutral-300 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
-                      <Plus size={15} className="inline mr-1" /> Add component
-                    </button>
                   </div>
                 </div>
               )}
