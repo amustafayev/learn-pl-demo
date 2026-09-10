@@ -557,8 +557,12 @@ export default function BlockStudio() {
                         // Editing, in place: same frame, same position in
                         // the stack — just showing the editor instead of
                         // the rendered preview. `key` remounts on selection
-                        // change so the entrance plays per component.
-                        <div key={c.id} className="rounded-[16px] border-2 border-primary-300 bg-white p-4 animate-fade-rise">
+                        // change so the entrance plays per component. Border
+                        // is brighter and heavier than a plain added
+                        // component's (border-primary-500 + shadow, vs.
+                        // border-neutral-300 below) so the one you're
+                        // actually editing is unmistakable among the others.
+                        <div key={c.id} className="rounded-[16px] border-2 border-primary-500 bg-white p-4 shadow-md animate-fade-rise">
                           <div className="flex items-center gap-2 mb-3 pb-3 border-b border-neutral-100">
                             <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-1" />
                             {c.level !== undefined && (
@@ -580,13 +584,18 @@ export default function BlockStudio() {
                             passages={components.filter((x) => x.kind === "passage")} />
                         </div>
                       ) : (
-                        // Not selected: the plain rendered preview — click
-                        // anywhere on it to start editing in place. To
-                        // check the finished result instead, switch the
-                        // "As student" toggle above rather than looking at
-                        // any one frame here.
+                        // Not selected: the plain rendered preview, but
+                        // still its own clearly bordered frame — a stack of
+                        // components with no visible edge between them just
+                        // reads as one wall of content. Deliberately a
+                        // plainer neutral border (not primary) and no
+                        // shadow, so it stays visually quieter than the
+                        // selected frame above. Click anywhere on it to
+                        // start editing in place; check the finished result
+                        // via the "As student" toggle rather than any one
+                        // frame here.
                         <div onClick={() => setSelectedId(c.id)}
-                          className="rounded-[16px] ring-2 ring-offset-2 ring-offset-neutral-50 ring-transparent hover:ring-neutral-300 cursor-pointer transition duration-(--dur-fast)">
+                          className="rounded-[16px] border border-neutral-300 hover:border-primary-300 cursor-pointer transition duration-(--dur-fast)">
                           <ComponentStudent component={c} />
                         </div>
                       )}
