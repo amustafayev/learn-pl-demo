@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
   Sparkles, RotateCcw, ChevronRight, ArrowRight,
@@ -347,6 +347,13 @@ export default function BlockStudio() {
   // removing without pointing at the wrong item.
   const [selectedId, setSelectedId] = useState(null);
   const [dragId, setDragId] = useState(null);
+  // The rail's own scrollable list, kept as a ref rather than relying on
+  // rail-item.scrollIntoView(): that call walks every scrollable ancestor,
+  // including the page itself, so scrolling the (usually already-fitting)
+  // rail would also drag the page's scroll position back to wherever the
+  // short rail list sits — cancelling the frame's own scrollIntoView below.
+  // Scrolling this container's scrollTop directly keeps the two independent.
+  const railListRef = useRef(null);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = (lesson?.built || []).find((p) => p.id === route.partId);
@@ -371,7 +378,14 @@ export default function BlockStudio() {
   useEffect(() => {
     if (mode !== "edit" || !selectedId) return;
     document.getElementById(`frame-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    document.getElementById(`rail-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const railEl = document.getElementById(`rail-${selectedId}`);
+    const railList = railListRef.current;
+    if (railEl && railList) {
+      const top = railEl.offsetTop, bottom = top + railEl.offsetHeight;
+      const viewTop = railList.scrollTop, viewBottom = viewTop + railList.clientHeight;
+      if (top < viewTop) railList.scrollTo({ top, behavior: "smooth" });
+      else if (bottom > viewBottom) railList.scrollTo({ top: bottom - railList.clientHeight, behavior: "smooth" });
+    }
   }, [selectedId, mode]);
 
   // Escape walks back out one layer at a time: picker first, then editing.
@@ -506,7 +520,7 @@ export default function BlockStudio() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
                 <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
               </div>
-              <div className="p-3 space-y-1.5 overflow-y-auto min-h-0">
+              <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto min-h-0">
                 {components.map((c, i) => {
                   const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                   const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
