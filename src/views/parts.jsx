@@ -37,6 +37,12 @@ import { Crossword } from "./playground.jsx";
 let compSeq = 0;
 const cid = () => `c${Date.now()}_${++compSeq}`;
 
+// The app shell's own topbar height (english-platform-prototype.jsx's
+// TopBar is h-16) — BlockStudio's sticky header stacks its own offset on
+// top of this, so it's needed here too rather than repeating "64" or "16"
+// (Tailwind's spacing unit) at every call site.
+const TOPBAR_H = 64;
+
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
   passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50",      hint: "A tappable text with translations and saved words" },
@@ -363,6 +369,10 @@ export default function BlockStudio() {
   // and the rail's old fixed offset no longer matched it.
   const headerRef = useRef(null);
   const [headerH, setHeaderH] = useState(96);
+  // headerH is just this bar's own (measured) content height — it doesn't
+  // know about the app shell's topbar sitting above it. Anything computing
+  // "how far down is it safe to start" needs the combined offset.
+  const stuckOffset = headerH + TOPBAR_H;
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -388,12 +398,35 @@ export default function BlockStudio() {
 
   // Selection made in one place shows up in the other: pick a row in the
   // list and the preview glides to that component; click a component in
-  // the preview and the list scrolls its row into view. `nearest` makes
-  // this a no-op when it's already visible, so clicking the thing you're
-  // looking at never yanks the page around.
+  // the preview and the list scrolls its row into view.
+  //
+  // The frame uses `block: "start"`, not "nearest": a component's own
+  // editor (with its level select, save/duplicate/move/delete toolbar) is
+  // often taller than the viewport, and "nearest" only scrolls the minimum
+  // needed — if the frame already overlapped the visible area at all, it
+  // could leave that top toolbar scrolled past, out of view. "start"
+  // always brings the frame's own top edge to rest just below the sticky
+  // header (scrollMarginTop on the frame accounts for that header, so this
+  // never lands underneath it), so selecting a component always shows it
+  // from the top, not some arbitrary middle point.
   useEffect(() => {
     if (mode !== "edit" || !selectedId) return;
-    document.getElementById(`frame-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const frameEl = document.getElementById(`frame-${selectedId}`);
+    if (frameEl) {
+      // Re-measure live rather than trust `headerH` state: ResizeObserver
+      // fires asynchronously (next frame), so right after a render that
+      // both changes the header's height AND selects a component in the
+      // same tick (e.g. picking a component from "Add a component" right
+      // after the kicker's "N components" count grows enough to wrap the
+      // header onto an extra line), this effect can run a frame before
+      // that callback catches up — scrolling against a stale, too-small
+      // offset and landing the frame partly behind the header. Reading the
+      // header's real height here, synchronously, can't be stale.
+      const liveHeaderH = headerRef.current?.getBoundingClientRect().height ?? headerH;
+      if (liveHeaderH !== headerH) setHeaderH(liveHeaderH);
+      frameEl.style.scrollMarginTop = `${liveHeaderH + TOPBAR_H + 16}px`;
+      frameEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     const railEl = document.getElementById(`rail-${selectedId}`);
     const railList = railListRef.current;
     if (railEl && railList) {
@@ -402,6 +435,12 @@ export default function BlockStudio() {
       if (top < viewTop) railList.scrollTo({ top, behavior: "smooth" });
       else if (bottom > viewBottom) railList.scrollTo({ top: bottom - railList.clientHeight, behavior: "smooth" });
     }
+    // headerH deliberately left out: it's only read here to decide whether
+    // to correct stale state, not for the scroll math itself (liveHeaderH
+    // covers that) — adding it would re-run this whole effect, including
+    // the scroll, every time the header resizes while a component is
+    // already open, yanking the view for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, mode]);
 
   // Escape walks back out one layer at a time: picker first, then editing.
@@ -480,41 +519,66 @@ export default function BlockStudio() {
     // as everywhere else in the app (max-w-5xl); the editor is a
     // rail+canvas(+add-panel) builder that wants the actual screen, not a
     // reading-width column, so it isn't capped the same way.
-    <div className={`p-5 sm:p-8 ${mode === "student" ? "max-w-5xl mx-auto" : "max-w-[1600px] mx-auto"}`}>
-      {/* Pinned below the app shell's own topbar (h-16), never under it —
-          this is the block's identity plus the "which mode am I in" toggle
-          and Save & close, all of which a teacher wants visible no matter
-          how far the components list/preview below has scrolled. `-mx`/`px`
+    <div className={`p-5 sm:p-8 ${mode === "student" ? "max-w-5xl mx-auto" : "max-w-[1600px] mx-auto"}`}
+      // Extra bottom scroll room, at least one sticky-header's worth: a
+      // block with only a couple of short components otherwise doesn't
+      // have enough scrollable height for a component near the end to
+      // ever clear the header when its own scrollMarginTop kicks in —
+      // the browser just clamps the scroll at the page's real max and the
+      // frame's top stays partly behind the header. Padding the bottom
+      // guarantees that scroll room always exists.
+      style={{ paddingBottom: stuckOffset }}>
+      {/* Pinned below the app shell's own topbar, never under it — this is
+          the block's identity plus the "which mode am I in" toggle and
+          Save & close, all of which a teacher wants visible no matter how
+          far the components list/preview below has scrolled. `-mx`/`px`
           bleeds the sticky bar's background to the same width it already
           occupies (this container is itself the horizontal-inset column,
-          so no edge-to-edge trick is needed) while `border-b` gives the
-          scrolling content underneath a clean, fixed upper edge to scroll
-          against instead of visually colliding with these controls. */}
-      <div ref={headerRef} className="sticky top-16 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50 pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
-            kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
-            title={block.title || BT.label} />
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm"
-              onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
-              <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
-            </Button>
-            <SegmentedToggle value={mode} onChange={setMode} options={[
-              { id: "student", label: "As student", icon: IconEye },
-              { id: "edit", label: "Edit content", icon: IconPencil },
-            ]} />
-          </div>
-        </div>
+          so no edge-to-edge trick is needed).
 
-        {mode === "student" ? (
-          <div className="mt-5 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
-        ) : (
-          <div className="mt-5 flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
-            <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+          Stuck at top-0 (not top-16, the topbar's own height) on purpose,
+          with a plain TOPBAR_H spacer standing in for the topbar's own
+          content: the topbar is translucent (bg-white/80 backdrop-blur —
+          intentional everywhere else, an iOS-style frosted toolbar), and
+          this page's own content is tall and strongly colored (the orange-
+          bordered preview card). A sticky element only ever blocks what's
+          BEHIND it for as long as its own box actually spans that space —
+          if this bar started at top-16, its box would stop at y:64 and
+          never cover y:0-64 at all, so once scrolled far enough the
+          preview card (an ordinary, non-sticky, ever-scrolling element)
+          would eventually slide its own top edge up through that gap,
+          becoming the thing the topbar's blur samples — a visible orange
+          "shadow" ghosting through the topbar. Extending this bar's own
+          sticky box up to y:0 means it — not the scrolling card — is
+          always what's directly behind the topbar. */}
+      <div className="sticky top-0 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50">
+        <div className="h-16" aria-hidden="true" />
+        <div ref={headerRef} className="pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
+              kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
+              title={block.title || BT.label} />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
+                <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
+              </Button>
+              <SegmentedToggle value={mode} onChange={setMode} options={[
+                { id: "student", label: "As student", icon: IconEye },
+                { id: "edit", label: "Edit content", icon: IconPencil },
+              ]} />
+            </div>
           </div>
-        )}
+
+          {mode === "student" ? (
+            <div className="mt-5 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
+          ) : (
+            <div className="mt-5 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
+              <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {mode === "student" ? (
@@ -546,12 +610,13 @@ export default function BlockStudio() {
               live preview; click any component there and that one frame
               (only that one) swaps to its own editor, in place. */}
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
-            {/* Pinned right under the sticky header above (top: headerH,
-                not a guessed fixed value — see headerH's own comment) so
-                the list is always fully visible, never sliced by scrolling
-                part of it behind that header. */}
+            {/* Pinned right under the sticky header above (top: stuckOffset
+                — headerH plus the app topbar's own height, not a guessed
+                fixed value; see headerH's and stuckOffset's own comments)
+                so the list is always fully visible, never sliced by
+                scrolling part of it behind that header. */}
             <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
-              style={{ top: headerH, maxHeight: `calc(100vh - ${headerH}px - 16px)` }}>
+              style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
               <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
                 <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
               </div>
@@ -601,7 +666,14 @@ export default function BlockStudio() {
                 const isSel = c.id === selectedId;
                 return (
                   <React.Fragment key={c.id}>
-                    <div id={`frame-${c.id}`} className="relative">
+                    {/* scrollMarginTop tells scrollIntoView (below) that the
+                        sticky header (plus the app topbar above it —
+                        stuckOffset covers both) blocks off that much of
+                        what it'd otherwise think was open viewport —
+                        without it, "nearest" scrolls a frame right up to
+                        y:0 of the scroll container, which is actually
+                        hidden behind that header, not visible at all. */}
+                    <div id={`frame-${c.id}`} className="relative" style={{ scrollMarginTop: stuckOffset + 16 }}>
                       {isSel ? (
                         // Editing, in place: same frame, same position in
                         // the stack — just showing the editor instead of
