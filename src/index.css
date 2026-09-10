@@ -150,8 +150,6 @@
   --animate-toast-out: toast-out var(--dur-slow) var(--ease-soft-in) both;
   --animate-drawer-in: drawer-in var(--dur-slow) var(--ease-soft-out) both;
   --animate-drawer-out: drawer-out var(--dur-slow) var(--ease-soft-in) both;
-  --animate-sheet-in: sheet-in var(--dur-slow) var(--ease-soft-out) both;
-  --animate-sheet-out: sheet-out var(--dur-slow) var(--ease-soft-in) both;
 
   /* Separate in/out keyframes on purpose: a same-named animation that only
      flips `direction` does not restart, so an out-animation built by
@@ -195,15 +193,6 @@
   @keyframes drawer-out {
     from { transform: translateX(0); }
     to { transform: translateX(100%); }
-  }
-  /* Same idea for a bottom-anchored sheet: it rises from the bottom edge. */
-  @keyframes sheet-in {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-  @keyframes sheet-out {
-    from { transform: translateY(0); }
-    to { transform: translateY(100%); }
   }
 }
 

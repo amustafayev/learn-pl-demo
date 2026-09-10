@@ -131,23 +131,14 @@ export function Modal({ open, onClose, title, sub, children, footer, wide }) {
 // what makes it read as "the canvas extending sideways" rather than "a
 // dialog interrupting you". Same usePresence lifecycle as Modal — stays
 // mounted through its own exit animation instead of just vanishing.
-// `side="bottom"` turns it into a sheet that rises from the bottom edge;
-// `backdrop={false}` drops the dimmed scrim entirely and lets clicks fall
-// through to the page around the panel — for a picker that should sit *on*
-// the workspace (the block editor's "add a component" sheet, the way a
-// site builder's block palette does) rather than interrupt it.
-export function Drawer({ open, onClose, title, sub, children, width = "max-w-md", height = "h-[440px]", side = "right", backdrop = true }) {
+export function Drawer({ open, onClose, title, sub, children, width = "max-w-md" }) {
   const present = usePresence(open);
   if (!present) return null;
-  const bottom = side === "bottom";
-  const panelPos = bottom
-    ? `bottom-0 inset-x-0 w-full ${height} border-t rounded-t-[14px] ${open ? "animate-sheet-in" : "animate-sheet-out"}`
-    : `top-0 right-0 h-full w-full ${width} border-l ${open ? "animate-drawer-in" : "animate-drawer-out"}`;
   return (
-    <div className={`fixed inset-0 z-40 ${backdrop ? "" : "pointer-events-none"} ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={backdrop ? onClose : undefined}>
-      {backdrop && <div className="absolute inset-0 bg-neutral-950/20" />}
+    <div className={`fixed inset-0 z-40 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
+      <div className="absolute inset-0 bg-neutral-950/20" />
       <div onClick={(e) => e.stopPropagation()}
-        className={`absolute pointer-events-auto bg-white border-neutral-300 shadow-xl flex flex-col will-change-transform ${panelPos}`}
+        className={`absolute top-0 right-0 h-full w-full ${width} bg-white border-l border-neutral-300 shadow-xl flex flex-col will-change-transform ${open ? "animate-drawer-in" : "animate-drawer-out"}`}
       >
         {(title || sub) && (
           <div className="flex items-start justify-between p-5 border-b border-neutral-200 shrink-0">
@@ -219,8 +210,8 @@ export function CategoryPickerGrid({ items, onPick, gridCols = "grid-cols-1 sm:g
         const Icon = item.icon;
         return (
           <button key={item.id} onClick={() => onPick(item.id)}
-            className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-primary-300 bg-primary-50/60 hover:bg-primary-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
-            {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">{item.used}</span>}
+            className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-info-300 bg-info-50/60 hover:bg-info-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
+            {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-info-600 text-[10px] font-bold text-white">{item.used}</span>}
             {/* item.icon is whatever set provided the catalog entry (this
                 app's block/component catalogs are still lucide-react,
                 whose stroke-width prop is `strokeWidth` not `stroke` —

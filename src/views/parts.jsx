@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
-  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Drawer } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -533,12 +533,19 @@ export default function BlockStudio() {
               </div>
             </Card>
 
-            {/* The live preview. Click a frame and it swaps in place from
-                its rendered student view to its own editor — nothing moves
-                to a side panel. "+ Add component" slots sit between frames
-                like a site builder's "Add block" pills, each remembering
-                its own position, so a pick lands exactly where you clicked. */}
-            <div className="min-w-0">
+            {/* Framed to match the components list on the left — same card
+                shape, a hairline warmed toward the brand color instead of
+                plain neutral, so the two columns read as a matched pair
+                rather than a bordered list next to loose floating content. */}
+            <Card className="min-w-0 !border-primary-200 p-4 lg:p-5">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary-100">
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-600">Preview</span>
+              </div>
+              {/* Click a frame and it swaps in place from its rendered
+                  student view to its own editor — nothing moves to a side
+                  panel. "+ Add component" slots sit between frames like a
+                  site builder's "Add block" pills, each remembering its own
+                  position, so a pick lands exactly where you clicked. */}
               <AddSlot active={insertAt === 0} onClick={() => setInsertAt(0)} />
               {components.map((c, i) => {
                 const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
@@ -595,57 +602,71 @@ export default function BlockStudio() {
                   <div className="text-sm font-medium">This block is empty — add your first component</div>
                 </button>
               )}
-            </div>
-          </div>
 
-          {/* The picker rises from the bottom edge as a sheet, no dimmed
-              scrim: the preview above stays visible and clickable, so the
-              teacher can keep looking at the block while choosing what to
-              add — and click a different "+" slot without closing it. */}
-          <Drawer side="bottom" backdrop={false} height="h-[440px]" open={insertAt !== null} onClose={() => setInsertAt(null)}
-            title="Add a component"
-            sub={insertAt === null ? undefined : insertAt >= components.length ? "Goes at the end of the block" : `Goes in as component ${insertAt + 1}`}>
-            <div className="grid grid-cols-1 sm:grid-cols-[240px_1fr] h-full">
-              <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
-                {state.componentBank && state.componentBank.length > 0 && (
-                  <NavItem icon={IconBookmarkPlus} label="My Component Library"
-                    active={addCategory === "library"} onClick={() => setAddCategory("library")} />
-                )}
-                {/* No icon on purpose: NavItem's stroke={1.75} is tuned for
-                    tabler icons; COMPONENT_META's are lucide-react, which
-                    spells that prop differently and renders invisibly. */}
-                {COMPONENT_CATEGORIES.map((cat) => (
-                  <NavItem key={cat.id} label={cat.label}
-                    active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
-                ))}
-              </nav>
-              <div className="p-4 overflow-y-auto">
-                {addCategory === "library" ? (
-                  // grouped by the course/parent it was saved from, so the
-                  // library reads as folders instead of one flat pile
-                  <LibraryPickList
-                    groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                      id: parent, label: parent,
-                      items: items.map((item) => {
-                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                        const child = bankChildLabel(item);
-                        return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                      }),
-                    }))}
-                    onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                  />
-                ) : (
-                  <CategoryPickerGrid gridCols="grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
-                    items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
-                      const M = COMPONENT_META[k];
-                      return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
-                    })}
-                    onPick={addComponent}
-                  />
-                )}
-              </div>
-            </div>
-          </Drawer>
+              {/* The picker itself — sticky to the bottom of the viewport,
+                  but as a normal child of this framed column rather than a
+                  fixed, viewport-wide overlay, so it can never cover the
+                  sidebar or the components list to its left, and it stays
+                  inside the same "frame" the preview lives in. No dimmed
+                  scrim either: the preview above it stays visible and
+                  clickable, so a different "+" slot can be picked without
+                  closing this first. */}
+              {insertAt !== null && (
+                <div className="sticky bottom-4 z-30 mt-5 rounded-[14px] border-2 border-primary-300 bg-white shadow-xl overflow-hidden animate-fade-rise">
+                  <div className="flex items-start justify-between p-4 border-b border-neutral-200 bg-primary-50/50">
+                    <div>
+                      <h3 className="font-bold text-base tracking-tight text-neutral-950">Add a component</h3>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        {insertAt >= components.length ? "Goes at the end of the block" : `Goes in as component ${insertAt + 1}`}
+                      </p>
+                    </div>
+                    <button onClick={() => setInsertAt(null)} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] max-h-[420px]">
+                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
+                      {state.componentBank && state.componentBank.length > 0 && (
+                        <NavItem icon={IconBookmarkPlus} label="My Component Library"
+                          active={addCategory === "library"} onClick={() => setAddCategory("library")} />
+                      )}
+                      {/* No icon on purpose: NavItem's stroke={1.75} is tuned
+                          for tabler icons; COMPONENT_META's are
+                          lucide-react, which spells that prop differently
+                          and renders invisibly. */}
+                      {COMPONENT_CATEGORIES.map((cat) => (
+                        <NavItem key={cat.id} label={cat.label}
+                          active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
+                      ))}
+                    </nav>
+                    <div className="p-4 overflow-y-auto">
+                      {addCategory === "library" ? (
+                        // grouped by the course/parent it was saved from, so
+                        // the library reads as folders instead of one flat pile
+                        <LibraryPickList
+                          groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                            id: parent, label: parent,
+                            items: items.map((item) => {
+                              const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                              const child = bankChildLabel(item);
+                              return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                            }),
+                          }))}
+                          onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                        />
+                      ) : (
+                        <CategoryPickerGrid gridCols="grid-cols-1 md:grid-cols-2"
+                          items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
+                            const M = COMPONENT_META[k];
+                            return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+                          })}
+                          onPick={addComponent}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
       )}
     </div>
