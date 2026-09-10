@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain, IconBroadcast,
-  IconSettings2, IconHelpCircle, IconSun, IconMoon,
+  IconSettings2, IconHelpCircle, IconSun, IconMoon, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
 import { StoreProvider, useStore } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
@@ -48,16 +48,33 @@ export default function App() {
   );
 }
 
+const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
+
 function AppShell() {
   const { state, dispatch } = useStore();
   const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
   const startLive = useCallback((ctx) => setLive(ctx || {}), []);
   const endLive = useCallback(() => setLive(null), []);
   const { pathname } = useLocation();
+  // Manual override on top of the existing responsive w-16/w-64 breakpoint —
+  // a teacher on a real desktop screen may still want the icon-only rail
+  // (more room for a wide page like Block Studio's rail+canvas+add-panel),
+  // not just whoever happens to be on a narrow viewport. Persisted so it
+  // sticks across a reload rather than resetting every visit.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1"; } catch { return false; }
+  });
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0"); } catch { /* prototype still works without storage */ }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-950 flex font-sans">
-      <Sidebar pathname={pathname} />
+      <Sidebar pathname={pathname} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       <main className="flex-1 overflow-y-auto h-screen">
         <TopBar pathname={pathname} onStartLive={() => startLive()} />
         {/* Keyed on the top-level tab, not the full pathname: drilling from
@@ -73,35 +90,55 @@ function AppShell() {
   );
 }
 
-function Sidebar({ pathname }) {
+function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   const navigate = useNavigate();
   const { toast } = useStore();
+  // `collapsed` is a manual override forcing icon-only at any width; without
+  // it, the existing sm: breakpoint still decides (icon-only under sm,
+  // labeled at sm+) — no width transition on toggle, it just snaps, same as
+  // the breakpoint always did.
+  const showLabels = !collapsed;
+  const labelCls = showLabels ? "hidden sm:inline" : "hidden";
   return (
-    <aside className="w-16 sm:w-64 shrink-0 bg-white flex flex-col h-screen sticky top-0">
+    <aside className={`${collapsed ? "w-16" : "w-16 sm:w-64"} shrink-0 bg-white flex flex-col h-screen sticky top-0`}>
       <div className="h-16 flex items-center gap-2.5 px-4">
         <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white shrink-0"><IconSparkles size={18} stroke={1.75} /></div>
-        <div className="hidden sm:block leading-none">
-          <div className="font-bold tracking-tight text-neutral-950">Lucid</div>
-          <div className="text-[11px] text-neutral-500 mt-0.5">for teachers</div>
-        </div>
+        {showLabels && (
+          <div className="hidden sm:block leading-none min-w-0">
+            <div className="font-bold tracking-tight text-neutral-950 truncate">Lucid</div>
+            <div className="text-[11px] text-neutral-500 mt-0.5 truncate">for teachers</div>
+          </div>
+        )}
+      </div>
+      {/* Only meaningful once a screen is wide enough that the sm:
+          breakpoint would otherwise force the labeled w-64 rail — on a
+          genuinely narrow viewport the responsive icon-only mode already
+          applies and there's nothing to toggle. */}
+      <div className="hidden sm:flex px-3 pb-1 justify-end">
+        <button onClick={onToggleCollapse} title={collapsed ? "Expand menu" : "Collapse menu"}
+          className="text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg p-1.5 transition-colors duration-(--dur-fast)">
+          {collapsed ? <IconChevronRight size={16} stroke={1.75} /> : <IconChevronLeft size={16} stroke={1.75} />}
+        </button>
       </div>
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        <NavSectionLabel>Main Menu</NavSectionLabel>
+        {showLabels && <NavSectionLabel><span className="hidden sm:inline">Main Menu</span></NavSectionLabel>}
         {NAV.map((n) => (
-          <NavItem key={n.id} icon={n.icon} label={<span className="hidden sm:inline">{n.label}</span>}
+          <NavItem key={n.id} icon={n.icon} label={<span className={labelCls}>{n.label}</span>}
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
       <div className="px-3 py-2">
-        <NavSectionLabel>Other</NavSectionLabel>
-        <NavItem icon={IconSettings2} label={<span className="hidden sm:inline">Setting</span>}
+        {showLabels && <NavSectionLabel><span className="hidden sm:inline">Other</span></NavSectionLabel>}
+        <NavItem icon={IconSettings2} label={<span className={labelCls}>Setting</span>}
           active={pathname.startsWith("/settings")} onClick={() => navigate("/settings")} />
-        <NavItem icon={IconHelpCircle} label={<span className="hidden sm:inline">Help & Support</span>}
+        <NavItem icon={IconHelpCircle} label={<span className={labelCls}>Help & Support</span>}
           active={pathname.startsWith("/help")} onClick={() => navigate("/help")} />
-        <div className="hidden sm:block mt-2">
-          <SegmentedToggle value="light" options={LIGHT_DARK_OPTIONS}
-            onChange={(v) => v === "dark" && toast("Dark mode isn't available in this prototype yet")} />
-        </div>
+        {showLabels && (
+          <div className="hidden sm:block mt-2">
+            <SegmentedToggle value="light" options={LIGHT_DARK_OPTIONS}
+              onChange={(v) => v === "dark" && toast("Dark mode isn't available in this prototype yet")} />
+          </div>
+        )}
       </div>
     </aside>
   );

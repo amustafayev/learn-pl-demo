@@ -13,7 +13,7 @@ import {
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Drawer } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -427,7 +427,11 @@ export default function BlockStudio() {
   };
 
   return (
-    <div className="p-5 sm:p-8 max-w-5xl mx-auto">
+    // Student preview reads best at a comfortable text column width, same
+    // as everywhere else in the app (max-w-5xl); the editor is a
+    // rail+canvas(+add-panel) builder that wants the actual screen, not a
+    // reading-width column, so it isn't capped the same way.
+    <div className={`p-5 sm:p-8 ${mode === "student" ? "max-w-5xl mx-auto" : "max-w-[1600px] mx-auto"}`}>
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
           kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
@@ -473,11 +477,15 @@ export default function BlockStudio() {
             <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
 
-          {/* Rail + canvas — draw.io/PowerPoint's pattern: every component
-              shown small on the left so the whole block stays visible at a
-              glance, one selected at a time fills the canvas on the right
-              instead of every editor being open and stacked at once. */}
-          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-5 items-start">
+          {/* Rail + (add-panel) + canvas — draw.io/PowerPoint's pattern:
+              every component shown small on the left so the whole block
+              stays visible at a glance, one selected at a time fills the
+              canvas on the right instead of every editor being open and
+              stacked at once. "Add a component" opens as a third column
+              here, not an overlay: it sits beside the rail and canvas
+              instead of covering either of them, and it just appears —
+              no slide, no dimmed backdrop, nothing to wait on. */}
+          <div className={`grid grid-cols-1 gap-5 items-start ${adding ? "lg:grid-cols-[260px_420px_1fr]" : "md:grid-cols-[260px_1fr]"}`}>
             <div className="space-y-1.5">
               {components.map((c, i) => {
                 const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
@@ -498,11 +506,60 @@ export default function BlockStudio() {
                 );
               })}
               {!components.length && <p className="text-xs text-neutral-500 px-1">No components yet.</p>}
-              <button onClick={() => setAdding(true)}
-                className="w-full border-2 border-dashed border-neutral-300 rounded-xl p-3 text-neutral-500 hover:border-primary-300 hover:text-primary-600 text-sm font-medium mt-2">
+              <button onClick={() => setAdding((v) => !v)}
+                className={`w-full border-2 border-dashed rounded-xl p-3 text-sm font-medium mt-2 ${
+                  adding ? "border-primary-300 bg-primary-50 text-primary-600" : "border-neutral-300 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
                 <Plus size={15} className="inline mr-1" /> Add component
               </button>
             </div>
+
+            {adding && (
+              <Card className="p-0 overflow-hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+                  <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 max-h-[560px] overflow-y-auto">
+                    {state.componentBank && state.componentBank.length > 0 && (
+                      <NavItem icon={IconBookmarkPlus} label="My Component Library"
+                        active={addCategory === "library"} onClick={() => setAddCategory("library")} />
+                    )}
+                    {/* No icon here on purpose: NavItem's stroke={1.75} is
+                        tuned for tabler icons (every other NavItem in the
+                        app), and COMPONENT_META's icons are lucide-react —
+                        same library mismatch the CategoryPickerGrid comment
+                        already warns about, so it's not worth fighting for
+                        a category label that reads fine on its own. */}
+                    {COMPONENT_CATEGORIES.map((cat) => (
+                      <NavItem key={cat.id} label={cat.label}
+                        active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
+                    ))}
+                  </nav>
+                  <div className="p-3 max-h-[560px] overflow-y-auto">
+                    {addCategory === "library" ? (
+                      // grouped by the course/parent it was saved from, so
+                      // the library reads as folders instead of one flat pile
+                      <LibraryPickList
+                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                          id: parent, label: parent,
+                          items: items.map((item) => {
+                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                            const child = bankChildLabel(item);
+                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                          }),
+                        }))}
+                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                      />
+                    ) : (
+                      <CategoryPickerGrid gridCols="grid-cols-1"
+                        items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
+                          const M = COMPONENT_META[k];
+                          return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+                        })}
+                        onPick={addComponent}
+                      />
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             <Card className="p-5 min-h-[320px]">
               {selected ? (
@@ -543,60 +600,6 @@ export default function BlockStudio() {
               )}
             </Card>
           </div>
-
-          {/* A Drawer, not a third column squeezed next to the rail — this
-              needs real room (a nav list beside a full grid), and sliding
-              over the canvas from the edge reads as "the workspace
-              extending sideways" rather than fighting the existing
-              rail+canvas layout for the same width. "My Component Library"
-              sits in the same nav list as every kind-category rather than
-              a block that hangs around above them regardless of which one
-              is active — pick one, see only that one's things. */}
-          <Drawer open={adding} onClose={() => setAdding(false)} title="Add a component" width="max-w-3xl">
-            <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-full">
-              <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
-                {state.componentBank && state.componentBank.length > 0 && (
-                  <NavItem icon={IconBookmarkPlus} label="My Component Library"
-                    active={addCategory === "library"} onClick={() => setAddCategory("library")} />
-                )}
-                {/* No icon here on purpose: NavItem's stroke={1.75} is tuned
-                    for tabler icons (every other NavItem in the app), and
-                    COMPONENT_META's icons are lucide-react — same library
-                    mismatch the CategoryPickerGrid comment already warns
-                    about, so it's not worth fighting for a category label
-                    that reads fine on its own. */}
-                {COMPONENT_CATEGORIES.map((cat) => (
-                  <NavItem key={cat.id} label={cat.label}
-                    active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
-                ))}
-              </nav>
-              <div className="p-5 overflow-y-auto">
-                {addCategory === "library" ? (
-                  // grouped by the course/parent it was saved from, so the
-                  // library reads as folders instead of one flat pile
-                  <LibraryPickList
-                    groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                      id: parent, label: parent,
-                      items: items.map((item) => {
-                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                        const child = bankChildLabel(item);
-                        return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                      }),
-                    }))}
-                    onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                  />
-                ) : (
-                  <CategoryPickerGrid
-                    items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
-                      const M = COMPONENT_META[k];
-                      return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
-                    })}
-                    onPick={addComponent}
-                  />
-                )}
-              </div>
-            </div>
-          </Drawer>
         </div>
       )}
     </div>
