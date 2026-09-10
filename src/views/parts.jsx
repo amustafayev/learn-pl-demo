@@ -609,43 +609,61 @@ export default function BlockStudio() {
               the steps" has one constant answer. The right is the block's
               live preview; click any component there and that one frame
               (only that one) swaps to its own editor, in place. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
-            {/* Pinned right under the sticky header above (top: stuckOffset
-                — headerH plus the app topbar's own height, not a guessed
-                fixed value; see headerH's and stuckOffset's own comments)
-                so the list is always fully visible, never sliced by
-                scrolling part of it behind that header. */}
-            <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
-              style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
-                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
-              </div>
-              <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto min-h-0">
-                {components.map((c, i) => {
-                  const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                  const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
-                  return (
-                    <RailItem key={c.id} id={`rail-${c.id}`}
-                      icon={M.icon} tone={M.tone} label={M.label}
-                      meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
-                      selected={c.id === selectedId}
-                      onClick={() => setSelectedId(c.id)}
-                      draggable
-                      onDragStart={() => setDragId(c.id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
-                      onDragEnd={() => setDragId(null)}
-                      className={dragId === c.id ? "opacity-40" : ""}
-                    />
-                  );
-                })}
-                {/* No "Add component" button here — the preview on the
-                    right already has a "+" slot after every component (and
-                    one at the very start/end), so a component always gets
-                    added exactly where it visually lands. */}
-                {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
-              </div>
-            </Card>
+          {/* `items-start` (the old setting here) sizes each grid cell to
+              its own content — fine for the preview column, but it leaves
+              the rail's cell exactly as tall as the rail itself. A sticky
+              element can only stay stuck within its own containing block
+              (its parent's box); once you scroll past a SHORT rail's short
+              cell, it runs out of room to stick and drops back into normal
+              flow, sliding back up and out from under its own sticky
+              position — visible as the rail climbing back up and getting
+              clipped by the header once you're scrolled deep into a long
+              preview column (more/taller components than the rail is
+              tall). Default (stretch) grid alignment makes the rail's OWN
+              grid cell span the full row height instead — i.e. at least as
+              tall as the preview column — giving its sticky child room to
+              stay stuck for the entire scroll. The Card itself stays a
+              plain child of that tall cell (not stretched) so it still
+              only ever looks as tall as its own content. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
+            <div>
+              {/* Pinned right under the sticky header above (top:
+                  stuckOffset — headerH plus the app topbar's own height,
+                  not a guessed fixed value; see headerH's and stuckOffset's
+                  own comments) so the list is always fully visible, never
+                  sliced by scrolling part of it behind that header. */}
+              <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
+                style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
+                </div>
+                <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto min-h-0">
+                  {components.map((c, i) => {
+                    const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                    const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                    return (
+                      <RailItem key={c.id} id={`rail-${c.id}`}
+                        icon={M.icon} tone={M.tone} label={M.label}
+                        meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                        selected={c.id === selectedId}
+                        onClick={() => setSelectedId(c.id)}
+                        draggable
+                        onDragStart={() => setDragId(c.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
+                        onDragEnd={() => setDragId(null)}
+                        className={dragId === c.id ? "opacity-40" : ""}
+                      />
+                    );
+                  })}
+                  {/* No "Add component" button here — the preview on the
+                      right already has a "+" slot after every component
+                      (and one at the very start/end), so a component
+                      always gets added exactly where it visually lands. */}
+                  {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
+                </div>
+              </Card>
+            </div>
 
             {/* Framed to match the components list on the left — same card
                 shape, a hairline warmed toward the brand color instead of
