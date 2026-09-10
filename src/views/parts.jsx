@@ -465,25 +465,44 @@ export default function BlockStudio() {
     // rail+canvas(+add-panel) builder that wants the actual screen, not a
     // reading-width column, so it isn't capped the same way.
     <div className={`p-5 sm:p-8 ${mode === "student" ? "max-w-5xl mx-auto" : "max-w-[1600px] mx-auto"}`}>
-      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-        <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
-          kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
-          title={block.title || BT.label} />
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm"
-            onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
-            <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
-          </Button>
-          <SegmentedToggle value={mode} onChange={setMode} options={[
-            { id: "student", label: "As student", icon: IconEye },
-            { id: "edit", label: "Edit content", icon: IconPencil },
-          ]} />
+      {/* Pinned below the app shell's own topbar (h-16), never under it —
+          this is the block's identity plus the "which mode am I in" toggle
+          and Save & close, all of which a teacher wants visible no matter
+          how far the components list/preview below has scrolled. `-mx`/`px`
+          bleeds the sticky bar's background to the same width it already
+          occupies (this container is itself the horizontal-inset column,
+          so no edge-to-edge trick is needed) while `border-b` gives the
+          scrolling content underneath a clean, fixed upper edge to scroll
+          against instead of visually colliding with these controls. */}
+      <div className="sticky top-16 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50 pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
+            kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
+            title={block.title || BT.label} />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm"
+              onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
+              <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
+            </Button>
+            <SegmentedToggle value={mode} onChange={setMode} options={[
+              { id: "student", label: "As student", icon: IconEye },
+              { id: "edit", label: "Edit content", icon: IconPencil },
+            ]} />
+          </div>
         </div>
+
+        {mode === "student" ? (
+          <div className="mt-5 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
+        ) : (
+          <div className="mt-5 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
+            <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+          </div>
+        )}
       </div>
 
       {mode === "student" ? (
-        <div>
-          <div className="mb-4 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
+        <div className="mt-5">
           <div>
             {components.map((c, i) => {
               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
@@ -504,12 +523,7 @@ export default function BlockStudio() {
           </div>
         </div>
       ) : (
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
-            <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
-          </div>
-
+        <div className="mt-5">
           {/* Site-builder layout: the left column is always the plain
               components list — it never turns into a form, so "what are
               the steps" has one constant answer. The right is the block's
