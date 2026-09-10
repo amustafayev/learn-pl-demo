@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
-  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX, IconAdjustments,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Drawer } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -327,19 +327,23 @@ export default function BlockStudio() {
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
-  const [adding, setAdding] = useState(false);
-  // Which category is showing on the right, in the "add a component"
-  // picker below — a plain nav-list-and-content split (the same shape as
-  // Settings' own Profile/Security/Linked Account sidebar), not a modal or
-  // a row of tabs: with 9 categories a horizontal tab strip either wraps to
-  // two lines or runs off the edge, while a vertical list scales to any
-  // number of entries without either problem.
+  // Where the next component goes: null = picker closed, otherwise the
+  // index it will be spliced in at. Every "+ Add component" slot in the
+  // preview sets this to its own position, so a component lands exactly
+  // where the teacher clicked, not always at the end.
+  const [insertAt, setInsertAt] = useState(null);
+  // Which category is showing in the picker — a vertical nav list, not a
+  // row of tabs: with 9 categories a horizontal strip either wraps or runs
+  // off the edge, a list just gets taller.
   const [addCategory, setAddCategory] = useState(COMPONENT_CATEGORIES[0].id);
-  // Edit mode is a rail-and-canvas builder (draw.io/PowerPoint pattern):
-  // every component shown small in the left rail, one selected at a time
-  // fills the main canvas. Selection is tracked by id, not index, so it
-  // survives reordering/inserting/removing without pointing at the wrong item.
+  // Edit mode is a site-builder layout: the big canvas is a live preview of
+  // the block exactly as a student sees it, with every component
+  // selectable in place; the left column is a tool panel that shows either
+  // the list of components ("list") or the settings of the selected one
+  // ("settings"). Selection is tracked by id, not index, so it survives
+  // reordering/inserting/removing without pointing at the wrong item.
   const [selectedId, setSelectedId] = useState(null);
+  const [panel, setPanel] = useState("list");
   const [dragId, setDragId] = useState(null);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
@@ -365,6 +369,28 @@ export default function BlockStudio() {
       setSelectedId(comps[0].id);
     }
   }, [mode, block, selectedId]);
+
+  // Selection made in one place shows up in the other: pick a row in the
+  // list and the preview glides to that component; click a component in
+  // the preview and the list scrolls its row into view. `nearest` makes
+  // this a no-op when it's already visible, so clicking the thing you're
+  // looking at never yanks the page around.
+  useEffect(() => {
+    if (mode !== "edit" || !selectedId) return;
+    document.getElementById(`frame-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    document.getElementById(`rail-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedId, mode]);
+
+  // Escape walks back out one layer at a time: picker first, then settings.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (insertAt !== null) setInsertAt(null);
+      else if (panel === "settings") setPanel("list");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [insertAt, panel]);
 
   if (!block) return null;
   const content = block.content?.components ? block.content : toComponents(block, state.texts);
@@ -402,11 +428,16 @@ export default function BlockStudio() {
     next.splice(to, 0, moved);
     setComponents(next);
   };
-  const addComponent = (kind) => {
-    const next = defaultComponent(kind, state.texts);
-    setComponents([...components, next]); setAdding(false); setSelectedId(next.id);
-    toast(`Added ${COMPONENT_META[kind].label}`);
+  // Splice at the slot that opened the picker (or append if it was the
+  // list's own button), then select the new component and open its
+  // settings — a fresh component almost always needs content next.
+  const insertNew = (component, label) => {
+    const at = insertAt === null ? components.length : Math.min(insertAt, components.length);
+    const next = [...components]; next.splice(at, 0, component);
+    setComponents(next); setInsertAt(null); setSelectedId(component.id); setPanel("settings");
+    toast(label);
   };
+  const addComponent = (kind) => insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
 
   const duplicateComponent = (i) => {
     const copy = JSON.parse(JSON.stringify(components[i]));
@@ -420,10 +451,7 @@ export default function BlockStudio() {
   const insertSavedComponent = (item) => {
     const copy = JSON.parse(JSON.stringify(item.data));
     copy.id = cid();
-    setComponents([...components, copy]);
-    setAdding(false);
-    setSelectedId(copy.id);
-    toast(`Inserted “${item.title}” from Component Library`);
+    insertNew(copy, `Inserted “${item.title}” from Component Library`);
   };
 
   return (
@@ -473,135 +501,194 @@ export default function BlockStudio() {
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · drag to reorder, click one to edit it</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one in the preview to select it · drag in the list to reorder</div>
             <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
 
-          {/* Rail + (add-panel) + canvas — draw.io/PowerPoint's pattern:
-              every component shown small on the left so the whole block
-              stays visible at a glance, one selected at a time fills the
-              canvas on the right instead of every editor being open and
-              stacked at once. "Add a component" opens as a third column
-              here, not an overlay: it sits beside the rail and canvas
-              instead of covering either of them, and it just appears —
-              no slide, no dimmed backdrop, nothing to wait on. */}
-          <div className={`grid grid-cols-1 gap-5 items-start ${adding ? "lg:grid-cols-[260px_420px_1fr]" : "md:grid-cols-[260px_1fr]"}`}>
-            <div className="space-y-1.5">
-              {components.map((c, i) => {
-                const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
-                return (
-                  <RailItem key={c.id}
-                    icon={M.icon} tone={M.tone} label={M.label}
-                    meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
-                    selected={c.id === selectedId}
-                    onClick={() => setSelectedId(c.id)}
-                    draggable
-                    onDragStart={() => setDragId(c.id)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
-                    onDragEnd={() => setDragId(null)}
-                    className={dragId === c.id ? "opacity-40" : ""}
-                  />
-                );
-              })}
-              {!components.length && <p className="text-xs text-neutral-500 px-1">No components yet.</p>}
-              <button onClick={() => setAdding((v) => !v)}
-                className={`w-full border-2 border-dashed rounded-xl p-3 text-sm font-medium mt-2 ${
-                  adding ? "border-primary-300 bg-primary-50 text-primary-600" : "border-neutral-300 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
-                <Plus size={15} className="inline mr-1" /> Add component
-              </button>
-            </div>
-
-            {adding && (
-              <Card className="p-0 overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
-                  <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 max-h-[560px] overflow-y-auto">
-                    {state.componentBank && state.componentBank.length > 0 && (
-                      <NavItem icon={IconBookmarkPlus} label="My Component Library"
-                        active={addCategory === "library"} onClick={() => setAddCategory("library")} />
-                    )}
-                    {/* No icon here on purpose: NavItem's stroke={1.75} is
-                        tuned for tabler icons (every other NavItem in the
-                        app), and COMPONENT_META's icons are lucide-react —
-                        same library mismatch the CategoryPickerGrid comment
-                        already warns about, so it's not worth fighting for
-                        a category label that reads fine on its own. */}
-                    {COMPONENT_CATEGORIES.map((cat) => (
-                      <NavItem key={cat.id} label={cat.label}
-                        active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
-                    ))}
-                  </nav>
-                  <div className="p-3 max-h-[560px] overflow-y-auto">
-                    {addCategory === "library" ? (
-                      // grouped by the course/parent it was saved from, so
-                      // the library reads as folders instead of one flat pile
-                      <LibraryPickList
-                        groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                          id: parent, label: parent,
-                          items: items.map((item) => {
-                            const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                            const child = bankChildLabel(item);
-                            return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                          }),
-                        }))}
-                        onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                      />
-                    ) : (
-                      <CategoryPickerGrid gridCols="grid-cols-1"
-                        items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
-                          const M = COMPONENT_META[k];
-                          return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
-                        })}
-                        onPick={addComponent}
-                      />
+          {/* Site-builder layout: a tool panel on the left (the component
+              list, or the selected component's settings), and the block's
+              live preview as the big canvas on the right — every component
+              rendered exactly as a student sees it, selectable in place.
+              Nothing here is an overlay; the panel and the canvas are both
+              always visible and interactive. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-5 items-start">
+            <Card className="p-0 overflow-hidden lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] flex flex-col">
+              {panel === "settings" && selected ? (
+                // Settings for the selected component. `key` remounts on
+                // selection change so the entrance plays per component, the
+                // way switching blocks in a site builder re-draws its panel.
+                <div key={selected.id} className="flex flex-col min-h-0 animate-fade-rise">
+                  <div className="flex items-center gap-2 p-3 border-b border-neutral-200 shrink-0">
+                    <button onClick={() => setPanel("list")} title="Back to components" className="text-neutral-500 hover:text-neutral-900 p-1.5 rounded-lg hover:bg-neutral-100 transition duration-(--dur-fast)"><IconX size={16} stroke={1.75} /></button>
+                    {(() => {
+                      const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                      return <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${selectedIndex + 1} · ${M.label}`} className="flex-1" />;
+                    })()}
+                    {selected.level !== undefined && (
+                      <select value={selected.level || ""} onChange={(e) => updateComponent(selectedIndex, { level: e.target.value })}
+                        title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
+                        {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
                     )}
                   </div>
+                  <div className="p-4 overflow-y-auto min-h-0">
+                    <ComponentEditor component={selected} onChange={(patch) => updateComponent(selectedIndex, patch)} roster={assignedToLesson}
+                      passages={components.filter((x) => x.kind === "passage")} />
+                  </div>
                 </div>
-              </Card>
-            )}
-
-            <Card className="p-5 min-h-[320px]">
-              {selected ? (
-                (() => {
-                  const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                  const CI = M.icon;
-                  return (
-                    <>
-                      <div className="flex items-center gap-3 pb-4 mb-4 border-b border-neutral-100">
-                        <BlockIdentity icon={CI} tone={M.tone} size="md" kicker={`Component ${selectedIndex + 1} · ${M.label}`} className="flex-1" />
-                        {selected.level !== undefined && (
-                          <label className="flex items-center gap-1 text-[11px] text-neutral-500 shrink-0">
-                            Level
-                            <select value={selected.level || ""} onChange={(e) => updateComponent(selectedIndex, { level: e.target.value })}
-                              className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200">
-                              {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                            </select>
-                          </label>
-                        )}
-                        <div className="flex items-center gap-1 text-neutral-500 shrink-0">
-                          <button title="Save component to library" onClick={() => handleSaveComponent(selected)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
-                          <button title="Duplicate component" onClick={() => duplicateComponent(selectedIndex)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
-                          <button title="Move up" disabled={selectedIndex === 0} onClick={() => moveComponent(selectedIndex, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                          <button title="Move down" disabled={selectedIndex === components.length - 1} onClick={() => moveComponent(selectedIndex, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                          <button title="Remove" onClick={() => { removeComponent(selectedIndex); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
-                        </div>
-                      </div>
-                      <ComponentEditor component={selected} onChange={(patch) => updateComponent(selectedIndex, patch)} roster={assignedToLesson}
-                        passages={components.filter((x) => x.kind === "passage")} />
-                    </>
-                  );
-                })()
               ) : (
-                <div className="flex flex-col items-center justify-center text-center text-neutral-500 py-16">
-                  <IconStack2 size={28} stroke={1.5} className="text-neutral-300 mb-3" />
-                  Select a component on the left, or add a new one to get started.
+                <div className="flex flex-col min-h-0 animate-fade-rise">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
+                    {selected && (
+                      <button onClick={() => setPanel("settings")} className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 transition duration-(--dur-fast)">
+                        <IconAdjustments size={14} stroke={1.75} /> Settings
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-3 space-y-1.5 overflow-y-auto min-h-0">
+                    {components.map((c, i) => {
+                      const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                      const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                      return (
+                        <RailItem key={c.id} id={`rail-${c.id}`}
+                          icon={M.icon} tone={M.tone} label={M.label}
+                          meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                          selected={c.id === selectedId}
+                          // First click selects (and the preview glides to it);
+                          // clicking the already-selected row opens its settings.
+                          onClick={() => (c.id === selectedId ? setPanel("settings") : setSelectedId(c.id))}
+                          draggable
+                          onDragStart={() => setDragId(c.id)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
+                          onDragEnd={() => setDragId(null)}
+                          className={dragId === c.id ? "opacity-40" : ""}
+                        />
+                      );
+                    })}
+                    {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
+                    <button onClick={() => setInsertAt(components.length)}
+                      className={`w-full border-2 border-dashed rounded-xl p-3 text-sm font-medium mt-1 transition duration-(--dur-fast) ${
+                        insertAt === components.length ? "border-primary-300 bg-primary-50 text-primary-600" : "border-neutral-300 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
+                      <Plus size={15} className="inline mr-1" /> Add component
+                    </button>
+                  </div>
                 </div>
               )}
             </Card>
+
+            {/* The live preview. Each component is wrapped in a frame that
+                selects on click and opens settings on double-click; the
+                selected frame carries a floating toolbar (edit / save /
+                duplicate / move / delete). "+ Add component" slots sit
+                between frames like a site builder's "Add block" pills, and
+                each remembers its own position. */}
+            <div className="min-w-0">
+              <AddSlot active={insertAt === 0} onClick={() => setInsertAt(0)} />
+              {components.map((c, i) => {
+                const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                const isSel = c.id === selectedId;
+                return (
+                  <React.Fragment key={c.id}>
+                    <div id={`frame-${c.id}`}
+                      onClick={() => setSelectedId(c.id)}
+                      onDoubleClick={() => { setSelectedId(c.id); setPanel("settings"); }}
+                      className={`relative rounded-[16px] ring-2 ring-offset-2 ring-offset-neutral-50 transition duration-(--dur-fast) ${
+                        isSel ? "ring-primary-400" : "ring-transparent hover:ring-neutral-300"}`}>
+                      {isSel && (
+                        <div className="absolute -top-3.5 right-3 z-10 flex items-center gap-0.5 rounded-lg border border-neutral-300 bg-white px-1 py-0.5 shadow-md text-neutral-500 animate-fade-rise" onClick={(e) => e.stopPropagation()}>
+                          <span className="hidden sm:inline text-[11px] font-semibold uppercase tracking-wide text-neutral-500 px-1.5">Component {i + 1} · {M.label}</span>
+                          <button title="Edit content" onClick={() => setPanel("settings")} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
+                          <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
+                          <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
+                          <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                          <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                          <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                        </div>
+                      )}
+                      <ComponentStudent component={c} />
+                    </div>
+                    <AddSlot active={insertAt === i + 1} onClick={() => setInsertAt(i + 1)} />
+                  </React.Fragment>
+                );
+              })}
+              {!components.length && (
+                <button onClick={() => setInsertAt(0)}
+                  className="w-full rounded-[14px] border-2 border-dashed border-neutral-300 p-12 text-center text-neutral-500 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
+                  <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-300" />
+                  <div className="text-sm font-medium">This block is empty — add your first component</div>
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* The picker rises from the bottom edge as a sheet, no dimmed
+              scrim: the preview above stays visible and clickable, so the
+              teacher can keep looking at the block while choosing what to
+              add — and click a different "+" slot without closing it. */}
+          <Drawer side="bottom" backdrop={false} height="h-[440px]" open={insertAt !== null} onClose={() => setInsertAt(null)}
+            title="Add a component"
+            sub={insertAt === null ? undefined : insertAt >= components.length ? "Goes at the end of the block" : `Goes in as component ${insertAt + 1}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-[240px_1fr] h-full">
+              <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
+                {state.componentBank && state.componentBank.length > 0 && (
+                  <NavItem icon={IconBookmarkPlus} label="My Component Library"
+                    active={addCategory === "library"} onClick={() => setAddCategory("library")} />
+                )}
+                {/* No icon on purpose: NavItem's stroke={1.75} is tuned for
+                    tabler icons; COMPONENT_META's are lucide-react, which
+                    spells that prop differently and renders invisibly. */}
+                {COMPONENT_CATEGORIES.map((cat) => (
+                  <NavItem key={cat.id} label={cat.label}
+                    active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
+                ))}
+              </nav>
+              <div className="p-4 overflow-y-auto">
+                {addCategory === "library" ? (
+                  // grouped by the course/parent it was saved from, so the
+                  // library reads as folders instead of one flat pile
+                  <LibraryPickList
+                    groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
+                      id: parent, label: parent,
+                      items: items.map((item) => {
+                        const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+                        const child = bankChildLabel(item);
+                        return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+                      }),
+                    }))}
+                    onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
+                  />
+                ) : (
+                  <CategoryPickerGrid gridCols="grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+                    items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
+                      const M = COMPONENT_META[k];
+                      return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+                    })}
+                    onPick={addComponent}
+                  />
+                )}
+              </div>
+            </div>
+          </Drawer>
         </div>
       )}
+    </div>
+  );
+}
+
+// The "+ Add component" pill between two components in the live preview —
+// a site builder's "Add block" affordance. Quiet until hovered, lit when it
+// is the slot the picker is currently inserting into.
+function AddSlot({ active, onClick }) {
+  return (
+    <div className="relative flex items-center justify-center py-3 group">
+      <div className={`absolute inset-x-0 top-1/2 border-t border-dashed transition-colors duration-(--dur-fast) ${active ? "border-primary-300" : "border-transparent group-hover:border-neutral-300"}`} />
+      <button onClick={onClick}
+        className={`relative z-10 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition duration-(--dur-fast) active:scale-[0.97] ${
+          active ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-300 bg-white text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
+        <Plus size={14} /> Add component
+      </button>
     </div>
   );
 }

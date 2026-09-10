@@ -132,7 +132,16 @@
      preference never shortens how long someone has to read it. */
   --dur-toast-life: 2600ms;
 
-  --animate-fade-rise: fade-rise var(--dur-base) var(--ease-soft-out) both;
+  /* `backwards`, not `both`, on purpose: this one wraps whole pages, and a
+     finished animation held on its final keyframe still leaves a computed
+     `transform: matrix(1,0,0,1,0,0)` on the element — which makes it the
+     containing block for every `position: fixed` descendant (Modal, Drawer,
+     the toast stack), anchoring them to the page box instead of the
+     viewport. With `backwards` the element returns to its natural style
+     (transform: none) the moment the entrance ends. The *-out animations
+     below must keep `both` — they need to hold the invisible end state
+     until usePresence unmounts the element. */
+  --animate-fade-rise: fade-rise var(--dur-base) var(--ease-soft-out) backwards;
   --animate-overlay-in: fade-in var(--dur-slow) var(--ease-soft-out) both;
   --animate-overlay-out: fade-out var(--dur-slow) var(--ease-soft-in) both;
   --animate-panel-in: panel-in var(--dur-slow) var(--ease-soft-out) both;
@@ -141,6 +150,8 @@
   --animate-toast-out: toast-out var(--dur-slow) var(--ease-soft-in) both;
   --animate-drawer-in: drawer-in var(--dur-slow) var(--ease-soft-out) both;
   --animate-drawer-out: drawer-out var(--dur-slow) var(--ease-soft-in) both;
+  --animate-sheet-in: sheet-in var(--dur-slow) var(--ease-soft-out) both;
+  --animate-sheet-out: sheet-out var(--dur-slow) var(--ease-soft-in) both;
 
   /* Separate in/out keyframes on purpose: a same-named animation that only
      flips `direction` does not restart, so an out-animation built by
@@ -184,6 +195,15 @@
   @keyframes drawer-out {
     from { transform: translateX(0); }
     to { transform: translateX(100%); }
+  }
+  /* Same idea for a bottom-anchored sheet: it rises from the bottom edge. */
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes sheet-out {
+    from { transform: translateY(0); }
+    to { transform: translateY(100%); }
   }
 }
 

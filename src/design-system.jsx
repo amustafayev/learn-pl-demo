@@ -131,14 +131,23 @@ export function Modal({ open, onClose, title, sub, children, footer, wide }) {
 // what makes it read as "the canvas extending sideways" rather than "a
 // dialog interrupting you". Same usePresence lifecycle as Modal — stays
 // mounted through its own exit animation instead of just vanishing.
-export function Drawer({ open, onClose, title, sub, children, width = "max-w-md" }) {
+// `side="bottom"` turns it into a sheet that rises from the bottom edge;
+// `backdrop={false}` drops the dimmed scrim entirely and lets clicks fall
+// through to the page around the panel — for a picker that should sit *on*
+// the workspace (the block editor's "add a component" sheet, the way a
+// site builder's block palette does) rather than interrupt it.
+export function Drawer({ open, onClose, title, sub, children, width = "max-w-md", height = "h-[440px]", side = "right", backdrop = true }) {
   const present = usePresence(open);
   if (!present) return null;
+  const bottom = side === "bottom";
+  const panelPos = bottom
+    ? `bottom-0 inset-x-0 w-full ${height} border-t rounded-t-[14px] ${open ? "animate-sheet-in" : "animate-sheet-out"}`
+    : `top-0 right-0 h-full w-full ${width} border-l ${open ? "animate-drawer-in" : "animate-drawer-out"}`;
   return (
-    <div className={`fixed inset-0 z-40 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
-      <div className="absolute inset-0 bg-neutral-950/20" />
+    <div className={`fixed inset-0 z-40 ${backdrop ? "" : "pointer-events-none"} ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={backdrop ? onClose : undefined}>
+      {backdrop && <div className="absolute inset-0 bg-neutral-950/20" />}
       <div onClick={(e) => e.stopPropagation()}
-        className={`absolute top-0 right-0 h-full w-full ${width} bg-white border-l border-neutral-300 shadow-xl flex flex-col will-change-transform ${open ? "animate-drawer-in" : "animate-drawer-out"}`}
+        className={`absolute pointer-events-auto bg-white border-neutral-300 shadow-xl flex flex-col will-change-transform ${panelPos}`}
       >
         {(title || sub) && (
           <div className="flex items-start justify-between p-5 border-b border-neutral-200 shrink-0">
