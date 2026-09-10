@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
-  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX, IconAdjustments,
+  IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2,
 } from "@tabler/icons-react";
 import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
 import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Drawer } from "../design-system.jsx";
@@ -336,14 +336,16 @@ export default function BlockStudio() {
   // row of tabs: with 9 categories a horizontal strip either wraps or runs
   // off the edge, a list just gets taller.
   const [addCategory, setAddCategory] = useState(COMPONENT_CATEGORIES[0].id);
-  // Edit mode is a site-builder layout: the big canvas is a live preview of
-  // the block exactly as a student sees it, with every component
-  // selectable in place; the left column is a tool panel that shows either
-  // the list of components ("list") or the settings of the selected one
-  // ("settings"). Selection is tracked by id, not index, so it survives
-  // reordering/inserting/removing without pointing at the wrong item.
+  // Edit mode is a site-builder layout: the left column is always the
+  // plain list of components (drag to reorder, click to select) — it never
+  // turns into a settings form, so "what are the steps" has one constant
+  // place to look. Editing happens on the right, in place: the selected
+  // component's own frame in the live preview swaps from its rendered
+  // student view to its editor, right where it sits, the way a page
+  // builder's canvas block becomes editable when you click it. Selection
+  // is tracked by id, not index, so it survives reordering/inserting/
+  // removing without pointing at the wrong item.
   const [selectedId, setSelectedId] = useState(null);
-  const [panel, setPanel] = useState("list");
   const [dragId, setDragId] = useState(null);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
@@ -361,15 +363,6 @@ export default function BlockStudio() {
     }
   }, [block, route.courseId, route.lessonId, dispatch, state.texts]);
 
-  // Nothing selected yet (first visit, or the selected one got removed) —
-  // default the canvas to the first component instead of leaving it blank.
-  useEffect(() => {
-    const comps = block?.content?.components;
-    if (mode === "edit" && comps?.length && !comps.some((c) => c.id === selectedId)) {
-      setSelectedId(comps[0].id);
-    }
-  }, [mode, block, selectedId]);
-
   // Selection made in one place shows up in the other: pick a row in the
   // list and the preview glides to that component; click a component in
   // the preview and the list scrolls its row into view. `nearest` makes
@@ -381,24 +374,21 @@ export default function BlockStudio() {
     document.getElementById(`rail-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedId, mode]);
 
-  // Escape walks back out one layer at a time: picker first, then settings.
+  // Escape walks back out one layer at a time: picker first, then editing.
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (insertAt !== null) setInsertAt(null);
-      else if (panel === "settings") setPanel("list");
+      else if (selectedId !== null) setSelectedId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [insertAt, panel]);
+  }, [insertAt, selectedId]);
 
   if (!block) return null;
   const content = block.content?.components ? block.content : toComponents(block, state.texts);
   const components = content.components;
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
-
-  const selectedIndex = components.findIndex((c) => c.id === selectedId);
-  const selected = selectedIndex >= 0 ? components[selectedIndex] : null;
 
   const setComponents = (next) =>
     dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id, patch: { content: { ...content, components: next } } });
@@ -429,12 +419,13 @@ export default function BlockStudio() {
     setComponents(next);
   };
   // Splice at the slot that opened the picker (or append if it was the
-  // list's own button), then select the new component and open its
-  // settings — a fresh component almost always needs content next.
+  // list's own button), then select the new component — selecting it is
+  // what makes its frame in the preview show its editor, so a fresh
+  // component opens ready to fill in, not just added at the end unseen.
   const insertNew = (component, label) => {
     const at = insertAt === null ? components.length : Math.min(insertAt, components.length);
     const next = [...components]; next.splice(at, 0, component);
-    setComponents(next); setInsertAt(null); setSelectedId(component.id); setPanel("settings");
+    setComponents(next); setInsertAt(null); setSelectedId(component.id);
     toast(label);
   };
   const addComponent = (kind) => insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
@@ -501,90 +492,52 @@ export default function BlockStudio() {
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one in the preview to select it · drag in the list to reorder</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
             <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
           </div>
 
-          {/* Site-builder layout: a tool panel on the left (the component
-              list, or the selected component's settings), and the block's
-              live preview as the big canvas on the right — every component
-              rendered exactly as a student sees it, selectable in place.
-              Nothing here is an overlay; the panel and the canvas are both
-              always visible and interactive. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start">
+          {/* Site-builder layout: the left column is always the plain
+              components list — it never turns into a form, so "what are
+              the steps" has one constant answer. The right is the block's
+              live preview; click any component there and that one frame
+              (only that one) swaps to its own editor, in place. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
             <Card className="p-0 overflow-hidden lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] flex flex-col">
-              {panel === "settings" && selected ? (
-                // Settings for the selected component. `key` remounts on
-                // selection change so the entrance plays per component, the
-                // way switching blocks in a site builder re-draws its panel.
-                <div key={selected.id} className="flex flex-col min-h-0 animate-fade-rise">
-                  <div className="flex items-center gap-2 p-3 border-b border-neutral-200 shrink-0">
-                    <button onClick={() => setPanel("list")} title="Back to components" className="text-neutral-500 hover:text-neutral-900 p-1.5 rounded-lg hover:bg-neutral-100 transition duration-(--dur-fast)"><IconX size={16} stroke={1.75} /></button>
-                    {(() => {
-                      const M = COMPONENT_META[selected.kind] || { label: selected.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                      return <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${selectedIndex + 1} · ${M.label}`} className="flex-1" />;
-                    })()}
-                    {selected.level !== undefined && (
-                      <select value={selected.level || ""} onChange={(e) => updateComponent(selectedIndex, { level: e.target.value })}
-                        title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
-                        {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                      </select>
-                    )}
-                  </div>
-                  <div className="p-4 overflow-y-auto min-h-0">
-                    <ComponentEditor component={selected} onChange={(patch) => updateComponent(selectedIndex, patch)} roster={assignedToLesson}
-                      passages={components.filter((x) => x.kind === "passage")} />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col min-h-0 animate-fade-rise">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
-                    {selected && (
-                      <button onClick={() => setPanel("settings")} className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 transition duration-(--dur-fast)">
-                        <IconAdjustments size={14} stroke={1.75} /> Settings
-                      </button>
-                    )}
-                  </div>
-                  <div className="p-3 space-y-1.5 overflow-y-auto min-h-0">
-                    {components.map((c, i) => {
-                      const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                      const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
-                      return (
-                        <RailItem key={c.id} id={`rail-${c.id}`}
-                          icon={M.icon} tone={M.tone} label={M.label}
-                          meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
-                          selected={c.id === selectedId}
-                          // First click selects (and the preview glides to it);
-                          // clicking the already-selected row opens its settings.
-                          onClick={() => (c.id === selectedId ? setPanel("settings") : setSelectedId(c.id))}
-                          draggable
-                          onDragStart={() => setDragId(c.id)}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
-                          onDragEnd={() => setDragId(null)}
-                          className={dragId === c.id ? "opacity-40" : ""}
-                        />
-                      );
-                    })}
-                    {/* No "Add component" button here — the preview on the
-                        right already has a "+" slot after every component
-                        (and one at the very start/end), so a component
-                        always gets added exactly where it visually lands.
-                        A second, position-less "add to the end" button here
-                        would just be a redundant way to do the same thing. */}
-                    {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
-                  </div>
-                </div>
-              )}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
+              </div>
+              <div className="p-3 space-y-1.5 overflow-y-auto min-h-0">
+                {components.map((c, i) => {
+                  const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                  const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                  return (
+                    <RailItem key={c.id} id={`rail-${c.id}`}
+                      icon={M.icon} tone={M.tone} label={M.label}
+                      meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                      selected={c.id === selectedId}
+                      onClick={() => setSelectedId(c.id)}
+                      draggable
+                      onDragStart={() => setDragId(c.id)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
+                      onDragEnd={() => setDragId(null)}
+                      className={dragId === c.id ? "opacity-40" : ""}
+                    />
+                  );
+                })}
+                {/* No "Add component" button here — the preview on the
+                    right already has a "+" slot after every component (and
+                    one at the very start/end), so a component always gets
+                    added exactly where it visually lands. */}
+                {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
+              </div>
             </Card>
 
-            {/* The live preview. Each component is wrapped in a frame that
-                selects on click and opens settings on double-click; the
-                selected frame carries a floating toolbar (edit / save /
-                duplicate / move / delete). "+ Add component" slots sit
-                between frames like a site builder's "Add block" pills, and
-                each remembers its own position. */}
+            {/* The live preview. Click a frame and it swaps in place from
+                its rendered student view to its own editor — nothing moves
+                to a side panel. "+ Add component" slots sit between frames
+                like a site builder's "Add block" pills, each remembering
+                its own position, so a pick lands exactly where you clicked. */}
             <div className="min-w-0">
               <AddSlot active={insertAt === 0} onClick={() => setInsertAt(0)} />
               {components.map((c, i) => {
@@ -592,23 +545,44 @@ export default function BlockStudio() {
                 const isSel = c.id === selectedId;
                 return (
                   <React.Fragment key={c.id}>
-                    <div id={`frame-${c.id}`}
-                      onClick={() => setSelectedId(c.id)}
-                      onDoubleClick={() => { setSelectedId(c.id); setPanel("settings"); }}
-                      className={`relative rounded-[16px] ring-2 ring-offset-2 ring-offset-neutral-50 transition duration-(--dur-fast) ${
-                        isSel ? "ring-primary-400" : "ring-transparent hover:ring-neutral-300"}`}>
-                      {isSel && (
-                        <div className="absolute -top-3.5 right-3 z-10 flex items-center gap-0.5 rounded-lg border border-neutral-300 bg-white px-1 py-0.5 shadow-md text-neutral-500 animate-fade-rise" onClick={(e) => e.stopPropagation()}>
-                          <span className="hidden sm:inline text-[11px] font-semibold uppercase tracking-wide text-neutral-500 px-1.5">Component {i + 1} · {M.label}</span>
-                          <button title="Edit content" onClick={() => setPanel("settings")} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
-                          <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
-                          <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
-                          <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                          <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                          <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                    <div id={`frame-${c.id}`} className="relative">
+                      {isSel ? (
+                        // Editing, in place: same frame, same position in
+                        // the stack — just showing the editor instead of
+                        // the rendered preview. `key` remounts on selection
+                        // change so the entrance plays per component.
+                        <div key={c.id} className="rounded-[16px] border-2 border-primary-300 bg-white p-4 animate-fade-rise">
+                          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-neutral-100">
+                            <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-1" />
+                            {c.level !== undefined && (
+                              <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
+                                title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
+                                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                              </select>
+                            )}
+                            <div className="flex items-center gap-1 text-neutral-500 shrink-0">
+                              <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
+                              <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
+                              <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                              <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                              <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                              <button title="Done editing" onClick={() => setSelectedId(null)} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
+                            </div>
+                          </div>
+                          <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                            passages={components.filter((x) => x.kind === "passage")} />
+                        </div>
+                      ) : (
+                        // Not selected: the plain rendered preview — click
+                        // anywhere on it to start editing in place. To
+                        // check the finished result instead, switch the
+                        // "As student" toggle above rather than looking at
+                        // any one frame here.
+                        <div onClick={() => setSelectedId(c.id)}
+                          className="rounded-[16px] ring-2 ring-offset-2 ring-offset-neutral-50 ring-transparent hover:ring-neutral-300 cursor-pointer transition duration-(--dur-fast)">
+                          <ComponentStudent component={c} />
                         </div>
                       )}
-                      <ComponentStudent component={c} />
                     </div>
                     <AddSlot active={insertAt === i + 1} onClick={() => setInsertAt(i + 1)} />
                   </React.Fragment>
