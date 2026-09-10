@@ -95,12 +95,18 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   const { toast } = useStore();
   // `collapsed` is a manual override forcing icon-only at any width; without
   // it, the existing sm: breakpoint still decides (icon-only under sm,
-  // labeled at sm+) — no width transition on toggle, it just snaps, same as
-  // the breakpoint always did.
+  // labeled at sm+).
   const showLabels = !collapsed;
   const labelCls = showLabels ? "hidden sm:inline" : "hidden";
   return (
-    <aside className={`${collapsed ? "w-16" : "w-16 sm:w-64"} shrink-0 bg-white flex flex-col h-screen sticky top-0`}>
+    // A width transition, deliberately, despite the app's own "never
+    // animate width" rule (see CLAUDE.md's Motion section): that rule is
+    // about a property that re-fires on every hover/press/list-render:
+    // real jank. A sidebar collapse is a single, rare, user-initiated
+    // click — exactly the case every desktop app with a foldable sidebar
+    // (VS Code, Slack, Notion) already animates this same way, and leaving
+    // it an instant snap read as broken rather than restrained.
+    <aside className={`${collapsed ? "w-16" : "w-16 sm:w-64"} shrink-0 bg-white flex flex-col h-screen sticky top-0 transition-[width] duration-(--dur-base) ease-soft-out overflow-hidden`}>
       <div className="h-16 flex items-center gap-2.5 px-4">
         <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white shrink-0"><IconSparkles size={18} stroke={1.75} /></div>
         {showLabels && (

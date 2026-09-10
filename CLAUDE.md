@@ -397,7 +397,13 @@ Two gotchas that already cost time here, so don't rediscover them:
 - Animate `transform` and `opacity`. For auto height, `grid-template-rows:
   0fr → 1fr`. **Never** `width`/`height`/`top`/`left`/`margin` — that's a
   layout pass every frame. `ProgressBar` uses `scaleX` and `Switch` uses
-  `translate-x` for exactly this reason.
+  `translate-x` for exactly this reason. One deliberate exception: the app
+  shell's sidebar collapse toggle (`english-platform-prototype.jsx`)
+  transitions `width` directly. The rule above is about a property that
+  re-fires on every hover/press/list-render — real jank. A sidebar fold is a
+  single, rare, user-initiated click, exactly the case every desktop app
+  with a collapsible sidebar (VS Code, Slack, Notion) already animates this
+  same way; leaving it an instant snap read as broken, not restrained.
 - `transition`, never `transition-all`. Bare `transition` covers the safe
   property set; `transition-all` drags layout properties in and defeats the
   compositor. (Two `transition-[left]`-style exceptions survive in
