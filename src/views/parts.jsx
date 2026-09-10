@@ -354,6 +354,22 @@ export default function BlockStudio() {
   // short rail list sits — cancelling the frame's own scrollIntoView below.
   // Scrolling this container's scrollTop directly keeps the two independent.
   const railListRef = useRef(null);
+  // The sticky header's real height, measured rather than guessed: it
+  // changes with the mode toggle (student vs. edit render different
+  // second rows) and with viewport width (the title/toolbar row wraps on
+  // narrow screens), so a fixed `top-*`/`max-h-*` on the rail below it
+  // would either leave a gap or, worse, sit partly hidden behind the
+  // header — which is exactly what happened when the header grew taller
+  // and the rail's old fixed offset no longer matched it.
+  const headerRef = useRef(null);
+  const [headerH, setHeaderH] = useState(96);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setHeaderH(entry.contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mode]);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = (lesson?.built || []).find((p) => p.id === route.partId);
@@ -474,7 +490,7 @@ export default function BlockStudio() {
           so no edge-to-edge trick is needed) while `border-b` gives the
           scrolling content underneath a clean, fixed upper edge to scroll
           against instead of visually colliding with these controls. */}
-      <div className="sticky top-16 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50 pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
+      <div ref={headerRef} className="sticky top-16 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50 pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
             kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
@@ -530,7 +546,12 @@ export default function BlockStudio() {
               live preview; click any component there and that one frame
               (only that one) swaps to its own editor, in place. */}
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
-            <Card className="p-0 overflow-hidden lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] flex flex-col">
+            {/* Pinned right under the sticky header above (top: headerH,
+                not a guessed fixed value — see headerH's own comment) so
+                the list is always fully visible, never sliced by scrolling
+                part of it behind that header. */}
+            <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
+              style={{ top: headerH, maxHeight: `calc(100vh - ${headerH}px - 16px)` }}>
               <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
                 <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
               </div>
