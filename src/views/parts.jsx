@@ -12,8 +12,8 @@ import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
 } from "@tabler/icons-react";
-import { Card, Btn, Pill, AiNote, Field, inputCls, SpeakButton, LEVELS, LevelPill } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem } from "../design-system.jsx";
+import { AiNote, Pill, LEVELS } from "../ui.jsx";
+import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Card, Field, Tag, SpeakButton, inputCls } from "../design-system.jsx";
 import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
@@ -493,7 +493,7 @@ export default function BlockStudio() {
                 <div key={c.id} className={`${i > 0 ? "mt-8 pt-8 border-t border-neutral-300" : ""} ${linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
-                    <LevelPill level={c.level} />
+                    {c.level && <Tag color="neutral">{c.level}</Tag>}
                     {linkedPassage && <span className="text-[11px] text-primary-500">↳ for its passage above</span>}
                   </div>
                   <ComponentStudent component={c} />
@@ -793,19 +793,19 @@ function PassageComponent({ component }) {
 function WordListComponent({ component }) {
   const items = component.items || [];
   return (
-    <Card className="divide-y divide-slate-100">
+    <Card className="divide-y divide-neutral-100">
       {items.map((w, i) => (
         <div key={i} className="p-3.5">
           <div className="flex items-center gap-2 flex-wrap">
             <b>{w.term}</b>
             <SpeakButton text={w.term} />
-            {w.def && <span className="text-sm text-slate-500">— {w.def}</span>}
+            {w.def && <span className="text-sm text-neutral-500">— {w.def}</span>}
           </div>
-          {w.az && <div className="text-indigo-600 text-sm mt-0.5">({w.az})</div>}
-          {w.example && <div className="text-xs text-slate-400 italic mt-0.5">“{w.example}”</div>}
+          {w.az && <div className="text-primary-600 text-sm mt-0.5">({w.az})</div>}
+          {w.example && <div className="text-xs text-neutral-400 italic mt-0.5">“{w.example}”</div>}
         </div>
       ))}
-      {!items.length && <div className="p-4 text-slate-400 text-sm">No words.</div>}
+      {!items.length && <div className="p-4 text-neutral-400 text-sm">No words.</div>}
     </Card>
   );
 }
@@ -814,17 +814,17 @@ function FlashcardsComponent({ component }) {
   const items = component.items || [];
   const [i, setI] = useState(0);
   const [flip, setFlip] = useState(false);
-  if (!items.length) return <Card className="p-6 text-slate-400 text-sm">No words.</Card>;
+  if (!items.length) return <Card className="p-6 text-neutral-400 text-sm">No words.</Card>;
   const wd = items[i % items.length];
   return (
     <div className="max-w-md">
       <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
-        className="w-full h-40 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-indigo-300 transition-colors cursor-pointer">
+        className="w-full h-40 rounded-2xl border border-neutral-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer">
         {flip ? (
           <>
-            {wd.def && <span className="text-base text-slate-600 text-center px-4">{wd.def}</span>}
-            <span className="text-lg font-semibold text-indigo-600 mt-1">({wd.az})</span>
-            {wd.example && <span className="text-sm text-slate-400 mt-2 italic">“{wd.example}”</span>}
+            {wd.def && <span className="text-base text-neutral-600 text-center px-4">{wd.def}</span>}
+            <span className="text-lg font-semibold text-primary-600 mt-1">({wd.az})</span>
+            {wd.example && <span className="text-sm text-neutral-400 mt-2 italic">“{wd.example}”</span>}
           </>
         ) : (
           <>
@@ -834,11 +834,11 @@ function FlashcardsComponent({ component }) {
         )}
       </div>
       <div className="flex items-center justify-between mt-3">
-        <Btn variant="outline" size="sm" onClick={() => { setI((i - 1 + items.length) % items.length); setFlip(false); }}>Prev</Btn>
-        <span className="text-sm text-slate-400 font-mono">{(i % items.length) + 1} / {items.length}</span>
-        <Btn variant="outline" size="sm" onClick={() => { setI((i + 1) % items.length); setFlip(false); }}>Next</Btn>
+        <Button variant="outline" size="sm" onClick={() => { setI((i - 1 + items.length) % items.length); setFlip(false); }}>Prev</Button>
+        <span className="text-sm text-neutral-400 font-mono">{(i % items.length) + 1} / {items.length}</span>
+        <Button variant="outline" size="sm" onClick={() => { setI((i + 1) % items.length); setFlip(false); }}>Next</Button>
       </div>
-      <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><RefreshCw size={12} /> Tap to flip.</p>
+      <p className="text-xs text-neutral-400 mt-2 flex items-center gap-1"><RefreshCw size={12} /> Tap to flip.</p>
     </div>
   );
 }
@@ -873,8 +873,8 @@ function MatchBoard({ pairs, showEmoji, pairType = "az", onDone }) {
       <div className="space-y-2">
         {pairs.map((p) => (
           <button key={p.term} disabled={done[p.term]} onClick={() => setPicked(p.term)}
-            className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${done[p.term] ? "border-emerald-200 bg-emerald-50 text-emerald-700" : picked === p.term ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300"}`}>
-            {p.term} {done[p.term] && <Check size={13} className="inline text-emerald-600" />}
+            className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${done[p.term] ? "border-success-200 bg-success-50 text-success-700" : picked === p.term ? "border-primary-400 bg-primary-50" : "border-neutral-200 hover:border-primary-300"}`}>
+            {p.term} {done[p.term] && <Check size={13} className="inline text-success-600" />}
           </button>
         ))}
       </div>
@@ -883,7 +883,7 @@ function MatchBoard({ pairs, showEmoji, pairType = "az", onDone }) {
           const matched = Object.keys(done).some((t) => key(pairs.find((x) => x.term === t)) === key(p));
           return (
             <button key={p.term} disabled={matched || !picked} onClick={() => tryMatch(picked, key(p))}
-              className={`w-full rounded-lg border p-3 text-left transition-colors ${matched ? "border-emerald-200 bg-emerald-50" : !picked ? "border-slate-100 text-slate-400" : "border-slate-200 hover:border-indigo-300"} ${showEmoji ? "text-2xl text-center" : "text-sm font-medium"}`}>
+              className={`w-full rounded-lg border p-3 text-left transition-colors ${matched ? "border-success-200 bg-success-50" : !picked ? "border-neutral-100 text-neutral-400" : "border-neutral-200 hover:border-primary-300"} ${showEmoji ? "text-2xl text-center" : "text-sm font-medium"}`}>
               {showEmoji ? p.emoji : (p[pairType] ?? p.az)}
             </button>
           );
@@ -908,19 +908,19 @@ function WheelComponent({ component }) {
   };
   return (
     <Card className="p-6 max-w-xl text-center">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">Vocabulary wheel</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Vocabulary wheel</div>
       <h3 className="font-semibold mb-5">{component.title || "Spin for a prompt"}</h3>
       <div className="relative mx-auto w-52 h-52">
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-slate-800" />
+        <div className="absolute -top-1 left-1/2 -tranneutral-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-neutral-800" />
         <button onClick={spin} aria-label="Spin the vocabulary wheel" className="w-full h-full rounded-full border-8 border-white shadow-lg transition-transform duration-(--dur-deliberate) ease-soft-out" style={{ background: `conic-gradient(${slices})`, transform: `rotate(${turn * 720}deg)` }}>
-          <span className="absolute inset-[35%] rounded-full bg-white shadow flex items-center justify-center text-xs font-bold text-violet-700">SPIN</span>
+          <span className="absolute inset-[35%] rounded-full bg-white shadow flex items-center justify-center text-xs font-bold text-info-700">SPIN</span>
         </button>
       </div>
-      <Btn className="mt-5" onClick={spin} disabled={!items.length}><Dices size={14} /> Spin the wheel</Btn>
+      <Button className="mt-5" onClick={spin} disabled={!items.length}><Dices size={14} /> Spin the wheel</Button>
       {selected && <AiNote icon={Sparkles} tone="violet" title={selected.term}>
         <span className="font-medium">{selected.az}</span>{selected.q ? <> · {selected.q}</> : null}
       </AiNote>}
-      {!items.length && <p className="text-sm text-slate-400 mt-4">Add at least one prompt in Edit content.</p>}
+      {!items.length && <p className="text-sm text-neutral-400 mt-4">Add at least one prompt in Edit content.</p>}
     </Card>
   );
 }
@@ -948,24 +948,24 @@ function WordSearchComponent({ component }) {
   const solved = puzzle.targets.size > 0 && [...puzzle.targets].every((key) => picked.has(key));
   return (
     <Card className="p-5 max-w-xl">
-      <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-xs font-mono uppercase tracking-wide text-slate-400">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Pill className="bg-emerald-50 text-emerald-700">{picked.size}/{puzzle.targets.size} letters</Pill></div>
+      <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-xs font-mono uppercase tracking-wide text-neutral-400">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Pill className="bg-success-50 text-success-700">{picked.size}/{puzzle.targets.size} letters</Pill></div>
       {puzzle.words.length ? <>
         <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${puzzle.grid[0].length}, minmax(0, 1fr))` }}>
           {puzzle.grid.flatMap((row, r) => row.map((letter, c) => {
             const key = `${r}-${c}`; const active = picked.has(key);
-            return <button key={key} onClick={() => toggle(key)} className={`w-8 h-8 rounded text-xs font-bold transition-colors ${active ? "bg-emerald-500 text-white" : "bg-slate-100 hover:bg-emerald-100 text-slate-700"}`}>{letter}</button>;
+            return <button key={key} onClick={() => toggle(key)} className={`w-8 h-8 rounded text-xs font-bold transition-colors ${active ? "bg-success-500 text-white" : "bg-neutral-100 hover:bg-success-100 text-neutral-700"}`}>{letter}</button>;
           }))}
         </div>
-        <div className="flex flex-wrap gap-1.5 mt-4">{puzzle.words.map((word) => <Pill key={word} className="bg-slate-100 text-slate-600">{word}</Pill>)}</div>
+        <div className="flex flex-wrap gap-1.5 mt-4">{puzzle.words.map((word) => <Pill key={word} className="bg-neutral-100 text-neutral-600">{word}</Pill>)}</div>
         {solved && <div className="mt-4"><AiNote icon={Check} tone="emerald">Every target letter is found — great spelling practice.</AiNote></div>}
-      </> : <p className="text-sm text-slate-400">Add words in Edit content to build the grid.</p>}
+      </> : <p className="text-sm text-neutral-400">Add words in Edit content to build the grid.</p>}
     </Card>
   );
 }
 
 function ImageToWordComponent({ component }) {
   const items = component.items || [];
-  return <div className="max-w-lg"><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-slate-400 mt-3">Match every picture to its English word.</p></div>;
+  return <div className="max-w-lg"><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-neutral-400 mt-3">Match every picture to its English word.</p></div>;
 }
 
 function ThemeGroup({ pairs }) {
@@ -975,7 +975,7 @@ function ThemeGroup({ pairs }) {
         <Card key={theme} className="p-4">
           <div className="text-sm font-semibold mb-2">{theme}</div>
           <div className="flex flex-wrap gap-1.5">
-            {pairs.filter((_, i) => i % 2 === ti).map((p) => <Pill key={p.term} className="bg-slate-100 text-slate-600">{p.term}</Pill>)}
+            {pairs.filter((_, i) => i % 2 === ti).map((p) => <Pill key={p.term} className="bg-neutral-100 text-neutral-600">{p.term}</Pill>)}
           </div>
         </Card>
       ))}
@@ -988,7 +988,7 @@ function SentenceComponent({ component }) {
     <Card className="p-6">
       <div className="mb-3"><RoleLegend /></div>
       <ColorSentence tokens={component.sentence || []} />
-      <p className="text-xs text-slate-400 mt-3">Same colour, same grammar role — everywhere in the app.</p>
+      <p className="text-xs text-neutral-400 mt-3">Same colour, same grammar role — everywhere in the app.</p>
     </Card>
   );
 }
@@ -1002,15 +1002,15 @@ function QuizQ({ item, n, total }) {
   const correct = pick === item.answer;
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Question {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Question {n} of {total}</div>
       <div className="text-lg font-semibold mb-3">{item.q}</div>
       <div className="space-y-2">
         {item.options.map((o, oi) => (
           <button key={oi} onClick={() => setPick(oi)}
             className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${
-              pick == null ? "border-slate-200 hover:border-indigo-300" :
-              oi === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
-              oi === pick ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+              pick == null ? "border-neutral-200 hover:border-primary-300" :
+              oi === item.answer ? "border-success-300 bg-success-50 text-success-700" :
+              oi === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
             {o} {pick != null && oi === item.answer && <Check size={14} className="inline" />}
           </button>
         ))}
@@ -1035,15 +1035,15 @@ function TrueFalseQ({ item, n, total }) {
   const correct = pick === item.answer;
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">True or false · {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">True or false · {n} of {total}</div>
       <div className="text-lg font-semibold mb-3">{item.statement}</div>
       <div className="flex gap-2">
         {[true, false].map((v) => (
           <button key={String(v)} onClick={() => setPick(v)}
             className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
-              pick == null ? "border-slate-200 hover:border-indigo-300" :
-              v === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
-              v === pick ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+              pick == null ? "border-neutral-200 hover:border-primary-300" :
+              v === item.answer ? "border-success-300 bg-success-50 text-success-700" :
+              v === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
             {v ? "True" : "False"} {pick != null && v === item.answer && <Check size={14} className="inline ml-1" />}
           </button>
         ))}
@@ -1061,7 +1061,7 @@ function ComprehensionMatch({ pairs }) {
   const [right] = useState(() => [...clean].reverse());
   const [picked, setPicked] = useState(null);
   const [done, setDone] = useState({});
-  if (!clean.length) return <Card className="p-6 text-slate-400 text-sm text-center">No matching pairs added yet.</Card>;
+  if (!clean.length) return <Card className="p-6 text-neutral-400 text-sm text-center">No matching pairs added yet.</Card>;
   function tryMatch(leftIdx, rightVal) {
     if (clean[leftIdx].right === rightVal) {
       const next = { ...done, [leftIdx]: true };
@@ -1072,21 +1072,21 @@ function ComprehensionMatch({ pairs }) {
   return (
     <div className="grid grid-cols-2 gap-8 max-w-2xl">
       <div className="space-y-2">
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">Statement</div>
+        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Statement</div>
         {clean.map((p, i) => (
           <button key={i} disabled={done[i]} onClick={() => setPicked(i)}
-            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${done[i] ? "border-emerald-200 bg-emerald-50 text-emerald-700" : picked === i ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300"}`}>
-            {p.left} {done[i] && <Check size={13} className="inline text-emerald-600" />}
+            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${done[i] ? "border-success-200 bg-success-50 text-success-700" : picked === i ? "border-primary-400 bg-primary-50" : "border-neutral-200 hover:border-primary-300"}`}>
+            {p.left} {done[i] && <Check size={13} className="inline text-success-600" />}
           </button>
         ))}
       </div>
       <div className="space-y-2">
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-1">From the text</div>
+        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">From the text</div>
         {right.map((p) => {
           const matched = Object.keys(done).some((li) => clean[li].right === p.right);
           return (
             <button key={p.right} disabled={matched || picked == null} onClick={() => tryMatch(picked, p.right)}
-              className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${matched ? "border-emerald-200 bg-emerald-50" : picked == null ? "border-slate-100 text-slate-400" : "border-slate-200 hover:border-indigo-300"}`}>
+              className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${matched ? "border-success-200 bg-success-50" : picked == null ? "border-neutral-100 text-neutral-400" : "border-neutral-200 hover:border-primary-300"}`}>
               {p.right}
             </button>
           );
@@ -1106,14 +1106,14 @@ function GapFill({ item, n, total }) {
   const ok = val.trim().toLowerCase() === item.answer.toLowerCase();
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Fill the gap · {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Fill the gap · {n} of {total}</div>
       <div className="text-lg mb-3">{item.text.split("___").map((seg, i, arr) => (
         <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
           <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
-            className={`inline-block w-28 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
+            className={`inline-block w-28 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
         )}</React.Fragment>
       ))}</div>
-      {!checked ? <Btn size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Btn>
+      {!checked ? <Button size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Button>
         : <AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür! (Correct!)" : <>Az qaldı — düzgün cavab: <b>{item.answer}</b>. {item.why} <button onClick={() => { setChecked(false); setVal(""); }} className="underline ml-1">Yenidən cəhd et</button></>}</AiNote>}
     </Card>
   );
@@ -1132,18 +1132,18 @@ function WordFormationItem({ item, n, total }) {
   const ok = val.trim().toLowerCase() === (item.answer || "").toLowerCase();
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Word formation · {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Word formation · {n} of {total}</div>
       <div className="flex items-center gap-2 mb-2">
-        <Pill className="bg-indigo-50 text-indigo-700 font-mono">{item.root}</Pill>
-        {item.pos && <span className="text-xs text-slate-400">→ {item.pos}</span>}
+        <Pill className="bg-primary-50 text-primary-700 font-mono">{item.root}</Pill>
+        {item.pos && <span className="text-xs text-neutral-400">→ {item.pos}</span>}
       </div>
       <div className="text-lg mb-3">{(item.sentence || "").split("___").map((seg, i, arr) => (
         <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
           <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
-            className={`inline-block w-32 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
+            className={`inline-block w-32 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
         )}</React.Fragment>
       ))}</div>
-      {!checked ? <Btn size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Btn>
+      {!checked ? <Button size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Button>
         : <AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür! (Correct!)" : <>Az qaldı — düzgün cavab: <b>{item.answer}</b>. {item.why} <button onClick={() => { setChecked(false); setVal(""); }} className="underline ml-1">Yenidən cəhd et</button></>}</AiNote>}
     </Card>
   );
@@ -1155,17 +1155,17 @@ function MediaComponent({ component, kind }) {
   return (
     <div className="max-w-2xl">
       <Card className="p-0 overflow-hidden">
-        <div className="aspect-video bg-slate-900 flex items-center justify-center relative">
-          <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-slate-900">
+        <div className="aspect-video bg-neutral-900 flex items-center justify-center relative">
+          <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-neutral-900">
             {kind === "video" ? <Play size={26} className="ml-1" /> : <Volume2 size={26} />}
           </button>
           <span className="absolute bottom-3 right-3 text-xs text-white/80 font-mono">{component.duration}</span>
         </div>
         <div className="p-4">
           <div className="font-semibold">{component.title}</div>
-          <div className="text-xs text-slate-400 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
-          <button onClick={() => setShowT((s) => !s)} className="text-sm text-indigo-600 hover:text-indigo-700 mt-2 inline-flex items-center gap-1">{showT ? "Hide" : "Show"} transcript <ChevronRight size={13} className={showT ? "rotate-90 transition-transform" : "transition-transform"} /></button>
-          {showT && <p className="text-sm text-slate-600 mt-2 leading-relaxed">{component.transcript}</p>}
+          <div className="text-xs text-neutral-400 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
+          <button onClick={() => setShowT((s) => !s)} className="text-sm text-primary-600 hover:text-primary-700 mt-2 inline-flex items-center gap-1">{showT ? "Hide" : "Show"} transcript <ChevronRight size={13} className={showT ? "rotate-90 transition-transform" : "transition-transform"} /></button>
+          {showT && <p className="text-sm text-neutral-600 mt-2 leading-relaxed">{component.transcript}</p>}
         </div>
       </Card>
     </div>
@@ -1180,15 +1180,15 @@ function ScenarioComponent({ component }) {
       <div className="space-y-3 mt-4">
         {(component.turns || []).map((t, i) => (
           <div key={i}>
-            <div className="bg-slate-100 rounded-2xl rounded-tl-sm p-3 text-sm text-slate-700 max-w-[85%]">{t.prompt}</div>
+            <div className="bg-neutral-100 rounded-2xl rounded-tl-sm p-3 text-sm text-neutral-700 max-w-[85%]">{t.prompt}</div>
             <div className="flex justify-end mt-1.5">
-              {revealed[i] ? <div className="bg-indigo-600 text-white rounded-2xl rounded-tr-sm p-3 text-sm max-w-[85%]">{t.sample}</div>
-                : <button onClick={() => setRevealed((r) => ({ ...r, [i]: true }))} className="text-xs text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-full px-3 py-1.5">Your turn — show a sample reply</button>}
+              {revealed[i] ? <div className="bg-primary-600 text-white rounded-2xl rounded-tr-sm p-3 text-sm max-w-[85%]">{t.sample}</div>
+                : <button onClick={() => setRevealed((r) => ({ ...r, [i]: true }))} className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded-full px-3 py-1.5">Your turn — show a sample reply</button>}
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-slate-400 mt-4">Speaking is practised with your teacher — the app never grades speech.</p>
+      <p className="text-xs text-neutral-400 mt-4">Speaking is practised with your teacher — the app never grades speech.</p>
     </div>
   );
 }
@@ -1211,12 +1211,12 @@ function HomeworkEssayComponent({ component }) {
   return (
     <div className="max-w-xl">
       <Card className="p-5">
-        <p className="text-slate-600 text-sm mb-3">{component.prompt}</p>
+        <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
         <textarea value={text} onChange={(e) => setText(e.target.value)} disabled={sent} className={`${inputCls} h-28 resize-none`} placeholder="Write here…" />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-slate-400 font-mono">{count}/{component.minSentences} sentences</span>
-          {sent ? <Pill className="bg-amber-50 text-amber-700">Sent — waiting for review</Pill>
-            : <Btn size="sm" disabled={count < component.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
+          <span className="text-xs text-neutral-400 font-mono">{count}/{component.minSentences} sentences</span>
+          {sent ? <Pill className="bg-pending-50 text-pending-700">Sent — waiting for review</Pill>
+            : <Button size="sm" disabled={count < component.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Button>}
         </div>
       </Card>
     </div>
@@ -1228,19 +1228,19 @@ function HomeworkLinkComponent({ component, icon: Icon, placeholder }) {
   return (
     <div className="max-w-xl">
       <Card className="p-5">
-        <p className="text-slate-600 text-sm mb-3">{component.prompt}</p>
+        <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
         {component.resourceUrl && (
-          <a href={component.resourceUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 mb-3">
+          <a href={component.resourceUrl} target="_blank" rel="noreferrer" className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 mb-3">
             <Icon size={12} /> Open the resource
           </a>
         )}
         <div className="flex items-center gap-2">
-          <Icon size={16} className="text-slate-400 shrink-0" />
+          <Icon size={16} className="text-neutral-400 shrink-0" />
           <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={sent} className={inputCls} placeholder={placeholder} />
         </div>
         <div className="flex justify-end mt-3">
-          {sent ? <Pill className="bg-amber-50 text-amber-700">Sent — waiting for review</Pill>
-            : <Btn size="sm" disabled={!url.trim()} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn>}
+          {sent ? <Pill className="bg-pending-50 text-pending-700">Sent — waiting for review</Pill>
+            : <Button size="sm" disabled={!url.trim()} onClick={() => setSent(true)}><Send size={13} /> Submit</Button>}
         </div>
       </Card>
     </div>
@@ -1261,7 +1261,7 @@ function YoutubeComponent({ component }) {
   return (
     <div className="max-w-2xl">
       <Card className="p-0 overflow-hidden">
-        <div className="aspect-video bg-slate-900">
+        <div className="aspect-video bg-neutral-900">
           {id ? (
             <iframe className="w-full h-full" src={`https://www.youtube-nocookie.com/embed/${id}`} title={component.title || "YouTube video"}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -1271,7 +1271,7 @@ function YoutubeComponent({ component }) {
         </div>
         <div className="p-4">
           <div className="font-semibold">{component.title || "YouTube video"}</div>
-          {component.notes && <div className="text-xs text-slate-400 mt-0.5">{component.notes}</div>}
+          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
     </div>
@@ -1287,11 +1287,11 @@ function SlideDeckComponent({ component }) {
   return (
     <div className="max-w-3xl">
       <Card className="p-0 overflow-hidden">
-        <div className="aspect-video bg-slate-100">
+        <div className="aspect-video bg-neutral-100">
           {component.url ? (
             <iframe className="w-full h-full" src={component.url} title={component.title || "Slide deck"} allowFullScreen loading="lazy" />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400 text-sm">
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-400 text-sm">
               <MonitorPlay size={22} />
               No deck linked yet — add an embed link in Edit content.
             </div>
@@ -1300,9 +1300,9 @@ function SlideDeckComponent({ component }) {
         <div className="p-4">
           <div className="flex items-center gap-2">
             <span className="font-semibold">{component.title || "Untitled deck"}</span>
-            <Pill className="bg-violet-50 text-violet-700">{SLIDE_PROVIDER_LABEL[component.provider] || "Deck"}</Pill>
+            <Pill className="bg-info-50 text-info-700">{SLIDE_PROVIDER_LABEL[component.provider] || "Deck"}</Pill>
           </div>
-          {component.notes && <div className="text-xs text-slate-400 mt-0.5">{component.notes}</div>}
+          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
     </div>
@@ -1330,14 +1330,14 @@ function InfoGapTask({ component }) {
       <AiNote icon={Handshake} tone="sky" title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</AiNote>
       <div className="flex gap-2 mt-4 mb-3 flex-wrap">
         {roles.map((r, i) => (
-          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{nameFor(r)}</button>
+          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-200 text-neutral-500"}`}>{nameFor(r)}</button>
         ))}
       </div>
       <Card className="p-5">
-        <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{nameFor(role)} sees only this</div>
-        <p className="text-sm text-slate-700">{role?.prompt}</p>
+        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">{nameFor(role)} sees only this</div>
+        <p className="text-sm text-neutral-700">{role?.prompt}</p>
       </Card>
-      <p className="text-xs text-slate-400 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
+      <p className="text-xs text-neutral-400 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
     </div>
   );
 }
@@ -1374,20 +1374,20 @@ function TeamQuizRace({ component }) {
     setQi((i) => i + 1); setRoundResult(null); setGameState("playing");
   }
 
-  if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-slate-400">Add at least 2 teams and 1 question to enable the race.</Card>;
+  if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-neutral-400">Add at least 2 teams and 1 question to enable the race.</Card>;
 
   if (gameState === "idle") {
     return (
       <Card className="p-6 max-w-md text-center">
-        <Trophy size={28} className="mx-auto text-amber-500 mb-2" />
+        <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
         <div className="font-semibold mb-1">Team quiz race · {teams.length} teams</div>
-        <p className="text-sm text-slate-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
+        <p className="text-sm text-neutral-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
         <div className="text-left space-y-1 mb-4">
           {teams.map((t) => (
-            <div key={t.id} className="text-xs text-slate-500"><b className="text-slate-700">{t.name}</b>{memberNames(t) ? ` — ${memberNames(t)}` : " — no students assigned yet"}</div>
+            <div key={t.id} className="text-xs text-neutral-500"><b className="text-neutral-700">{t.name}</b>{memberNames(t) ? ` — ${memberNames(t)}` : " — no students assigned yet"}</div>
           ))}
         </div>
-        <Btn onClick={start}><Trophy size={14} /> Start race</Btn>
+        <Button onClick={start}><Trophy size={14} /> Start race</Button>
       </Card>
     );
   }
@@ -1396,18 +1396,18 @@ function TeamQuizRace({ component }) {
     const ranked = teams.slice().sort((a, b) => scores[b.id] - scores[a.id]);
     return (
       <Card className="p-6 max-w-md">
-        <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-amber-500" /><span className="font-semibold">Final leaderboard</span></div>
+        <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-pending-500" /><span className="font-semibold">Final leaderboard</span></div>
         {ranked.map((t, i) => (
           <div key={t.id} className="flex items-center gap-3 py-2">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}>{i + 1}</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-pending-400 text-white" : "bg-neutral-100 text-neutral-500"}`}>{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{t.name}</div>
-              {memberNames(t) && <div className="text-xs text-slate-400 truncate">{memberNames(t)}</div>}
+              {memberNames(t) && <div className="text-xs text-neutral-400 truncate">{memberNames(t)}</div>}
             </div>
             <span className="font-mono text-sm">{scores[t.id]} pts</span>
           </div>
         ))}
-        <Btn variant="outline" size="sm" className="mt-3" onClick={() => setGameState("idle")}><RotateCcw size={13} /> Play again</Btn>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => setGameState("idle")}><RotateCcw size={13} /> Play again</Button>
       </Card>
     );
   }
@@ -1415,7 +1415,7 @@ function TeamQuizRace({ component }) {
   const item = items[qi];
   return (
     <div className="max-w-xl space-y-4">
-      <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+      <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
         <span>Question {qi + 1} of {items.length}</span>
         <span>{teams.length} teams racing</span>
       </div>
@@ -1423,32 +1423,32 @@ function TeamQuizRace({ component }) {
         <div className="text-base font-medium mb-3">{item.q}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {item.options.map((o, oi) => (
-            <div key={oi} className={`rounded-lg border p-3 text-sm ${gameState === "revealed" && oi === item.answer ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}>{o}</div>
+            <div key={oi} className={`rounded-lg border p-3 text-sm ${gameState === "revealed" && oi === item.answer ? "border-success-300 bg-success-50 text-success-700" : "border-neutral-200"}`}>{o}</div>
           ))}
         </div>
       </Card>
-      {gameState === "playing" && <Btn onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Btn>}
+      {gameState === "playing" && <Button onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Button>}
       {gameState === "revealed" && (
         <>
-          <Card className="p-4 divide-y divide-slate-100">
+          <Card className="p-4 divide-y divide-neutral-100">
             {teams.map((t) => (
               <div key={t.id} className="flex items-center gap-3 py-2 text-sm">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{t.name}</div>
-                  {memberNames(t) && <div className="text-xs text-slate-400 truncate">{memberNames(t)}</div>}
+                  {memberNames(t) && <div className="text-xs text-neutral-400 truncate">{memberNames(t)}</div>}
                 </div>
-                <Pill className={roundResult[t.id].correct ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}>{roundResult[t.id].correct ? "Correct" : "Missed"}</Pill>
-                <span className="font-mono text-xs text-slate-400 w-14 text-right">{(roundResult[t.id].ms / 1000).toFixed(1)}s</span>
+                <Pill className={roundResult[t.id].correct ? "bg-success-50 text-success-700" : "bg-warning-50 text-warning-700"}>{roundResult[t.id].correct ? "Correct" : "Missed"}</Pill>
+                <span className="font-mono text-xs text-neutral-400 w-14 text-right">{(roundResult[t.id].ms / 1000).toFixed(1)}s</span>
                 <span className="font-mono text-sm w-14 text-right">+{roundResult[t.id].points}</span>
               </div>
             ))}
           </Card>
           <div className="flex flex-wrap gap-2">
             {teams.slice().sort((a, b) => scores[b.id] - scores[a.id]).map((t, i) => (
-              <Pill key={t.id} className={i === 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}>{i === 0 && "👑 "}{t.name} · {scores[t.id]}</Pill>
+              <Pill key={t.id} className={i === 0 ? "bg-pending-50 text-pending-700" : "bg-neutral-100 text-neutral-500"}>{i === 0 && "👑 "}{t.name} · {scores[t.id]}</Pill>
             ))}
           </div>
-          <Btn onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Btn>
+          <Button onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Button>
         </>
       )}
     </div>
@@ -1472,33 +1472,33 @@ function SpeakingRecordComponent({ component }) {
 
   return (
     <Card className="p-5 max-w-xl">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Speaking · record & get AI feedback</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Speaking · record & get AI feedback</div>
       <div className="text-lg font-medium mb-1">{component.question}</div>
-      {component.tipAz && <p className="text-xs text-slate-400 mb-4">{component.tipAz}</p>}
+      {component.tipAz && <p className="text-xs text-neutral-400 mb-4">{component.tipAz}</p>}
 
-      {state === "idle" && <Btn onClick={start}><Mic2 size={14} /> Start recording</Btn>}
+      {state === "idle" && <Button onClick={start}><Mic2 size={14} /> Start recording</Button>}
 
       {state === "recording" && (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" /></span>
-            <span className="text-sm font-mono text-rose-600">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</span>
+            <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-warning-500" /></span>
+            <span className="text-sm font-mono text-warning-600">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</span>
           </div>
           <div className="flex items-end gap-0.5 h-8 mb-3">
-            {Array.from({ length: 40 }).map((_, i) => <span key={i} className="flex-1 bg-rose-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + seconds)) * 80}%` }} />)}
+            {Array.from({ length: 40 }).map((_, i) => <span key={i} className="flex-1 bg-warning-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + seconds)) * 80}%` }} />)}
           </div>
-          <Btn className="!bg-rose-600 !text-white hover:!bg-rose-700" onClick={stop}>Stop & analyze</Btn>
+          <Button className="!bg-warning-600 !text-white hover:!bg-warning-700" onClick={stop}>Stop & analyze</Button>
         </div>
       )}
 
-      {state === "analyzing" && <div className="flex items-center gap-2 text-sm text-slate-500"><Sparkles size={15} className="text-violet-500" /> AI is analyzing your speech…</div>}
+      {state === "analyzing" && <div className="flex items-center gap-2 text-sm text-neutral-500"><Sparkles size={15} className="text-info-500" /> AI is analyzing your speech…</div>}
 
       {state === "done" && (
         <div>
           <AiNote icon={Sparkles} tone="violet" title="AI feedback">
             Good pace and clear structure — you covered the situation, action and result. Watch: “the project which I lead” → say “which I led” (past tense, since it's finished). Fluency: 7.5/10. Try adding one more concrete detail next time.
           </AiNote>
-          <Btn variant="outline" size="sm" className="mt-3" onClick={again}><RotateCcw size={13} /> Record again</Btn>
+          <Button variant="outline" size="sm" className="mt-3" onClick={again}><RotateCcw size={13} /> Record again</Button>
         </div>
       )}
     </Card>
@@ -1518,12 +1518,12 @@ function ShadowItem({ item, n, total }) {
   function recordRepeat() { setRecording(true); setTimeout(() => { setRecording(false); setRecorded(true); }, 1400); }
   return (
     <Card className="p-4">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Shadowing · {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Shadowing · {n} of {total}</div>
       <div className="text-base font-medium mb-1">“{item.sentence}”</div>
-      {item.note && <div className="text-xs text-slate-400 mb-3">{item.note}</div>}
+      {item.note && <div className="text-xs text-neutral-400 mb-3">{item.note}</div>}
       <div className="flex items-center gap-2">
-        <Btn variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Btn>
-        <Btn size="sm" onClick={recordRepeat} disabled={recording}><Mic2 size={13} /> {recording ? "Listening…" : "Repeat it"}</Btn>
+        <Button variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Button>
+        <Button size="sm" onClick={recordRepeat} disabled={recording}><Mic2 size={13} /> {recording ? "Listening…" : "Repeat it"}</Button>
       </div>
       {recorded && <div className="mt-3"><AiNote icon={Check} tone="emerald">Rhythm and stress matched closely — nice shadowing.</AiNote></div>}
     </Card>
@@ -1536,16 +1536,16 @@ function UploadComponent({ component }) {
   const [sent, setSent] = useState(false);
   return (
     <Card className="p-5 max-w-xl">
-      <p className="text-slate-600 text-sm mb-3">{component.instructions}</p>
+      <p className="text-neutral-600 text-sm mb-3">{component.instructions}</p>
       {!sent ? (
         <div>
-          <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-6 text-sm text-slate-400 hover:border-indigo-300 hover:text-indigo-500 cursor-pointer transition-colors">
+          <label className="flex items-center justify-center gap-2 border-2 border-dashed border-neutral-200 rounded-xl p-6 text-sm text-neutral-400 hover:border-primary-300 hover:text-primary-500 cursor-pointer transition-colors">
             <FileUp size={16} /> {file ? file.name : `Choose a file (${component.accept || "any"})`}
             <input type="file" accept={component.accept} className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           </label>
-          <div className="flex justify-end mt-3"><Btn size="sm" disabled={!file} onClick={() => setSent(true)}><Send size={13} /> Submit</Btn></div>
+          <div className="flex justify-end mt-3"><Button size="sm" disabled={!file} onClick={() => setSent(true)}><Send size={13} /> Submit</Button></div>
         </div>
-      ) : <Pill className="bg-amber-50 text-amber-700">“{file?.name}” sent — waiting for review</Pill>}
+      ) : <Pill className="bg-pending-50 text-pending-700">“{file?.name}” sent — waiting for review</Pill>}
     </Card>
   );
 }
@@ -1586,7 +1586,7 @@ function MemoryComponent({ component }) {
 
   return (
     <div className="max-w-lg">
-      <div className="flex items-center justify-between mb-3 text-xs text-slate-400">
+      <div className="flex items-center justify-between mb-3 text-xs text-neutral-400">
         <span>{Object.keys(matched).length}/{pairs.length} pairs found</span>
         <span className="font-mono">{moves} moves</span>
       </div>
@@ -1596,7 +1596,7 @@ function MemoryComponent({ component }) {
           return (
             <button key={c.id} onClick={() => flip(c)} disabled={isFlipped}
               className={`h-16 rounded-xl border text-xs font-semibold flex items-center justify-center text-center px-1.5 transition duration-(--dur-fast) ${
-                matched[c.pairId] ? "border-emerald-300 bg-emerald-50 text-emerald-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-slate-200 bg-slate-800 text-slate-800 hover:border-pink-300"}`}>
+                matched[c.pairId] ? "border-success-300 bg-success-50 text-success-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-neutral-200 bg-neutral-800 text-neutral-800 hover:border-pink-300"}`}>
               {isFlipped ? c.text : ""}
             </button>
           );
@@ -1622,23 +1622,23 @@ function ScrambleItem({ item, n, total }) {
 
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Sentence scramble · {n} of {total}</div>
-      <div className="min-h-12 rounded-xl border-2 border-dashed border-slate-200 p-2.5 flex flex-wrap gap-2 mb-3">
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Sentence scramble · {n} of {total}</div>
+      <div className="min-h-12 rounded-xl border-2 border-dashed border-neutral-200 p-2.5 flex flex-wrap gap-2 mb-3">
         {built.map((b) => (
           <button key={b.id} onClick={() => { setBuilt((v) => v.filter((x) => x.id !== b.id)); setChecked(false); }}
             className="text-sm font-medium rounded-lg px-2.5 py-1.5 bg-cyan-100 text-cyan-800 hover:bg-cyan-200">{b.w}</button>
         ))}
-        {!built.length && <span className="text-xs text-slate-300 py-1.5">Tap words below to build the sentence…</span>}
+        {!built.length && <span className="text-xs text-neutral-300 py-1.5">Tap words below to build the sentence…</span>}
       </div>
       <div className="flex flex-wrap gap-2 mb-3">
         {remaining.map((p) => (
           <button key={p.id} onClick={() => { setBuilt((v) => [...v, p]); setChecked(false); }}
-            className="text-sm font-medium rounded-lg px-2.5 py-1.5 border border-slate-200 hover:border-cyan-300">{p.w}</button>
+            className="text-sm font-medium rounded-lg px-2.5 py-1.5 border border-neutral-200 hover:border-cyan-300">{p.w}</button>
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <Btn size="sm" onClick={() => setChecked(true)} disabled={!built.length}>Check</Btn>
-        <Btn size="sm" variant="outline" onClick={() => { setBuilt([]); setChecked(false); }}>Clear</Btn>
+        <Button size="sm" onClick={() => setChecked(true)} disabled={!built.length}>Check</Button>
+        <Button size="sm" variant="outline" onClick={() => { setBuilt([]); setChecked(false); }}>Clear</Button>
       </div>
       {checked && (
         <div className="mt-3"><AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>
@@ -1660,19 +1660,19 @@ function ArrowCorrectionItem({ item, n, total }) {
   const [revealed, setRevealed] = useState(false);
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Arrow correction · {n} of {total}</div>
-      <div className="flex items-start gap-2 text-rose-700 bg-rose-50 rounded-lg p-3 mb-2">
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Arrow correction · {n} of {total}</div>
+      <div className="flex items-start gap-2 text-warning-700 bg-warning-50 rounded-lg p-3 mb-2">
         <span className="text-sm">{item.wrong}</span>
       </div>
       {!revealed ? (
-        <Btn size="sm" onClick={() => setRevealed(true)}><CornerDownRight size={14} /> Show correction</Btn>
+        <Button size="sm" onClick={() => setRevealed(true)}><CornerDownRight size={14} /> Show correction</Button>
       ) : (
         <>
-          <div className="flex items-start gap-2 text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-2">
+          <div className="flex items-start gap-2 text-success-700 bg-success-50 rounded-lg p-3 mb-2">
             <CornerDownRight size={16} className="shrink-0 mt-0.5" />
             <span className="text-sm font-medium">{item.correct}</span>
           </div>
-          {item.why && <p className="text-xs text-slate-400">{item.why}</p>}
+          {item.why && <p className="text-xs text-neutral-400">{item.why}</p>}
         </>
       )}
     </Card>
@@ -1690,15 +1690,15 @@ function CorrectIncorrectItem({ item, n, total }) {
   const ok = pick === item.correct;
   return (
     <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">Correct or incorrect? · {n} of {total}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Correct or incorrect? · {n} of {total}</div>
       <div className="text-lg font-semibold mb-3">{item.sentence}</div>
       <div className="flex gap-2">
         {[true, false].map((v) => (
           <button key={String(v)} onClick={() => setPick(v)}
             className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
-              pick == null ? "border-slate-200 hover:border-indigo-300" :
-              v === item.correct ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
-              v === pick ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 opacity-60"}`}>
+              pick == null ? "border-neutral-200 hover:border-primary-300" :
+              v === item.correct ? "border-success-300 bg-success-50 text-success-700" :
+              v === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
             {v ? "Correct" : "Incorrect"} {pick != null && v === item.correct && <Check size={14} className="inline ml-1" />}
           </button>
         ))}
@@ -1716,29 +1716,29 @@ function DialogueCompletionComponent({ component }) {
   const [checked, setChecked] = useState({});
   return (
     <Card className="p-5 max-w-xl">
-      <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-3">{component.title || "Dialogue completion"}</div>
+      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-3">{component.title || "Dialogue completion"}</div>
       <div className="space-y-3">
         {turns.map((t, i) => {
           const ok = (answers[i] || "").trim().toLowerCase() === (t.answer || "").trim().toLowerCase();
           return (
             <div key={i} className="flex gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{t.speaker}</span>
+              <span className="w-6 h-6 rounded-full bg-neutral-100 text-neutral-500 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{t.speaker}</span>
               {t.blank ? (
                 <div className="flex-1">
                   <input value={answers[i] || ""} onChange={(e) => { setAnswers((a) => ({ ...a, [i]: e.target.value })); setChecked((c) => ({ ...c, [i]: false })); }}
                     placeholder="Type this turn…"
-                    className={`w-full text-sm border-b-2 focus:outline-none px-1 py-1 ${checked[i] ? (ok ? "border-emerald-400 text-emerald-700" : "border-rose-400 text-rose-700") : "border-indigo-300"}`} />
+                    className={`w-full text-sm border-b-2 focus:outline-none px-1 py-1 ${checked[i] ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
                   {!checked[i] ? (
-                    <button onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()} className="text-xs text-indigo-600 hover:text-indigo-700 mt-1 disabled:opacity-40">Check</button>
-                  ) : !ok && <p className="text-xs text-slate-400 mt-1">Sample answer: “{t.answer}”</p>}
+                    <button onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()} className="text-xs text-primary-600 hover:text-primary-700 mt-1 disabled:opacity-40">Check</button>
+                  ) : !ok && <p className="text-xs text-neutral-400 mt-1">Sample answer: “{t.answer}”</p>}
                 </div>
               ) : (
-                <span className="text-sm text-slate-700 mt-0.5">{t.text}</span>
+                <span className="text-sm text-neutral-700 mt-0.5">{t.text}</span>
               )}
             </div>
           );
         })}
-        {!turns.length && <p className="text-sm text-slate-400">No dialogue added yet.</p>}
+        {!turns.length && <p className="text-sm text-neutral-400">No dialogue added yet.</p>}
       </div>
     </Card>
   );
@@ -1769,38 +1769,38 @@ function SpeedRoundComponent({ component }) {
     setTimeout(() => { setFlash(null); setQi((i) => i + 1); }, 450);
   }
 
-  if (!items.length) return <Card className="p-6 text-sm text-slate-400">Add at least one question to enable the speed round.</Card>;
+  if (!items.length) return <Card className="p-6 text-sm text-neutral-400">Add at least one question to enable the speed round.</Card>;
   if (state === "idle") {
     return (
       <Card className="p-6 max-w-md text-center">
-        <Timer size={28} className="mx-auto text-red-500 mb-2" />
+        <Timer size={28} className="mx-auto text-warning-500 mb-2" />
         <div className="font-semibold mb-1">{seconds}-second speed round</div>
-        <p className="text-sm text-slate-500 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
-        <Btn onClick={start}>Start</Btn>
+        <p className="text-sm text-neutral-500 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
+        <Button onClick={start}>Start</Button>
       </Card>
     );
   }
   if (state === "done") {
     return (
       <Card className="p-6 max-w-md text-center">
-        <Trophy size={28} className="mx-auto text-amber-500 mb-2" />
+        <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
         <div className="text-3xl font-bold font-mono mb-1">{score}</div>
-        <p className="text-sm text-slate-500 mb-4">points — nice pace! Try again to beat it.</p>
-        <Btn onClick={start}><RotateCcw size={14} /> Play again</Btn>
+        <p className="text-sm text-neutral-500 mb-4">points — nice pace! Try again to beat it.</p>
+        <Button onClick={start}><RotateCcw size={14} /> Play again</Button>
       </Card>
     );
   }
   const q = items[qi % items.length];
   return (
-    <Card className={`p-5 max-w-md transition-colors ${flash === "ok" ? "border-emerald-300 bg-emerald-50/40" : flash === "no" ? "border-rose-300 bg-rose-50/40" : ""}`}>
+    <Card className={`p-5 max-w-md transition-colors ${flash === "ok" ? "border-success-300 bg-success-50/40" : flash === "no" ? "border-warning-300 bg-warning-50/40" : ""}`}>
       <div className="flex items-center justify-between mb-3">
-        <Pill className="bg-red-50 text-red-700 font-mono">{time}s</Pill>
-        <span className="font-mono text-sm text-slate-500">{score} pts</span>
+        <Pill className="bg-warning-50 text-warning-700 font-mono">{time}s</Pill>
+        <span className="font-mono text-sm text-neutral-500">{score} pts</span>
       </div>
-      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-4"><div className="h-full w-full origin-left bg-red-400 transition-transform duration-(--dur-base) ease-soft-out" style={{ transform: `scaleX(${(time / seconds)})` }} /></div>
+      <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden mb-4"><div className="h-full w-full origin-left bg-warning-400 transition-transform duration-(--dur-base) ease-soft-out" style={{ transform: `scaleX(${(time / seconds)})` }} /></div>
       <div className="text-lg font-semibold mb-3">{q.q}</div>
       <div className="space-y-2">
-        {q.options.map((o, oi) => <button key={oi} onClick={() => answer(oi)} className="w-full rounded-lg border border-slate-200 hover:border-red-300 p-3 text-sm text-left transition-colors">{o}</button>)}
+        {q.options.map((o, oi) => <button key={oi} onClick={() => answer(oi)} className="w-full rounded-lg border border-neutral-200 hover:border-warning-300 p-3 text-sm text-left transition-colors">{o}</button>)}
       </div>
     </Card>
   );
@@ -1856,7 +1856,7 @@ function WheelEditor({ component, onChange }) {
 }
 
 function WordSearchEditor({ component, onChange }) {
-  return <div className="space-y-3"><Field label="Activity title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field><Field label="Words (one per line or comma separated)"><textarea className={`${inputCls} h-28 resize-none`} value={(component.words || []).join("\n")} onChange={(e) => onChange({ words: e.target.value.split(/[\n,]/).map((word) => word.trim()).filter(Boolean) })} /></Field><p className="text-xs text-slate-400">Letters only work best; the grid rebuilds from these words.</p></div>;
+  return <div className="space-y-3"><Field label="Activity title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field><Field label="Words (one per line or comma separated)"><textarea className={`${inputCls} h-28 resize-none`} value={(component.words || []).join("\n")} onChange={(e) => onChange({ words: e.target.value.split(/[\n,]/).map((word) => word.trim()).filter(Boolean) })} /></Field><p className="text-xs text-neutral-400">Letters only work best; the grid rebuilds from these words.</p></div>;
 }
 
 function PassageEditor({ component, onChange }) {
@@ -1877,20 +1877,20 @@ function RowsEditor({ component, onChange, fields, blank, label, wide = [] }) {
   return (
     <div className="space-y-3">
       {items.map((it, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {fields.map(([k, lbl]) => (
               <label key={k} className={`block ${wide.includes(k) ? "sm:col-span-2" : ""}`}>
-                <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{lbl}</span>
+                <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">{lbl}</span>
                 <input className={`${inputCls} mt-1`} value={it[k] || ""} onChange={(e) => setItem(i, k, e.target.value)} />
               </label>
             ))}
           </div>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { ...blank }] })}><Plus size={14} /> Add {label}</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ items: [...items, { ...blank }] })}><Plus size={14} /> Add {label}</Button>
     </div>
   );
 }
@@ -1906,13 +1906,13 @@ function MatchEditor({ component, onChange }) {
     <div className="space-y-3">
       <div className="flex gap-2 flex-wrap">
         {[["az", "Word → Azerbaijani"], ["picture", "Word → picture"], ["theme", "Group by theme"]].map(([id, lbl]) => (
-          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
         ))}
       </div>
       {mode === "az" && (
         <div className="flex gap-2 flex-wrap">
           {MATCH_PAIR_TYPES.map(([id, lbl]) => (
-            <button key={id} onClick={() => onChange({ pairType: id })} className={`text-xs rounded-lg px-2.5 py-1 border ${pairType === id ? "border-indigo-300 bg-indigo-50/60 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+            <button key={id} onClick={() => onChange({ pairType: id })} className={`text-xs rounded-lg px-2.5 py-1 border ${pairType === id ? "border-primary-300 bg-primary-50/60 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
           ))}
         </div>
       )}
@@ -1923,10 +1923,10 @@ function MatchEditor({ component, onChange }) {
             <input className={inputCls} value={p[pairType] || ""} onChange={(e) => setPair(i, pairType, e.target.value)}
               placeholder={(MATCH_PAIR_TYPES.find(([id]) => id === pairType) || MATCH_PAIR_TYPES[0])[1].toLowerCase()} />
             <input className={`${inputCls} text-center px-1`} value={p.emoji} onChange={(e) => setPair(i, "emoji", e.target.value)} placeholder="🙂" />
-            <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
         ))}
-        <Btn variant="outline" size="sm" onClick={() => onChange({ pairs: [...pairs, { term: "", az: "", emoji: "🙂" }] })}><Plus size={14} /> Add pair</Btn>
+        <Button variant="outline" size="sm" onClick={() => onChange({ pairs: [...pairs, { term: "", az: "", emoji: "🙂" }] })}><Plus size={14} /> Add pair</Button>
       </div>
     </div>
   );
@@ -1945,12 +1945,12 @@ function SentenceEditor({ component, onChange }) {
             <select className={inputCls} value={t.role || ""} onChange={(e) => setTok(i, "role", e.target.value)}>
               {ROLE_KEYS.map((r) => <option key={r} value={r}>{r ? ROLE[r].label : "— no colour —"}</option>)}
             </select>
-            <button onClick={() => onChange({ sentence: tokens.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            <button onClick={() => onChange({ sentence: tokens.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
         ))}
-        <Btn variant="outline" size="sm" onClick={() => onChange({ sentence: [...tokens, { w: "", role: "" }] })}><Plus size={14} /> Add word</Btn>
+        <Button variant="outline" size="sm" onClick={() => onChange({ sentence: [...tokens, { w: "", role: "" }] })}><Plus size={14} /> Add word</Button>
       </div>
-      <div><div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-1.5">Live preview</div><div className="rounded-xl border border-slate-100 p-3"><ColorSentence tokens={tokens} /></div></div>
+      <div><div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-1.5">Live preview</div><div className="rounded-xl border border-neutral-100 p-3"><ColorSentence tokens={tokens} /></div></div>
     </div>
   );
 }
@@ -1961,24 +1961,24 @@ function QuizEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
       {items.map((it, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">Q{i + 1}</span>
-            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">Q{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
           <input className={`${inputCls} mb-2`} value={it.q} onChange={(e) => setItem(i, { q: e.target.value })} placeholder="Question" />
           <div className="space-y-1.5 mb-2">
             {it.options.map((o, oi) => (
               <div key={oi} className="grid grid-cols-[auto_1fr] items-center gap-2">
-                <button onClick={() => setItem(i, { answer: oi })} className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${it.answer === oi ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300"}`}>{it.answer === oi && <Check size={12} />}</button>
+                <button onClick={() => setItem(i, { answer: oi })} className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${it.answer === oi ? "bg-success-500 border-success-500 text-white" : "border-neutral-300"}`}>{it.answer === oi && <Check size={12} />}</button>
                 <input className={inputCls} value={o} onChange={(e) => setItem(i, { options: it.options.map((x, k) => (k === oi ? e.target.value : x)) })} />
               </div>
             ))}
-            <button onClick={() => setItem(i, { options: [...it.options, ""] })} className="text-xs text-indigo-600 hover:text-indigo-700 ml-7"><Plus size={12} className="inline" /> option</button>
+            <button onClick={() => setItem(i, { options: [...it.options, ""] })} className="text-xs text-primary-600 hover:text-primary-700 ml-7"><Plus size={12} className="inline" /> option</button>
           </div>
           <input className={inputCls} value={it.why} onChange={(e) => setItem(i, { why: e.target.value })} placeholder="Why (Azerbaijani) — feedback" />
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { q: "", options: ["", "", ""], answer: 0, why: "" }] })}><Plus size={14} /> Add question</Btn>
-      <p className="text-xs text-slate-400">Tap the circle to mark the correct answer. Feedback shows immediately, in Azerbaijani.</p>
+      <Button variant="outline" size="sm" onClick={() => onChange({ items: [...items, { q: "", options: ["", "", ""], answer: 0, why: "" }] })}><Plus size={14} /> Add question</Button>
+      <p className="text-xs text-neutral-400">Tap the circle to mark the correct answer. Feedback shows immediately, in Azerbaijani.</p>
     </div>
   );
 }
@@ -1993,7 +1993,7 @@ function ComprehensionEditor({ component, onChange, passages = [] }) {
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
         {COMPREHENSION_MODES.map(([id, lbl]) => (
-          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
         ))}
       </div>
       <Field label="Linked passage (optional)">
@@ -2001,7 +2001,7 @@ function ComprehensionEditor({ component, onChange, passages = [] }) {
           <option value="">No specific passage</option>
           {passages.map((p) => <option key={p.id} value={p.id}>{passageTitle(p)}</option>)}
         </select>
-        <p className="text-xs text-slate-400 mt-1.5">Links this check to a passage already in this block — shown nested under it in the course tree.</p>
+        <p className="text-xs text-neutral-400 mt-1.5">Links this check to a passage already in this block — shown nested under it in the course tree.</p>
       </Field>
       {mode === "multiple" && <QuizEditor component={component} onChange={onChange} />}
       {mode === "truefalse" && <TrueFalseEditor component={component} onChange={onChange} />}
@@ -2017,22 +2017,22 @@ function TrueFalseEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
       {items.map((it, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Statement</span>
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Statement</span>
             <input className={`${inputCls} mt-1`} value={it.statement || ""} onChange={(e) => setItem(i, { statement: e.target.value })} /></label>
           <div className="flex gap-2 mb-2">
             {[true, false].map((v) => (
               <button key={String(v)} onClick={() => setItem(i, { answer: v })}
-                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.answer === v ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{v ? "True" : "False"}</button>
+                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.answer === v ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{v ? "True" : "False"}</button>
             ))}
           </div>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Why (Azerbaijani) — optional</span>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Why (Azerbaijani) — optional</span>
             <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { statement: "", answer: true, why: "" }] })}><Plus size={14} /> Add statement</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ items: [...items, { statement: "", answer: true, why: "" }] })}><Plus size={14} /> Add statement</Button>
     </div>
   );
 }
@@ -2043,22 +2043,22 @@ function CorrectIncorrectEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
       {items.map((it, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Sentence</span>
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+            <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sentence</span>
             <input className={`${inputCls} mt-1`} value={it.sentence || ""} onChange={(e) => setItem(i, { sentence: e.target.value })} /></label>
           <div className="flex gap-2 mb-2">
             {[true, false].map((v) => (
               <button key={String(v)} onClick={() => setItem(i, { correct: v })}
-                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.correct === v ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{v ? "Correct" : "Incorrect"}</button>
+                className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.correct === v ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{v ? "Correct" : "Incorrect"}</button>
             ))}
           </div>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Why (Azerbaijani) — optional</span>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Why (Azerbaijani) — optional</span>
             <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ items: [...items, { sentence: "", correct: true, why: "" }] })}><Plus size={14} /> Add sentence</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ items: [...items, { sentence: "", correct: true, why: "" }] })}><Plus size={14} /> Add sentence</Button>
     </div>
   );
 }
@@ -2070,27 +2070,27 @@ function DialogueCompletionEditor({ component, onChange }) {
     <div className="space-y-3">
       <Field label="Dialogue title"><input className={inputCls} value={component.title || ""} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       {turns.map((t, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">Turn {i + 1}</span>
-            <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            <span className="text-xs font-mono text-neutral-400">Turn {i + 1}</span>
+            <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
           <div className="grid grid-cols-[5rem_1fr] gap-2 mb-2">
             <input className={inputCls} value={t.speaker || ""} onChange={(e) => setTurn(i, { speaker: e.target.value })} placeholder="A / B" />
-            <label className="inline-flex items-center gap-2 text-xs text-slate-500">
+            <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
               <input type="checkbox" checked={!!t.blank} onChange={(e) => setTurn(i, { blank: e.target.checked })} /> Student fills this turn in
             </label>
           </div>
           {t.blank ? (
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Sample answer</span>
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sample answer</span>
               <input className={`${inputCls} mt-1`} value={t.answer || ""} onChange={(e) => setTurn(i, { answer: e.target.value })} /></label>
           ) : (
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Line</span>
+            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Line</span>
               <input className={`${inputCls} mt-1`} value={t.text || ""} onChange={(e) => setTurn(i, { text: e.target.value })} /></label>
           )}
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { speaker: turns.length % 2 ? "A" : "B", text: "", blank: false }] })}><Plus size={14} /> Add turn</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { speaker: turns.length % 2 ? "A" : "B", text: "", blank: false }] })}><Plus size={14} /> Add turn</Button>
     </div>
   );
 }
@@ -2112,14 +2112,14 @@ function ScenarioEditor({ component, onChange }) {
     <div className="space-y-3">
       <Field label="Situation"><input className={inputCls} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
       {turns.map((t, i) => (
-        <div key={i} className="rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-slate-400">Turn {i + 1}</span>
-            <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Prompt (the other person)</span><input className={`${inputCls} mt-1`} value={t.prompt} onChange={(e) => setTurn(i, "prompt", e.target.value)} /></label>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Sample reply</span><input className={`${inputCls} mt-1`} value={t.sample} onChange={(e) => setTurn(i, "sample", e.target.value)} /></label>
+        <div key={i} className="rounded-xl border border-neutral-100 p-3">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">Turn {i + 1}</span>
+            <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
+          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Prompt (the other person)</span><input className={`${inputCls} mt-1`} value={t.prompt} onChange={(e) => setTurn(i, "prompt", e.target.value)} /></label>
+          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sample reply</span><input className={`${inputCls} mt-1`} value={t.sample} onChange={(e) => setTurn(i, "sample", e.target.value)} /></label>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { prompt: "", sample: "" }] })}><Plus size={14} /> Add turn</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { prompt: "", sample: "" }] })}><Plus size={14} /> Add turn</Button>
     </div>
   );
 }
@@ -2132,7 +2132,7 @@ function HomeworkEditor({ component, onChange }) {
     <div className="space-y-3">
       <div className="flex gap-2 flex-wrap">
         {HOMEWORK_TYPES.map(([id, lbl]) => (
-          <button key={id} onClick={() => onChange({ type: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${type === id ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{lbl}</button>
+          <button key={id} onClick={() => onChange({ type: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${type === id ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
         ))}
       </div>
       <Field label="Prompt"><textarea className={`${inputCls} h-24 resize-none`} value={component.prompt} onChange={(e) => onChange({ prompt: e.target.value })} /></Field>
@@ -2160,15 +2160,15 @@ function PrepositionEditor({ component, onChange }) {
         <Field label="Place (e.g. the cupboard)"><input className={inputCls} value={component.place} onChange={(e) => onChange({ place: e.target.value })} /></Field>
       </div>
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-1.5">Prepositions to offer</div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-1.5">Prepositions to offer</div>
         <div className="space-y-2">
           {options.map((o, i) => (
             <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
               <input className={inputCls} value={o} onChange={(e) => setOpt(i, e.target.value)} />
-              <button onClick={() => onChange({ options: options.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+              <button onClick={() => onChange({ options: options.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
             </div>
           ))}
-          <Btn variant="outline" size="sm" onClick={() => onChange({ options: [...options, "near"] })}><Plus size={14} /> Add preposition</Btn>
+          <Button variant="outline" size="sm" onClick={() => onChange({ options: [...options, "near"] })}><Plus size={14} /> Add preposition</Button>
         </div>
       </div>
       <Field label="Correct answer (for the check button)">
@@ -2197,22 +2197,22 @@ function ConjugationEditor({ component, onChange }) {
       {Object.entries(tenses).map(([tense, forms], idx) => (
         // keyed by position, not name — the name is edited character-by-character
         // below, and keying by name would remount the input on every keystroke.
-        <div key={idx} className="rounded-xl border border-slate-100 p-3">
+        <div key={idx} className="rounded-xl border border-neutral-100 p-3">
           <div className="flex items-center gap-2 mb-2">
             <input className={`${inputCls} flex-1 font-semibold`} value={tense} onChange={(e) => renameTense(tense, e.target.value)} />
-            <button onClick={() => removeTense(tense)} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            <button onClick={() => removeTense(tense)} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {CONJ_PRONOUNS.map((p) => (
               <label key={p} className="block">
-                <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400">{p}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wide text-neutral-400">{p}</span>
                 <input className={`${inputCls} mt-1`} value={forms[p] || ""} onChange={(e) => setForm(tense, p, e.target.value)} />
               </label>
             ))}
           </div>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={addTense}><Plus size={14} /> Add tense</Btn>
+      <Button variant="outline" size="sm" onClick={addTense}><Plus size={14} /> Add tense</Button>
     </div>
   );
 }
@@ -2226,7 +2226,7 @@ function ConditionalEditor({ component, onChange }) {
       <Field label="Conditional type">
         <div className="flex flex-wrap gap-2">
           {CONDITIONAL_TYPES.map((t) => (
-            <button key={t} onClick={() => onChange({ type: t })} className={`text-sm rounded-lg px-3 py-1.5 border capitalize ${component.type === t ? "border-amber-400 bg-amber-50 text-amber-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{t}</button>
+            <button key={t} onClick={() => onChange({ type: t })} className={`text-sm rounded-lg px-3 py-1.5 border capitalize ${component.type === t ? "border-pending-400 bg-pending-50 text-pending-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{t}</button>
           ))}
         </div>
       </Field>
@@ -2234,10 +2234,10 @@ function ConditionalEditor({ component, onChange }) {
         <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
           <input className={inputCls} value={b.condition} onChange={(e) => setBranch(i, "condition", e.target.value)} placeholder="Condition (if…)" />
           <input className={inputCls} value={b.result} onChange={(e) => setBranch(i, "result", e.target.value)} placeholder="Result" />
-          <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+          <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { condition: "", result: "" }] })}><Plus size={14} /> Add branch</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { condition: "", result: "" }] })}><Plus size={14} /> Add branch</Button>
     </div>
   );
 }
@@ -2248,8 +2248,8 @@ function ComparisonEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
       {steps.map(([key, label]) => (
-        <div key={key} className="rounded-xl border border-slate-100 p-3">
-          <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">{label}</div>
+        <div key={key} className="rounded-xl border border-neutral-100 p-3">
+          <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">{label}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input className={inputCls} value={forms[key] || ""} onChange={(e) => onChange({ forms: { ...forms, [key]: e.target.value } })} placeholder="word form" />
             <input className={inputCls} value={examples[key] || ""} onChange={(e) => onChange({ examples: { ...examples, [key]: e.target.value } })} placeholder="example sentence" />
@@ -2270,10 +2270,10 @@ function WordWebEditor({ component, onChange }) {
         {branches.map((b, i) => (
           <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
             <input className={inputCls} value={b.label} onChange={(e) => setLabel(i, e.target.value)} placeholder="collocation / related word" />
-            <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+            <button onClick={() => onChange({ branches: branches.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
         ))}
-        <Btn variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { label: "" }] })}><Plus size={14} /> Add branch</Btn>
+        <Button variant="outline" size="sm" onClick={() => onChange({ branches: [...branches, { label: "" }] })}><Plus size={14} /> Add branch</Button>
       </div>
     </div>
   );
@@ -2288,11 +2288,11 @@ function MemoryEditor({ component, onChange }) {
         <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
           <input className={inputCls} value={p.term} onChange={(e) => setPair(i, "term", e.target.value)} placeholder="word" />
           <input className={inputCls} value={p.az} onChange={(e) => setPair(i, "az", e.target.value)} placeholder="azerbaijani" />
-          <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+          <button onClick={() => onChange({ pairs: pairs.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
         </div>
       ))}
-      <Btn variant="outline" size="sm" onClick={() => onChange({ pairs: [...pairs, { term: "", az: "" }] })}><Plus size={14} /> Add pair</Btn>
-      <p className="text-xs text-slate-400">4–6 pairs work best — more gets hard to hold in view.</p>
+      <Button variant="outline" size="sm" onClick={() => onChange({ pairs: [...pairs, { term: "", az: "" }] })}><Plus size={14} /> Add pair</Button>
+      <p className="text-xs text-neutral-400">4–6 pairs work best — more gets hard to hold in view.</p>
     </div>
   );
 }
@@ -2311,7 +2311,7 @@ function YoutubeEditor({ component, onChange }) {
   return (
     <div className="space-y-3">
       <Field label="YouTube URL"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" /></Field>
-      <p className={`text-xs ${id ? "text-emerald-600" : "text-amber-600"}`}>{id ? "Valid link — will embed." : "Paste a full YouTube link (watch, youtu.be, or embed format)."}</p>
+      <p className={`text-xs ${id ? "text-success-600" : "text-pending-600"}`}>{id ? "Valid link — will embed." : "Paste a full YouTube link (watch, youtu.be, or embed format)."}</p>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
     </div>
@@ -2333,7 +2333,7 @@ function SlideDeckEditor({ component, onChange }) {
         </select>
       </Field>
       <Field label="Embed link"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://docs.google.com/presentation/d/…/embed" /></Field>
-      <p className="text-xs text-slate-400">{HINTS[component.provider || "slides"]}</p>
+      <p className="text-xs text-neutral-400">{HINTS[component.provider || "slides"]}</p>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
     </div>
@@ -2347,7 +2347,7 @@ function PeerTaskEditor({ component, onChange, roster }) {
       <div className="flex gap-2">
         {[["infogap", "Info-gap / jigsaw"], ["quizrace", "Team quiz race"]].map(([id, label]) => (
           <button key={id} onClick={() => onChange({ mode: id })}
-            className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${mode === id ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500"}`}>{label}</button>
+            className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${mode === id ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-200 text-neutral-500"}`}>{label}</button>
         ))}
       </div>
       {mode === "infogap" ? <InfoGapEditor component={component} onChange={onChange} roster={roster} /> : <TeamQuizRaceEditor component={component} onChange={onChange} roster={roster} />}
@@ -2362,13 +2362,13 @@ function InfoGapEditor({ component, onChange, roster = [] }) {
   return (
     <div className="space-y-3">
       <Field label="Situation"><textarea className={`${inputCls} h-20 resize-none`} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
-      <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Roles — assign a real student to each, any group size</div>
+      <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Roles — assign a real student to each, any group size</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {roles.map((r, i) => (
-          <div key={i} className="rounded-xl border border-slate-100 p-3">
+          <div key={i} className="rounded-xl border border-neutral-100 p-3">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono uppercase tracking-wide text-slate-400">Role {i + 1}</span>
-              <button onClick={() => onChange({ roles: roles.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+              <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Role {i + 1}</span>
+              <button onClick={() => onChange({ roles: roles.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
             </div>
             <Field label="Student">
               <select className={inputCls} value={r.studentId || ""} onChange={(e) => setRole(i, { studentId: e.target.value || null })}>
@@ -2377,13 +2377,13 @@ function InfoGapEditor({ component, onChange, roster = [] }) {
                   <option key={s.id} value={s.id} disabled={usedIds.has(s.id) && r.studentId !== s.id}>{s.name}</option>
                 ))}
               </select>
-              {!roster.length && <span className="text-xs text-amber-600 block mt-1">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
+              {!roster.length && <span className="text-xs text-pending-600 block mt-1">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
             </Field>
             <Field label="Only they see"><textarea className={`${inputCls} h-24 resize-none`} value={r.prompt || ""} onChange={(e) => setRole(i, { prompt: e.target.value })} /></Field>
           </div>
         ))}
       </div>
-      <Btn variant="outline" size="sm" onClick={() => onChange({ roles: [...roles, { studentId: null, prompt: "" }] })}><Plus size={14} /> Add role</Btn>
+      <Button variant="outline" size="sm" onClick={() => onChange({ roles: [...roles, { studentId: null, prompt: "" }] })}><Plus size={14} /> Add role</Button>
     </div>
   );
 }
@@ -2404,31 +2404,31 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Teams — name each, then assign real students</div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">Teams — name each, then assign real students</div>
         <div className="space-y-3">
           {teams.map((t, i) => (
-            <div key={t.id || i} className="rounded-xl border border-slate-100 p-3">
+            <div key={t.id || i} className="rounded-xl border border-neutral-100 p-3">
               <div className="flex items-center gap-2 mb-2">
                 <input className={inputCls} value={t.name || ""} onChange={(e) => setTeam(i, { name: e.target.value })} />
-                <button onClick={() => onChange({ teams: teams.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-rose-500 shrink-0"><Trash2 size={14} /></button>
+                <button onClick={() => onChange({ teams: teams.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500 shrink-0"><Trash2 size={14} /></button>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {roster.map((s) => {
                   const on = (t.studentIds || []).includes(s.id);
                   return (
                     <button key={s.id} onClick={() => toggleMember(i, s.id)}
-                      className={`text-xs rounded-full px-2.5 py-1 border ${on ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold" : "border-slate-200 text-slate-500"}`}>{s.name}</button>
+                      className={`text-xs rounded-full px-2.5 py-1 border ${on ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{s.name}</button>
                   );
                 })}
-                {!roster.length && <span className="text-xs text-amber-600">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
+                {!roster.length && <span className="text-xs text-pending-600">No students assigned to this lesson yet — use "Manage Students" on the course page first.</span>}
               </div>
             </div>
           ))}
         </div>
-        <Btn variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: `team_${Date.now()}`, name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Btn>
+        <Button variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: `team_${Date.now()}`, name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Button>
       </div>
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-slate-400 mb-2">Race questions</div>
+        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">Race questions</div>
         <QuizEditor component={component} onChange={onChange} />
       </div>
     </div>
@@ -2440,7 +2440,7 @@ function SpeakingRecordEditor({ component, onChange }) {
     <div className="space-y-3">
       <Field label="Question / prompt"><textarea className={`${inputCls} h-20 resize-none`} value={component.question} onChange={(e) => onChange({ question: e.target.value })} /></Field>
       <Field label="Tip for the student (Azerbaijani) — optional"><input className={inputCls} value={component.tipAz} onChange={(e) => onChange({ tipAz: e.target.value })} /></Field>
-      <p className="text-xs text-slate-400">The student records an answer; AI gives simulated fluency + language feedback. Speaking is otherwise graded by you, the teacher — this adds a self-practice layer, not a replacement.</p>
+      <p className="text-xs text-neutral-400">The student records an answer; AI gives simulated fluency + language feedback. Speaking is otherwise graded by you, the teacher — this adds a self-practice layer, not a replacement.</p>
     </div>
   );
 }

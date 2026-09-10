@@ -179,15 +179,22 @@ export function ComingSoon({ icon: Icon, title, sub }) {
 }
 
 /* AI-flavoured callout — used wherever the doc calls for an insight/summary. */
+// Tone keys stay the old color words (call sites across the app already
+// pass these) — only the classes they resolve to changed, from raw
+// Tailwind hues to the app's five semantic tokens: violet/sky/teal all read
+// as "informational", amber as "pending", emerald as "success", rose as
+// "warning". `teal` used to fall through to `undefined` here (a latent bug,
+// no caller ever hit it until now) — it's a real key now.
 export function AiNote({ icon: Icon, tone = "violet", title, children }) {
   const map = {
-    violet: "bg-violet-50 text-violet-900/80 border-violet-100",
-    amber: "bg-amber-50 text-amber-900/80 border-amber-100",
-    emerald: "bg-emerald-50 text-emerald-900/80 border-emerald-100",
-    rose: "bg-rose-50 text-rose-900/80 border-rose-100",
-    sky: "bg-sky-50 text-sky-900/80 border-sky-100",
+    violet: "bg-info-50 text-info-900/80 border-info-200",
+    sky: "bg-info-50 text-info-900/80 border-info-200",
+    teal: "bg-info-50 text-info-900/80 border-info-200",
+    amber: "bg-pending-50 text-pending-900/80 border-pending-200",
+    emerald: "bg-success-50 text-success-900/80 border-success-200",
+    rose: "bg-warning-50 text-warning-900/80 border-warning-200",
   }[tone];
-  const iconc = { violet: "text-violet-600", amber: "text-amber-600", emerald: "text-emerald-600", rose: "text-rose-600", sky: "text-sky-600" }[tone];
+  const iconc = { violet: "text-info-600", sky: "text-info-600", teal: "text-info-600", amber: "text-pending-600", emerald: "text-success-600", rose: "text-warning-600" }[tone];
   return (
     <div className={`flex items-start gap-2.5 rounded-xl border p-3.5 ${map}`}>
       {Icon && <Icon size={16} className={`${iconc} shrink-0 mt-0.5`} />}

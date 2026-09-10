@@ -408,6 +408,13 @@ export function TextField({ state = "default", className = "", ...rest }) {
   );
 }
 
+// A compact bordered input/textarea/select for dense authoring grids (Block
+// Studio's per-component editors, which pack many small fields into one
+// form) — same color language as TextField (neutral hairline, orange focus
+// ring) but without its h-11 filled-field treatment, which would be too
+// tall once you have a dozen of these in a row.
+export const inputCls = "w-full border border-neutral-400 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500";
+
 // TextField plus a show/hide toggle — the Input-form sheet's password
 // variant. Owns its own visibility state since every consumer wants the
 // same eye-icon behavior, not a prop the parent has to wire up each time.

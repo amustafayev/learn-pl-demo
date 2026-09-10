@@ -324,7 +324,31 @@ class strings.
 - `src/views/parts.jsx` — `BlockStudio`'s header/toolbar and the "Add a
   component" panel (`ComponentKindPicker`) are done. Every actual quiz,
   flashcard, matching game, drag-and-drop component and their teacher-side
-  editors are still on `Card, Btn, Pill, AiNote, inputCls` from `ui.jsx`.
+  editors now use `Card`, `Button`, `Field`, `Tag`, `SpeakButton` and
+  `inputCls` from `design-system.jsx` (not `ui.jsx`), and every raw
+  `indigo`/`slate`/`emerald`/`rose`/`red`/`amber`/`violet`/`sky`/`teal`
+  Tailwind class in the file's own markup was mapped onto the five semantic
+  tokens (`indigo→primary`, `slate→neutral`, `emerald→success`,
+  `rose`/`red→warning`, `amber→pending`, `violet`/`sky`/`teal→info`) — this
+  is what makes every component's preview/edit view use the same orange
+  brand accent and neutral borders as the rest of the app. `Pill` (still
+  from `ui.jsx`) was left as-is: it takes its color entirely via
+  `className` from the call site, so it carries no raw color of its own —
+  only the classes passed to it needed retinting, which the sweep above
+  already covers. One exception, deliberately left alone: `COMPONENT_META`
+  (the ~30-entry icon/label/tone map behind the rail rows and the "Add a
+  component" grid) keeps its own wider rainbow of raw Tailwind hues — with
+  30 distinct component kinds to visually tell apart at a glance, 5 status
+  tokens aren't enough colors, and these were never status indicators to
+  begin with. Same reasoning covers the handful of other decorative,
+  non-status rainbow colors still in the file (game-tile colors in
+  `MemoryComponent`, team colors in `TeamQuizRace`, etc.) — left untouched.
+  Not yet done: a number of `rounded-2xl`/`rounded-xl` shapes in this file
+  still don't match the kit's `rounded-[14px]` card scale (see Shape scale
+  above) — a smaller, separate cleanup from the color-token sweep.
+  `ui.jsx`'s own `AiNote` (used here and by the not-yet-migrated
+  `playground.jsx`) had its tone map retinted the same way, without
+  changing its prop API — a real fix, not a new `ui.jsx` addition.
 - `src/views/grammar.jsx` — the `Reader` component (translation toggle,
   word-status legend, save-word action) is done. `RoleLegend`,
   `ColorSentence`, `TenseTimeline`, `PrepositionScene`, `ConjugationWheel`,
