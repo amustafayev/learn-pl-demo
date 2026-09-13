@@ -11,6 +11,7 @@ import {
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
+  IconMaximize, IconMinimize,
 } from "@tabler/icons-react";
 import { AiNote, Pill, LEVELS } from "../ui.jsx";
 import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Card, Field, Tag, SpeakButton, inputCls } from "../design-system.jsx";
@@ -358,6 +359,12 @@ export default function BlockStudio() {
   // is tracked by id, not index, so it survives reordering/inserting/
   // removing without pointing at the wrong item.
   const [selectedId, setSelectedId] = useState(null);
+  // Id of the component whose editor is currently expanded to fill the
+  // whole viewport — a "focus mode" for content that genuinely needs the
+  // room (H5P's own editor, long passages, ...). Separate from selectedId
+  // so leaving fullscreen always lands back on the normal in-place frame,
+  // never fully closes the editor.
+  const [fullscreenId, setFullscreenId] = useState(null);
   const [dragId, setDragId] = useState(null);
   // The rail's own scrollable list, kept as a ref rather than relying on
   // rail-item.scrollIntoView(): that call walks every scrollable ancestor,
@@ -688,6 +695,7 @@ export default function BlockStudio() {
               {components.map((c, i) => {
                 const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                 const isSel = c.id === selectedId;
+                const isFullscreen = c.id === fullscreenId;
                 return (
                   <React.Fragment key={c.id}>
                     {/* scrollMarginTop tells scrollIntoView (below) that the
@@ -707,26 +715,40 @@ export default function BlockStudio() {
                         // component's (border-primary-500 + shadow, vs.
                         // border-neutral-300 below) so the one you're
                         // actually editing is unmistakable among the others.
-                        <div key={c.id} className="rounded-[16px] border-2 border-primary-500 bg-white p-4 shadow-md animate-fade-rise">
-                          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-neutral-100">
-                            <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-1" />
-                            {c.level !== undefined && (
-                              <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                                title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
-                                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                              </select>
-                            )}
-                            <div className="flex items-center gap-1 text-neutral-500 shrink-0">
-                              <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
-                              <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
-                              <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                              <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                              <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
-                              <button title="Done editing" onClick={() => setSelectedId(null)} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
+                        //
+                        // Fullscreen just swaps this SAME div's own classes
+                        // to a fixed, viewport-covering overlay rather than
+                        // rendering a second copy elsewhere — ComponentEditor
+                        // (and anything stateful inside it, like H5P's own
+                        // editor iframe) stays mounted exactly once the
+                        // whole time, so toggling never resets it.
+                        <div key={c.id} className={isFullscreen
+                          ? "fixed inset-0 z-50 bg-white p-5 sm:p-8 overflow-y-auto animate-fade-rise"
+                          : "rounded-[16px] border-2 border-primary-500 bg-white p-4 shadow-md animate-fade-rise"}>
+                          <div className={isFullscreen ? "max-w-5xl mx-auto" : ""}>
+                            <div className="flex items-center gap-2 mb-3 pb-3 border-b border-neutral-100">
+                              <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-1" />
+                              {c.level !== undefined && (
+                                <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
+                                  title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
+                                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                              )}
+                              <div className="flex items-center gap-1 text-neutral-500 shrink-0">
+                                <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
+                                <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
+                                <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                                <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                                <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                                <button title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100">
+                                  {isFullscreen ? <IconMinimize size={14} stroke={1.75} /> : <IconMaximize size={14} stroke={1.75} />}
+                                </button>
+                                <button title="Done editing" onClick={() => { setSelectedId(null); setFullscreenId(null); }} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
+                              </div>
                             </div>
+                            <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                              passages={components.filter((x) => x.kind === "passage")} />
                           </div>
-                          <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                            passages={components.filter((x) => x.kind === "passage")} />
                         </div>
                       ) : (
                         // Not selected: the plain rendered preview, but
@@ -776,8 +798,8 @@ export default function BlockStudio() {
                     </div>
                     <button onClick={() => setInsertAt(null)} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] max-h-[420px]">
-                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-[420px]">
+                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto min-h-0">
                       {state.componentBank && state.componentBank.length > 0 && (
                         <NavItem icon={IconBookmarkPlus} label="My Component Library"
                           active={addCategory === "library"} onClick={() => setAddCategory("library")} />
@@ -791,7 +813,7 @@ export default function BlockStudio() {
                           active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
                       ))}
                     </nav>
-                    <div className="p-4 overflow-y-auto">
+                    <div className="p-4 overflow-y-auto min-h-0">
                       {addCategory === "library" ? (
                         // grouped by the course/parent it was saved from, so
                         // the library reads as folders instead of one flat pile
@@ -868,7 +890,18 @@ export function BlockStudentView({ block }) {
   );
 }
 
+// One standard shell for every component kind's student view — same max
+// width regardless of what's inside, so a lesson reads as a uniform,
+// scannable list instead of a pile of wildly different widths (10 kinds
+// had no cap at all, the rest split across 4 different max-w values).
+// Individual XxxComponent functions below no longer set their own
+// competing max-w-*; Card framing itself stays per-component (most
+// already return a Card as their own root) — this wrapper only owns width.
 export function ComponentStudent({ component }) {
+  return <div className="w-full max-w-3xl">{renderComponentStudent(component)}</div>;
+}
+
+function renderComponentStudent(component) {
   switch (component.kind) {
     case "passage":    return <PassageComponent component={component} />;
     case "wordlist":   return <WordListComponent component={component} />;
@@ -950,7 +983,7 @@ function FlashcardsComponent({ component }) {
   if (!items.length) return <Card className="p-6 text-neutral-400 text-sm">No words.</Card>;
   const wd = items[i % items.length];
   return (
-    <div className="max-w-md">
+    <div className="">
       <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
         className="w-full h-40 rounded-2xl border border-neutral-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer">
         {flip ? (
@@ -1002,7 +1035,7 @@ function MatchBoard({ pairs, showEmoji, pairType = "az", onDone }) {
     } else setPicked(null);
   }
   return (
-    <div className="grid grid-cols-2 gap-8 max-w-lg">
+    <div className="grid grid-cols-2 gap-8">
       <div className="space-y-2">
         {pairs.map((p) => (
           <button key={p.term} disabled={done[p.term]} onClick={() => setPicked(p.term)}
@@ -1040,7 +1073,7 @@ function WheelComponent({ component }) {
     setSelected(items[choice]);
   };
   return (
-    <Card className="p-6 max-w-xl text-center">
+    <Card className="p-6 text-center">
       <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Vocabulary wheel</div>
       <h3 className="font-semibold mb-5">{component.title || "Spin for a prompt"}</h3>
       <div className="relative mx-auto w-52 h-52">
@@ -1080,7 +1113,7 @@ function WordSearchComponent({ component }) {
   });
   const solved = puzzle.targets.size > 0 && [...puzzle.targets].every((key) => picked.has(key));
   return (
-    <Card className="p-5 max-w-xl">
+    <Card className="p-5">
       <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-xs font-mono uppercase tracking-wide text-neutral-400">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Pill className="bg-success-50 text-success-700">{picked.size}/{puzzle.targets.size} letters</Pill></div>
       {puzzle.words.length ? <>
         <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${puzzle.grid[0].length}, minmax(0, 1fr))` }}>
@@ -1098,12 +1131,12 @@ function WordSearchComponent({ component }) {
 
 function ImageToWordComponent({ component }) {
   const items = component.items || [];
-  return <div className="max-w-lg"><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-neutral-400 mt-3">Match every picture to its English word.</p></div>;
+  return <div className=""><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-neutral-400 mt-3">Match every picture to its English word.</p></div>;
 }
 
 function ThemeGroup({ pairs }) {
   return (
-    <div className="grid grid-cols-2 gap-4 max-w-lg">
+    <div className="grid grid-cols-2 gap-4">
       {["Greetings", "Objects"].map((theme, ti) => (
         <Card key={theme} className="p-4">
           <div className="text-sm font-semibold mb-2">{theme}</div>
@@ -1128,7 +1161,7 @@ function SentenceComponent({ component }) {
 
 function QuizComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <QuizQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <QuizQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function QuizQ({ item, n, total }) {
   const [pick, setPick] = useState(null);
@@ -1159,7 +1192,7 @@ function QuizQ({ item, n, total }) {
 function ComprehensionComponent({ component }) {
   const mode = component.mode || "multiple";
   const items = component.items || [];
-  if (mode === "truefalse") return <div className="space-y-4 max-w-xl">{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (mode === "truefalse") return <div className="space-y-4">{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
   if (mode === "matching") return <ComprehensionMatch pairs={items} />;
   return <QuizComponent component={component} />;
 }
@@ -1203,7 +1236,7 @@ function ComprehensionMatch({ pairs }) {
     } else setPicked(null);
   }
   return (
-    <div className="grid grid-cols-2 gap-8 max-w-2xl">
+    <div className="grid grid-cols-2 gap-8">
       <div className="space-y-2">
         <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Statement</div>
         {clean.map((p, i) => (
@@ -1231,7 +1264,7 @@ function ComprehensionMatch({ pairs }) {
 
 function GapFillComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function GapFill({ item, n, total }) {
   const [val, setVal] = useState("");
@@ -1257,7 +1290,7 @@ function GapFill({ item, n, total }) {
    the root is given, so the check is specifically about word-building. ---- */
 function WordFormationComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function WordFormationItem({ item, n, total }) {
   const [val, setVal] = useState("");
@@ -1286,7 +1319,7 @@ function MediaComponent({ component, kind }) {
   const [replays, setReplays] = useState(0);
   const [showT, setShowT] = useState(false);
   return (
-    <div className="max-w-2xl">
+    <div className="">
       <Card className="p-0 overflow-hidden">
         <div className="aspect-video bg-neutral-900 flex items-center justify-center relative">
           <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-neutral-900">
@@ -1308,7 +1341,7 @@ function MediaComponent({ component, kind }) {
 function ScenarioComponent({ component }) {
   const [revealed, setRevealed] = useState({});
   return (
-    <div className="max-w-xl">
+    <div className="">
       <AiNote icon={Sparkles} tone="teal" title="Real situation">{component.situation}</AiNote>
       <div className="space-y-3 mt-4">
         {(component.turns || []).map((t, i) => (
@@ -1342,7 +1375,7 @@ function HomeworkEssayComponent({ component }) {
   const [sent, setSent] = useState(false);
   const count = text.trim() ? text.trim().split(/[.!?]+/).filter((x) => x.trim()).length : 0;
   return (
-    <div className="max-w-xl">
+    <div className="">
       <Card className="p-5">
         <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
         <textarea value={text} onChange={(e) => setText(e.target.value)} disabled={sent} className={`${inputCls} h-28 resize-none`} placeholder="Write here…" />
@@ -1359,7 +1392,7 @@ function HomeworkLinkComponent({ component, icon: Icon, placeholder }) {
   const [url, setUrl] = useState("");
   const [sent, setSent] = useState(false);
   return (
-    <div className="max-w-xl">
+    <div className="">
       <Card className="p-5">
         <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
         {component.resourceUrl && (
@@ -1392,7 +1425,7 @@ function extractYoutubeId(url) {
 function YoutubeComponent({ component }) {
   const id = extractYoutubeId(component.url);
   return (
-    <div className="max-w-2xl">
+    <div className="">
       <Card className="p-0 overflow-hidden">
         <div className="aspect-video bg-neutral-900">
           {id ? (
@@ -1418,7 +1451,7 @@ const SLIDE_PROVIDER_LABEL = { slides: "Google Slides", canva: "Canva", pptx: "P
    lesson itself, instead of sharing a separate file. ---- */
 function SlideDeckComponent({ component }) {
   return (
-    <div className="max-w-3xl">
+    <div className="">
       <Card className="p-0 overflow-hidden">
         <div className="aspect-video bg-neutral-100">
           {component.url ? (
@@ -1452,7 +1485,7 @@ function DocumentComponent({ component }) {
   const url = component.url;
   const officeSrc = url ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : "";
   return (
-    <div className="max-w-3xl">
+    <div className="">
       <Card className="p-0 overflow-hidden">
         <div className={kind === "image" ? "bg-neutral-100" : "aspect-video bg-neutral-100"}>
           {!url ? (
@@ -1497,7 +1530,7 @@ function InfoGapTask({ component }) {
   const role = roles[Math.min(view, roles.length - 1)];
   const nameFor = (r) => state.students.find((s) => s.id === r?.studentId)?.name || "Unassigned role";
   return (
-    <div className="max-w-xl">
+    <div className="">
       <AiNote icon={Handshake} tone="sky" title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</AiNote>
       <div className="flex gap-2 mt-4 mb-3 flex-wrap">
         {roles.map((r, i) => (
@@ -1549,7 +1582,7 @@ function TeamQuizRace({ component }) {
 
   if (gameState === "idle") {
     return (
-      <Card className="p-6 max-w-md text-center">
+      <Card className="p-6 text-center">
         <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
         <div className="font-semibold mb-1">Team quiz race · {teams.length} teams</div>
         <p className="text-sm text-neutral-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
@@ -1566,7 +1599,7 @@ function TeamQuizRace({ component }) {
   if (gameState === "done") {
     const ranked = teams.slice().sort((a, b) => scores[b.id] - scores[a.id]);
     return (
-      <Card className="p-6 max-w-md">
+      <Card className="p-6">
         <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-pending-500" /><span className="font-semibold">Final leaderboard</span></div>
         {ranked.map((t, i) => (
           <div key={t.id} className="flex items-center gap-3 py-2">
@@ -1585,7 +1618,7 @@ function TeamQuizRace({ component }) {
 
   const item = items[qi];
   return (
-    <div className="max-w-xl space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
         <span>Question {qi + 1} of {items.length}</span>
         <span>{teams.length} teams racing</span>
@@ -1642,7 +1675,7 @@ function SpeakingRecordComponent({ component }) {
   function again() { setSeconds(0); setState("idle"); }
 
   return (
-    <Card className="p-5 max-w-xl">
+    <Card className="p-5">
       <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Speaking · record & get AI feedback</div>
       <div className="text-lg font-medium mb-1">{component.question}</div>
       {component.tipAz && <p className="text-xs text-neutral-400 mb-4">{component.tipAz}</p>}
@@ -1679,7 +1712,7 @@ function SpeakingRecordComponent({ component }) {
 /* ---- Shadowing — listen to a model sentence, repeat it immediately ---- */
 function ShadowingComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <ShadowItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <ShadowItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function ShadowItem({ item, n, total }) {
   const [playing, setPlaying] = useState(false);
@@ -1706,7 +1739,7 @@ function UploadComponent({ component }) {
   const [file, setFile] = useState(null);
   const [sent, setSent] = useState(false);
   return (
-    <Card className="p-5 max-w-xl">
+    <Card className="p-5">
       <p className="text-neutral-600 text-sm mb-3">{component.instructions}</p>
       {!sent ? (
         <div>
@@ -1756,7 +1789,7 @@ function MemoryComponent({ component }) {
   const done = Object.keys(matched).length === pairs.length && pairs.length > 0;
 
   return (
-    <div className="max-w-lg">
+    <div className="">
       <div className="flex items-center justify-between mb-3 text-xs text-neutral-400">
         <span>{Object.keys(matched).length}/{pairs.length} pairs found</span>
         <span className="font-mono">{moves} moves</span>
@@ -1781,7 +1814,7 @@ function MemoryComponent({ component }) {
 /* ---- Sentence scramble — tap word chips into the right order ---- */
 function ScrambleComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-6 max-w-xl">{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-6">{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function ScrambleItem({ item, n, total }) {
   const words = item.sentence.replace(/[.!?]$/, "").split(" ");
@@ -1825,7 +1858,7 @@ function ScrambleItem({ item, n, total }) {
    sentence is wrong, not one missing word. ---- */
 function ArrowCorrectionComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <ArrowCorrectionItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <ArrowCorrectionItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function ArrowCorrectionItem({ item, n, total }) {
   const [revealed, setRevealed] = useState(false);
@@ -1854,7 +1887,7 @@ function ArrowCorrectionItem({ item, n, total }) {
    from Practice's multi-option quiz. ---- */
 function CorrectIncorrectComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4 max-w-xl">{items.map((it, i) => <CorrectIncorrectItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  return <div className="space-y-4">{items.map((it, i) => <CorrectIncorrectItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
 }
 function CorrectIncorrectItem({ item, n, total }) {
   const [pick, setPick] = useState(null); // true | false | null
@@ -1886,7 +1919,7 @@ function DialogueCompletionComponent({ component }) {
   const [answers, setAnswers] = useState({});
   const [checked, setChecked] = useState({});
   return (
-    <Card className="p-5 max-w-xl">
+    <Card className="p-5">
       <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-3">{component.title || "Dialogue completion"}</div>
       <div className="space-y-3">
         {turns.map((t, i) => {
@@ -1943,7 +1976,7 @@ function SpeedRoundComponent({ component }) {
   if (!items.length) return <Card className="p-6 text-sm text-neutral-400">Add at least one question to enable the speed round.</Card>;
   if (state === "idle") {
     return (
-      <Card className="p-6 max-w-md text-center">
+      <Card className="p-6 text-center">
         <Timer size={28} className="mx-auto text-warning-500 mb-2" />
         <div className="font-semibold mb-1">{seconds}-second speed round</div>
         <p className="text-sm text-neutral-500 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
@@ -1953,7 +1986,7 @@ function SpeedRoundComponent({ component }) {
   }
   if (state === "done") {
     return (
-      <Card className="p-6 max-w-md text-center">
+      <Card className="p-6 text-center">
         <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
         <div className="text-3xl font-bold font-mono mb-1">{score}</div>
         <p className="text-sm text-neutral-500 mb-4">points — nice pace! Try again to beat it.</p>
@@ -1963,7 +1996,7 @@ function SpeedRoundComponent({ component }) {
   }
   const q = items[qi % items.length];
   return (
-    <Card className={`p-5 max-w-md transition-colors ${flash === "ok" ? "border-success-300 bg-success-50/40" : flash === "no" ? "border-warning-300 bg-warning-50/40" : ""}`}>
+    <Card className={`p-5 transition-colors ${flash === "ok" ? "border-success-300 bg-success-50/40" : flash === "no" ? "border-warning-300 bg-warning-50/40" : ""}`}>
       <div className="flex items-center justify-between mb-3">
         <Pill className="bg-warning-50 text-warning-700 font-mono">{time}s</Pill>
         <span className="font-mono text-sm text-neutral-500">{score} pts</span>
