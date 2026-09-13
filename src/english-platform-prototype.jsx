@@ -122,22 +122,22 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
           applies and there's nothing to toggle. */}
       <div className="hidden sm:flex px-3 pb-1 justify-end">
         <button onClick={onToggleCollapse} title={collapsed ? "Expand menu" : "Collapse menu"}
-          className="text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg p-1.5 transition-colors duration-(--dur-fast)">
+          className="text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg p-1.5 transition-colors duration-(--dur-fast) outline-none focus:ring-2 focus:ring-primary-100">
           {collapsed ? <IconChevronRight size={16} stroke={1.75} /> : <IconChevronLeft size={16} stroke={1.75} />}
         </button>
       </div>
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
         {showLabels && <NavSectionLabel><span className="hidden sm:inline">Main Menu</span></NavSectionLabel>}
         {NAV.map((n) => (
-          <NavItem key={n.id} icon={n.icon} label={<span className={labelCls}>{n.label}</span>}
+          <NavItem key={n.id} icon={n.icon} label={<span className={labelCls}>{n.label}</span>} collapsed={collapsed}
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
       <div className="px-3 py-2">
         {showLabels && <NavSectionLabel><span className="hidden sm:inline">Other</span></NavSectionLabel>}
-        <NavItem icon={IconSettings2} label={<span className={labelCls}>Setting</span>}
+        <NavItem icon={IconSettings2} label={<span className={labelCls}>Setting</span>} collapsed={collapsed}
           active={pathname.startsWith("/settings")} onClick={() => navigate("/settings")} />
-        <NavItem icon={IconHelpCircle} label={<span className={labelCls}>Help & Support</span>}
+        <NavItem icon={IconHelpCircle} label={<span className={labelCls}>Help & Support</span>} collapsed={collapsed}
           active={pathname.startsWith("/help")} onClick={() => navigate("/help")} />
         {showLabels && (
           <div className="hidden sm:block mt-2">

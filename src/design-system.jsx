@@ -358,7 +358,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
     return (
       <button
         disabled={isDisabled}
-        className={`inline-flex items-center justify-center rounded-lg font-semibold ${PRESS} ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-lg font-semibold outline-none focus:ring-2 focus:ring-primary-100 ${PRESS} ${fill} ${BUTTON_ICON_SIZE[size]} ${className}`}
         {...rest}
       >
         {Icon && <Icon size={size === "sm" ? 16 : 18} stroke={1.75} />}
@@ -368,7 +368,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
   return (
     <button
       disabled={isDisabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold ${PRESS} ${fill} ${BUTTON_SIZE[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold outline-none focus:ring-2 focus:ring-primary-100 ${PRESS} ${fill} ${BUTTON_SIZE[size]} ${className}`}
       {...rest}
     >
       {children}
@@ -383,7 +383,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconOnly 
 export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
   return (
     <button type="button" onClick={onClick}
-      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-sm font-medium text-neutral-900 ${PRESS} ${className}`}>
+      className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-sm font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-primary-100 ${PRESS} ${className}`}>
       {Icon && <Icon size={17} stroke={1.75} />}
       {label}
     </button>
@@ -837,15 +837,18 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
 /* ------------------------------------------------------------- Nav / Tabs */
 // Sidebar nav-item — leaf building block; the sidebar shell itself is
 // assembled per-page, not part of the factory.
-export function NavItem({ icon: Icon, label, active, onClick, badge }) {
+export function NavItem({ icon: Icon, label, active, onClick, badge, collapsed = false }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium ${PRESS_FLAT} ${active ? "bg-neutral-300 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"}`}
+      className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium ${collapsed ? "justify-center px-0" : "gap-2.5 px-3"} ${PRESS_FLAT} ${active ? "bg-neutral-300 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"}`}
     >
       {Icon && <Icon size={18} stroke={1.75} />}
-      <span className="flex-1 text-left">{label}</span>
-      {badge != null && <Badge color="neutral">{badge}</Badge>}
+      {/* Collapsed: no label markup at all — a flex-1 span still occupies
+          layout space even with hidden content, which pinned the icon
+          flush-left in the collapsed rail instead of centering it. */}
+      {!collapsed && <span className="flex-1 text-left">{label}</span>}
+      {!collapsed && badge != null && <Badge color="neutral">{badge}</Badge>}
     </button>
   );
 }
