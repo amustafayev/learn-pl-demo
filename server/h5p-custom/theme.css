@@ -1,0 +1,142 @@
+/* Retints H5P's editor/player chrome to match this app's design tokens
+   (src/index.css). Wired in via H5PConfig's own supported extension point —
+   config.customization.global.{editor,player}.styles — so it's appended
+   after H5P's own stylesheets and wins the cascade without touching any
+   vendored H5P file.
+
+   Two layers, because H5P's own theming coverage is inconsistent:
+
+   1. The `--h5p-theme-*` custom properties (h5p/core/styles/
+      h5p-theme-variables.css) — a real, first-class theming API in H5P's
+      current core. Newer/updated parts of core and some libraries already
+      consume these vars, so overriding them here is enough for those.
+   2. Targeted selector overrides for the common chrome that predates that
+      var system and still hardcodes its own colors: the Hub content-type
+      picker (h5p-hub-client.css) and H5P.JoubelUI's button (used as the
+      primary action button by many content types — Crossword, Quiz, etc).
+
+   This is NOT a full reskin of all 60+ content types — each one's own
+   bespoke UI (e.g. MultiChoice's option layout) keeps its own styling
+   unless targeted individually. This covers the shared chrome every
+   content type goes through: buttons, focus rings, the content-type
+   picker, radius, and font.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Primary CTA -> primary-500/400/600 */
+  --h5p-theme-main-cta-base: #ff5c20;
+  --h5p-theme-main-cta-light: #ff7c4d;
+  --h5p-theme-main-cta-dark: #d84d1a;
+  --h5p-theme-contrast-cta: #ffefe9;
+  --h5p-theme-contrast-cta-white: #ff5c20;
+
+  /* Secondary/alternative surfaces -> neutral-100/200/300/400 */
+  --h5p-theme-secondary-cta-base: #f5f5f5;
+  --h5p-theme-secondary-cta-light: #fcfcfc;
+  --h5p-theme-secondary-cta-dark: #f0f0f0;
+  --h5p-theme-secondary-contrast-cta: #262626;
+  --h5p-theme-secondary-contrast-cta-hover: #ffefe9;
+  --h5p-theme-alternative-base: #f5f5f5;
+  --h5p-theme-alternative-light: #fcfcfc;
+  --h5p-theme-alternative-dark: #f0f0f0;
+  --h5p-theme-alternative-darker: #d9d9d9;
+  --h5p-theme-background: #fcfcfc;
+  --h5p-theme-focus: #ff5c20;
+
+  /* Text -> neutral-950/700/600 */
+  --h5p-theme-text-primary: #141414;
+  --h5p-theme-text-secondary: #595959;
+  --h5p-theme-text-third: #8c8c8c;
+
+  --h5p-theme-ui-base: #ffffff;
+
+  /* One hairline color everywhere, matching the kit's own rule */
+  --h5p-theme-stroke-1: #d9d9d9;
+  --h5p-theme-stroke-2: #d9d9d9;
+  --h5p-theme-stroke-3: #d9d9d9;
+
+  /* Shape scale -> r14 for cards, r8 for controls (never a pill) */
+  --h5p-theme-border-radius-large: 0.875rem;
+  --h5p-theme-border-radius-medium: 0.5rem;
+  --h5p-theme-border-radius-small: 0.5rem;
+
+  --h5p-theme-font-name: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Feedback -> success/warning/pending tokens */
+  --h5p-theme-feedback-correct-main: #4cb119;
+  --h5p-theme-feedback-correct-secondary: #eef9e8;
+  --h5p-theme-feedback-correct-third: #caecb8;
+  --h5p-theme-feedback-incorrect-main: #e74648;
+  --h5p-theme-feedback-incorrect-secondary: #ffeded;
+  --h5p-theme-feedback-incorrect-third: #ffc8c8;
+  --h5p-theme-feedback-neutral-main: #e49d12;
+  --h5p-theme-feedback-neutral-secondary: #694908;
+  --h5p-theme-feedback-neutral-third: #fde6b6;
+}
+
+/* ---- H5P.JoubelUI's button — the shared primary-action button used by
+   Crossword, Quiz, and many other content types. Still hardcodes its own
+   colors rather than reading the theme vars above. ---- */
+.h5p-joubelui-button {
+  background: #ff5c20;
+  border-radius: 0.5rem;
+  font-family: var(--h5p-theme-font-name);
+}
+.h5p-joubelui-button:focus {
+  background: #d84d1a;
+}
+.h5p-joubelui-button:active {
+  background: #b33d13;
+  box-shadow: inset 0 4px 0 #8c2f0c;
+}
+
+/* ---- Core editor "list" widget's item header bar — the collapsible
+   row header for any repeatable list field (MultiChoice's options,
+   Course Presentation's slides, Question Set's questions, ...). Appears
+   across virtually every content type's editor, not just one. ---- */
+.list-item-title-bar {
+  background: #ff5c20 !important;
+}
+
+/* ---- H5P Hub content-type picker — same "still hardcoded" situation. ---- */
+.h5p-hub {
+  font-family: var(--h5p-theme-font-name);
+}
+.h5p-hub .h5p-hub-button {
+  border-radius: 0.5rem;
+  background-color: #f5f5f5;
+  color: #141414;
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary {
+  background-color: #ff5c20;
+  border-color: #ff5c20;
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary:hover {
+  background-color: #d84d1a;
+  border-color: #d84d1a;
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary:active {
+  background-color: #b33d13;
+  border-color: #b33d13;
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary {
+  color: #ff5c20;
+  border-color: #ff5c20;
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:hover,
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:active {
+  color: #d84d1a;
+  border-color: #d84d1a;
+}
+.h5p-hub .h5p-hub-panel.h5p-hub-section-content-types .h5p-hub-tab-button[aria-selected="true"] {
+  border-bottom-color: #ff5c20;
+}
+.h5p-hub .h5p-hub-tab-panel [role="tablist"] > span {
+  background: #ff5c20;
+}
+.h5p-hub ul.h5p-hub-list-of-numbers .h5p-hub-list-element a.h5p-hub-highlight {
+  background-color: rgba(255, 92, 32, 0.1);
+  border-color: #ff5c20;
+}

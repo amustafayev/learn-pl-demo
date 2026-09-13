@@ -1,0 +1,19 @@
+{
+  "name": "lucid-h5p-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Minimal real H5P backend (@lumieducation/h5p-server + h5p-express) for the prototype's Interactive (H5P) block. Filesystem storage only, no auth/session/CSRF yet — dev use only. See download-assets.sh before first run.",
+  "scripts": {
+    "download-assets": "bash download-assets.sh",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@lumieducation/h5p-express": "^10.0.5",
+    "@lumieducation/h5p-server": "^10.0.4",
+    "express": "^5.2.1",
+    "express-fileupload": "^1.5.2",
+    "i18next": "^26.4.2",
+    "i18next-fs-backend": "^2.6.7"
+  }
+}

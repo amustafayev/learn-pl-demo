@@ -10,11 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lumieducation/h5p-react": "^10.0.4",
     "@tabler/icons-react": "^3.46.0",
     "@tailwindcss/vite": "^4.3.2",
     "lucide-react": "^1.23.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.9.2",
     "tailwindcss": "^4.3.2"
@@ -25,5 +26,10 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "vite": "^8.1.1"
+  },
+  "overrides": {
+    "@lumieducation/h5p-react": {
+      "react": "$react"
+    }
   }
 }
