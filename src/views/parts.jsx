@@ -6,7 +6,7 @@ import {
   Headphones, Briefcase, ClipboardList, Copy,
   MapPin, RotateCw, GitBranch, TrendingUp, Share2, Grid2x2, Shuffle, Timer,
   Trophy, ListChecks, PlayCircle, AudioLines, Repeat2, FileUp, Mic2, Grid3x3,
-  Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare,
+  Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare, FileText,
 } from "lucide-react";
 import {
   IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
@@ -21,6 +21,7 @@ import {
   PrepositionScene, ConjugationWheel, ConditionalFlow, ComparisonLadder, WordWeb,
 } from "./grammar.jsx";
 import { Crossword } from "./playground.jsx";
+import { H5P_ACTIVITY_META, H5PActivityComponent, H5PActivityEditor, defaultH5PActivity } from "./h5pActivity.jsx";
 
 /* =========================================================================
    Block Studio — a Block (Reading, Grammar, IELTS Writing Task 2 …) is a
@@ -79,6 +80,8 @@ export const COMPONENT_META = {
   homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
   upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
   slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
+  document:   { label: "Document (PDF/Word/Image)", icon: FileText,      tone: "text-slate-600 bg-slate-100", hint: "Embed a hosted PDF, Word doc, or image by link" },
+  h5pActivity: H5P_ACTIVITY_META,
   peertask:     { label: "Group work",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Info-gap/jigsaw for any group size, or a Kahoot-style team quiz race" },
 };
 
@@ -93,7 +96,8 @@ export const COMPONENT_CATEGORIES = [
   { id: "practice", label: "Practice", kinds: ["quiz", "gapfill", "scramble", "arrowcorrection", "correctincorrect", "dialoguecompletion", "speedround"] },
   { id: "speaking", label: "Speaking & pronunciation", kinds: ["scenario", "speakingRecord", "shadowing"] },
   { id: "media", label: "Media", kinds: ["video", "listening", "youtube"] },
-  { id: "present", label: "Presentations", kinds: ["slidedeck"] },
+  { id: "present", label: "Presentations & documents", kinds: ["slidedeck", "document"] },
+  { id: "h5p", label: "Interactive (H5P)", kinds: ["h5pActivity"] },
   { id: "peer", label: "Peer & group work", kinds: ["peertask"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
@@ -220,6 +224,8 @@ export function defaultComponent(kind, texts = []) {
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
     case "slidedeck":  return { ...base, provider: "slides", url: "", title: "Untitled deck", notes: "" };
+    case "document":   return { ...base, docKind: "pdf", url: "", title: "Untitled document", notes: "" };
+    case "h5pActivity": return { ...base, ...defaultH5PActivity() };
     case "peertask": return { ...base,
       mode: "infogap", // "infogap" (any group size) | "quizrace" (Kahoot/Quizlet-Live-style team game)
       situation: "Two colleagues are planning who covers the on-call shift this weekend.",
@@ -894,6 +900,8 @@ export function ComponentStudent({ component }) {
     case "shadowing":  return <ShadowingComponent component={component} />;
     case "upload":     return <UploadComponent component={component} />;
     case "slidedeck":  return <SlideDeckComponent component={component} />;
+    case "document":   return <DocumentComponent component={component} />;
+    case "h5pActivity": return <H5PActivityComponent component={component} />;
     case "peertask":   return <PeerTaskComponent component={component} />;
     case "crossword":  return <Card className="p-5"><Crossword items={component.items} /></Card>;
     case "wheel":      return <WheelComponent component={component} />;
@@ -1434,6 +1442,44 @@ function SlideDeckComponent({ component }) {
   );
 }
 
+const DOC_KIND_LABEL = { image: "Image", pdf: "PDF", docx: "Word document" };
+
+/* ---- Document — a hosted PDF, Word file or image, embedded by link. Docx
+   goes through Office's online viewer since browsers can't render it
+   natively and this app has no file storage of its own to convert it. ---- */
+function DocumentComponent({ component }) {
+  const kind = component.docKind || "pdf";
+  const url = component.url;
+  const officeSrc = url ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : "";
+  return (
+    <div className="max-w-3xl">
+      <Card className="p-0 overflow-hidden">
+        <div className={kind === "image" ? "bg-neutral-100" : "aspect-video bg-neutral-100"}>
+          {!url ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-400 text-sm py-10">
+              <FileText size={22} />
+              No file linked yet — add a link in Edit content.
+            </div>
+          ) : kind === "image" ? (
+            <img src={url} alt={component.title || "Image"} className="w-full h-auto" />
+          ) : kind === "pdf" ? (
+            <iframe className="w-full h-full" src={url} title={component.title || "PDF"} loading="lazy" />
+          ) : (
+            <iframe className="w-full h-full" src={officeSrc} title={component.title || "Document"} loading="lazy" />
+          )}
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{component.title || "Untitled document"}</span>
+            <Pill className="bg-neutral-100 text-neutral-600">{DOC_KIND_LABEL[kind] || "Document"}</Pill>
+          </div>
+          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ---- Peer task — a role-play/info-gap built for two students, each seeing
    only their own side. Distinct from Scenario (solo, teacher-facing sample
    replies) and from whole-class content. ---- */
@@ -1964,6 +2010,8 @@ function ComponentEditor({ component, onChange, roster, passages = [] }) {
     case "comprehension": return <ComprehensionEditor component={component} onChange={onChange} passages={passages} />;
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
     case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
+    case "document":   return <DocumentEditor component={component} onChange={onChange} />;
+    case "h5pActivity": return <H5PActivityEditor component={component} onChange={onChange} />;
     case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} roster={roster} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
@@ -2459,6 +2507,28 @@ function SlideDeckEditor({ component, onChange }) {
       </Field>
       <Field label="Embed link"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://docs.google.com/presentation/d/…/embed" /></Field>
       <p className="text-xs text-neutral-400">{HINTS[component.provider || "slides"]}</p>
+      <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
+      <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
+    </div>
+  );
+}
+
+function DocumentEditor({ component, onChange }) {
+  const kind = component.docKind || "pdf";
+  const HINTS = {
+    image: "Paste a direct image URL (.png/.jpg/.svg…).",
+    pdf: "Paste a direct link to a hosted PDF file (must be publicly viewable).",
+    docx: "Paste a public link to a Word file — it renders via Office's online viewer.",
+  };
+  return (
+    <div className="space-y-3">
+      <Field label="File type">
+        <select className={inputCls} value={kind} onChange={(e) => onChange({ docKind: e.target.value })}>
+          {Object.entries(DOC_KIND_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </Field>
+      <Field label="File URL"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://…" /></Field>
+      <p className="text-xs text-neutral-400">{HINTS[kind]}</p>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
     </div>

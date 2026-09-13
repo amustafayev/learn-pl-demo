@@ -1,6 +1,6 @@
 import {
   BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck, Gamepad2,
-  Handshake,
+  Handshake, FileText, Puzzle,
 } from "lucide-react";
 
 /* =========================================================================
@@ -40,6 +40,17 @@ export const BLOCK_TYPES = {
   practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "wordformation", "quiz", "flashcards", "memory", "scramble", "arrowcorrection", "correctincorrect", "dialoguecompletion", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
   playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
   homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
+  // Third-party material embedded by link — not authored in Block Studio
+  // itself, unlike every other block type here.
+  resources:  { label: "Resources",  icon: FileText,     tone: "text-slate-600 bg-slate-100",  components: ["document", "youtube", "slidedeck"], starter: ["document"], description: "Embed outside material — a PDF, Word doc, image, slide deck, or YouTube video." },
+  // One generic block for H5P's entire content-type catalog (60+ types —
+  // Crossword, Branching Scenario, Course Presentation, Drag the Words,
+  // Interactive Video …). The block never lists or knows about individual
+  // H5P types — a teacher picks one in H5P's own editor/gallery, and this
+  // block only ever holds a reference to what she built there. See
+  // components: ["h5pActivity"] — deliberately one component kind, not one
+  // per H5P type, so this block's schema never grows when H5P adds a type.
+  h5p:        { label: "Interactive (H5P)", icon: Puzzle, tone: "text-cyan-700 bg-cyan-50",  components: ["h5pActivity"], starter: ["h5pActivity"], description: "Any H5P activity — crosswords, branching scenarios, drag-the-words, interactive video and more — built in H5P's own editor, played back here." },
   // IELTS-specific: writing and speaking split by task/part, since each
   // has its own timing, rubric and structure — unlike General English.
   ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "youtube", "quiz", "gapfill"], starter: ["listening"] },
@@ -76,6 +87,8 @@ export const BLOCK_CATEGORIES = [
   { id: "speaking", label: "Speaking", types: ["speaking", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3"] },
   { id: "writing", label: "Writing", types: ["writing", "ieltsWriting1", "ieltsWriting2", "businessWriting"] },
   { id: "playground", label: "Playground & homework", types: ["playground", "homework"] },
+  { id: "resources", label: "Resources", types: ["resources"] },
+  { id: "h5p", label: "Interactive (H5P)", types: ["h5p"] },
   // Low priority — kept as its own group, last, rather than mixed in above.
   { id: "peer", label: "Peer work", types: ["peerwork"] },
 ];
@@ -83,9 +96,9 @@ export const BLOCK_CATEGORIES = [
 export const LESSON_TEMPLATES = {
   // "peerwork" is appended last in every template — low priority, so it
   // doesn't compete for attention in the Add-a-block/component pickers.
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework", "peerwork"] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework", "peerwork"] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework", "peerwork"] },
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "playground", "homework", "resources", "h5p", "peerwork"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "playground", "homework", "resources", "h5p", "peerwork"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "playground", "homework", "resources", "h5p", "peerwork"] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the
