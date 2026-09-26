@@ -140,3 +140,78 @@
   background-color: rgba(255, 92, 32, 0.1);
   border-color: #ff5c20;
 }
+
+/* The Create Content/Upload + search toolbar on the content-type picker —
+   hardcodes a slate-blue (#697585) in h5p-hub-client.css that none of the
+   other overrides above touch. */
+.h5p-hub .h5p-hub-filter-bar,
+.h5p-hub-search-wrapper {
+  background-color: #ff5c20;
+}
+
+/* ---- Remaining header bars + stray hardcoded borders in the shared
+   chrome (dialogs, hub panel, metadata form) — kept to what every content
+   type routes through, same boundary as the rest of this file; the
+   bespoke UI inside each of the 60+ content types is still out of scope. */
+
+/* Confirmation dialog (delete/discard prompts) header bar -> brand header,
+   matching list-item-title-bar above. Two selectors: H5P only adds the
+   `.h5p-theme` variant at runtime (h5p-confirmation-dialog.js), and that
+   variant's own core rule already overrides `color`, so it has to be
+   targeted directly rather than relying on cascade from the base rule. */
+.h5p-confirmation-dialog-header,
+.h5p-theme .h5p-confirmation-dialog-header {
+  background: #ff5c20;
+  color: #ffffff;
+}
+
+/* Metadata/license entry section — just a bottom-border divider, not a
+   filled bar, so it gets the app's neutral hairline rather than orange. */
+.h5p-metadata-wrapper .h5p-metadata-header {
+  border-bottom-color: #d9d9d9;
+}
+
+/* Outer border around the whole Hub content-type picker. */
+.h5p-hub .h5p-hub-panel {
+  border-color: #d9d9d9;
+}
+
+/* Category grouping label inside the Hub's content-type list -> the app's
+   usual gray label-chip treatment instead of a raw #f2f2f2/#313131. */
+.h5p-hub .h5p-hub-category-header {
+  background-color: #f5f5f5;
+  color: #262626;
+}
+
+/* Native checkboxes across the editor's list/field widgets (e.g. a list
+   item's "required" toggle) are bare unstyled browser squares — only a
+   margin is set anywhere in H5P's own CSS. `accent-color` retints the
+   native control to the brand orange without fighting platform rendering
+   with a full custom-appearance rebuild. */
+.h5peditor input[type="checkbox"] {
+  accent-color: #ff5c20;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* Expand/collapse triangle before "Text overrides and translations" and
+   its per-library rows (editor/scripts/h5peditor-form.js's $commonButton,
+   and the matching .h5peditor-label-button / .h5peditor-button-collapse
+   variants) renders as a plain hollow square instead of an arrow. The
+   'H5P' icon webfont's cmap does contain real arrow-shaped glyphs at
+   these codepoints (checked with fontTools — not a missing/404 font), so
+   whatever's collapsing it to a box is further down the rendering chain;
+   rather than chase that, draw the arrow in plain CSS so it's guaranteed
+   to render regardless. ▸ = collapsed (click to expand), ▾ = expanded. */
+.common > .h5peditor-label > .icon::before,
+.h5peditor-label-button .icon::before,
+.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse .icon::before {
+  font-family: inherit !important;
+  content: "\25BE" !important;
+  color: #595959;
+}
+.common.collapsed > .h5peditor-label > .icon::before,
+.h5peditor-label-button.collapsed .icon::before,
+.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse.collapsed .icon::before {
+  content: "\25B8" !important;
+}
