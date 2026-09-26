@@ -7,7 +7,7 @@ import {
 import {
   Page, PageHeader, Card, Button, Tag, SectionLabel, Alert, Modal, Field, TextField, TextArea, ComingSoon, SpeakButton,
 } from "../design-system.jsx";
-import { useStore, groupBankByParent, bankChildLabel, kitContents } from "../store.jsx";
+import { useStore, groupBankByParent, bankChildLabel, kitContents, discardH5PContent } from "../store.jsx";
 import { CONFUSED, BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
@@ -391,7 +391,7 @@ function MyBlocks() {
                   <div className="flex items-center justify-between mb-3">
                     <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${BT.tone || "bg-neutral-100 text-neutral-500"}`}><I size={16} /></span>
                     <button title="Delete from My Blocks"
-                      onClick={() => { dispatch({ type: "REMOVE_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from My Blocks`); }}
+                      onClick={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from My Blocks`); }}
                       className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
                   </div>
                   <div className="font-bold mb-0.5 text-neutral-950">{item.title}</div>
@@ -429,7 +429,7 @@ function MyBlocks() {
                       <div className="flex items-center gap-1.5">
                         {item.data?.level && <Tag color="neutral">{item.data.level}</Tag>}
                         <button title="Delete from Component Library"
-                          onClick={() => { dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
+                          onClick={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
                           className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
                       </div>
                     </div>

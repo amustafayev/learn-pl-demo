@@ -86,8 +86,16 @@ seam so a real one can be dropped in later without touching any view:
   number/badge for the course itself — only "which classes are taking this,
   and how far is each one" (`Courses.jsx`'s `CourseView`, no-`classCourse`
   branch), or nothing at all if no class has been assigned yet.
-- **`src/db/apiClient.js`** — not called by anything yet (the reducer is
-  fully synchronous), but the seam a real backend plugs into: `createApiClient(baseURL)`
+- **`src/db/h5pClient.js`** — the one real backend today: the H5P server in
+  `server/`, built on `createApiClient("/h5p")` (below). It also owns the
+  rule that a lesson component's H5P content follows that component:
+  `withOwnH5PCopies` gives every independent copy (duplicate, save to a
+  library, reuse from one) its own server-side content, and
+  `deleteH5PContentIn` deletes it when the component, block or bank item
+  holding it is removed. Views reach it through `store.jsx`
+  (`h5pClient`, `copyWithOwnH5P`, `discardH5PContent`).
+- **`src/db/apiClient.js`** — only the H5P client uses it so far (the
+  reducer is fully synchronous), but it's the seam a real backend plugs into: `createApiClient(baseURL)`
   wraps `fetch` and normalizes every failure into a typed `ApiError`
   (`{code, description}`), so a reducer case that starts awaiting a real
   request fails the same way every other one does, and callers can toast

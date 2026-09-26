@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
   Sparkles, RotateCcw, ChevronRight, ArrowRight,
@@ -14,8 +14,12 @@ import {
   IconMaximize, IconMinimize,
 } from "@tabler/icons-react";
 import { AiNote, Pill, LEVELS } from "../ui.jsx";
-import { Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Card, Field, Tag, SpeakButton, inputCls } from "../design-system.jsx";
-import { useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel } from "../store.jsx";
+import { Alert, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Card, Field, Tag, SpeakButton, inputCls } from "../design-system.jsx";
+import {
+  useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel,
+  lessonBlocks, uid, copyWithOwnH5P, discardH5PContent,
+} from "../store.jsx";
+import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { BLOCK_TYPES, ROLE } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -36,14 +40,16 @@ import { H5P_ACTIVITY_META, H5PActivityComponent, H5PActivityEditor, defaultH5PA
    Content shape:  block.content = { components: [ {id, kind, ...data} ] }
    ========================================================================= */
 
-let compSeq = 0;
-const cid = () => `c${Date.now()}_${++compSeq}`;
+const cid = () => uid("c");
 
 // The app shell's own topbar height (english-platform-prototype.jsx's
 // TopBar is h-16) — BlockStudio's sticky header stacks its own offset on
 // top of this, so it's needed here too rather than repeating "64" or "16"
 // (Tailwind's spacing unit) at every call site.
 const TOPBAR_H = 64;
+// Page bottom padding while the "Add a component" picker is open — the rest
+// of the usual bottom scroll room moves inside the preview card then.
+const PICKER_PAGE_PAD = 16;
 
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
@@ -366,6 +372,25 @@ export default function BlockStudio() {
   // never fully closes the editor.
   const [fullscreenId, setFullscreenId] = useState(null);
   const [dragId, setDragId] = useState(null);
+  // The open H5P editor's "save what's pending" hook, registered by
+  // H5PActivityEditor — at most one, since only the selected component shows
+  // its editor. See flushOpenEditor below.
+  const pendingSave = useRef(null);
+  const registerFlush = useCallback((componentId, save) => {
+    if (save) pendingSave.current = { componentId, save };
+    else if (pendingSave.current?.componentId === componentId) pendingSave.current = null;
+  }, []);
+  // Latest "close the editor" handler, for the Escape listener below (it's
+  // only re-subscribed when the selection changes, so it can't close over it).
+  const closeEditorRef = useRef(null);
+  const addPanelRef = useRef(null);
+  const pickerOpen = insertAt !== null;
+  useContainedWheel(addPanelRef, pickerOpen);
+  // Opening the picker brings it fully into view (it can start partly below
+  // the fold); picking a different "+" slot while it's open doesn't move it.
+  useEffect(() => {
+    if (pickerOpen) addPanelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [pickerOpen]);
   // The rail's own scrollable list, kept as a ref rather than relying on
   // rail-item.scrollIntoView(): that call walks every scrollable ancestor,
   // including the page itself, so scrolling the (usually already-fitting)
@@ -382,20 +407,24 @@ export default function BlockStudio() {
   // and the rail's old fixed offset no longer matched it.
   const headerRef = useRef(null);
   const [headerH, setHeaderH] = useState(96);
-  // headerH is just this bar's own (measured) content height — it doesn't
-  // know about the app shell's topbar sitting above it. Anything computing
-  // "how far down is it safe to start" needs the combined offset.
+  // headerH is just this bar's own (measured) height — it doesn't know about
+  // the app shell's topbar sitting above it. Anything computing "how far
+  // down is it safe to start" needs the combined offset.
   const stuckOffset = headerH + TOPBAR_H;
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setHeaderH(entry.contentRect.height));
+    // The border box, padding included — the same measurement the selection
+    // effect below re-reads live. ResizeObserver's contentRect leaves the
+    // padding out (~49px short), which left everything pinned under the
+    // header too high, and the two measurements kept overwriting each other.
+    const ro = new ResizeObserver(() => setHeaderH(el.getBoundingClientRect().height));
     ro.observe(el);
     return () => ro.disconnect();
   }, [mode]);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
-  const block = (lesson?.built || []).find((p) => p.id === route.partId);
+  const block = lessonBlocks(lesson).find((p) => p.id === route.partId);
   const enrolled = state.students.filter((s) => s.courseId === course?.id);
   // Group work picks from students actually assigned to THIS lesson, not
   // the whole course roster — group members should be the people doing
@@ -461,13 +490,25 @@ export default function BlockStudio() {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (insertAt !== null) setInsertAt(null);
-      else if (selectedId !== null) setSelectedId(null);
+      else if (selectedId !== null) closeEditorRef.current?.();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [insertAt, selectedId]);
 
-  if (!block) return null;
+  if (!block) {
+    // Blocks added during a session only live in memory, so their URLs stop
+    // resolving after a reload — say so instead of rendering a blank page.
+    return (
+      <div className="p-5 sm:p-8 max-w-3xl">
+        <Alert tone="info" title="This block isn't here anymore"
+          actionLabel={lesson ? "Back to the lesson" : "Back to the course"}
+          onAction={() => go(lesson ? { partId: null } : { lessonId: null, partId: null })}>
+          It may have been removed, or it was added before the page was reloaded — lessons aren't saved between reloads yet.
+        </Alert>
+      </div>
+    );
+  }
   const content = block.content?.components ? block.content : toComponents(block, state.texts);
   const components = content.components;
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
@@ -475,8 +516,37 @@ export default function BlockStudio() {
   const setComponents = (next) =>
     dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id, patch: { content: { ...content, components: next } } });
   const updateComponent = (i, patch) => setComponents(components.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+
+  // Saves the open H5P editor's pending work before anything closes or
+  // copies it. Resolves to the components list with that save applied — use
+  // it instead of `components`, which predates the save — or null if saving
+  // failed, in which case the editor stays open showing why.
+  const flushOpenEditor = async () => {
+    const pending = pendingSave.current;
+    if (!pending) return components;
+    let patch;
+    try {
+      patch = await pending.save();
+    } catch (err) {
+      toast(`Couldn't save the H5P activity: ${err.message}`, "err");
+      return null;
+    }
+    if (!patch) return components;
+    const next = components.map((c) => (c.id === pending.componentId ? { ...c, ...patch } : c));
+    setComponents(next);
+    return next;
+  };
+  const selectComponent = async (id) => {
+    if (id === selectedId) return;
+    if (!(await flushOpenEditor())) return;
+    setSelectedId(id);
+    if (id === null) setFullscreenId(null);
+  };
+  closeEditorRef.current = () => selectComponent(null);
+
   const removeComponent = (i) => {
     const removedId = components[i].id;
+    discardH5PContent(toast, components[i]);
     const next = components.filter((_, j) => j !== i);
     setComponents(next);
     // Selection follows the neighbor that slides into the removed spot,
@@ -504,27 +574,52 @@ export default function BlockStudio() {
   // list's own button), then select the new component — selecting it is
   // what makes its frame in the preview show its editor, so a fresh
   // component opens ready to fill in, not just added at the end unseen.
-  const insertNew = (component, label) => {
-    const at = insertAt === null ? components.length : Math.min(insertAt, components.length);
-    const next = [...components]; next.splice(at, 0, component);
+  const insertNew = async (component, label) => {
+    const list = await flushOpenEditor();
+    if (!list) return;
+    const at = insertAt === null ? list.length : Math.min(insertAt, list.length);
+    const next = [...list]; next.splice(at, 0, component);
     setComponents(next); setInsertAt(null); setSelectedId(component.id);
     toast(label);
   };
   const addComponent = (kind) => insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
 
-  const duplicateComponent = (i) => {
-    const copy = JSON.parse(JSON.stringify(components[i]));
+  const duplicateComponent = async (i) => {
+    const list = await flushOpenEditor();
+    if (!list) return;
+    const copy = await copyWithOwnH5P(toast, list[i]);
+    if (!copy) return;
     copy.id = cid();
-    const next = [...components]; next.splice(i + 1, 0, copy); setComponents(next);
+    const next = [...list]; next.splice(i + 1, 0, copy); setComponents(next);
     setSelectedId(copy.id);
     toast("Component duplicated");
   };
-  const handleSaveComponent = (c) => saveComponentToBank(dispatch, toast, c,
-    `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
-  const insertSavedComponent = (item) => {
-    const copy = JSON.parse(JSON.stringify(item.data));
+  const handleSaveComponent = async (c) => {
+    const list = await flushOpenEditor();
+    if (!list) return;
+    saveComponentToBank(dispatch, toast, list.find((x) => x.id === c.id) || c,
+      `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
+  };
+  const handleSaveBlock = async () => {
+    const list = await flushOpenEditor();
+    if (!list) return;
+    saveBlockToBank(dispatch, toast, { ...block, content: { ...content, components: list } }, `${course.title} · Lesson ${lesson.n}`);
+  };
+  const insertSavedComponent = async (item) => {
+    const copy = await copyWithOwnH5P(toast, item.data);
+    if (!copy) return;
     copy.id = cid();
     insertNew(copy, `Inserted “${item.title}” from Component Library`);
+  };
+  const changeMode = async (next) => {
+    if (next === mode) return;
+    if (next === "student" && !(await flushOpenEditor())) return;
+    setMode(next);
+  };
+  const saveAndClose = async () => {
+    if (!(await flushOpenEditor())) return;
+    toast("Block saved");
+    go({ partId: null });
   };
 
   return (
@@ -540,7 +635,12 @@ export default function BlockStudio() {
       // the browser just clamps the scroll at the page's real max and the
       // frame's top stays partly behind the header. Padding the bottom
       // guarantees that scroll room always exists.
-      style={{ paddingBottom: stuckOffset }}>
+      //
+      // While the picker is open that room moves inside the preview card
+      // instead (see the spacer after the picker), so the picker — pinned
+      // inside that card — has somewhere to stay pinned at the end of the
+      // page. Same total height either way, so opening it never jumps.
+      style={{ paddingBottom: pickerOpen ? PICKER_PAGE_PAD : stuckOffset }}>
       {/* Pinned below the app shell's own topbar, never under it — this is
           the block's identity plus the "which mode am I in" toggle and
           Save & close, all of which a teacher wants visible no matter how
@@ -572,11 +672,10 @@ export default function BlockStudio() {
               kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
               title={block.title || BT.label} />
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                onClick={() => saveBlockToBank(dispatch, toast, block, `${course.title} · Lesson ${lesson.n}`)}>
+              <Button variant="outline" size="sm" onClick={handleSaveBlock}>
                 <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
               </Button>
-              <SegmentedToggle value={mode} onChange={setMode} options={[
+              <SegmentedToggle value={mode} onChange={changeMode} options={[
                 { id: "student", label: "As student", icon: IconEye },
                 { id: "edit", label: "Edit content", icon: IconPencil },
               ]} />
@@ -588,7 +687,7 @@ export default function BlockStudio() {
           ) : (
             <div className="mt-5 flex items-center justify-between">
               <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
-              <Button size="sm" variant="light" onClick={() => { toast("Block saved"); go({ partId: null }); }}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+              <Button size="sm" variant="light" onClick={saveAndClose}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
             </div>
           )}
         </div>
@@ -650,7 +749,7 @@ export default function BlockStudio() {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
                 </div>
-                <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto min-h-0">
+                <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
                   {components.map((c, i) => {
                     const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                     const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
@@ -659,7 +758,7 @@ export default function BlockStudio() {
                         icon={M.icon} tone={M.tone} label={M.label}
                         meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
                         selected={c.id === selectedId}
-                        onClick={() => setSelectedId(c.id)}
+                        onClick={() => selectComponent(c.id)}
                         draggable
                         onDragStart={() => setDragId(c.id)}
                         onDragOver={(e) => e.preventDefault()}
@@ -743,11 +842,13 @@ export default function BlockStudio() {
                                 <button title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100">
                                   {isFullscreen ? <IconMinimize size={14} stroke={1.75} /> : <IconMaximize size={14} stroke={1.75} />}
                                 </button>
-                                <button title="Done editing" onClick={() => { setSelectedId(null); setFullscreenId(null); }} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
+                                <button title="Done editing" onClick={() => selectComponent(null)} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
                               </div>
                             </div>
-                            <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                              passages={components.filter((x) => x.kind === "passage")} />
+                            <ErrorBoundary resetKey={c}>
+                              <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                                passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
+                            </ErrorBoundary>
                           </div>
                         </div>
                       ) : (
@@ -761,7 +862,7 @@ export default function BlockStudio() {
                         // start editing in place; check the finished result
                         // via the "As student" toggle rather than any one
                         // frame here.
-                        <div onClick={() => setSelectedId(c.id)}
+                        <div onClick={() => selectComponent(c.id)}
                           className="rounded-[16px] border border-neutral-300 hover:border-primary-300 cursor-pointer transition duration-(--dur-fast)">
                           <ComponentStudent component={c} />
                         </div>
@@ -786,10 +887,22 @@ export default function BlockStudio() {
                   inside the same "frame" the preview lives in. No dimmed
                   scrim either: the preview above it stays visible and
                   clickable, so a different "+" slot can be picked without
-                  closing this first. */}
-              {insertAt !== null && (
-                <div className="sticky bottom-4 z-30 mt-5 rounded-[14px] border-2 border-primary-300 bg-white shadow-xl overflow-hidden animate-fade-rise">
-                  <div className="flex items-start justify-between p-4 border-b border-neutral-200 bg-primary-50/50">
+                  closing this first. Pinned between the sticky header and
+                  the bottom edge, and capped to fit that gap (its lists
+                  scroll instead) so its own top never slides under the
+                  header — the cap leaves a 16px gap under the header plus
+                  the page's and this card's (20px) bottom padding, which it
+                  has to clear at the very end of the page. */}
+              {pickerOpen && (
+                <div ref={addPanelRef}
+                  className="sticky bottom-4 z-30 mt-5 flex flex-col rounded-[14px] border-2 border-primary-300 bg-white shadow-xl overflow-hidden animate-fade-rise"
+                  style={{
+                    top: stuckOffset + 16,
+                    maxHeight: `calc(100vh - ${stuckOffset + 16 + PICKER_PAGE_PAD + 20}px)`,
+                    scrollMarginTop: stuckOffset + 16,
+                    scrollMarginBottom: 16,
+                  }}>
+                  <div className="shrink-0 flex items-start justify-between p-4 border-b border-neutral-200 bg-primary-50/50">
                     <div>
                       <h3 className="font-bold text-base tracking-tight text-neutral-950">Add a component</h3>
                       <p className="text-xs text-neutral-500 mt-0.5">
@@ -798,8 +911,8 @@ export default function BlockStudio() {
                     </div>
                     <button onClick={() => setInsertAt(null)} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-[420px]">
-                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto min-h-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-[420px] min-h-0">
+                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto overscroll-contain min-h-0">
                       {state.componentBank && state.componentBank.length > 0 && (
                         <NavItem icon={IconBookmarkPlus} label="My Component Library"
                           active={addCategory === "library"} onClick={() => setAddCategory("library")} />
@@ -813,7 +926,7 @@ export default function BlockStudio() {
                           active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
                       ))}
                     </nav>
-                    <div className="p-4 overflow-y-auto min-h-0">
+                    <div className="p-4 overflow-y-auto overscroll-contain min-h-0">
                       {addCategory === "library" ? (
                         // grouped by the course/parent it was saved from, so
                         // the library reads as folders instead of one flat pile
@@ -841,6 +954,7 @@ export default function BlockStudio() {
                   </div>
                 </div>
               )}
+              {pickerOpen && <div aria-hidden="true" style={{ height: stuckOffset - PICKER_PAGE_PAD }} />}
             </Card>
           </div>
         </div>
@@ -852,6 +966,29 @@ export default function BlockStudio() {
 // The "+ Add component" pill between two components in the live preview —
 // a site builder's "Add block" affordance. Quiet until hovered, lit when it
 // is the slot the picker is currently inserting into.
+// Wheel/trackpad scrolling that starts over `ref` stays there: its lists
+// scroll as usual, but over anything with nothing left to scroll, the page
+// behind no longer moves instead. `overscroll-behavior: contain` alone isn't
+// enough — browsers ignore it on elements that don't overflow and hand the
+// wheel straight to the page.
+function useContainedWheel(ref, active) {
+  useEffect(() => {
+    const root = ref.current;
+    if (!active || !root) return undefined;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.deltaY === 0) return;
+      for (let el = e.target; el && el !== root.parentElement; el = el.parentElement) {
+        const scrolls = el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY);
+        const hasRoom = e.deltaY < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+        if (scrolls && hasRoom) return;
+      }
+      e.preventDefault();
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    return () => root.removeEventListener("wheel", onWheel);
+  }, [ref, active]);
+}
+
 function AddSlot({ active, onClick }) {
   return (
     <div className="relative flex items-center justify-center py-3 group">
@@ -898,7 +1035,11 @@ export function BlockStudentView({ block }) {
 // competing max-w-*; Card framing itself stays per-component (most
 // already return a Card as their own root) — this wrapper only owns width.
 export function ComponentStudent({ component }) {
-  return <div className="w-full max-w-3xl">{renderComponentStudent(component)}</div>;
+  return (
+    <div className="w-full max-w-3xl">
+      <ErrorBoundary resetKey={component}>{renderComponentStudent(component)}</ErrorBoundary>
+    </div>
+  );
 }
 
 function renderComponentStudent(component) {
@@ -1109,7 +1250,9 @@ function WordSearchComponent({ component }) {
   const puzzle = useMemo(() => wordSearchGrid(component.words || []), [component.words]);
   const [picked, setPicked] = useState(new Set());
   const toggle = (key) => setPicked((current) => {
-    const next = new Set(current); next.has(key) ? next.delete(key) : next.add(key); return next;
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
   });
   const solved = puzzle.targets.size > 0 && [...puzzle.targets].every((key) => picked.has(key));
   return (
@@ -2014,7 +2157,7 @@ function SpeedRoundComponent({ component }) {
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function ComponentEditor({ component, onChange, roster, passages = [] }) {
+function ComponentEditor({ component, onChange, roster, passages = [], registerFlush }) {
   switch (component.kind) {
     case "passage":    return <PassageEditor component={component} onChange={onChange} />;
     case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
@@ -2044,7 +2187,7 @@ function ComponentEditor({ component, onChange, roster, passages = [] }) {
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
     case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
     case "document":   return <DocumentEditor component={component} onChange={onChange} />;
-    case "h5pActivity": return <H5PActivityEditor component={component} onChange={onChange} />;
+    case "h5pActivity": return <H5PActivityEditor component={component} onChange={onChange} registerFlush={registerFlush} />;
     case "peertask":   return <PeerTaskEditor component={component} onChange={onChange} roster={roster} />;
     case "speakingRecord": return <SpeakingRecordEditor component={component} onChange={onChange} />;
     case "shadowing":  return <RowsEditor component={component} onChange={onChange} fields={[["sentence", "Sentence"], ["note", "Note (stress / linking) — optional"]]} blank={{ sentence: "", note: "" }} label="sentence" wide={["sentence", "note"]} />;
@@ -2653,7 +2796,7 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
             </div>
           ))}
         </div>
-        <Button variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: `team_${Date.now()}`, name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Button>
+        <Button variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: uid("team"), name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Button>
       </div>
       <div>
         <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">Race questions</div>

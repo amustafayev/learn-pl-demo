@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Puzzle } from "lucide-react";
 import { H5PEditorUI, H5PPlayerUI } from "@lumieducation/h5p-react";
 import { Pill } from "../ui.jsx";
 import { Card, Field, inputCls, Button } from "../design-system.jsx";
-import { h5pContentService } from "./h5pContentService.js";
+import { h5pClient } from "../store.jsx";
 
 /* =========================================================================
    H5P activity — one generic wrapper for H5P's whole content-type catalog
@@ -50,7 +50,7 @@ export function H5PActivityComponent({ component }) {
         <div className="p-4">
           <H5PPlayerUI
             contentId={component.contentId}
-            loadContentCallback={h5pContentService.getPlay}
+            loadContentCallback={h5pClient.getPlay}
             onxAPIStatement={(statement) => {
               // Real H5P xAPI events (attempt/answer/completion/score) land
               // here — the one hook point a real analytics pipe would
@@ -71,25 +71,45 @@ export function H5PActivityComponent({ component }) {
   );
 }
 
-export function H5PActivityEditor({ component, onChange }) {
+export function H5PActivityEditor({ component, onChange, registerFlush }) {
   const editorRef = useRef(null);
+  // H5PEditorUI.save() never rejects — it resolves undefined and reports the
+  // reason through onSaveError — so the message is kept here to rethrow it.
+  const lastErrorRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Set once H5P has a content type's form loaded (existing content, or a
+  // type just picked in the Hub) — before that there's nothing to save.
+  const [formLoaded, setFormLoaded] = useState(false);
+
+  async function saveNow() {
+    lastErrorRef.current = null;
+    const result = await editorRef.current?.save();
+    if (!result) throw new Error(lastErrorRef.current || "Could not save this activity.");
+    return { contentId: result.contentId, mainLibrary: result.metadata?.mainLibrary };
+  }
 
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
-      const result = await editorRef.current?.save();
-      if (result) {
-        onChange({ contentId: result.contentId, mainLibrary: result.metadata?.mainLibrary });
-      }
+      onChange(await saveNow());
     } catch (err) {
-      setError(err.message || "Could not save this activity.");
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   }
+
+  // H5P keeps unsaved edits inside its own iframe, so anything that unmounts
+  // this editor (selecting another component, Save & close …) would drop
+  // them. Block Studio calls this first; it resolves to the patch to apply,
+  // or null when there's nothing to save.
+  useEffect(() => {
+    if (!registerFlush) return undefined;
+    registerFlush(component.id, () => (formLoaded ? saveNow() : Promise.resolve(null)));
+    return () => registerFlush(component.id, null);
+  });
 
   return (
     <div className="space-y-3">
@@ -97,9 +117,10 @@ export function H5PActivityEditor({ component, onChange }) {
         <H5PEditorUI
           ref={editorRef}
           contentId={component.contentId || "new"}
-          loadContentCallback={h5pContentService.getEdit}
-          saveContentCallback={h5pContentService.save}
-          onSaveError={(message) => setError(message)}
+          loadContentCallback={h5pClient.getEdit}
+          saveContentCallback={h5pClient.save}
+          onLoaded={() => setFormLoaded(true)}
+          onSaveError={(message) => { lastErrorRef.current = message; setError(message); }}
         />
       </div>
       <div className="flex items-center gap-2">

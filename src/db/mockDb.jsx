@@ -20,8 +20,13 @@ import {
    ========================================================================= */
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
-let seq = 1000;
-export const uid = (p) => `${p}${++seq}`;
+// Random rather than a counter: a counter restarts on every page load, so ids
+// minted after a reload would collide with ones already stored (the
+// component library survives reloads in localStorage). getRandomValues, not
+// randomUUID, because randomUUID is missing on plain http (e.g. opening the
+// dev server from a phone via its LAN address).
+export const uid = (prefix) =>
+  prefix + Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
 export const COMPONENT_BANK_KEY = "lucid.component-bank";
 
 function savedComponentBank() {
@@ -37,11 +42,13 @@ function savedComponentBank() {
 // of Block-type ids) the first time it's touched, or the live `built` array
 // afterwards. Exported so any view that just needs to preview a lesson's
 // pathway (Course tree, Live Session setup) can reuse the same hydration
-// logic instead of re-deriving it locally.
+// logic instead of re-deriving it locally. Hydrated ids are derived from the
+// lesson, not random, so a block's URL still resolves after a reload
+// re-hydrates the lesson from its seed.
 export const lessonBlocks = (l) =>
   !l ? [] : l.built && l.built.length
     ? l.built
-    : (l.parts || []).map((t) => ({ id: uid("p"), type: t, title: BLOCK_TYPES[t]?.label || t, meta: "—" }));
+    : (l.parts || []).map((t, i) => ({ id: `${l.id}-${i + 1}`, type: t, title: BLOCK_TYPES[t]?.label || t, meta: "—" }));
 
 // A class's `courses` is its assignment history (see SEED_CLASSES); the
 // student-facing/live-session views only care about the one it's actively
@@ -274,7 +281,9 @@ export function reducer(state, action) {
       // assemble a brand-new lesson from every My-Blocks item compatible with
       // the student's course template, deep-copied so it's independent of
       // the saved originals, and assign it straight to that student.
-      const { studentId, focusLabel } = action;
+      // `contents` (bank id → content) carries copies the caller already
+      // made where that needs async work (their own H5P content).
+      const { studentId, focusLabel, contents } = action;
       const student = state.students.find((s) => s.id === studentId);
       if (!student || !student.courseId) return state;
       const course = state.courses.find((c) => c.id === student.courseId);
@@ -284,7 +293,7 @@ export function reducer(state, action) {
       const courseId = student.courseId;
       const list = state.lessons[courseId] || [];
       const built = compatible.map((item) => {
-        const content = JSON.parse(JSON.stringify(item.content || { components: [] }));
+        const content = JSON.parse(JSON.stringify(contents?.[item.id] || item.content || { components: [] }));
         content.components = (content.components || []).map((c) => ({ ...c, id: uid("c") }));
         return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
       });

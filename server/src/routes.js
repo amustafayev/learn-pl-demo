@@ -89,6 +89,34 @@ export default function contentRoutes(h5pEditor, h5pPlayer) {
     res.status(200).json({ contentId, metadata });
   });
 
+  // Not in the upstream example: duplicates one content object, media files
+  // included, so the frontend can give every copy of a lesson component its
+  // own content instead of two lessons editing the same activity. The params
+  // keep their plain relative file paths ("images/x.png"), which H5P leaves
+  // untouched on save, so copying the files under the same names is enough.
+  router.post('/:contentId/copy', async (req, res) => {
+    const sourceId = req.params.contentId.toString();
+    try {
+      const { library, params } = await h5pEditor.getContent(sourceId, req.user);
+      const { id: contentId, metadata } = await h5pEditor.saveOrUpdateContentReturnMetaData(
+        undefined,
+        params.params,
+        params.metadata,
+        library,
+        req.user,
+      );
+      const files = await h5pEditor.contentManager.listContentFiles(sourceId, req.user);
+      for (const file of files) {
+        const stream = await h5pEditor.contentManager.getContentFileStream(sourceId, file, req.user);
+        await h5pEditor.contentManager.addContentFile(contentId, file, stream, req.user);
+      }
+      res.status(200).json({ contentId, metadata });
+    } catch (error) {
+      console.error(error);
+      res.status(error.httpStatusCode ?? 500).send(error.message);
+    }
+  });
+
   router.delete('/:contentId', async (req, res) => {
     try {
       await h5pEditor.deleteContent(req.params.contentId.toString(), req.user);

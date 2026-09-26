@@ -5,17 +5,22 @@ import {
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, PillTabs } from "../design-system.jsx";
-import { useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress } from "../store.jsx";
+import {
+  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress,
+  uid, copyWithOwnH5P, discardH5PContent,
+} from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
 
-// Deep-copy a saved bank block into a fresh lesson part — new ids all the way down
-export function partFromBank(item) {
-  const content = JSON.parse(JSON.stringify(item.content || { components: [] }));
-  content.components = (content.components || []).map((c, i) => ({ ...c, id: `c${Date.now()}_${i}` }));
-  return { id: `p${Date.now()}`, type: item.type, title: item.title, meta: "from My Blocks", content };
+// Deep-copy a saved bank block into a fresh lesson part — new ids all the way
+// down, and its own copy of any H5P content. Null if that copy failed.
+async function partFromBank(toast, item) {
+  const content = await copyWithOwnH5P(toast, item.content || { components: [] });
+  if (!content) return null;
+  content.components = (content.components || []).map((c) => ({ ...c, id: uid("c") }));
+  return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
 }
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
@@ -413,11 +418,13 @@ export function LessonBuilderView() {
   function addBlock(type) {
     const BT = BLOCK_TYPES[type];
     dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId,
-      part: { id: `p${Date.now()}`, type, title: BT.label, meta: "—" } });
+      part: { id: uid("p"), type, title: BT.label, meta: "—" } });
     toast(`Added ${BT.label} step`);
   }
-  function addFromBank(item) {
-    dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId, part: partFromBank(item) });
+  async function addFromBank(item) {
+    const part = await partFromBank(toast, item);
+    if (!part) return;
+    dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId, part });
     toast(`“${item.title}” inserted from My Blocks`);
   }
   function saveTitle(b) {
@@ -483,7 +490,7 @@ export function LessonBuilderView() {
                     <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
                     <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
                     <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                    <button title="Remove" onClick={() => { dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                    <button title="Remove" onClick={() => { discardH5PContent(toast, b); dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
                   </div>
                 </div>
               </div>

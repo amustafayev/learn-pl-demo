@@ -1,9 +1,10 @@
-/* Seam for a real backend (see CLAUDE.md's "Data layer" section) — nothing
-   in this file is called yet, since mockDb.jsx's reducer is fully
-   synchronous. When a reducer case starts awaiting a real request, import
-   createApiClient() here instead of reaching for fetch() ad hoc, so every
-   endpoint fails the same way: a typed ApiError with a {code, description}
-   shape a toast can render directly, never a raw Response/TypeError.
+/* Seam for a real backend (see CLAUDE.md's "Data layer" section). The H5P
+   client (db/h5pClient.js) is its first real caller; mockDb.jsx's reducer is
+   still fully synchronous. When a reducer case starts awaiting a real
+   request, build on createApiClient() here instead of reaching for fetch()
+   ad hoc, so every endpoint fails the same way: a typed ApiError with a
+   {code, description} shape a toast can render directly, never a raw
+   Response/TypeError.
 
    Modeled after a real Xsolla project's axios client factory (setupApi.ts +
    getApiError.ts): one client instance created once, a response step that
@@ -40,9 +41,21 @@ export function createApiClient(baseURL) {
       throw new ApiError("network_error", "Couldn't reach the server. Check your connection and try again.");
     }
 
-    const data = await res.json().catch(() => null);
+    const text = await res.text();
+    // An HTML page where data was expected means the request never reached
+    // the API: a hosting catch-all rewrite or the dev server's own fallback
+    // answering with index.html because the backend isn't running.
+    const isHtmlPage = /^\s*</.test(text);
+    let data = null;
+    if (text && !isHtmlPage) {
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
     if (!res.ok) {
-      throw new ApiError(data?.code || String(res.status), data?.description || data?.message || "Something went wrong.");
+      const message = typeof data === "string" ? data : data?.description || data?.message;
+      throw new ApiError(data?.code || String(res.status), message || `The server couldn't handle this request (${res.status}).`);
+    }
+    if (isHtmlPage) {
+      throw new ApiError("unexpected_response", "Got a web page back instead of data — the backend may not be running.");
     }
     return data;
   }
@@ -51,6 +64,7 @@ export function createApiClient(baseURL) {
     get: (path) => request(path),
     post: (path, body) => request(path, { method: "POST", body }),
     put: (path, body) => request(path, { method: "PUT", body }),
+    patch: (path, body) => request(path, { method: "PATCH", body }),
     delete: (path) => request(path, { method: "DELETE" }),
     setAuthToken: (nextToken) => { token = nextToken; },
     clearAuthToken: () => { token = null; },

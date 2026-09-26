@@ -7,6 +7,7 @@ import {
 import { StoreProvider, useStore } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost } from "./design-system.jsx";
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
 import Classes from "./views/Classes.jsx";
@@ -81,7 +82,9 @@ function AppShell() {
             /courses into /courses/:id shouldn't remount the subtree and
             re-run its effects just to replay a 180ms entrance. */}
         <div key={tabForPath(pathname)} className="animate-fade-rise">
-          <Content startLive={startLive} />
+          <ErrorBoundary resetKey={pathname} className="p-5 sm:p-8 max-w-3xl" title="This page couldn't be displayed">
+            <Content startLive={startLive} />
+          </ErrorBoundary>
         </div>
       </main>
       <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
