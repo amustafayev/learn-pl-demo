@@ -1,6 +1,13 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 @import "tailwindcss";
 
+/* `dark:` follows the app's own theme switch (`<html data-theme="dark">`),
+   not the OS media query Tailwind uses by default. Only needed for the few
+   raw-hue decorative palettes that can't ride on the token swap below (the
+   ~30-way block/component category tones) — everything built on the tokens
+   re-themes without it. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 /* =========================================================================
    Design tokens — sourced from the Learniv UI KIT (dpopstudio), cross-checked
    against BOTH the kit's "Primitive Colors" / "Token Colors" sheets and its
@@ -99,6 +106,127 @@
   --color-info-700: #1266b5;
   --color-info-800: #0e4f8c;
   --color-info-900: #0b3c6b;
+
+  /* Semantic roles that the light theme happened to paint with the same
+     color, but the kit's dark screens split apart (see the dark block below):
+     - surface: cards, modals, drawers, popovers, outline buttons — white in
+       light mode, but #141414 in dark, one step up from the pure-black page,
+       which is how the dark screens separate a card from the canvas.
+     - overlay: the scrim behind a modal/drawer. Dark mode needs a much
+       heavier one to read at all against an already-dark page.
+     - ink: regions that are dark in BOTH themes on purpose (a video
+       letterbox, the live-session bar) — must never flip to white. */
+  --color-surface: #ffffff;
+  --color-overlay: rgb(20 20 20 / 0.2);
+  --color-ink: #141414;
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* =========================================================================
+   Dark theme — read off the kit's own dark-mode frames ("dashboard dark
+   mode" section of the Learniv Figma file: dashboard, setting, …), then
+   systematized so every existing utility keeps its meaning.
+
+   How it works: Tailwind v4 compiles every color utility to
+   `var(--color-…)`, so redefining the variables here re-themes the whole
+   app with no per-component `dark:` variants. Toggled by
+   `<html data-theme="dark">` (src/theme.js; set before first paint by the
+   inline script in index.html). Unlayered on purpose, so it outranks the
+   `@layer theme` block Tailwind emits for the light values.
+
+   Neutral — the light ramp read back to front, with each role landing on
+   exactly what the dark screens draw:
+     50  page / sidebar / topbar canvas   #000000  (sampled)
+     200 field & gray-button fill         #262626  (sampled: inputs)
+     300 active nav row / icon chip       #454545  (sampled: active nav)
+     400 hairline border                  #595959  (sampled: card edge)
+     600 muted text                       #8c8c8c  (same mid-gray both ways)
+     950 primary text                     #ffffff  (sampled: headings)
+
+   Colors — each ramp mirrored around its 500 step. 500 is the solid fill
+   (buttons, chart lines, progress, the brand orange) and is identical in
+   the kit's light and dark screens, so it stays put; the tint end (50–200,
+   used for soft backgrounds) becomes a dark, saturated tint, and the text
+   end (600–900) becomes the brighter step dark backgrounds need. The kit's
+   dark "+20% Last month" green samples at the light ramp's 400 step —
+   exactly what `success-600` resolves to here.
+   ========================================================================= */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-neutral-50: #000000;
+  --color-neutral-100: #141414;
+  --color-neutral-200: #262626;
+  --color-neutral-300: #454545;
+  --color-neutral-400: #595959;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #8c8c8c;
+  --color-neutral-700: #a6a6a6;
+  --color-neutral-800: #bfbfbf;
+  --color-neutral-900: #e0e0e0;
+  --color-neutral-950: #ffffff;
+
+  --color-primary-50: #521803;
+  --color-primary-100: #661f07;
+  --color-primary-200: #8c2f0c;
+  --color-primary-300: #b33d13;
+  --color-primary-400: #d84d1a;
+  --color-primary-500: #ff5c20;
+  --color-primary-600: #ff7c4d;
+  --color-primary-700: #ff9e7a;
+  --color-primary-800: #ffbda5;
+  --color-primary-900: #ffddd3;
+  --color-primary-950: #ffefe9;
+
+  --color-success-50: #193b07;
+  --color-success-100: #23520b;
+  --color-success-200: #2e6b0f;
+  --color-success-300: #3b8a13;
+  --color-success-400: #4cb119;
+  --color-success-500: #53c31b;
+  --color-success-600: #75cf49;
+  --color-success-700: #8cd766;
+  --color-success-800: #b0e396;
+  --color-success-900: #caecb8;
+
+  --color-pending-50: #4b3405;
+  --color-pending-100: #694908;
+  --color-pending-200: #8a5f0b;
+  --color-pending-300: #b27b0e;
+  --color-pending-400: #e49d12;
+  --color-pending-500: #faad14;
+  --color-pending-600: #fbbd43;
+  --color-pending-700: #fcc862;
+  --color-pending-800: #fdd993;
+  --color-pending-900: #fde6b6;
+
+  --color-warning-50: #4d1717;
+  --color-warning-100: #6b2021;
+  --color-warning-200: #8c2a2b;
+  --color-warning-300: #b43738;
+  --color-warning-400: #e74648;
+  --color-warning-500: #fe4d4f;
+  --color-warning-600: #fe7172;
+  --color-warning-700: #fe8889;
+  --color-warning-800: #ffadae;
+  --color-warning-900: #ffc8c8;
+
+  --color-info-50: #072b4d;
+  --color-info-100: #0b3c6b;
+  --color-info-200: #0e4f8c;
+  --color-info-300: #1266b5;
+  --color-info-400: #1783e8;
+  --color-info-500: #1990ff;
+  --color-info-600: #47a6ff;
+  --color-info-700: #65b5ff;
+  --color-info-800: #95ccff;
+  --color-info-900: #b8ddff;
+
+  --color-surface: #141414;
+  --color-overlay: rgb(0 0 0 / 0.6);
 }
 
 /* =========================================================================

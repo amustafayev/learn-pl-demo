@@ -17,7 +17,7 @@ import { useStore } from "../store.jsx";
 
 function AuthShell({ children }) {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-8 font-sans">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 sm:p-8 font-sans">
       {/* No card: the kit sits the image panel and the form straight on the
           white page. Measured off the 1440px frame — image 638px, form 540px,
           47px gutter, 1225px of content centered. */}

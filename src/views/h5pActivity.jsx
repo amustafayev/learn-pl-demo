@@ -25,7 +25,7 @@ import { h5pClient } from "../store.jsx";
 export const H5P_ACTIVITY_META = {
   label: "H5P activity",
   icon: Puzzle,
-  tone: "text-cyan-700 bg-cyan-50",
+  tone: "text-cyan-700 bg-cyan-50 dark:bg-cyan-950 dark:text-cyan-400",
   hint: "Build a real H5P activity in H5P's own editor — Crossword, Drag the Words, and 60+ more",
 };
 

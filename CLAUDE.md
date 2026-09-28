@@ -12,6 +12,8 @@ your own version of it.
 | What | File |
 |---|---|
 | Color tokens, font | `src/index.css` (`@theme` block) |
+| Dark theme values (the same tokens, redefined) | `src/index.css` (`:root[data-theme="dark"]` block) |
+| Light/dark switch (state, persistence, OS fallback) | `src/theme.js` (`useTheme`) + the pre-paint script in `index.html` |
 | Motion tokens — every duration, easing, keyframe | `src/index.css` (second `@theme` block) |
 | Motion helpers for the few JS-side needs | `src/motion.js` (`MOTION`, `cssMs`, `motionMs`, `usePresence`, `usePresenceList`) |
 | Component factory (Button, Card, Tag, Modal, …) | `src/design-system.jsx` |
@@ -178,6 +180,63 @@ const CHIP = {
 };
 <span className={CHIP[tone]} />
 ```
+
+## Dark mode
+
+Sourced from the kit's own dark frames — the **"dashboard dark mode"**
+section of the Learniv Figma file (file `DY29Lqxu9v6ghvM5m0h7gL`, section
+`6098:27081`; `dashboard` is `6098:28105`, `setting` is `6098:28714`). The
+light/dark mobile sections sit alongside it. Values were pixel-sampled off
+those renders, the same way the light tokens were.
+
+**How it works — no `dark:` variants on components.** Tailwind v4 compiles
+every color utility to `var(--color-…)`, so the dark theme is just the same
+token names redefined under `:root[data-theme="dark"]` in `index.css`. Flip
+the attribute and every `bg-neutral-*` / `text-primary-*` / `border-*` in the
+app re-resolves. `src/theme.js` owns the switch (sidebar Light/Dark pill, or
+the single sun/moon row in the icon-only rail); an explicit choice persists in
+`localStorage`, otherwise it follows `prefers-color-scheme` live. `index.html`
+sets the attribute before first paint so a dark reload never flashes white.
+
+**What the kit's dark screens do, and how the tokens encode it:**
+- Canvas (page, sidebar, topbar) is pure `#000` → `neutral-50`.
+- Cards sit one step up at `#141414` with a `#595959` hairline → `surface`,
+  `neutral-400`. Fields `#262626` → `neutral-200`; active nav / icon chips
+  `#454545` → `neutral-300`; headings white → `neutral-950`.
+- Neutral is the light ramp read back to front, so each role keeps its name.
+- The five color ramps are mirrored around **500**: 500 is the solid fill
+  (buttons, chart lines, progress, the brand orange) and is identical in both
+  themes; the tint end (50–200) becomes a dark saturated tint, the text end
+  (600–900) the brighter step dark backgrounds need. (The kit's dark "+20%"
+  green samples at light `success-400`, which is exactly what dark
+  `success-600` resolves to.)
+
+**Rules for new UI:**
+- **Never `bg-white` for a surface** — use `bg-surface` (cards, modals,
+  drawers, popovers, outline buttons, selected tab pills, tooltips). Page-level
+  canvas is `bg-neutral-50`. `bg-white` is only for things that are white in
+  both themes (the Switch knob, a play button over a video).
+- **Text on a dark-neutral fill carries a flipping color.** `bg-neutral-950`
+  becomes near-white in dark mode, so pair it with `text-neutral-50`, not
+  `text-white` (the "dark" Button, dark Avatar, neutral Badge, toast, PillTabs
+  count all do this). `text-white` stays correct on colored fills
+  (`bg-primary-500`, `bg-success-500`, …) because 500 doesn't move.
+- **Always-dark regions use `bg-ink`** (video letterboxes, the live-session
+  bar) with `text-white` / `text-white/60` — never neutral tokens, which flip.
+- **Scrims use `bg-overlay`** (dark mode needs a much heavier one).
+- **Charts:** pass `var(--color-…)` strings for grid/axis/tooltip colors
+  (`stroke="var(--color-neutral-200)"`) — hex literals don't re-theme.
+- **The `dark:` variant exists but is only for raw-hue decorative palettes**
+  that can't ride the token swap (the ~30 block/component category tones in
+  `data.jsx` / `COMPONENT_META`, each given a `dark:bg-{hue}-950
+  dark:text-{hue}-400` counterpart). It's bound to `data-theme`, not the OS.
+
+**Known gaps (dark mode inherits the migration status below):** anything
+still on raw `slate`/`indigo` classes doesn't flip — `playground.jsx`,
+`StudentAssignModal.jsx`, `ui.jsx`'s legacy primitives, and the grammar
+visuals in `grammar.jsx`. Those were deliberately left on light surfaces so
+they stay readable (a dark surface under unflipped dark slate text would not
+be); they read as light islands in dark mode until migrated.
 
 ## Shape scale (radii) — measured off the kit's rendered screens
 
@@ -479,7 +538,8 @@ bundle Vite already warns about, and nothing here needs it.
 1. `npx vite build` — must pass clean.
 2. `npx oxlint <changed files>` — exit 0 (pre-existing "Fast refresh" warnings
    on files that export a helper alongside a component are fine to ignore).
-3. Start the dev server, screenshot the changed screen(s) in a real browser,
+3. Start the dev server, screenshot the changed screen(s) in a real browser
+   **in both themes** (`localStorage.theme = "dark"`, then reload),
    check for zero `pageerror`/console errors — don't rely on the build passing
    alone; the dynamic-class-interpolation bug above passed the build fine and
    only showed up visually.

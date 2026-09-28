@@ -31,18 +31,18 @@ export const HUE_SOFT = {
    added Block opens with.
    ========================================================================= */
 export const BLOCK_TYPES = {
-  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "scramble", "wordweb", "youtube", "slidedeck"], starter: ["passage"] },
-  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "video", "youtube", "slidedeck", "quiz", "gapfill"], starter: ["listening"] },
-  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing", "slidedeck"], starter: ["scenario"] },
-  writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
-  grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill", "arrowcorrection", "correctincorrect", "dialoguecompletion", "slidedeck"], starter: ["timeline"] },
-  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50", components: ["wordlist", "flashcards", "match", "wordformation", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword", "slidedeck"], starter: ["wordlist", "flashcards"] },
-  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50",   components: ["gapfill", "match", "wordformation", "quiz", "flashcards", "memory", "scramble", "arrowcorrection", "correctincorrect", "dialoguecompletion", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
-  playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
-  homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
+  reading:    { label: "Reading",    icon: BookOpen,    tone: "text-sky-600 bg-sky-50 dark:bg-sky-950 dark:text-sky-400",      components: ["passage", "comprehension", "gapfill", "scramble", "wordweb", "youtube", "slidedeck"], starter: ["passage"] },
+  listening:  { label: "Listening",  icon: Headphones,  tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", components: ["listening", "video", "youtube", "slidedeck", "quiz", "gapfill"], starter: ["listening"] },
+  speaking:   { label: "Speaking",   icon: Mic,          tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",     components: ["scenario", "video", "youtube", "speakingRecord", "shadowing", "slidedeck"], starter: ["scenario"] },
+  writing:    { label: "Writing",    icon: NotebookPen, tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",     components: ["homework", "upload", "gapfill", "scramble"], starter: ["homework"] },
+  grammar:    { label: "Grammar",    icon: Shapes,       tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400", components: ["timeline", "sentence", "preposition", "conjugation", "conditional", "comparison", "wordweb", "quiz", "gapfill", "arrowcorrection", "correctincorrect", "dialoguecompletion", "slidedeck"], starter: ["timeline"] },
+  vocabulary: { label: "Vocabulary", icon: Layers,       tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", components: ["wordlist", "flashcards", "match", "wordformation", "quiz", "memory", "wordweb", "gapfill", "crossword", "wheel", "wordsearch", "imagetoword", "slidedeck"], starter: ["wordlist", "flashcards"] },
+  practice:   { label: "Practice",   icon: PenTool,      tone: "text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400",   components: ["gapfill", "match", "wordformation", "quiz", "flashcards", "memory", "scramble", "arrowcorrection", "correctincorrect", "dialoguecompletion", "speedround", "crossword", "wheel", "wordsearch", "imagetoword"], starter: ["gapfill", "match"] },
+  playground: { label: "Playground", icon: Gamepad2,     tone: "text-purple-600 bg-purple-50 dark:bg-purple-950 dark:text-purple-400", components: ["crossword", "memory", "speedround", "match", "wordweb", "wheel", "wordsearch", "imagetoword"], starter: ["crossword"], description: "Gamified vocabulary challenges, Word Tower & interactive puzzles." },
+  homework:   { label: "Homework",   icon: ClipboardCheck, tone: "text-orange-600 bg-orange-50 dark:bg-orange-950 dark:text-orange-400", components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Revision the student completes at home after the lesson." },
   // Third-party material embedded by link — not authored in Block Studio
   // itself, unlike every other block type here.
-  resources:  { label: "Resources",  icon: FileText,     tone: "text-slate-600 bg-slate-100",  components: ["document", "youtube", "slidedeck"], starter: ["document"], description: "Embed outside material — a PDF, Word doc, image, slide deck, or YouTube video." },
+  resources:  { label: "Resources",  icon: FileText,     tone: "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300",  components: ["document", "youtube", "slidedeck"], starter: ["document"], description: "Embed outside material — a PDF, Word doc, image, slide deck, or YouTube video." },
   // One generic block for H5P's entire content-type catalog (60+ types —
   // Crossword, Branching Scenario, Course Presentation, Drag the Words,
   // Interactive Video …). The block never lists or knows about individual
@@ -50,22 +50,22 @@ export const BLOCK_TYPES = {
   // block only ever holds a reference to what she built there. See
   // components: ["h5pActivity"] — deliberately one component kind, not one
   // per H5P type, so this block's schema never grows when H5P adds a type.
-  h5p:        { label: "Interactive (H5P)", icon: Puzzle, tone: "text-cyan-700 bg-cyan-50",  components: ["h5pActivity"], starter: ["h5pActivity"], description: "Any H5P activity — crosswords, branching scenarios, drag-the-words, interactive video and more — built in H5P's own editor, played back here." },
+  h5p:        { label: "Interactive (H5P)", icon: Puzzle, tone: "text-cyan-700 bg-cyan-50 dark:bg-cyan-950 dark:text-cyan-400",  components: ["h5pActivity"], starter: ["h5pActivity"], description: "Any H5P activity — crosswords, branching scenarios, drag-the-words, interactive video and more — built in H5P's own editor, played back here." },
   // IELTS-specific: writing and speaking split by task/part, since each
   // has its own timing, rubric and structure — unlike General English.
-  ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50", components: ["listening", "youtube", "quiz", "gapfill"], starter: ["listening"] },
-  ieltsReading:   { label: "Reading",            icon: BookOpen,    tone: "text-sky-600 bg-sky-50",      components: ["passage", "comprehension", "gapfill", "youtube"], starter: ["passage"] },
-  ieltsWriting1:  { label: "Writing Task 1",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload"], starter: ["homework"], description: "Describe visual data (graph, chart, process) in 150+ words." },
-  ieltsWriting2:  { label: "Writing Task 2",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload"], starter: ["homework"], description: "Essay responding to a prompt, 250+ words." },
-  ieltsSpeaking1: { label: "Speaking Part 1",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Short interview questions about familiar topics." },
-  ieltsSpeaking2: { label: "Speaking Part 2",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord", "shadowing"], starter: ["scenario"], description: "The long turn — speak for 2 minutes on a cue-card topic." },
-  ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
+  ieltsListening: { label: "Listening",          icon: Headphones,  tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", components: ["listening", "youtube", "quiz", "gapfill"], starter: ["listening"] },
+  ieltsReading:   { label: "Reading",            icon: BookOpen,    tone: "text-sky-600 bg-sky-50 dark:bg-sky-950 dark:text-sky-400",      components: ["passage", "comprehension", "gapfill", "youtube"], starter: ["passage"] },
+  ieltsWriting1:  { label: "Writing Task 1",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    components: ["homework", "upload"], starter: ["homework"], description: "Describe visual data (graph, chart, process) in 150+ words." },
+  ieltsWriting2:  { label: "Writing Task 2",     icon: NotebookPen, tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    components: ["homework", "upload"], starter: ["homework"], description: "Essay responding to a prompt, 250+ words." },
+  ieltsSpeaking1: { label: "Speaking Part 1",    icon: Mic,          tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Short interview questions about familiar topics." },
+  ieltsSpeaking2: { label: "Speaking Part 2",    icon: Mic,          tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    components: ["scenario", "speakingRecord", "shadowing"], starter: ["scenario"], description: "The long turn — speak for 2 minutes on a cue-card topic." },
+  ieltsSpeaking3: { label: "Speaking Part 3",    icon: Mic,          tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    components: ["scenario", "speakingRecord"], starter: ["scenario"], description: "Two-way discussion on abstract, related themes." },
   // Business English: swaps generic Writing for correspondence practice.
-  businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
+  businessWriting: { label: "Business Writing", icon: Mail,        tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    components: ["homework", "upload", "gapfill"], starter: ["homework"], description: "Emails, reports, and professional correspondence." },
   // Deliberately narrow — one signature Component, not a grab-bag — so what
   // this Block is FOR stays legible at a glance. Low priority: offered last
   // in every template and its own category, rather than removed.
-  peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50",       components: ["peertask"], starter: ["peertask"], description: "Group work, not solo or whole-class — an info-gap for any group size, or a Kahoot-style team quiz race." },
+  peerwork:      { label: "Peer work", icon: Handshake,        tone: "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400",       components: ["peertask"], starter: ["peertask"], description: "Group work, not solo or whole-class — an info-gap for any group size, or a Kahoot-style team quiz race." },
 };
 
 // A single, safe-fallback lookup for a Block type's display metadata — every
@@ -73,7 +73,7 @@ export const BLOCK_TYPES = {
 // reaching into BLOCK_TYPES directly, so an unknown/removed type never
 // crashes a render and every fallback style matches everywhere.
 export function blockMeta(type) {
-  return BLOCK_TYPES[type] || { label: type, icon: Shapes, tone: "text-slate-600 bg-slate-100" };
+  return BLOCK_TYPES[type] || { label: type, icon: Shapes, tone: "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300" };
 }
 
 // Groups Block *types* into the categories a teacher actually thinks in when

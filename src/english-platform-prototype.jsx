@@ -6,6 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { StoreProvider, useStore } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
+import { useTheme } from "./theme.js";
 import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost } from "./design-system.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
@@ -95,7 +96,7 @@ function AppShell() {
 
 function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   const navigate = useNavigate();
-  const { toast } = useStore();
+  const [theme, setTheme] = useTheme();
   // `collapsed` is a manual override forcing icon-only at any width; without
   // it, the existing sm: breakpoint still decides (icon-only under sm,
   // labeled at sm+).
@@ -109,7 +110,7 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
     // click — exactly the case every desktop app with a foldable sidebar
     // (VS Code, Slack, Notion) already animates this same way, and leaving
     // it an instant snap read as broken rather than restrained.
-    <aside className={`${collapsed ? "w-16" : "w-16 sm:w-64"} shrink-0 bg-white flex flex-col h-screen sticky top-0 transition-[width] duration-(--dur-base) ease-soft-out overflow-hidden`}>
+    <aside className={`${collapsed ? "w-16" : "w-16 sm:w-64"} shrink-0 bg-neutral-50 flex flex-col h-screen sticky top-0 transition-[width] duration-(--dur-base) ease-soft-out overflow-hidden`}>
       <div className="h-16 flex items-center gap-2.5 px-4">
         <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white shrink-0"><IconSparkles size={18} stroke={1.75} /></div>
         {showLabels && (
@@ -144,10 +145,16 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
           active={pathname.startsWith("/help")} onClick={() => navigate("/help")} />
         {showLabels && (
           <div className="hidden sm:block mt-2">
-            <SegmentedToggle value="light" options={LIGHT_DARK_OPTIONS}
-              onChange={(v) => v === "dark" && toast("Dark mode isn't available in this prototype yet")} />
+            <SegmentedToggle value={theme} options={LIGHT_DARK_OPTIONS} onChange={setTheme} />
           </div>
         )}
+        {/* The Light/Dark pill only fits the labeled rail — the icon-only
+            rail (collapsed, or any screen under sm) gets a single row that
+            flips to the other theme instead, so switching is never lost. */}
+        <div className={collapsed ? "" : "sm:hidden"} title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+          <NavItem icon={theme === "dark" ? IconSun : IconMoon} label={<span className="hidden">{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
+            collapsed={collapsed} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} />
+        </div>
       </div>
     </aside>
   );
@@ -160,7 +167,7 @@ function TopBar({ pathname, onStartLive }) {
     levelTests: "Level tests", insights: "AI Insights", settings: "Setting", help: "Help & Support",
   };
   return (
-    <div className="h-16 bg-white/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
+    <div className="h-16 bg-neutral-50/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>

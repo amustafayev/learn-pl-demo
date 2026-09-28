@@ -57,7 +57,7 @@ function LibraryHome({ tab, children }) {
       <div className="flex gap-1.5 mb-6 bg-neutral-100 rounded-xl p-1 w-fit">
         {LIBRARY_TABS.map(([id, label]) => (
           <button key={id} onClick={() => navigate(`/library/${id}`)}
-            className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${tab === id ? "bg-white shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
+            className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition-colors ${tab === id ? "bg-surface shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
         ))}
       </div>
       {children}
@@ -96,7 +96,7 @@ function ReadingList({ open }) {
       <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>Reading texts · grouped by topic & level</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.texts.map((t) => (
-          <button key={t.id} onClick={() => open(t.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
+          <button key={t.id} onClick={() => open(t.id)} className="text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
             <div className="flex items-center justify-between mb-3">
               <Tag color="neutral">{t.topic}</Tag>
               <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
@@ -154,7 +154,7 @@ function WordSetsList({ open }) {
       <SectionLabel>Category word sets</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {state.wordSets.map((ws) => (
-          <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
+          <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
             <div className="flex items-center justify-between mb-3">
               <Tag color="primary">{ws.category}</Tag>
               <span className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center"><IconStack2 size={16} stroke={1.75} /></span>
@@ -191,7 +191,7 @@ function WordSetPanel({ setId, back }) {
 
       <div className="flex gap-1.5 mb-5 bg-neutral-100 rounded-xl p-1 w-fit">
         {[["flash", "Flashcards"], ["match", "Drag & drop"], ["test", "Auto-test"]].map(([id, label]) => (
-          <button key={id} onClick={() => setMode(id)} className={`text-sm font-semibold rounded-lg px-4 py-1.5 ${mode === id ? "bg-white shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
+          <button key={id} onClick={() => setMode(id)} className={`text-sm font-semibold rounded-lg px-4 py-1.5 ${mode === id ? "bg-surface shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
         ))}
       </div>
 
@@ -211,7 +211,7 @@ function Flashcards({ words }) {
   return (
     <div className="max-w-md">
       <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
-        className="w-full h-48 rounded-2xl border border-neutral-200 bg-white shadow-sm flex flex-col items-center justify-center gap-1.5 hover:border-primary-300 transition-colors px-6 cursor-pointer">
+        className="w-full h-48 rounded-2xl border border-neutral-200 bg-surface shadow-sm flex flex-col items-center justify-center gap-1.5 hover:border-primary-300 transition-colors px-6 cursor-pointer">
         {flip ? (
           <>
             {wd.def && <span className="text-base font-medium text-neutral-600 text-center">{wd.def}</span>}

@@ -167,10 +167,11 @@ export default function Insights() {
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                <XAxis dataKey="wk" tick={{ fontSize: 11, fill: "#8c8c8c" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#8c8c8c" }} axisLine={false} tickLine={false} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-neutral-200)" />
+                <XAxis dataKey="wk" tick={{ fontSize: 11, fill: "var(--color-neutral-600)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-neutral-600)" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-neutral-400)", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "var(--color-neutral-950)" }} />
                 {CONCEPT_TRENDS.map((c, i) => <Line key={c.concept} dataKey={c.concept} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={{ r: 2 }} />)}
               </LineChart>
             </ResponsiveContainer>
@@ -195,14 +196,14 @@ export default function Insights() {
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                <XAxis type="number" dataKey="effort" name="streak" unit="d" tick={{ fontSize: 11, fill: "#8c8c8c" }} axisLine={false} tickLine={false} />
-                <YAxis type="number" dataKey="outcome" name="CEFR Δ" tick={{ fontSize: 11, fill: "#8c8c8c" }} axisLine={false} tickLine={false} />
-                <ReferenceLine y={0.15} stroke="#e5e5e5" strokeDasharray="4 4" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-neutral-200)" />
+                <XAxis type="number" dataKey="effort" name="streak" unit="d" tick={{ fontSize: 11, fill: "var(--color-neutral-600)" }} axisLine={false} tickLine={false} />
+                <YAxis type="number" dataKey="outcome" name="CEFR Δ" tick={{ fontSize: 11, fill: "var(--color-neutral-600)" }} axisLine={false} tickLine={false} />
+                <ReferenceLine y={0.15} stroke="var(--color-neutral-400)" strokeDasharray="4 4" />
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   const d = payload[0].payload;
-                  return <div className="bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs shadow-md"><b>{d.name}</b><br />streak {d.effort}d · CEFR +{d.outcome}</div>;
+                  return <div className="bg-surface border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs shadow-md"><b>{d.name}</b><br />streak {d.effort}d · CEFR +{d.outcome}</div>;
                 }} />
                 <Scatter data={scatterData}>
                   {scatterData.map((d, i) => <Cell key={i} fill={d.atRisk ? "#fe4d4f" : "#ff5c20"} />)}

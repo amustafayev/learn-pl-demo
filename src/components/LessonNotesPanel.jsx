@@ -21,7 +21,7 @@ export function LessonNotesButton({ onOpen, hasNotes }) {
   return (
     <button onClick={onOpen} title="Lesson notes"
       className={`relative inline-flex items-center gap-1.5 text-sm font-semibold rounded-lg px-3.5 py-2 border transition duration-(--dur-fast) ${
-        hasNotes ? "border-pending-200 bg-pending-50 text-pending-700 hover:bg-pending-100" : "border-neutral-300 hover:border-primary-300 text-neutral-700 bg-white"}`}>
+        hasNotes ? "border-pending-200 bg-pending-50 text-pending-700 hover:bg-pending-100" : "border-neutral-300 hover:border-primary-300 text-neutral-700 bg-surface"}`}>
       <NotebookText size={15} /> Notes
       {hasNotes && <span className="w-1.5 h-1.5 rounded-full bg-pending-500" />}
     </button>

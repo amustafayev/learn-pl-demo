@@ -52,43 +52,43 @@ const TOPBAR_H = 64;
 
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
-  passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50",      hint: "A tappable text with translations and saved words" },
-  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50", hint: "Multiple-choice questions checked against a passage" },
-  wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50", hint: "Term, translation, definition and example, in a list" },
-  flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50", hint: "Flip cards, one word at a time, for quick recall" },
-  match:      { label: "Drag & drop match",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50", hint: "Pair each word with its translation or picture" },
-  memory:     { label: "Memory match",          icon: Grid2x2,           tone: "text-pink-600 bg-pink-50",    hint: "Flip-and-match pairs game for vocabulary" },
-  crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50",    hint: "Classic crossword built from a word + clue list" },
-  wheel:      { label: "Wheel of Fortune",       icon: Dices,             tone: "text-purple-600 bg-purple-50", hint: "Spin for a random word prompt — low-stakes speaking warm-up" },
-  wordsearch: { label: "Word Search Grid",       icon: Grid3x3,           tone: "text-emerald-600 bg-emerald-50", hint: "Find hidden words in a letter grid" },
-  imagetoword:{ label: "Picture to Word Match",  icon: Image,             tone: "text-indigo-600 bg-indigo-50", hint: "Match an emoji/picture to the English word" },
-  timeline:   { label: "Tense timeline",        icon: Shapes,            tone: "text-emerald-600 bg-emerald-50", hint: "Visual timeline showing when a tense is used" },
-  sentence:   { label: "Colour-coded sentence", icon: Shapes,            tone: "text-emerald-600 bg-emerald-50", hint: "One colour per grammar role, applied to a real sentence" },
-  preposition:{ label: "Preposition scene",     icon: MapPin,            tone: "text-sky-600 bg-sky-50",      hint: "Pick the right preposition for a pictured scene" },
-  conjugation:{ label: "Conjugation wheel",     icon: RotateCw,          tone: "text-blue-600 bg-blue-50",    hint: "One verb conjugated across every tense, on a wheel" },
-  conditional:{ label: "Conditional flow",      icon: GitBranch,         tone: "text-amber-600 bg-amber-50",  hint: "If/then branches for conditional sentence types" },
-  comparison: { label: "Comparison ladder",     icon: TrendingUp,        tone: "text-lime-600 bg-lime-50",    hint: "Positive → comparative → superlative, side by side" },
-  wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50", hint: "A central word branching into related phrases" },
-  quiz:       { label: "Quiz (multiple choice)",icon: FileQuestion,      tone: "text-orange-600 bg-orange-50", hint: "Classic multiple-choice question set" },
-  gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50",  hint: "Type the missing word into a sentence" },
-  wordformation: { label: "Word formation",     icon: Shapes,            tone: "text-indigo-600 bg-indigo-50", hint: "Transform a root word into the form a sentence needs (decide → decision)" },
-  scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50",    hint: "Unscramble jumbled sentences in the right order" },
-  arrowcorrection: { label: "Arrow correction", icon: CornerDownRight,   tone: "text-rose-600 bg-rose-50",    hint: "Find the mistake in a sentence and correct it" },
-  correctincorrect: { label: "Correct or incorrect", icon: CheckCheck,   tone: "text-emerald-600 bg-emerald-50", hint: "Judge whether a sentence is grammatically correct" },
-  dialoguecompletion: { label: "Dialogue completion", icon: MessageSquare, tone: "text-blue-600 bg-blue-50",  hint: "Fill in the missing turns of a short dialogue" },
-  speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50",      hint: "Timed multiple-choice round for quick recall practice" },
-  video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50",    hint: "A short clip with a transcript to reveal" },
-  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50", hint: "An audio clip with a transcript to reveal" },
-  youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50",      hint: "Embed a real YouTube video with your own notes" },
-  scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50",    hint: "A real-life conversation to role-play, turn by turn" },
-  speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50",    hint: "Student records an answer, gets simulated AI feedback" },
-  shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50",    hint: "Listen to a model sentence, then repeat it aloud" },
-  homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100", hint: "A writing prompt with a minimum sentence count" },
-  upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100", hint: "Student uploads a file (PDF/Word/etc.) for review" },
-  slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
-  document:   { label: "Document (PDF/Word/Image)", icon: FileText,      tone: "text-slate-600 bg-slate-100", hint: "Embed a hosted PDF, Word doc, or image by link" },
+  passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50 dark:bg-sky-950 dark:text-sky-400",      hint: "A tappable text with translations and saved words" },
+  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50 dark:bg-orange-950 dark:text-orange-400", hint: "Multiple-choice questions checked against a passage" },
+  wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Term, translation, definition and example, in a list" },
+  flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Flip cards, one word at a time, for quick recall" },
+  match:      { label: "Drag & drop match",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-950 dark:text-fuchsia-400", hint: "Pair each word with its translation or picture" },
+  memory:     { label: "Memory match",          icon: Grid2x2,           tone: "text-pink-600 bg-pink-50 dark:bg-pink-950 dark:text-pink-400",    hint: "Flip-and-match pairs game for vocabulary" },
+  crossword:  { label: "Crossword",             icon: Grid3x3,           tone: "text-lime-600 bg-lime-50 dark:bg-lime-950 dark:text-lime-400",    hint: "Classic crossword built from a word + clue list" },
+  wheel:      { label: "Wheel of Fortune",       icon: Dices,             tone: "text-purple-600 bg-purple-50 dark:bg-purple-950 dark:text-purple-400", hint: "Spin for a random word prompt — low-stakes speaking warm-up" },
+  wordsearch: { label: "Word Search Grid",       icon: Grid3x3,           tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400", hint: "Find hidden words in a letter grid" },
+  imagetoword:{ label: "Picture to Word Match",  icon: Image,             tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Match an emoji/picture to the English word" },
+  timeline:   { label: "Tense timeline",        icon: Shapes,            tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400", hint: "Visual timeline showing when a tense is used" },
+  sentence:   { label: "Colour-coded sentence", icon: Shapes,            tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400", hint: "One colour per grammar role, applied to a real sentence" },
+  preposition:{ label: "Preposition scene",     icon: MapPin,            tone: "text-sky-600 bg-sky-50 dark:bg-sky-950 dark:text-sky-400",      hint: "Pick the right preposition for a pictured scene" },
+  conjugation:{ label: "Conjugation wheel",     icon: RotateCw,          tone: "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400",    hint: "One verb conjugated across every tense, on a wheel" },
+  conditional:{ label: "Conditional flow",      icon: GitBranch,         tone: "text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400",  hint: "If/then branches for conditional sentence types" },
+  comparison: { label: "Comparison ladder",     icon: TrendingUp,        tone: "text-lime-600 bg-lime-50 dark:bg-lime-950 dark:text-lime-400",    hint: "Positive → comparative → superlative, side by side" },
+  wordweb:    { label: "Word web",              icon: Share2,            tone: "text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-950 dark:text-fuchsia-400", hint: "A central word branching into related phrases" },
+  quiz:       { label: "Quiz (multiple choice)",icon: FileQuestion,      tone: "text-orange-600 bg-orange-50 dark:bg-orange-950 dark:text-orange-400", hint: "Classic multiple-choice question set" },
+  gapfill:    { label: "Fill the gaps",         icon: PenTool,           tone: "text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400",  hint: "Type the missing word into a sentence" },
+  wordformation: { label: "Word formation",     icon: Shapes,            tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Transform a root word into the form a sentence needs (decide → decision)" },
+  scramble:   { label: "Sentence scramble",     icon: Shuffle,           tone: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950 dark:text-cyan-400",    hint: "Unscramble jumbled sentences in the right order" },
+  arrowcorrection: { label: "Arrow correction", icon: CornerDownRight,   tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    hint: "Find the mistake in a sentence and correct it" },
+  correctincorrect: { label: "Correct or incorrect", icon: CheckCheck,   tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400", hint: "Judge whether a sentence is grammatically correct" },
+  dialoguecompletion: { label: "Dialogue completion", icon: MessageSquare, tone: "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400",  hint: "Fill in the missing turns of a short dialogue" },
+  speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400",      hint: "Timed multiple-choice round for quick recall practice" },
+  video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    hint: "A short clip with a transcript to reveal" },
+  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", hint: "An audio clip with a transcript to reveal" },
+  youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400",      hint: "Embed a real YouTube video with your own notes" },
+  scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    hint: "A real-life conversation to role-play, turn by turn" },
+  speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    hint: "Student records an answer, gets simulated AI feedback" },
+  shadowing:  { label: "Shadowing (repeat after)", icon: Repeat2,        tone: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950 dark:text-cyan-400",    hint: "Listen to a model sentence, then repeat it aloud" },
+  homework:   { label: "Homework",              icon: ClipboardList,     tone: "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300", hint: "A writing prompt with a minimum sentence count" },
+  upload:     { label: "File upload",           icon: FileUp,            tone: "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300", hint: "Student uploads a file (PDF/Word/etc.) for review" },
+  slidedeck:  { label: "Slide deck",            icon: MonitorPlay,       tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", hint: "Embed a Google Slides, Canva or PowerPoint deck by link" },
+  document:   { label: "Document (PDF/Word/Image)", icon: FileText,      tone: "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300", hint: "Embed a hosted PDF, Word doc, or image by link" },
   h5pActivity: H5P_ACTIVITY_META,
-  peertask:     { label: "Group work",                icon: Handshake,     tone: "text-blue-600 bg-blue-50",     hint: "Info-gap/jigsaw for any group size, or a Kahoot-style team quiz race" },
+  peertask:     { label: "Group work",                icon: Handshake,     tone: "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400",     hint: "Info-gap/jigsaw for any group size, or a Kahoot-style team quiz race" },
 };
 
 // Groups COMPONENT_META into the categories a teacher actually thinks in —
@@ -704,7 +704,7 @@ export default function BlockStudio() {
 
           Stuck at top-0 (not top-16, the topbar's own height) on purpose,
           with a plain TOPBAR_H spacer standing in for the topbar's own
-          content: the topbar is translucent (bg-white/80 backdrop-blur —
+          content: the topbar is translucent (bg-neutral-50/80 backdrop-blur —
           intentional everywhere else, an iOS-style frosted toolbar), and
           this page's own content is tall and strongly colored (the orange-
           bordered preview card). A sticky element only ever blocks what's
@@ -904,7 +904,7 @@ export default function BlockStudio() {
                                   <>
                                     {c.level !== undefined && (
                                       <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                                        title="Level" className="mr-1 h-8 rounded-lg border border-neutral-400 bg-white px-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
+                                        title="Level" className="mr-1 h-8 rounded-lg border border-neutral-400 bg-surface px-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
                                         {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
                                       </select>
                                     )}
@@ -919,7 +919,7 @@ export default function BlockStudio() {
                                     <Button size="sm" className="ml-1" onClick={() => selectComponent(null)}><IconCheck size={14} stroke={1.75} /> Done</Button>
                                   </>
                                 } />
-                                <div className="rounded-[14px] border-2 border-primary-500 bg-white p-4 sm:p-5 shadow-md">
+                                <div className="rounded-[14px] border-2 border-primary-500 bg-surface p-4 sm:p-5 shadow-md">
                                   <ErrorBoundary resetKey={c}>
                                     <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
                                       passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
@@ -950,7 +950,7 @@ export default function BlockStudio() {
                   })}
                   {!components.length && (
                     <button onClick={() => openPicker(0)}
-                      className="w-full rounded-[14px] border-2 border-dashed border-neutral-400 bg-white p-12 text-center text-neutral-600 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
+                      className="w-full rounded-[14px] border-2 border-dashed border-neutral-400 bg-surface p-12 text-center text-neutral-600 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
                       <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-500" />
                       <div className="text-sm font-medium">This block is empty — add your first component</div>
                     </button>
@@ -1095,7 +1095,7 @@ function AddSlot({ active, onClick }) {
       <div className={`absolute inset-x-0 top-1/2 border-t transition-colors duration-(--dur-fast) ${active ? "border-primary-300" : "border-neutral-400 group-hover:border-primary-300"}`} />
       <button onClick={onClick}
         className={`relative z-10 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition duration-(--dur-fast) active:scale-[0.97] ${
-          active ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-400 bg-white text-neutral-700 hover:border-primary-300 hover:text-primary-600"}`}>
+          active ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-400 bg-surface text-neutral-700 hover:border-primary-300 hover:text-primary-600"}`}>
         <Plus size={14} /> Add component
       </button>
     </div>
@@ -1152,7 +1152,7 @@ function StudentStep({ component, components, showLevel = true, style, className
 function FocusButton({ onClick }) {
   return (
     <button type="button" onClick={onClick} title="Focus mode — show this activity full screen"
-      className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-neutral-700 transition-colors duration-(--dur-fast) hover:bg-white hover:text-neutral-950">
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-neutral-700 transition-colors duration-(--dur-fast) hover:bg-surface hover:text-neutral-950">
       <IconMaximize size={16} stroke={1.75} /> Focus
     </button>
   );
@@ -1191,7 +1191,7 @@ function FocusBars({ block, components, index, onGo, onClose }) {
   }, [index, components.length, onGo, onClose]);
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-neutral-400 bg-white px-5 sm:px-8 flex items-center gap-4 animate-fade-rise">
+      <div className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-neutral-400 bg-surface px-5 sm:px-8 flex items-center gap-4 animate-fade-rise">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${M.tone}`}><Icon size={18} /></span>
         <div className="min-w-0">
           <div className="truncate text-base font-semibold text-neutral-950">{M.label}</div>
@@ -1207,7 +1207,7 @@ function FocusBars({ block, components, index, onGo, onClose }) {
           <Button size="sm" variant="light" className="whitespace-nowrap" onClick={onClose}><IconX size={15} stroke={1.75} /> Exit focus</Button>
         </div>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-[60] h-16 border-t border-neutral-400 bg-white px-5 sm:px-8 flex items-center justify-between gap-4">
+      <div className="fixed inset-x-0 bottom-0 z-[60] h-16 border-t border-neutral-400 bg-surface px-5 sm:px-8 flex items-center justify-between gap-4">
         <Button size="sm" variant={index === 0 ? "disabled" : "outline"} disabled={index === 0} onClick={() => onGo(index - 1)}>
           <IconArrowLeft size={15} stroke={1.75} /> Previous
         </Button>
@@ -1249,7 +1249,7 @@ function StepHeading({ component, linked, right, showLevel = true }) {
 function StepTool({ title, onClick, disabled, danger, children }) {
   return (
     <button type="button" title={title} aria-label={title} disabled={disabled} onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors duration-(--dur-fast) hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent ${danger ? "hover:text-warning-600" : "hover:text-neutral-950"}`}>
+      className={`flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors duration-(--dur-fast) hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent ${danger ? "hover:text-warning-600" : "hover:text-neutral-950"}`}>
       {children}
     </button>
   );
@@ -1404,7 +1404,7 @@ function FlashcardsComponent({ component }) {
   return (
     <div className="">
       <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
-        className="w-full h-44 rounded-[14px] border border-neutral-400 bg-white flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500">
+        className="w-full h-44 rounded-[14px] border border-neutral-400 bg-surface flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500">
         {flip ? (
           <>
             {wd.def && <span className="text-base text-neutral-600 text-center px-4">{wd.def}</span>}
@@ -1479,7 +1479,7 @@ function MatchGrid({ rows, leftLabel, rightLabel, big = false, instructions = "P
     if (sel && sel.side === side && sel.id === id) return "border-primary-500 bg-primary-50 text-neutral-950 ring-2 ring-primary-100";
     const inviting = sel && sel.side !== side ? "border-primary-300" : "";
     return side === "left"
-      ? `${inviting || "border-neutral-400"} bg-white text-neutral-900 hover:border-primary-300`
+      ? `${inviting || "border-neutral-400"} bg-surface text-neutral-900 hover:border-primary-300`
       : `${inviting || "border-transparent"} bg-neutral-200 text-neutral-900 hover:border-primary-300`;
   };
   const tile = (side, r, label) => {
@@ -1533,7 +1533,7 @@ function WheelComponent({ component }) {
       <div className="relative mx-auto w-52 h-52">
         <div className="absolute -top-1 left-1/2 -tranneutral-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-neutral-800" />
         <button onClick={spin} aria-label="Spin the vocabulary wheel" className="w-full h-full rounded-full border-8 border-white shadow-lg transition-transform duration-(--dur-deliberate) ease-soft-out" style={{ background: `conic-gradient(${slices})`, transform: `rotate(${turn * 720}deg)` }}>
-          <span className="absolute inset-[35%] rounded-full bg-white shadow flex items-center justify-center text-xs font-bold text-info-700">SPIN</span>
+          <span className="absolute inset-[35%] rounded-full bg-surface shadow flex items-center justify-center text-xs font-bold text-info-700">SPIN</span>
         </button>
       </div>
       <Button className="mt-5" onClick={spin} disabled={!items.length}><Dices size={14} /> Spin the wheel</Button>
@@ -1698,7 +1698,7 @@ function ComprehensionMatch({ pairs }) {
 // to word size, taking the field error/success colors once checked (and the
 // info color when "Show answers" filled it in).
 const GAP_STATE = {
-  idle: "bg-neutral-200 border-transparent focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
+  idle: "bg-neutral-200 border-transparent focus:bg-surface focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
   ok: "bg-success-50 border-success-500 text-success-700",
   miss: "bg-warning-50 border-warning-500 text-warning-700",
   shown: "bg-info-50 border-info-500 text-info-700",
@@ -1797,8 +1797,8 @@ function MediaComponent({ component, kind }) {
   return (
     <div className="">
       <Card className="p-0 overflow-hidden">
-        <div className="aspect-video bg-neutral-900 flex items-center justify-center relative">
-          <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-neutral-900">
+        <div className="aspect-video bg-ink flex items-center justify-center relative">
+          <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-ink">
             {kind === "video" ? <Play size={26} className="ml-1" /> : <Volume2 size={26} />}
           </button>
           <span className="absolute bottom-3 right-3 text-xs font-medium text-white/80 tabular-nums">{component.duration}</span>
@@ -1921,7 +1921,7 @@ function YoutubeComponent({ component }) {
   return (
     <div className="">
       <Card className="p-0 overflow-hidden">
-        <div className="aspect-video bg-neutral-900">
+        <div className="aspect-video bg-ink">
           {id ? (
             <iframe className="w-full h-full" src={`https://www.youtube-nocookie.com/embed/${id}`} title={component.title || "YouTube video"}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -2249,7 +2249,7 @@ function UploadComponent({ component }) {
           <>
             {/* The kit's "Add File (ZIP, RAR)*" control: a full-width white
                 button with the hairline border. */}
-            <label className={`h-12 flex items-center justify-center gap-2 rounded-lg border border-neutral-400 bg-white px-4 text-sm font-medium text-neutral-900 hover:border-primary-300 hover:text-primary-700 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-100 ${PRESS}`}>
+            <label className={`h-12 flex items-center justify-center gap-2 rounded-lg border border-neutral-400 bg-surface px-4 text-sm font-medium text-neutral-900 hover:border-primary-300 hover:text-primary-700 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-100 ${PRESS}`}>
               <IconFilePlus size={18} stroke={1.75} className="shrink-0" />
               <span className="truncate">{file ? file.name : `Add file${accept ? ` (${accept})` : ""}`}</span>
               <input type="file" accept={component.accept} className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} />
@@ -2360,7 +2360,7 @@ function ScrambleItem({ item, n, built, onChange, state }) {
         <div className="flex flex-wrap items-center gap-2 mt-3">
           {remaining.map((p) => (
             <button key={p.id} onClick={() => onChange([...built, p])}
-              className={`text-base font-medium rounded-lg px-3 py-1.5 border border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:text-primary-700 ${PRESS}`}>{p.w}</button>
+              className={`text-base font-medium rounded-lg px-3 py-1.5 border border-neutral-400 bg-surface text-neutral-900 hover:border-primary-300 hover:text-primary-700 ${PRESS}`}>{p.w}</button>
           ))}
           {built.length > 0 && (
             <button onClick={() => onChange([])} className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-600 hover:text-neutral-950">
@@ -2458,7 +2458,7 @@ function DialogueCompletionComponent({ component }) {
                   <input value={answers[i] || ""} onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && answers[i]?.trim() && setChecked((c) => ({ ...c, [i]: true }))}
                     placeholder={`Type ${t.speaker}'s line…`} aria-label={`Speaker ${t.speaker}'s line`}
-                    className="flex-1 min-w-0 h-10 rounded-lg border border-primary-300 bg-white px-3 text-base outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
+                    className="flex-1 min-w-0 h-10 rounded-lg border border-primary-300 bg-surface px-3 text-base outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
                   <Button size="sm" onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()}>Check</Button>
                 </div>
               </div>

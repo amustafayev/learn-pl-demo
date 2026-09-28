@@ -161,7 +161,7 @@ export function PrepositionScene({ object = "🐈", anchor = "🗄️", subject 
           <button key={o} role="radio" aria-checked={active === o} onClick={() => { setActive(o); setChecked(false); }}
             className={`text-sm font-medium rounded-lg px-3.5 py-2 border transition-colors duration-(--dur-fast) ${active === o
               ? "border-primary-500 bg-primary-50 text-primary-700"
-              : "border-neutral-400 bg-white text-neutral-700 hover:border-neutral-500 hover:text-neutral-900"}`}>{o}</button>
+              : "border-neutral-400 bg-surface text-neutral-700 hover:border-neutral-500 hover:text-neutral-900"}`}>{o}</button>
         ))}
       </div>
       {/* The sentence reads as the kit's filled answer field. */}
@@ -350,7 +350,7 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-info-100 border border-info-200" /> New</span>
             <span className="inline-flex items-center gap-1.5"><span className="w-4 border-b-2 border-pending-500" /> Learning</span>
-            <span className="inline-flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-white border border-neutral-400" /> Known</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-surface border border-neutral-400" /> Known</span>
           </div>
         )}
       </div>
@@ -374,7 +374,7 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
                 {tok.term}
               </button>
               {open === i && (
-                <span className={`absolute z-10 w-72 bg-white rounded-xl border border-neutral-400 shadow-xl p-4 text-left block text-base leading-normal ${place.up ? "bottom-full mb-1" : "top-full mt-1"} ${place.right ? "right-0" : "left-0"}`}>
+                <span className={`absolute z-10 w-72 bg-surface rounded-xl border border-neutral-400 shadow-xl p-4 text-left block text-base leading-normal ${place.up ? "bottom-full mb-1" : "top-full mt-1"} ${place.right ? "right-0" : "left-0"}`}>
                   <span className="flex items-start justify-between gap-2">
                     <b className="text-neutral-950">{tok.term}</b>
                     {tok.emoji && <span className="text-2xl leading-none" title="picture definition">{tok.emoji}</span>}

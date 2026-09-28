@@ -85,9 +85,9 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 flex flex-col">
-      <div className="h-16 bg-neutral-950 text-white flex items-center justify-between px-5 shrink-0">
+      <div className="h-16 bg-ink text-white flex items-center justify-between px-5 shrink-0">
         <span className="inline-flex items-center gap-2 font-semibold"><IconBroadcast size={18} stroke={1.75} /> Start a live lesson</span>
-        <button onClick={onCancel} className="text-neutral-400 hover:text-white text-sm">Cancel</button>
+        <button onClick={onCancel} className="text-white/60 hover:text-white text-sm">Cancel</button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 sm:p-8">
@@ -257,13 +257,13 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 flex flex-col">
-      <div className="h-16 bg-neutral-950 text-white flex items-center justify-between px-5 shrink-0">
+      <div className="h-16 bg-ink text-white flex items-center justify-between px-5 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
           <span className="inline-flex items-center gap-2 font-semibold shrink-0">
             <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-warning-500" /></span>LIVE
           </span>
-          <span className="tabular-nums text-sm text-neutral-300 inline-flex items-center gap-1.5 shrink-0"><IconClock size={14} stroke={1.75} /> {clock(elapsed)}</span>
-          <span className="hidden md:block text-sm text-neutral-400 truncate">{course?.title} · L{lesson?.n} {lesson?.title}</span>
+          <span className="tabular-nums text-sm text-white/70 inline-flex items-center gap-1.5 shrink-0"><IconClock size={14} stroke={1.75} /> {clock(elapsed)}</span>
+          <span className="hidden md:block text-sm text-white/60 truncate">{course?.title} · L{lesson?.n} {lesson?.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <Tag color="primary" title="Passive behavioural signals (dwell, hesitation, retries) log automatically — separate from voice/screen recording">
@@ -273,7 +273,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
           {rec.voice && <Tag color="warning"><IconMicrophone size={11} stroke={1.75} /> {clock(elapsed)}</Tag>}
           {rec.screen && <Tag color="warning"><IconDeviceDesktop size={11} stroke={1.75} /> screen</Tag>}
           {lesson && (
-            <button onClick={() => setNotesOpen(true)} title="Lesson notes" className="relative text-neutral-300 hover:text-white p-1.5">
+            <button onClick={() => setNotesOpen(true)} title="Lesson notes" className="relative text-white/70 hover:text-white p-1.5">
               <IconNotebook size={17} stroke={1.75} />
               {freshLesson?.teacherNotes?.trim() && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-pending-400" />}
             </button>
@@ -289,7 +289,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
             {/* STAGE — the lesson content the teacher teaches from (what students see) */}
             <div className="lg:col-span-2 overflow-y-auto">
               {/* pathway strip */}
-              <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-neutral-200 px-5 sm:px-8 py-3">
+              <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-neutral-200 px-5 sm:px-8 py-3">
                 <div className="flex items-center gap-2 overflow-x-auto">
                   <button onClick={() => goBlock(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-neutral-100 disabled:opacity-30 shrink-0"><IconChevronLeft size={16} stroke={1.75} /></button>
                   {blocks.map((b, i) => { const BT = blockMeta(b.type); const I = BT.icon || IconSchool; return (
@@ -319,7 +319,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                 <div className="flex items-center gap-2 mb-6">
                   <div className="flex -space-x-2">
                     <div className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-xs font-bold ring-2 ring-white">You</div>
-                    {here.slice(0, 6).map((p) => <div key={p.id} className="w-7 h-7 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xs font-semibold ring-2 ring-white">{initials(p.name)}</div>)}
+                    {here.slice(0, 6).map((p) => <div key={p.id} className="w-7 h-7 rounded-full bg-neutral-800 text-neutral-50 flex items-center justify-center text-xs font-semibold ring-2 ring-white">{initials(p.name)}</div>)}
                   </div>
                   <span className="text-xs text-neutral-600">{together ? `You + ${here.length} here — everyone sees this same page` : `${here.length} learner${here.length === 1 ? "" : "s"} working on this now`}</span>
                 </div>
@@ -330,7 +330,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
             </div>
 
             {/* right rail — tracking, participants, feed */}
-            <div className="border-l border-neutral-200 bg-white overflow-y-auto flex flex-col">
+            <div className="border-l border-neutral-200 bg-surface overflow-y-auto flex flex-col">
               {/* tracking */}
               <div className="p-4 border-b border-neutral-200">
                 <div className="text-base font-semibold text-neutral-950 mb-3">Session tracking</div>

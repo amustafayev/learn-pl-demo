@@ -459,11 +459,11 @@ export function LessonBuilderView() {
           return (
             <div key={b.id} className="relative pl-10">
               {i < blocks.length - 1 && <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-primary-100" />}
-              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-2 border-primary-500 flex items-center justify-center text-xs tabular-nums font-bold text-primary-600 shadow-sm">
+              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-surface border-2 border-primary-500 flex items-center justify-center text-xs tabular-nums font-bold text-primary-600 shadow-sm">
                 {i + 1}
               </div>
 
-              <div className="group bg-white rounded-xl border border-neutral-400 hover:border-primary-300 p-4 transition duration-(--dur-fast) shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="group bg-surface rounded-xl border border-neutral-400 hover:border-primary-300 p-4 transition duration-(--dur-fast) shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <button onClick={() => go({ partId: b.id })} className="flex items-center gap-3.5 min-w-0 flex-1 text-left">
                   <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${BT.tone}`}><I size={18} /></span>
                   <div className="min-w-0 flex-1">

@@ -141,12 +141,12 @@ export function Modal({ open, onClose, title, sub, icon: Icon, count, headerExtr
   useContainedWheel(overlayRef, present);
   if (!present) return null;
   return (
-    <div ref={overlayRef} className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/20 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
+    <div ref={overlayRef} className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-overlay ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
-        className={`bg-white w-full ${MODAL_SIZE[size]} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 ${fill ? "flex flex-col h-[min(720px,85vh)] overflow-hidden" : "max-h-[85vh] overflow-y-auto"} ${open ? "animate-panel-in" : "animate-panel-out"}`}
+        className={`bg-surface w-full ${MODAL_SIZE[size]} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 ${fill ? "flex flex-col h-[min(720px,85vh)] overflow-hidden" : "max-h-[85vh] overflow-y-auto"} ${open ? "animate-panel-in" : "animate-panel-out"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 sticky top-0 z-10 bg-white rounded-t-[14px] border-b border-neutral-400 px-5 pt-5 pb-4">
+        <div className="shrink-0 sticky top-0 z-10 bg-surface rounded-t-[14px] border-b border-neutral-400 px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
             {Icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"><Icon size={20} stroke={1.75} /></span>}
             <div className={`min-w-0 flex-1 ${Icon ? "" : "pt-0.5"}`}>
@@ -161,7 +161,7 @@ export function Modal({ open, onClose, title, sub, icon: Icon, count, headerExtr
           {headerExtra && <div className="mt-4">{headerExtra}</div>}
         </div>
         <div className={`${fill ? "flex-1 min-h-0" : ""} ${bodyClassName}`}>{children}</div>
-        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-400 sticky bottom-0 bg-white rounded-b-[14px]">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-400 sticky bottom-0 bg-surface rounded-b-[14px]">{footer}</div>}
       </div>
     </div>
   );
@@ -181,9 +181,9 @@ export function Drawer({ open, onClose, title, sub, children, width = "max-w-md"
   if (!present) return null;
   return (
     <div className={`fixed inset-0 z-40 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
-      <div className="absolute inset-0 bg-neutral-950/20" />
+      <div className="absolute inset-0 bg-overlay" />
       <div onClick={(e) => e.stopPropagation()}
-        className={`absolute top-0 right-0 h-full w-full ${width} bg-white border-l border-neutral-300 shadow-xl flex flex-col will-change-transform ${open ? "animate-drawer-in" : "animate-drawer-out"}`}
+        className={`absolute top-0 right-0 h-full w-full ${width} bg-surface border-l border-neutral-300 shadow-xl flex flex-col will-change-transform ${open ? "animate-drawer-in" : "animate-drawer-out"}`}
       >
         {(title || sub) && (
           <div className="flex items-start justify-between p-5 border-b border-neutral-200 shrink-0">
@@ -226,7 +226,7 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
             </div>
             {/* visual only — the whole row is already the click target, so
                 this can't be a real nested <button> like Checkbox itself is */}
-            <span className={`flex h-5 w-5 items-center justify-center rounded-md border shrink-0 ${on ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-white"}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-md border shrink-0 ${on ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-surface"}`}>
               {on && <IconCheck size={13} stroke={3} className="text-white" />}
             </span>
           </button>
@@ -255,7 +255,7 @@ export function CategoryPickerGrid({ items, onPick, gridCols = "grid-cols-1 sm:g
         const Icon = item.icon;
         return (
           <button key={item.id} onClick={() => onPick(item.id)}
-            className={`group relative flex items-start gap-3 rounded-lg border border-neutral-400 bg-white p-3.5 text-left transition-colors hover:border-primary-500 hover:bg-primary-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500 ${PRESS}`}>
+            className={`group relative flex items-start gap-3 rounded-lg border border-neutral-400 bg-surface p-3.5 text-left transition-colors hover:border-primary-500 hover:bg-primary-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500 ${PRESS}`}>
             {/* item.icon is whatever set provided the catalog entry (this
                 app's block/component catalogs are still lucide-react,
                 whose stroke-width prop is `strokeWidth` not `stroke` —
@@ -389,9 +389,9 @@ export const PRESS_FLAT = PRESS;
 // 5 fills x {icon-only, label, label+chevron} from the kit's Button sheet.
 const BUTTON_FILL = {
   primary: "bg-primary-500 hover:bg-primary-600 text-white",
-  dark: "bg-neutral-950 hover:bg-black text-white",
+  dark: "bg-neutral-950 hover:bg-neutral-900 text-neutral-50",
   light: "bg-neutral-200 hover:bg-neutral-300 text-neutral-900",
-  outline: "bg-white hover:bg-neutral-200 text-neutral-900 border border-neutral-400",
+  outline: "bg-surface hover:bg-neutral-200 text-neutral-900 border border-neutral-400",
   disabled: "bg-neutral-200 text-neutral-600 cursor-not-allowed",
 };
 const BUTTON_SIZE = {
@@ -444,7 +444,7 @@ export function SocialButton({ icon: Icon, label, onClick, className = "" }) {
 // default (muted placeholder, neutral-100 fill), focus (white fill, orange
 // ring), filled (neutral text, neutral-100 fill), error (rose fill+text).
 const FIELD_STATE = {
-  default: "bg-neutral-200 border-transparent text-neutral-900 placeholder:text-neutral-600 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
+  default: "bg-neutral-200 border-transparent text-neutral-900 placeholder:text-neutral-600 focus:bg-surface focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
   error: "bg-warning-50 border-warning-500 text-warning-700 placeholder:text-warning-400",
 };
 
@@ -486,7 +486,7 @@ export function PasswordField({ state = "default", className = "", ...rest }) {
 export function Select({ className = "", children, ...rest }) {
   return (
     <select
-      className={`w-full h-11 rounded-lg border px-3.5 text-sm outline-none transition-colors bg-neutral-200 border-transparent text-neutral-900 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 ${className}`}
+      className={`w-full h-11 rounded-lg border px-3.5 text-sm outline-none transition-colors bg-neutral-200 border-transparent text-neutral-900 focus:bg-surface focus:border-primary-500 focus:ring-2 focus:ring-primary-100 ${className}`}
       {...rest}
     >
       {children}
@@ -499,11 +499,11 @@ export function SearchField({ shortcut, className = "", ...rest }) {
     <div className={`relative ${className}`}>
       <IconSearch size={16} stroke={1.75} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-600" />
       <input
-        className="w-full h-11 rounded-xl border border-transparent bg-neutral-200 pl-10 pr-14 text-sm text-neutral-900 placeholder:text-neutral-600 outline-none transition-colors focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+        className="w-full h-11 rounded-xl border border-transparent bg-neutral-200 pl-10 pr-14 text-sm text-neutral-900 placeholder:text-neutral-600 outline-none transition-colors focus:bg-surface focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
         {...rest}
       />
       {shortcut && (
-        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-neutral-300 bg-white px-1.5 py-0.5 text-[11px] font-mono text-neutral-600">
+        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-neutral-300 bg-surface px-1.5 py-0.5 text-[11px] font-mono text-neutral-600">
           {shortcut}
         </kbd>
       )}
@@ -535,9 +535,12 @@ export function TagField({ tags = [], onRemove, placeholder = "Add a tag…", cl
 
 /* ---------------------------------------------------------------- Avatar */
 const AVATAR_SIZE = { xs: "h-6 w-6 text-[10px]", sm: "h-8 w-8 text-xs", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-base" };
+// Text color travels with each fill: "dark" is a neutral-950 square, which
+// flips to near-white in dark mode, so its initial must flip to near-black
+// with it rather than stay white-on-white.
 const AVATAR_COLOR = {
-  primary: "bg-primary-500", dark: "bg-neutral-950", info: "bg-info-500",
-  success: "bg-success-500", warning: "bg-warning-500", pending: "bg-pending-500", neutral: "bg-neutral-400",
+  primary: "bg-primary-500 text-white", dark: "bg-neutral-950 text-neutral-50", info: "bg-info-500 text-white",
+  success: "bg-success-500 text-white", warning: "bg-warning-500 text-white", pending: "bg-pending-500 text-white", neutral: "bg-neutral-400 text-white",
 };
 const STATUS_DOT = { online: "bg-success-500", offline: "bg-neutral-400" };
 
@@ -554,9 +557,9 @@ export function Avatar({ src, name, color = "primary", shape = "square", size = 
       {src ? (
         <img src={src} alt={name || ""} className={`${AVATAR_SIZE[size]} ${shapeCls} object-cover`} />
       ) : (
-        <span className={`flex items-center justify-center font-bold text-white ${AVATAR_SIZE[size]} ${shapeCls} ${AVATAR_COLOR[color]}`}>{initial}</span>
+        <span className={`flex items-center justify-center font-bold ${AVATAR_SIZE[size]} ${shapeCls} ${AVATAR_COLOR[color]}`}>{initial}</span>
       )}
-      {status && <span className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${STATUS_DOT[status]}`} />}
+      {status && <span className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface ${STATUS_DOT[status]}`} />}
     </span>
   );
 }
@@ -568,10 +571,10 @@ export function Avatar({ src, name, color = "primary", shape = "square", size = 
 const BADGE_SOLID = {
   primary: "bg-primary-500 text-white", success: "bg-success-500 text-white",
   pending: "bg-pending-500 text-white", warning: "bg-warning-500 text-white",
-  info: "bg-info-500 text-white", neutral: "bg-neutral-800 text-white",
+  info: "bg-info-500 text-white", neutral: "bg-neutral-800 text-neutral-50",
   // A plain descriptor rather than a status (e.g. a CEFR level): white with
   // the kit's hairline, readable on white or gray surfaces alike.
-  outline: "bg-white text-neutral-800 border border-neutral-400",
+  outline: "bg-surface text-neutral-800 border border-neutral-400",
 };
 const TAG_SOFT = {
   primary: "bg-primary-50 text-primary-600 border-primary-500", success: "bg-success-50 text-success-600 border-success-500",
@@ -622,7 +625,7 @@ export function ChatBubble({ onReply, children }) {
     <div className="flex items-start justify-between gap-3 rounded-lg bg-neutral-200 px-4 py-3 text-sm text-neutral-800">
       <span className="flex-1">{children}</span>
       {onReply && (
-        <button onClick={onReply} className="shrink-0 rounded-lg border border-neutral-400 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 hover:bg-neutral-200">
+        <button onClick={onReply} className="shrink-0 rounded-lg border border-neutral-400 bg-surface px-3 py-1.5 text-xs font-semibold text-neutral-900 hover:bg-neutral-200">
           Reply
         </button>
       )}
@@ -635,7 +638,7 @@ export function ChatBubble({ onReply, children }) {
 // caption line under the text (the kit prints the send time there). Meant to
 // sit on a gray `ChatPanel`, exactly as the kit draws them.
 const BUBBLE_SIDE = {
-  them: { row: "justify-start", bubble: "bg-white text-neutral-900", meta: "text-neutral-600" },
+  them: { row: "justify-start", bubble: "bg-surface text-neutral-900", meta: "text-neutral-600" },
   me: { row: "justify-end", bubble: "bg-primary-500 text-white", meta: "text-white/80" },
 };
 export function MessageBubble({ from = "them", meta, children }) {
@@ -707,11 +710,11 @@ export function QuestionFooter({ checked, correct, total, revealed = false, canC
 // One selectable answer in a question — the kit's r8 hairline row, with an
 // optional letter marker. `state` drives the review colors once answered.
 const CHOICE_STATE = {
-  idle: { row: "border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:bg-primary-50", mark: "bg-neutral-200 text-neutral-700" },
+  idle: { row: "border-neutral-400 bg-surface text-neutral-900 hover:border-primary-300 hover:bg-primary-50", mark: "bg-neutral-200 text-neutral-700" },
   selected: { row: "border-primary-500 bg-primary-50 text-neutral-950", mark: "bg-primary-500 text-white" },
   correct: { row: "border-success-500 bg-success-50 text-success-700", mark: "bg-success-500 text-white" },
   wrong: { row: "border-warning-500 bg-warning-50 text-warning-700", mark: "bg-warning-500 text-white" },
-  dimmed: { row: "border-neutral-400 bg-white text-neutral-600", mark: "bg-neutral-200 text-neutral-600" },
+  dimmed: { row: "border-neutral-400 bg-surface text-neutral-600", mark: "bg-neutral-200 text-neutral-600" },
 };
 export function ChoiceOption({ state = "idle", marker, className = "", children, ...rest }) {
   const s = CHOICE_STATE[state] || CHOICE_STATE.idle;
@@ -727,7 +730,7 @@ export function ChoiceOption({ state = "idle", marker, className = "", children,
 
 /* ------------------------------------------------------------------ Card */
 export function Card({ children, className = "", ...rest }) {
-  return <div className={`rounded-[14px] border border-neutral-400 bg-white ${className}`} {...rest}>{children}</div>;
+  return <div className={`rounded-[14px] border border-neutral-400 bg-surface ${className}`} {...rest}>{children}</div>;
 }
 
 export function StatCard({ icon: Icon, label, value, delta, onClick, className = "" }) {
@@ -790,7 +793,7 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
     <Card className={`overflow-hidden !rounded-xl ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm"><Icon size={18} stroke={1.75} /></span>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface shadow-sm"><Icon size={18} stroke={1.75} /></span>}
         </div>
         <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
         {creatorName && (
@@ -848,7 +851,7 @@ export function HeaderCard({ tone = "primary", icon: Icon, iconClassName = "", k
       <div className={`p-5 sm:p-6 rounded-t-[13px] last:rounded-b-[13px] ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            {Icon && <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ${iconClassName}`}><Icon size={20} /></span>}
+            {Icon && <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface shadow-sm ${iconClassName}`}><Icon size={20} /></span>}
             <div className="min-w-0">
               {kicker && <div className="mb-1 truncate text-sm text-neutral-700">{kicker}</div>}
               <Title className="truncate text-2xl font-bold tracking-tight text-neutral-950">{title}</Title>
@@ -874,7 +877,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
     <Card className={`overflow-hidden !rounded-xl ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between gap-2">
-          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
+          {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
           {scheduleLabel && <Tag color="neutral">{scheduleLabel}</Tag>}
         </div>
         <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
@@ -928,7 +931,7 @@ export function ToastHost({ toasts = [], onDismiss }) {
       {entries.map(({ key, item, exiting }) => (
         <div key={key}
           className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg ${exiting ? "animate-toast-out" : "animate-toast-in"} ${
-            item.tone === "err" ? "bg-warning-600 text-white border-warning-700" : "bg-neutral-950 text-white border-neutral-800"}`}>
+            item.tone === "err" ? "bg-warning-600 text-white border-warning-700" : "bg-neutral-950 text-neutral-50 border-neutral-800"}`}>
           {item.text}
           <button onClick={() => onDismiss?.(item.id)} className="opacity-60 hover:opacity-100 transition-opacity duration-(--dur-fast)"><IconX size={14} stroke={1.75} /></button>
         </div>
@@ -989,7 +992,7 @@ export function Checkbox({ checked, onChange, className = "" }) {
   return (
     <button
       onClick={() => onChange?.(!checked)}
-      className={`flex h-5 w-5 items-center justify-center rounded-md border ${PRESS_FLAT} ${checked ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-white"} ${className}`}
+      className={`flex h-5 w-5 items-center justify-center rounded-md border ${PRESS_FLAT} ${checked ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-surface"} ${className}`}
     >
       {checked && <IconCheck size={13} stroke={3} className="text-white" />}
     </button>
@@ -1009,7 +1012,7 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
     // widest label.
     <div className="relative grid grid-flow-col auto-cols-fr w-full rounded-lg border border-neutral-400 bg-neutral-300 p-1">
       <span aria-hidden
-        className="absolute top-1 bottom-1 left-1 rounded bg-white shadow-sm will-change-transform transition-transform duration-(--dur-base) ease-soft-out"
+        className="absolute top-1 bottom-1 left-1 rounded bg-surface shadow-sm will-change-transform transition-transform duration-(--dur-base) ease-soft-out"
         style={{ width: `calc((100% - 0.5rem) / ${options.length})`, transform: `translateX(${index * 100}%)` }} />
       {options.map((o) => (
         <button
@@ -1034,7 +1037,9 @@ export function NavItem({ icon: Icon, label, active, onClick, badge, count, coll
       onClick={onClick}
       className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium ${collapsed ? "justify-center px-0" : "gap-2.5 px-3"} ${PRESS_FLAT} ${active ? "bg-neutral-300 text-neutral-950 font-semibold" : "text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"}`}
     >
-      {Icon && <Icon size={18} stroke={1.75} />}
+      {/* shrink-0: under the sm breakpoint the rail is icon-only without being
+          `collapsed`, and a shrinkable icon was squeezed to 6px by the gap. */}
+      {Icon && <Icon size={18} stroke={1.75} className="shrink-0" />}
       {/* Collapsed: no label markup at all — a flex-1 span still occupies
           layout space even with hidden content, which pinned the icon
           flush-left in the collapsed rail instead of centering it. */}
@@ -1120,7 +1125,7 @@ export function StepNav({ steps, current, onSelect, className = "" }) {
               <button onClick={() => onSelect?.(s.id)} aria-current={active ? "step" : undefined}
                 className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm font-medium ${PRESS} ${active
                   ? "border-primary-500 bg-primary-50 text-primary-700"
-                  : "border-neutral-400 bg-white text-neutral-700 hover:border-neutral-500 hover:text-neutral-950"}`}>
+                  : "border-neutral-400 bg-surface text-neutral-700 hover:border-neutral-500 hover:text-neutral-950"}`}>
                 <span className={`flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold ${active ? "bg-primary-500 text-white" : "bg-neutral-200 text-neutral-700"}`}>{i + 1}</span>
                 {s.label}
               </button>
@@ -1136,7 +1141,7 @@ export function StepNav({ steps, current, onSelect, className = "" }) {
 // "Student 13" in the kit).
 export function CountBadge({ active = false, children }) {
   return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors duration-(--dur-fast) ${active ? "bg-neutral-950 text-white" : "bg-neutral-200 text-neutral-600"}`}>
+    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors duration-(--dur-fast) ${active ? "bg-neutral-950 text-neutral-50" : "bg-neutral-200 text-neutral-600"}`}>
       {children}
     </span>
   );

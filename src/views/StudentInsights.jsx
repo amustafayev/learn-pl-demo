@@ -212,8 +212,8 @@ export default function StudentInsights({ s }) {
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData} outerRadius="70%">
-                <PolarGrid stroke="#e5e5e5" />
-                <PolarAngleAxis dataKey="concept" tick={{ fontSize: 10, fill: "#8c8c8c" }} />
+                <PolarGrid stroke="var(--color-neutral-400)" />
+                <PolarAngleAxis dataKey="concept" tick={{ fontSize: 10, fill: "var(--color-neutral-600)" }} />
                 <Radar dataKey="mastery" stroke="#ff5c20" fill="#ff5c20" fillOpacity={0.35} />
               </RadarChart>
             </ResponsiveContainer>

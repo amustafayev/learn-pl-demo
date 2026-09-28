@@ -170,7 +170,7 @@ function ClassDetailView({ classId }) {
                 {assignOpen && (
                   <>
                     <button className="fixed inset-0 z-[5] cursor-default" onClick={() => setAssignOpen(false)} aria-label="Close menu" />
-                    <div className="absolute right-0 top-10 z-10 w-56 rounded-xl border border-neutral-200 bg-white shadow-lg py-1.5">
+                    <div className="absolute right-0 top-10 z-10 w-56 rounded-xl border border-neutral-200 bg-surface shadow-lg py-1.5">
                       {unassignedCourses.map((c) => (
                         <button key={c.id} onClick={() => assignCourse(c.id)}
                           className="w-full text-left px-3.5 py-2 text-sm text-neutral-700 hover:bg-neutral-50">{c.title}</button>
@@ -192,7 +192,7 @@ function ClassDetailView({ classId }) {
               const current = lessons[currentIndex];
               return (
                 <button key={course.id} onClick={() => go({ tab: "courses", courseId: course.id, classId: cls.id })}
-                  className="w-full text-left bg-white rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
+                  className="w-full text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
                       <div className="font-bold text-neutral-950 truncate">{course.title}</div>
@@ -235,7 +235,7 @@ function ClassDetailView({ classId }) {
                     {others.map((s) => (
                       <button key={s.id}
                         onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                        className={`w-full inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
+                        className={`w-full inline-flex items-center gap-2 rounded-lg bg-surface border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
                         <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
                         <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
                         <Tag color="neutral">{s.level}</Tag>

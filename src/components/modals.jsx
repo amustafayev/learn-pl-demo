@@ -216,7 +216,7 @@ export function AddTextModal({ open, onClose }) {
             onInput={(e) => setIsEmpty(!e.currentTarget.textContent.trim())}
             onMouseUp={handleMouseUp}
             onClick={handleEditorClick}
-            className="rounded-xl border border-neutral-300 bg-neutral-100 p-3.5 leading-relaxed text-sm min-h-[128px] max-h-64 overflow-y-auto outline-none focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors"
+            className="rounded-xl border border-neutral-300 bg-neutral-100 p-3.5 leading-relaxed text-sm min-h-[128px] max-h-64 overflow-y-auto outline-none focus:bg-surface focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors"
           />
         </div>
       </Field>
@@ -224,7 +224,7 @@ export function AddTextModal({ open, onClose }) {
 
       {popover && (
         <div style={{ position: "fixed", top: popover.top, left: popover.left, zIndex: 60 }}
-          className="w-72 bg-white rounded-xl border border-primary-200 shadow-xl p-3 space-y-2">
+          className="w-72 bg-surface rounded-xl border border-primary-200 shadow-xl p-3 space-y-2">
           <div className="text-xs font-semibold text-primary-900 truncate">“{popover.text}”</div>
           <div className="flex items-center gap-1.5">
             {HIGHLIGHT_LIST.map((c) => (
