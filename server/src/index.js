@@ -44,12 +44,21 @@ async function start() {
   // see h5p-custom/theme.css for what's covered and why. This is H5P's own
   // supported override mechanism (config.customization.global.*.styles),
   // not a fork of any vendored file.
+  //
+  // The same list also has to carry core's h5p-fonts.css: the core that
+  // download-assets.sh pulls declares its icon font ("H5P") there instead of
+  // in h5p.css, and h5p-server's hardcoded core stylesheet list
+  // (editorAssetList.json / playerAssetList.json) predates that file — so
+  // without it every H5P icon (section expand arrows, the "Add" file button
+  // …) renders as an empty box.
+  const coreFonts = `${config.baseUrl}${config.coreUrl}/styles/h5p-fonts.css`;
+  const customStyles = [coreFonts, '/h5p-custom/theme.css'];
   config.customization = {
     ...config.customization,
     global: {
       ...config.customization?.global,
-      editor: { ...config.customization?.global?.editor, styles: ['/h5p-custom/theme.css'] },
-      player: { ...config.customization?.global?.player, styles: ['/h5p-custom/theme.css'] },
+      editor: { ...config.customization?.global?.editor, styles: customStyles },
+      player: { ...config.customization?.global?.player, styles: customStyles },
     },
   };
 

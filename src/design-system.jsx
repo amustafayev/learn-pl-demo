@@ -10,9 +10,9 @@ export function Page({ children, className = "" }) {
   return <div className={`p-5 sm:p-8 max-w-6xl mx-auto ${className}`}>{children}</div>;
 }
 
-export function Breadcrumbs({ items }) {
+export function Breadcrumbs({ items, className = "mb-4" }) {
   return (
-    <div className="flex items-center gap-1.5 text-sm text-neutral-500 mb-4 flex-wrap">
+    <div className={`flex items-center gap-1.5 text-sm text-neutral-600 flex-wrap ${className}`}>
       {items.map((it, i) => (
         <React.Fragment key={i}>
           {i > 0 && <IconChevronRight size={14} stroke={1.75} />}
@@ -73,8 +73,8 @@ export function BlockIdentity({ icon: Icon, tone, kicker, title, titleTag = "div
             kicker-to-title gap; a kicker with nothing under it (the
             per-component rows) stays a single line so the icon still
             centers against it correctly. */}
-        <div className={`text-xs font-semibold uppercase tracking-wide text-neutral-500 truncate ${title ? "mb-1" : ""}`}>{kicker}</div>
-        {title && <Title className={`text-neutral-950 truncate ${size === "lg" ? "text-xl font-bold tracking-tight" : "font-semibold"}`}>{title}</Title>}
+        <div className={`text-xs font-semibold uppercase tracking-wide text-neutral-600 truncate ${title ? "mb-1" : ""}`}>{kicker}</div>
+        {title && <Title className={`text-neutral-950 truncate ${size === "lg" ? "text-2xl font-bold tracking-tight" : "font-semibold"}`}>{title}</Title>}
       </div>
     </div>
   );
@@ -293,14 +293,16 @@ export function LibraryPickList({ groups, onPick }) {
 // `onDrop`, `onDragEnd`) is the caller's to attach via `...rest` — which
 // list is reorderable and how is app logic, not a factory concern; this
 // component only renders the grip as a visual affordance.
-export function RailItem({ icon: Icon, tone, label, meta, selected, className = "", ...rest }) {
+// `grip={false}` for a read-only list (an outline you jump around with, not
+// reorder) — no drag handle, a pointer cursor instead of a grab cursor.
+export function RailItem({ icon: Icon, tone, label, meta, selected, grip = true, className = "", ...rest }) {
   return (
     <button
-      className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left cursor-grab active:cursor-grabbing ${PRESS_FLAT} ${
+      className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left ${grip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${PRESS_FLAT} ${
         selected ? "border-primary-400 bg-primary-50 shadow-sm" : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"} ${className}`}
       {...rest}
     >
-      <IconGripVertical size={14} stroke={1.75} className="text-neutral-300 shrink-0" />
+      {grip && <IconGripVertical size={14} stroke={1.75} className="text-neutral-300 shrink-0" />}
       {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon size={16} /></span>}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium truncate text-neutral-900">{label}</span>
@@ -347,7 +349,7 @@ const BUTTON_FILL = {
 };
 const BUTTON_SIZE = {
   md: "h-11 px-4 text-sm",
-  sm: "h-9 px-3 text-xs",
+  sm: "h-9 px-3 text-sm",
 };
 const BUTTON_ICON_SIZE = { md: "h-11 w-11", sm: "h-9 w-9" };
 
@@ -520,6 +522,9 @@ const BADGE_SOLID = {
   primary: "bg-primary-500 text-white", success: "bg-success-500 text-white",
   pending: "bg-pending-500 text-white", warning: "bg-warning-500 text-white",
   info: "bg-info-500 text-white", neutral: "bg-neutral-800 text-white",
+  // A plain descriptor rather than a status (e.g. a CEFR level): white with
+  // the kit's hairline, readable on white or gray surfaces alike.
+  outline: "bg-white text-neutral-800 border border-neutral-400",
 };
 const TAG_SOFT = {
   primary: "bg-primary-50 text-primary-600 border-primary-500", success: "bg-success-50 text-success-600 border-success-500",
@@ -575,6 +580,76 @@ export function ChatBubble({ onReply, children }) {
         </button>
       )}
     </div>
+  );
+}
+
+// The Chat screen's conversation bubbles: incoming messages are white r8
+// cards, outgoing ones solid brand orange with white text, each with a small
+// caption line under the text (the kit prints the send time there). Meant to
+// sit on a gray `ChatPanel`, exactly as the kit draws them.
+const BUBBLE_SIDE = {
+  them: { row: "justify-start", bubble: "bg-white text-neutral-900", meta: "text-neutral-600" },
+  me: { row: "justify-end", bubble: "bg-primary-500 text-white", meta: "text-white/80" },
+};
+export function MessageBubble({ from = "them", meta, children }) {
+  const s = BUBBLE_SIDE[from] || BUBBLE_SIDE.them;
+  return (
+    <div className={`flex ${s.row}`}>
+      <div className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3.5 py-3 text-base leading-relaxed ${s.bubble}`}>
+        {children}
+        {meta && <div className={`mt-1.5 text-xs ${s.meta}`}>{meta}</div>}
+      </div>
+    </div>
+  );
+}
+export function ChatPanel({ children, className = "" }) {
+  return <div className={`rounded-xl bg-neutral-200 p-3 sm:p-4 space-y-3 ${className}`}>{children}</div>;
+}
+
+/* -------------------------------------------------- QuestionList / Item */
+// The Assessment page's layout: numbered questions ("1. What is…"), each
+// with a muted "Answer" caption over its response area. Grouped into one
+// card with hairline separators so a multi-question activity reads as one
+// exercise rather than a pile of separate cards.
+export function QuestionList({ children, className = "" }) {
+  return <Card className={`divide-y divide-neutral-400 ${className}`}>{children}</Card>;
+}
+export function QuestionItem({ n, prompt, answerLabel, aside, children, className = "" }) {
+  return (
+    <div className={`p-5 sm:p-6 ${className}`}>
+      {prompt != null && (
+        <div className="flex items-start gap-3">
+          <div className="flex-1 flex items-baseline gap-2 text-lg font-semibold text-neutral-950 leading-snug">
+            {n != null && <span className="tabular-nums shrink-0">{n}.</span>}
+            <span className="min-w-0">{prompt}</span>
+          </div>
+          {aside}
+        </div>
+      )}
+      {answerLabel && <div className="mt-3 mb-2 text-sm text-neutral-600">{answerLabel}</div>}
+      <div className={answerLabel ? "" : "mt-3"}>{children}</div>
+    </div>
+  );
+}
+
+// One selectable answer in a question — the kit's r8 hairline row, with an
+// optional letter marker. `state` drives the review colors once answered.
+const CHOICE_STATE = {
+  idle: { row: "border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:bg-primary-50", mark: "bg-neutral-200 text-neutral-700" },
+  selected: { row: "border-primary-500 bg-primary-50 text-neutral-950", mark: "bg-primary-500 text-white" },
+  correct: { row: "border-success-500 bg-success-50 text-success-700", mark: "bg-success-500 text-white" },
+  wrong: { row: "border-warning-500 bg-warning-50 text-warning-700", mark: "bg-warning-500 text-white" },
+  dimmed: { row: "border-neutral-400 bg-white text-neutral-600", mark: "bg-neutral-200 text-neutral-600" },
+};
+export function ChoiceOption({ state = "idle", marker, className = "", children, ...rest }) {
+  const s = CHOICE_STATE[state] || CHOICE_STATE.idle;
+  return (
+    <button type="button" className={`w-full flex items-center gap-3 rounded-lg border px-3.5 py-3 text-base font-medium text-left transition-colors ${s.row} ${className}`} {...rest}>
+      {marker != null && <span className={`h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-xs font-semibold ${s.mark}`}>{marker}</span>}
+      <span className="flex-1 min-w-0">{children}</span>
+      {state === "correct" && <IconCheck size={16} stroke={2} className="shrink-0" />}
+      {state === "wrong" && <IconX size={16} stroke={2} className="shrink-0" />}
+    </button>
   );
 }
 
@@ -682,6 +757,30 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
 // roster/schedule instead of a creator credit, since it's a roster on a
 // schedule, not authored content. `roster` is a list of {id, name, color}
 // rendered as an overlapping avatar stack, same as the Student panel.
+// A page's own subject as a card (a block in Block Studio): the same tinted
+// band as CourseCard/ClassCard — white icon tile, kicker and title on a soft
+// tone — with a white body under it for whatever belongs to that subject.
+export function HeaderCard({ tone = "primary", icon: Icon, iconClassName = "", kicker, title, titleTag = "h1", right, children, className = "" }) {
+  const Title = titleTag;
+  return (
+    <Card className={`overflow-hidden ${className}`}>
+      <div className={`p-5 sm:p-6 ${BAND_TINT[tone]}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ${iconClassName}`}><Icon size={20} /></span>}
+            <div className="min-w-0">
+              {kicker && <div className="mb-1 truncate text-xs font-semibold uppercase tracking-wide text-neutral-600">{kicker}</div>}
+              <Title className="truncate text-2xl font-bold tracking-tight text-neutral-950">{title}</Title>
+            </div>
+          </div>
+          {right}
+        </div>
+      </div>
+      {children && <div className="p-5 sm:p-6 space-y-4">{children}</div>}
+    </Card>
+  );
+}
+
 export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, currentLessonTitle, roster = [], studentCountLabel, progressPct, onViewDetail, className = "" }) {
   return (
     <Card className={`overflow-hidden !rounded-xl ${className}`}>
@@ -816,7 +915,11 @@ export function Checkbox({ checked, onChange, className = "" }) {
 export function SegmentedToggle({ value, onChange, options = [{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }] }) {
   const index = Math.max(0, options.findIndex((o) => o.id === value));
   return (
-    <div className="relative inline-flex w-full rounded-lg border border-neutral-400 bg-neutral-300 p-1">
+    // Equal grid columns rather than flex-1: in a container sized by its
+    // content, flex-1 hands the longest label less room than it needs and
+    // it wraps, whereas `auto-cols-fr` makes every half as wide as the
+    // widest label.
+    <div className="relative grid grid-flow-col auto-cols-fr w-full rounded-lg border border-neutral-400 bg-neutral-300 p-1">
       <span aria-hidden
         className="absolute top-1 bottom-1 left-1 rounded bg-white shadow-sm will-change-transform transition-transform duration-(--dur-base) ease-soft-out"
         style={{ width: `calc((100% - 0.5rem) / ${options.length})`, transform: `translateX(${index * 100}%)` }} />
@@ -824,7 +927,7 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
         <button
           key={o.id}
           onClick={() => onChange?.(o.id)}
-          className={`relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 rounded px-3.5 py-1.5 text-xs font-semibold ${PRESS} ${value === o.id ? "text-neutral-950" : "text-neutral-600 hover:text-neutral-900"}`}
+          className={`relative z-10 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded px-3.5 py-1.5 text-xs font-semibold ${PRESS} ${value === o.id ? "text-neutral-950" : "text-neutral-600 hover:text-neutral-900"}`}
         >
           {o.icon && <o.icon size={14} stroke={1.75} />}
           {o.label}
@@ -912,6 +1015,44 @@ export function TabBar({ tabs, value, onChange }) {
 }
 
 // Filter pills with a trailing count badge — All / Unread(13) / Mentioned(4).
+// A horizontal flow of steps — a lesson's blocks — with the current one
+// marked. The kit has no stepper sheet, so this is composed from its own
+// primitives: r8 hairline boxes, the primary tint for "you are here", the
+// breadcrumb chevron between steps. Scrolls sideways when it doesn't fit.
+export function StepNav({ steps, current, onSelect, className = "" }) {
+  return (
+    <nav aria-label="Steps" className={`overflow-x-auto ${className}`}>
+      <ol className="flex items-center gap-1.5 min-w-max pb-1">
+        {steps.map((s, i) => {
+          const active = s.id === current;
+          return (
+            <li key={s.id} className="flex items-center gap-1.5">
+              {i > 0 && <IconChevronRight size={14} stroke={1.75} className="shrink-0 text-neutral-500" />}
+              <button onClick={() => onSelect?.(s.id)} aria-current={active ? "step" : undefined}
+                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm font-medium ${PRESS} ${active
+                  ? "border-primary-500 bg-primary-50 text-primary-700"
+                  : "border-neutral-400 bg-white text-neutral-700 hover:border-neutral-500 hover:text-neutral-950"}`}>
+                <span className={`flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold ${active ? "bg-primary-500 text-white" : "bg-neutral-200 text-neutral-700"}`}>{i + 1}</span>
+                {s.label}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+// The small round count beside a tab or a card title ("Session 13",
+// "Student 13" in the kit).
+export function CountBadge({ active = false, children }) {
+  return (
+    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors duration-(--dur-fast) ${active ? "bg-neutral-950 text-white" : "bg-neutral-200 text-neutral-600"}`}>
+      {children}
+    </span>
+  );
+}
+
 export function PillTabs({ tabs, value, onChange }) {
   const [strip, rule] = useUnderline(value, tabs);
   return (
@@ -924,11 +1065,7 @@ export function PillTabs({ tabs, value, onChange }) {
           className={`flex items-center gap-1.5 pb-3 text-sm font-semibold ${PRESS} ${value === t.id ? "text-neutral-950" : "text-neutral-500 hover:text-neutral-800"}`}
         >
           {t.label}
-          {t.count != null && (
-            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors duration-(--dur-fast) ${value === t.id ? "bg-neutral-950 text-white" : "bg-neutral-200 text-neutral-600"}`}>
-              {t.count}
-            </span>
-          )}
+          {t.count != null && <CountBadge active={value === t.id}>{t.count}</CountBadge>}
         </button>
       ))}
       <Underline rule={rule} />

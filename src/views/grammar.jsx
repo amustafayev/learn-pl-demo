@@ -24,7 +24,7 @@ export function RoleLegend({ roles = Object.keys(ROLE) }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {roles.map((r) => (
-        <span key={r} className={`text-[11px] font-medium border rounded-md px-2 py-0.5 ${ROLE[r].chip}`}>{ROLE[r].label}</span>
+        <span key={r} className={`text-xs font-medium border rounded-md px-2 py-0.5 ${ROLE[r].chip}`}>{ROLE[r].label}</span>
       ))}
     </div>
   );
@@ -101,13 +101,13 @@ export function TenseTimeline() {
         {/* NOW marker */}
         <div className="absolute top-6 left-[85%] flex flex-col items-center -translate-x-1/2">
           <div className="w-3 h-3 rounded-full bg-neutral-950 ring-4 ring-neutral-100" />
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 mt-1">now</span>
+          <span className="text-xs font-semibold text-neutral-700 mt-1">Now</span>
         </div>
-        <div className="absolute top-1 left-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">past</div>
-        <div className="absolute top-1 right-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">future</div>
+        <div className="absolute top-1 left-2 text-xs font-medium text-neutral-600">Past</div>
+        <div className="absolute top-1 right-2 text-xs font-medium text-neutral-600">Future</div>
         {/* event marker */}
         <div className="absolute top-4 flex flex-col items-center -translate-x-1/2 transition-[left] duration-(--dur-deliberate) ease-soft-out" style={{ left: `${e.pos}%` }}>
-          <span className={`text-[10px] font-semibold text-white rounded px-1.5 py-0.5 mb-1 ${tone.markerBg}`}>{e.when}</span>
+          <span className={`text-xs font-semibold text-white rounded px-1.5 py-0.5 mb-1 ${tone.markerBg}`}>{e.when}</span>
           <div className={`w-4 h-4 rounded-full ${tone.markerBg} ring-4 ${tone.markerRing}`} />
         </div>
       </div>
@@ -149,24 +149,27 @@ export function PrepositionScene({ object = "🐈", anchor = "🗄️", subject 
   const ok = active === answer;
   return (
     <div>
-      <div className="relative h-48 rounded-2xl border border-slate-200 bg-slate-50 mb-4 overflow-hidden">
+      <div className="relative h-48 rounded-[14px] border border-neutral-400 bg-neutral-200 mb-4 overflow-hidden">
         {/* the object, moves with the chosen preposition */}
         <span className="absolute text-5xl transition-[top,left,transform] duration-(--dur-deliberate) ease-soft-out -translate-x-1/2 -translate-y-1/2"
           style={{ top: p.obj.top, left: p.obj.left, transform: `translate(-50%,-50%) scale(${p.scale})`, zIndex: p.behind ? 0 : 2 }}>{object}</span>
         {/* the anchor object (box / shelf) */}
         <span className="absolute text-6xl -translate-x-1/2 -translate-y-1/2" style={{ top: "50%", left: "50%", zIndex: 1 }}>{anchor}</span>
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label="Preposition">
         {opts.map((o) => (
-          <button key={o} onClick={() => { setActive(o); setChecked(false); }}
-            className={`text-sm rounded-lg px-3 py-1.5 border transition-colors ${active === o ? "border-sky-400 bg-sky-50 text-sky-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>{o}</button>
+          <button key={o} role="radio" aria-checked={active === o} onClick={() => { setActive(o); setChecked(false); }}
+            className={`text-sm font-medium rounded-lg px-3.5 py-2 border transition-colors duration-(--dur-fast) ${active === o
+              ? "border-primary-500 bg-primary-50 text-primary-700"
+              : "border-neutral-400 bg-white text-neutral-700 hover:border-neutral-500 hover:text-neutral-900"}`}>{o}</button>
         ))}
       </div>
-      <div className="rounded-xl border border-slate-200 p-3.5 flex items-center justify-between gap-3">
-        <span className="text-slate-700">{subject} is <b className="text-sky-700">{active}</b> {place}.</span>
+      {/* The sentence reads as the kit's filled answer field. */}
+      <div className="rounded-lg bg-neutral-200 px-4 py-3 flex items-center justify-between gap-3">
+        <span className="text-neutral-900">{subject} is <b className="text-primary-600">{active}</b> {place}.</span>
         {answer && (checked
-          ? <Pill className={ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}>{ok ? "Düzdür!" : "Try another"}</Pill>
-          : <button onClick={() => setChecked(true)} className="text-xs font-semibold text-sky-700 hover:text-sky-800 shrink-0">Check</button>)}
+          ? <Tag color={ok ? "success" : "pending"}>{ok ? "Düzdür!" : "Try another"}</Tag>
+          : <Button size="sm" className="shrink-0" onClick={() => setChecked(true)}>Check</Button>)}
       </div>
     </div>
   );
@@ -226,7 +229,7 @@ export function ConditionalFlow({ type = "first", branches }) {
       <Pill className="bg-amber-50 text-amber-700 mb-3 capitalize">{type} conditional</Pill>
       <p className="text-xs text-slate-400 mb-4">{CONDITIONAL_RULE[type] || CONDITIONAL_RULE.first}</p>
       <div className="flex flex-col items-center">
-        <div className="rounded-xl border-2 border-slate-300 bg-slate-50 px-4 py-2 font-mono text-xs uppercase tracking-widest text-slate-500 mb-4">IF</div>
+        <div className="rounded-lg border-2 border-neutral-400 bg-neutral-200 px-4 py-2 text-sm font-semibold tracking-wide text-neutral-700 mb-4">IF</div>
         <div className="w-px h-4 bg-slate-300" />
         <div className="w-full space-y-3">
           {list.map((b, i) => (
@@ -254,7 +257,7 @@ export function ComparisonLadder({ forms, examples }) {
         {steps.map(([key, h, tone]) => (
           <button key={key} onClick={() => setActive(key)} className="flex flex-col items-center gap-1.5 group">
             <span className={`w-20 rounded-t-lg flex items-end justify-center pb-1.5 font-bold text-sm transition-[height,opacity,box-shadow] duration-(--dur-base) ease-soft-out ${h} ${tone} ${active === key ? "ring-2 ring-offset-2 ring-emerald-400" : "opacity-80 group-hover:opacity-100"}`}>{F[key]}</span>
-            <span className="text-[10px] font-mono uppercase tracking-wide text-slate-400 capitalize">{key}</span>
+            <span className="text-xs font-medium text-neutral-600 capitalize">{key}</span>
           </button>
         ))}
       </div>
@@ -313,21 +316,21 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
 
   return (
     <div>
-      <div className="flex items-center flex-wrap gap-3 mb-4 text-sm">
+      <div className="flex items-center flex-wrap gap-x-5 gap-y-2 mb-5 text-sm text-neutral-700">
         <label className="inline-flex items-center gap-2 cursor-pointer select-none">
           <Switch checked={translate} onChange={setTranslate} />
-          <span className="inline-flex items-center gap-1 text-neutral-600"><IconLanguage size={14} stroke={1.75} /> Instant AZ translation</span>
+          <span className="inline-flex items-center gap-1.5"><IconLanguage size={16} stroke={1.75} className="text-neutral-600" /> Instant AZ translation</span>
         </label>
         {showStatusColors && (
-          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-info-100 border border-info-200" /> new</span>
-            <span className="inline-flex items-center gap-1"><span className="w-4 border-b-2 border-pending-500" /> learning</span>
-            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-neutral-100" /> known</span>
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-info-100 border border-info-200" /> New</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-4 border-b-2 border-pending-500" /> Learning</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-white border border-neutral-400" /> Known</span>
           </div>
         )}
       </div>
 
-      <div className="text-[17px] leading-8 text-neutral-800">
+      <div className="text-lg leading-8 text-neutral-900">
         {text.body.map((tok, i) => {
           const highlightCls = tok.color ? `${HIGHLIGHT_COLORS[tok.color]?.bg || ""} rounded px-0.5` : "";
           if (!tok.term) return <span key={i} className={highlightCls}>{tok.text}</span>;
@@ -337,12 +340,12 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
             <span key={i} className="relative inline-block">
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className={`cursor-pointer hover:bg-primary-50 rounded px-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-primary-100" : ""}`}
+                className={`cursor-pointer leading-snug hover:bg-primary-50 rounded px-0.5 -mx-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-primary-100" : ""}`}
               >
                 {tok.term}
               </button>
               {open === i && (
-                <span className="absolute z-20 left-0 top-full mt-1 w-64 bg-white rounded-xl border border-neutral-200 shadow-xl p-3.5 text-left block">
+                <span className="absolute z-20 left-0 top-full mt-1 w-72 bg-white rounded-xl border border-neutral-400 shadow-xl p-4 text-left block text-base leading-normal">
                   <span className="flex items-start justify-between gap-2">
                     <b className="text-neutral-950">{tok.term}</b>
                     {tok.emoji && <span className="text-2xl leading-none" title="picture definition">{tok.emoji}</span>}
@@ -351,26 +354,26 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
                   <span className="flex items-center gap-1.5 mt-1.5">
                     {[["uk", "UK", tok.ipaUk], ["us", "US", tok.ipaUs]].map(([id, label, ipa]) => (
                       <button key={id} onClick={() => play(`${i}-${id}`)}
-                        className={`inline-flex items-center gap-1 text-[10px] font-mono rounded-md px-1.5 py-0.5 border transition-colors ${playing === `${i}-${id}` ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
-                        <IconVolume size={10} stroke={1.75} /> {label}{ipa ? ` ${ipa}` : ""}
+                        className={`inline-flex items-center gap-1 text-xs font-medium rounded-md px-2 py-1 border transition-colors ${playing === `${i}-${id}` ? "border-primary-500 bg-primary-50 text-primary-700" : "border-neutral-400 text-neutral-700 hover:border-primary-300 hover:text-primary-600"}`}>
+                        <IconVolume size={13} stroke={1.75} /> {label}{ipa ? ` ${ipa}` : ""}
                       </button>
                     ))}
                   </span>
                   {/* definition first — translation is one tap away, not in your face */}
-                  <span className="block text-sm text-neutral-600 mt-2">{tok.def}</span>
-                  <span className="block text-xs text-neutral-500 italic mt-1.5">“{tok.example}”</span>
+                  <span className="block text-sm text-neutral-800 mt-2.5">{tok.def}</span>
+                  <span className="block text-sm text-neutral-600 italic mt-1">“{tok.example}”</span>
                   {(translate || revealedAz[i])
                     ? <span className="block text-primary-600 font-medium text-sm mt-1.5">🇦🇿 {tok.az}</span>
                     : <button onClick={() => setRevealedAz((r) => ({ ...r, [i]: true }))}
-                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:text-primary-700 border border-primary-200 rounded-md px-2 py-0.5">
-                        <IconLanguage size={11} stroke={1.75} /> AZ tərcümə
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 border border-primary-200 rounded-md px-2 py-1">
+                        <IconLanguage size={13} stroke={1.75} /> AZ tərcümə
                       </button>}
                   {isSaved ? (
-                    <span className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-success-50 px-3 py-1.5 text-xs font-semibold text-success-700">
+                    <span className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-success-50 px-3 py-2 text-sm font-semibold text-success-700">
                       <IconCheck size={13} stroke={1.75} /> Saved with its sentence
                     </span>
                   ) : (
-                    <Button variant="primary" size="sm" className="mt-2.5 w-full"
+                    <Button variant="primary" size="sm" className="mt-3 w-full"
                       onClick={() => { setSaved((s) => ({ ...s, [tok.term]: true })); if (onSaveWord) onSaveWord(tok); }}>
                       <IconBookmark size={13} stroke={1.75} /> Save word
                     </Button>

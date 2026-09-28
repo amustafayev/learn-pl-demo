@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Check, RefreshCw, Play, Volume2, Send,
+  Plus, Trash2, Check, Play, Volume2,
   Sparkles, RotateCcw, ChevronRight, ArrowRight,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
@@ -9,18 +9,19 @@ import {
   Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare, FileText,
 } from "lucide-react";
 import {
-  IconEye, IconPencil, IconBookmarkPlus, IconSchool, IconCheck,
+  IconEye, IconPencil, IconBookmarkPlus, IconCheck,
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
-  IconMaximize, IconMinimize,
+  IconMaximize, IconMinimize, IconRefresh, IconArrowLeft, IconArrowRight, IconInfoCircle,
+  IconMessageCircle, IconSend, IconUsers, IconFilePlus, IconBulb, IconVolume, IconMicrophone, IconCornerDownRight, IconSparkles, IconTrophy,
 } from "@tabler/icons-react";
-import { AiNote, Pill, LEVELS } from "../ui.jsx";
-import { Alert, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, BlockIdentity, NavItem, Card, Field, Tag, SpeakButton, inputCls } from "../design-system.jsx";
+import { LEVELS } from "../ui.jsx";
+import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, MessageBubble, ChatPanel, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useNav, saveBlockToBank, saveComponentToBank, groupBankByParent, bankChildLabel,
+  useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent,
 } from "../store.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
-import { BLOCK_TYPES, ROLE } from "../data.jsx";
+import { BLOCK_TYPES, ROLE, blockMeta } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
   PrepositionScene, ConjugationWheel, ConditionalFlow, ComparisonLadder, WordWeb,
@@ -422,6 +423,33 @@ export default function BlockStudio() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [mode]);
+
+  // The step the learner is on in the student view: the last one whose top
+  // has scrolled up to just under the sticky header (or the last step once
+  // the page can't scroll further). Drives the outline rail's highlight.
+  // The app shell's <main> is the scroll container, not the window.
+  const [activeStepId, setActiveStepId] = useState(null);
+  useEffect(() => {
+    if (mode !== "student") return undefined;
+    const scroller = document.querySelector("main");
+    if (!scroller) return undefined;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const steps = [...document.querySelectorAll("[data-student-step]")];
+      if (!steps.length) return;
+      const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+      let current = steps[0].dataset.studentStep;
+      for (const el of steps) {
+        if (el.getBoundingClientRect().top - stuckOffset <= 80) current = el.dataset.studentStep;
+      }
+      setActiveStepId(atBottom ? steps[steps.length - 1].dataset.studentStep : current);
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => { scroller.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
+  }, [mode, stuckOffset]);
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = lessonBlocks(lesson).find((p) => p.id === route.partId);
@@ -600,11 +628,6 @@ export default function BlockStudio() {
     saveComponentToBank(dispatch, toast, list.find((x) => x.id === c.id) || c,
       `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
   };
-  const handleSaveBlock = async () => {
-    const list = await flushOpenEditor();
-    if (!list) return;
-    saveBlockToBank(dispatch, toast, { ...block, content: { ...content, components: list } }, `${course.title} · Lesson ${lesson.n}`);
-  };
   const insertSavedComponent = async (item) => {
     const copy = await copyWithOwnH5P(toast, item.data);
     if (!copy) return;
@@ -621,13 +644,30 @@ export default function BlockStudio() {
     toast("Block saved");
     go({ partId: null });
   };
+  const jumpToStep = (id) => {
+    setActiveStepId(id);
+    document.getElementById(`step-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const blocks = lessonBlocks(lesson);
+  const blockIndex = blocks.findIndex((b) => b.id === block.id);
+  // Moving to another block of the lesson (the step flow, Previous/Next):
+  // the open H5P editor saves first, and the next block opens from its top.
+  const goToBlock = async (id) => {
+    if (id === block.id) return;
+    if (!(await flushOpenEditor())) return;
+    setSelectedId(null);
+    setFullscreenId(null);
+    setInsertAt(null);
+    go({ partId: id });
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  };
 
   return (
-    // Student preview reads best at a comfortable text column width, same
-    // as everywhere else in the app (max-w-5xl); the editor is a
-    // rail+canvas(+add-panel) builder that wants the actual screen, not a
-    // reading-width column, so it isn't capped the same way.
-    <div className={`p-5 sm:p-8 ${mode === "student" ? "max-w-5xl mx-auto" : "max-w-[1600px] mx-auto"}`}
+    // One page width for both modes, so switching between editing and the
+    // student view never shifts the page's left/right edges — the width the
+    // rail+canvas(+add-panel) editor needs. Each activity still caps its own
+    // width (ComponentStudent), so the student view doesn't stretch text.
+    <div className="p-5 sm:p-8 max-w-[1600px] mx-auto"
       // Extra bottom scroll room, at least one sticky-header's worth: a
       // block with only a couple of short components otherwise doesn't
       // have enough scrollable height for a component near the end to
@@ -663,55 +703,73 @@ export default function BlockStudio() {
           becoming the thing the topbar's blur samples — a visible orange
           "shadow" ghosting through the topbar. Extending this bar's own
           sticky box up to y:0 means it — not the scrolling card — is
-          always what's directly behind the topbar. */}
-      <div className="sticky top-0 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50">
-        <div className="h-16" aria-hidden="true" />
-        <div ref={headerRef} className="pt-5 sm:pt-8 pb-4 border-b border-neutral-200">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <BlockIdentity icon={I} tone={BT.tone} size="lg" titleTag="h1"
-              kicker={`${BT.label} block · ${components.length} ${components.length === 1 ? "component" : "components"}`}
-              title={block.title || BT.label} />
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleSaveBlock}>
-                <IconBookmarkPlus size={14} stroke={1.75} /> Save Block to Bank
-              </Button>
-              <SegmentedToggle value={mode} onChange={changeMode} options={[
-                { id: "student", label: "As student", icon: IconEye },
-                { id: "edit", label: "Edit content", icon: IconPencil },
-              ]} />
-            </div>
-          </div>
+          always what's directly behind the topbar.
 
-          {mode === "student" ? (
-            <div className="mt-5 flex items-center gap-2 text-xs text-neutral-500"><IconSchool size={14} stroke={1.75} /> This is exactly what the learner sees — {components.length} {components.length === 1 ? "component" : "components"} in order.</div>
-          ) : (
-            <div className="mt-5 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · click one below to edit it in place · drag in the list to reorder · switch to "As student" to see the result</div>
-              <Button size="sm" variant="light" onClick={saveAndClose}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
-            </div>
-          )}
+          `-mt-16` pulls that spacer up over the space the topbar already
+          takes, so before the bar sticks the title sits one page-padding
+          below the topbar instead of an extra 64px lower. */}
+      <div className="sticky top-0 z-20 -mt-16 -mx-5 sm:-mx-8 px-5 sm:px-8 bg-neutral-50">
+        <div className="h-16" aria-hidden="true" />
+        {/* Slim on purpose — only what should stay in reach while scrolling:
+            moving through the lesson's blocks, and what you can do with this
+            one. The block's own identity and its place in the lesson live in
+            the header card below, which scrolls away. */}
+        <div ref={headerRef} className="py-3 border-b border-neutral-400 flex items-center justify-between gap-x-4 gap-y-2 flex-wrap">
+          <BlockFlowNav prev={blocks[blockIndex - 1]} next={blocks[blockIndex + 1]}
+            onGo={goToBlock} onFinish={() => go({ partId: null })} />
+          <div className="flex items-center gap-2 shrink-0">
+            {mode === "edit" && (
+              <Button size="sm" variant="light" className="whitespace-nowrap" onClick={saveAndClose}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+            )}
+            <SegmentedToggle value={mode} onChange={changeMode} options={[
+              { id: "student", label: "As student", icon: IconEye },
+              { id: "edit", label: "Edit content", icon: IconPencil },
+            ]} />
+          </div>
         </div>
       </div>
 
+      {/* The block and its place in the lesson, as a tinted-band card like
+          the rest of the app's subject headers (course and class cards):
+          identity on the band; what the block is for and the lesson's
+          blocks as one flow (this one marked, any other a click away) in
+          the body. */}
+      <HeaderCard className="mt-6" icon={I} iconClassName={toneText(BT.tone)} title={blockName(block)}
+        kicker={`Lesson ${lesson.n} · Block ${blockIndex + 1} of ${blocks.length} · ${components.length} ${components.length === 1 ? "activity" : "activities"}`}>
+        {BT.description && <Alert tone="info" icon={IconInfoCircle} title="About this block">{BT.description}</Alert>}
+        <StepNav current={block.id} onSelect={goToBlock}
+          steps={blocks.map((b) => ({ id: b.id, label: blockName(b) }))} />
+        {mode === "edit" && (
+          <div className="flex items-center gap-2 text-sm text-neutral-700">
+            <IconPencil size={16} stroke={1.75} className="shrink-0" /> Click a component below to edit it in place, drag in the list to reorder, and switch to "As student" to see the result.
+          </div>
+        )}
+      </HeaderCard>
+
       {mode === "student" ? (
-        <div className="mt-5">
-          <div>
-            {components.map((c, i) => {
-              const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-              const CI = M.icon;
-              const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
-              return (
-                <div key={c.id} className={`${i > 0 ? "mt-8 pt-8 border-t border-neutral-300" : ""} ${linkedPassage ? "ml-6 pl-4 border-l-2 border-primary-100" : ""}`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
-                    {c.level && <Tag color="neutral">{c.level}</Tag>}
-                    {linkedPassage && <span className="text-[11px] text-primary-500">↳ for its passage above</span>}
-                  </div>
-                  <ComponentStudent component={c} />
-                </div>
-              );
-            })}
-            {!components.length && <Card className="p-8 text-center text-neutral-500 text-sm">No components yet — switch to Edit to add some.</Card>}
+        // Default (stretch) row alignment on purpose: the outline's sticky
+        // card needs its grid cell to span the whole row to stay pinned
+        // (same reason as the edit rail below).
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
+          {/* A gray canvas under the white activity cards, so page, body and
+              each activity read as three distinct layers. */}
+          <div className="min-w-0 rounded-[14px] border border-neutral-400 bg-neutral-200 p-4 sm:p-6">
+            {components.length ? (
+              <div className="space-y-10">
+                {components.map((c, i) => (
+                  <StudentStep key={c.id} component={c} n={i + 1} components={components}
+                    style={{ scrollMarginTop: stuckOffset + 16 }} />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-8 text-center text-neutral-600 text-sm">No components yet — switch to Edit to add some.</Card>
+            )}
+          </div>
+          <div className="hidden lg:block">
+            {components.length > 0 && (
+              <StudentOutline components={components} activeId={activeStepId} onPick={jumpToStep}
+                style={{ top: stuckOffset + 16, maxHeight: `calc(100vh - ${stuckOffset}px - 32px)` }} />
+            )}
           </div>
         </div>
       ) : (
@@ -747,7 +805,7 @@ export default function BlockStudio() {
               <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
                 style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Components · {components.length}</span>
+                  <span className="flex items-center gap-2"><span className="text-base font-semibold text-neutral-950">Components</span><CountBadge>{components.length}</CountBadge></span>
                 </div>
                 <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
                   {components.map((c, i) => {
@@ -777,43 +835,36 @@ export default function BlockStudio() {
               </Card>
             </div>
 
-            {/* Framed to match the components list on the left — same card
-                shape, a hairline warmed toward the brand color instead of
-                plain neutral, so the two columns read as a matched pair
-                rather than a bordered list next to loose floating content. */}
-            <Card className="min-w-0 !border-primary-200 p-4 lg:p-5">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary-100">
-                <span className="text-xs font-semibold uppercase tracking-wide text-primary-600">Preview</span>
-              </div>
-              {/* Click a frame and it swaps in place from its rendered
-                  student view to its own editor — nothing moves to a side
-                  panel. "+ Add component" slots sit between frames like a
-                  site builder's "Add block" pills, each remembering its own
-                  position, so a pick lands exactly where you clicked. */}
+            {/* The same gray canvas and step structure as the student view
+                (numbered heading, level, the activity's own card), so editing
+                and previewing read as one page — here each step is also a
+                click target, and the selected one shows its editor in place.
+                "+ Add component" slots sit between steps like a site
+                builder's "Add block" pills, each remembering its own
+                position, so a pick lands exactly where you clicked. */}
+            <div className="min-w-0 rounded-[14px] border border-neutral-400 bg-neutral-200 p-4 sm:p-6">
               <AddSlot active={insertAt === 0} onClick={() => setInsertAt(0)} />
               {components.map((c, i) => {
-                const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
                 const isSel = c.id === selectedId;
                 const isFullscreen = c.id === fullscreenId;
+                const linked = isLinkedComprehension(c, components);
                 return (
                   <React.Fragment key={c.id}>
                     {/* scrollMarginTop tells scrollIntoView (below) that the
                         sticky header (plus the app topbar above it —
                         stuckOffset covers both) blocks off that much of
                         what it'd otherwise think was open viewport —
-                        without it, "nearest" scrolls a frame right up to
+                        without it, "nearest" scrolls a step right up to
                         y:0 of the scroll container, which is actually
                         hidden behind that header, not visible at all. */}
-                    <div id={`frame-${c.id}`} className="relative" style={{ scrollMarginTop: stuckOffset + 16 }}>
+                    <section id={`frame-${c.id}`} className="relative" style={{ scrollMarginTop: stuckOffset + 16 }}>
                       {isSel ? (
-                        // Editing, in place: same frame, same position in
-                        // the stack — just showing the editor instead of
-                        // the rendered preview. `key` remounts on selection
-                        // change so the entrance plays per component. Border
-                        // is brighter and heavier than a plain added
-                        // component's (border-primary-500 + shadow, vs.
-                        // border-neutral-300 below) so the one you're
-                        // actually editing is unmistakable among the others.
+                        // Editing, in place: same heading, same position in
+                        // the stack — the toolbar joins the heading row and
+                        // the editor replaces the rendered activity, in a
+                        // white card with the brand border so the step being
+                        // edited is unmistakable. `key` remounts on selection
+                        // change so the entrance plays per step.
                         //
                         // Fullscreen just swaps this SAME div's own classes
                         // to a fixed, viewport-covering overlay rather than
@@ -822,60 +873,61 @@ export default function BlockStudio() {
                         // editor iframe) stays mounted exactly once the
                         // whole time, so toggling never resets it.
                         <div key={c.id} className={isFullscreen
-                          ? "fixed inset-0 z-50 bg-white p-5 sm:p-8 overflow-y-auto animate-fade-rise"
-                          : "rounded-[16px] border-2 border-primary-500 bg-white p-4 shadow-md animate-fade-rise"}>
+                          ? "fixed inset-0 z-50 bg-neutral-200 p-5 sm:p-8 overflow-y-auto animate-fade-rise"
+                          : "animate-fade-rise"}>
                           <div className={isFullscreen ? "max-w-5xl mx-auto" : ""}>
-                            <div className="flex items-center gap-2 mb-3 pb-3 border-b border-neutral-100">
-                              <BlockIdentity icon={M.icon} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-1" />
-                              {c.level !== undefined && (
-                                <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                                  title="Level" className="border border-neutral-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-200 shrink-0">
-                                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                                </select>
-                              )}
-                              <div className="flex items-center gap-1 text-neutral-500 shrink-0">
-                                <button title="Save component to library" onClick={() => handleSaveComponent(c)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
-                                <button title="Duplicate" onClick={() => duplicateComponent(i)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconCopy size={14} stroke={1.75} /></button>
-                                <button title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                                <button title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)} className="hover:text-neutral-800 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                                <button title="Remove" onClick={() => { removeComponent(i); toast("Component removed"); }} className="hover:text-warning-500 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
-                                <button title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100">
-                                  {isFullscreen ? <IconMinimize size={14} stroke={1.75} /> : <IconMaximize size={14} stroke={1.75} />}
-                                </button>
-                                <button title="Done editing" onClick={() => selectComponent(null)} className="text-primary-600 hover:text-primary-700 p-1.5 rounded hover:bg-primary-50"><IconCheck size={14} stroke={1.75} /></button>
-                              </div>
+                            <StepHeading component={c} n={i + 1} linked={linked} showLevel={false} right={
+                              <>
+                                {c.level !== undefined && (
+                                  <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
+                                    title="Level" className="mr-1 h-8 rounded-lg border border-neutral-400 bg-white px-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
+                                    {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
+                                  </select>
+                                )}
+                                <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
+                                <StepTool title="Duplicate" onClick={() => duplicateComponent(i)}><IconCopy size={16} stroke={1.75} /></StepTool>
+                                <StepTool title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)}><IconArrowUp size={16} stroke={1.75} /></StepTool>
+                                <StepTool title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)}><IconArrowDown size={16} stroke={1.75} /></StepTool>
+                                <StepTool title="Remove" danger onClick={() => { removeComponent(i); toast("Component removed"); }}><IconTrash size={16} stroke={1.75} /></StepTool>
+                                <StepTool title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)}>
+                                  {isFullscreen ? <IconMinimize size={16} stroke={1.75} /> : <IconMaximize size={16} stroke={1.75} />}
+                                </StepTool>
+                                <Button size="sm" className="ml-1" onClick={() => selectComponent(null)}><IconCheck size={14} stroke={1.75} /> Done</Button>
+                              </>
+                            } />
+                            <div className="rounded-[14px] border-2 border-primary-500 bg-white p-4 sm:p-5 shadow-md">
+                              <ErrorBoundary resetKey={c}>
+                                <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                                  passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
+                              </ErrorBoundary>
                             </div>
-                            <ErrorBoundary resetKey={c}>
-                              <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                                passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
-                            </ErrorBoundary>
                           </div>
                         </div>
                       ) : (
-                        // Not selected: the plain rendered preview, but
-                        // still its own clearly bordered frame — a stack of
-                        // components with no visible edge between them just
-                        // reads as one wall of content. Deliberately a
-                        // plainer neutral border (not primary) and no
-                        // shadow, so it stays visually quieter than the
-                        // selected frame above. Click anywhere on it to
-                        // start editing in place; check the finished result
-                        // via the "As student" toggle rather than any one
-                        // frame here.
+                        // Not selected: exactly the student view's step,
+                        // plus a hover ring and an "Edit" cue — click
+                        // anywhere on it to edit in place.
                         <div onClick={() => selectComponent(c.id)}
-                          className="rounded-[16px] border border-neutral-300 hover:border-primary-300 cursor-pointer transition duration-(--dur-fast)">
-                          <ComponentStudent component={c} />
+                          className="group -m-3 cursor-pointer rounded-[14px] p-3 ring-2 ring-transparent transition duration-(--dur-fast) hover:bg-white/50 hover:ring-primary-300">
+                          <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
+                            <StepHeading component={c} n={i + 1} linked={linked} right={
+                              <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
+                                <IconPencil size={14} stroke={1.75} /> Edit
+                              </span>
+                            } />
+                            <ComponentStudent component={c} />
+                          </div>
                         </div>
                       )}
-                    </div>
+                    </section>
                     <AddSlot active={insertAt === i + 1} onClick={() => setInsertAt(i + 1)} />
                   </React.Fragment>
                 );
               })}
               {!components.length && (
                 <button onClick={() => setInsertAt(0)}
-                  className="w-full rounded-[14px] border-2 border-dashed border-neutral-300 p-12 text-center text-neutral-500 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
-                  <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-300" />
+                  className="w-full rounded-[14px] border-2 border-dashed border-neutral-400 bg-white p-12 text-center text-neutral-600 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
+                  <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-500" />
                   <div className="text-sm font-medium">This block is empty — add your first component</div>
                 </button>
               )}
@@ -891,14 +943,14 @@ export default function BlockStudio() {
                   the bottom edge, and capped to fit that gap (its lists
                   scroll instead) so its own top never slides under the
                   header — the cap leaves a 16px gap under the header plus
-                  the page's and this card's (20px) bottom padding, which it
-                  has to clear at the very end of the page. */}
+                  the page's and this canvas's (24px) bottom padding, which
+                  it has to clear at the very end of the page. */}
               {pickerOpen && (
                 <div ref={addPanelRef}
                   className="sticky bottom-4 z-30 mt-5 flex flex-col rounded-[14px] border-2 border-primary-300 bg-white shadow-xl overflow-hidden animate-fade-rise"
                   style={{
                     top: stuckOffset + 16,
-                    maxHeight: `calc(100vh - ${stuckOffset + 16 + PICKER_PAGE_PAD + 20}px)`,
+                    maxHeight: `calc(100vh - ${stuckOffset + 16 + PICKER_PAGE_PAD + 24}px)`,
                     scrollMarginTop: stuckOffset + 16,
                     scrollMarginBottom: 16,
                   }}>
@@ -955,7 +1007,7 @@ export default function BlockStudio() {
                 </div>
               )}
               {pickerOpen && <div aria-hidden="true" style={{ height: stuckOffset - PICKER_PAGE_PAD }} />}
-            </Card>
+            </div>
           </div>
         </div>
       )}
@@ -1011,19 +1063,108 @@ export function BlockStudentView({ block }) {
   const components = blockComponents(block, state.texts);
   if (!components.length) return <Card className="p-8 text-center text-neutral-500 text-sm">No components in this block yet.</Card>;
   return (
-    <div>
-      {components.map((c, i) => {
-        const M = COMPONENT_META[c.kind]; const CI = M.icon;
-        return (
-          <div key={c.id} className={i > 0 ? "mt-8 pt-8 border-t border-neutral-300" : ""}>
-            <div className="mb-3">
-              <BlockIdentity icon={CI} tone={M.tone} size="sm" kicker={`Component ${i + 1} · ${M.label}`} className="flex-none" />
-            </div>
-            <ComponentStudent component={c} />
-          </div>
-        );
-      })}
+    <div className="divide-y divide-neutral-400">
+      {components.map((c, i) => <StudentStep key={c.id} component={c} n={i + 1} components={components} className="py-8 first:pt-2" />)}
     </div>
+  );
+}
+
+const FALLBACK_META = { label: "Activity", icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+const blockName = (b) => b.title || blockMeta(b.type).label;
+
+// One activity as the learner meets it, laid out like the kit's assessment
+// page: a numbered heading and the activity under it. Spacing between steps
+// is the container's call (a gray canvas in Block Studio, hairline dividers
+// on the live-lesson stage). A comprehension set tied to a passage indents
+// under that passage.
+function StudentStep({ component, n, components, style, className = "" }) {
+  const linked = isLinkedComprehension(component, components);
+  return (
+    <section id={`step-${component.id}`} data-student-step={component.id} style={style} className={className}>
+      <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
+        <StepHeading component={component} n={n} linked={linked} />
+        <ComponentStudent component={component} />
+      </div>
+    </section>
+  );
+}
+
+const isLinkedComprehension = (component, components) =>
+  component.kind === "comprehension" && Boolean(component.passageRefId)
+    && components.some((x) => x.id === component.passageRefId);
+
+// A step's heading — number badge, name, level — shared by the student view
+// and Block Studio's editor so the two always read as the same structure.
+// `right` carries per-context actions (the editor's toolbar, an "Edit" cue);
+// `showLevel={false}` when the level is edited in place instead.
+function StepHeading({ component, n, linked, right, showLevel = true }) {
+  const M = COMPONENT_META[component.kind] || FALLBACK_META;
+  return (
+    <div className="flex items-center gap-3 flex-wrap mb-4">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-sm font-bold text-white">{n}</span>
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-950">{M.label}</h2>
+      {showLevel && component.level && <Badge color="outline">Level {component.level}</Badge>}
+      {linked && <span className="text-xs font-medium text-primary-600">↳ for the passage above</span>}
+      {right && <div className="ml-auto flex items-center gap-1">{right}</div>}
+    </div>
+  );
+}
+
+// An icon-only action on a step's heading row (the editor's toolbar).
+function StepTool({ title, onClick, disabled, danger, children }) {
+  return (
+    <button type="button" title={title} aria-label={title} disabled={disabled} onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors duration-(--dur-fast) hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent ${danger ? "hover:text-warning-600" : "hover:text-neutral-950"}`}>
+      {children}
+    </button>
+  );
+}
+
+// Previous / Next through the lesson's blocks, pinned in Block Studio's top
+// bar so the lesson reads as one flow rather than separate pages. The last
+// block leads back to the lesson overview.
+function BlockFlowNav({ prev, next, onGo, onFinish }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {prev && (
+        <Button variant="outline" size="sm" className="whitespace-nowrap" title="Previous block" onClick={() => onGo(prev.id)}>
+          <IconArrowLeft size={14} stroke={1.75} /> {blockName(prev)}
+        </Button>
+      )}
+      {next
+        ? <Button size="sm" className="whitespace-nowrap" onClick={() => onGo(next.id)}>Next: {blockName(next)} <IconArrowRight size={14} stroke={1.75} /></Button>
+        : <Button variant="dark" size="sm" className="whitespace-nowrap" onClick={onFinish}><IconCheck size={14} stroke={1.75} /> Back to lesson overview</Button>}
+    </div>
+  );
+}
+
+// The text half of a BLOCK_TYPES `tone` ("text-sky-600 bg-sky-50") — for an
+// icon drawn on a white tile. Both halves already exist as literal strings in
+// data.jsx, so Tailwind has generated them.
+const toneText = (tone = "") => tone.split(" ").find((c) => c.startsWith("text-")) || "";
+
+// The student view's right rail — every step at a glance, the one on screen
+// highlighted, click to jump (the kit's side card: title + count badge + a
+// list of rows).
+function StudentOutline({ components, activeId, onPick, style }) {
+  return (
+    <Card className="p-4 lg:sticky flex flex-col" style={style}>
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <h3 className="text-base font-semibold text-neutral-950">Activities</h3>
+        <CountBadge>{components.length}</CountBadge>
+      </div>
+      <div className="space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
+        {components.map((c, i) => {
+          const M = COMPONENT_META[c.kind] || FALLBACK_META;
+          return (
+            <RailItem key={c.id} grip={false} icon={M.icon} tone={M.tone}
+              label={`${i + 1}. ${M.label}`} meta={c.level ? `Level ${c.level}` : undefined}
+              selected={c.id === activeId} aria-current={c.id === activeId ? "step" : undefined}
+              onClick={() => onPick(c.id)} />
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -1088,10 +1229,13 @@ function renderComponentStudent(component) {
 function PassageComponent({ component }) {
   const { state, toast } = useStore();
   const text = state.texts.find((t) => t.id === component.textId) || state.texts[0];
-  if (!text) return <Card className="p-6 text-neutral-500 text-sm">No reading text linked. Edit to choose one.</Card>;
+  if (!text) return <Card className="p-6 text-neutral-600 text-sm">No reading text linked. Edit to choose one.</Card>;
   return (
     <Card className="p-6">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-500 mb-3">{text.title} · {text.topic} · {text.level} · {text.wordCount} words</div>
+      <div className="mb-4">
+        <div className="text-lg font-semibold text-neutral-950">{text.title}</div>
+        <div className="text-sm text-neutral-600">{text.topic} · {text.level} · {text.wordCount} words</div>
+      </div>
       <Reader text={text} onSaveWord={() => toast("Word saved to the personal list")} />
     </Card>
   );
@@ -1100,19 +1244,19 @@ function PassageComponent({ component }) {
 function WordListComponent({ component }) {
   const items = component.items || [];
   return (
-    <Card className="divide-y divide-neutral-100">
+    <Card className="divide-y divide-neutral-400">
       {items.map((w, i) => (
         <div key={i} className="p-3.5">
           <div className="flex items-center gap-2 flex-wrap">
             <b>{w.term}</b>
             <SpeakButton text={w.term} />
-            {w.def && <span className="text-sm text-neutral-500">— {w.def}</span>}
+            {w.def && <span className="text-sm text-neutral-600">— {w.def}</span>}
           </div>
           {w.az && <div className="text-primary-600 text-sm mt-0.5">({w.az})</div>}
-          {w.example && <div className="text-xs text-neutral-400 italic mt-0.5">“{w.example}”</div>}
+          {w.example && <div className="text-xs text-neutral-600 italic mt-0.5">“{w.example}”</div>}
         </div>
       ))}
-      {!items.length && <div className="p-4 text-neutral-400 text-sm">No words.</div>}
+      {!items.length && <div className="p-4 text-neutral-600 text-sm">No words.</div>}
     </Card>
   );
 }
@@ -1121,17 +1265,17 @@ function FlashcardsComponent({ component }) {
   const items = component.items || [];
   const [i, setI] = useState(0);
   const [flip, setFlip] = useState(false);
-  if (!items.length) return <Card className="p-6 text-neutral-400 text-sm">No words.</Card>;
+  if (!items.length) return <Card className="p-6 text-neutral-600 text-sm">No words.</Card>;
   const wd = items[i % items.length];
   return (
     <div className="">
       <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
-        className="w-full h-40 rounded-2xl border border-neutral-200 bg-white shadow-sm flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer">
+        className="w-full h-44 rounded-[14px] border border-neutral-400 bg-white flex flex-col items-center justify-center hover:border-primary-300 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500">
         {flip ? (
           <>
             {wd.def && <span className="text-base text-neutral-600 text-center px-4">{wd.def}</span>}
             <span className="text-lg font-semibold text-primary-600 mt-1">({wd.az})</span>
-            {wd.example && <span className="text-sm text-neutral-400 mt-2 italic">“{wd.example}”</span>}
+            {wd.example && <span className="text-sm text-neutral-600 mt-2 italic">“{wd.example}”</span>}
           </>
         ) : (
           <>
@@ -1142,10 +1286,10 @@ function FlashcardsComponent({ component }) {
       </div>
       <div className="flex items-center justify-between mt-3">
         <Button variant="outline" size="sm" onClick={() => { setI((i - 1 + items.length) % items.length); setFlip(false); }}>Prev</Button>
-        <span className="text-sm text-neutral-400 font-mono">{(i % items.length) + 1} / {items.length}</span>
+        <span className="text-sm text-neutral-600 tabular-nums">{(i % items.length) + 1} / {items.length}</span>
         <Button variant="outline" size="sm" onClick={() => { setI((i + 1) % items.length); setFlip(false); }}>Next</Button>
       </div>
-      <p className="text-xs text-neutral-400 mt-2 flex items-center gap-1"><RefreshCw size={12} /> Tap to flip.</p>
+      <p className="text-sm text-neutral-600 mt-2 flex items-center gap-1.5"><IconRefresh size={15} stroke={1.75} /> Tap the card to flip it.</p>
     </div>
   );
 }
@@ -1163,40 +1307,75 @@ function MatchComponent({ component }) {
 // definition, synonym, or antonym — each stored on its own key so switching
 // types in the editor never overwrites the others.
 function MatchBoard({ pairs, showEmoji, pairType = "az", onDone }) {
-  const [right] = useState(() => [...pairs].reverse());
-  const [picked, setPicked] = useState(null);
-  const [done, setDone] = useState({});
-  const key = (p) => (showEmoji ? p.emoji : (p[pairType] ?? p.az));
-  function tryMatch(term, val) {
-    const p = pairs.find((x) => x.term === term);
-    if (key(p) === val) {
-      const next = { ...done, [term]: true };
-      setDone(next); setPicked(null);
-      if (Object.keys(next).length === pairs.length && onDone) onDone();
-    } else setPicked(null);
+  const rows = pairs.map((p, i) => ({ id: i, left: p.term, right: showEmoji ? p.emoji : (p[pairType] ?? p.az) }));
+  const rightLabel = showEmoji ? "Picture" : (MATCH_PAIR_TYPES.find(([id]) => id === pairType) || MATCH_PAIR_TYPES[0])[1];
+  return <MatchGrid rows={rows} leftLabel="Word" rightLabel={rightLabel} big={showEmoji} onDone={onDone} />;
+}
+
+// Click-to-match between two columns, shared by vocabulary Match, reading
+// comprehension's "match texts" and Image → word. Either side can be picked
+// first; picking the other side then checks the pair. Both columns stay
+// fully legible the whole time — the left as the kit's hairline tiles, the
+// right as its gray filled "answer" fields — so nothing reads as disabled.
+function MatchGrid({ rows, leftLabel, rightLabel, big = false, instructions = "Pick an item in one column, then its match in the other.", onDone }) {
+  const [rightOrder] = useState(() => [...rows].reverse());
+  const [sel, setSel] = useState(null); // { side, id }
+  const [doneL, setDoneL] = useState({});
+  const [doneR, setDoneR] = useState({});
+  const [miss, setMiss] = useState(null); // { left, right }
+  if (!rows.length) return <EmptyActivity>No pairs added yet.</EmptyActivity>;
+  const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+  const matched = Object.keys(doneL).length;
+
+  function choose(side, id) {
+    setMiss(null);
+    if (!sel || sel.side === side) { setSel(sel && sel.side === side && sel.id === id ? null : { side, id }); return; }
+    const left = side === "left" ? id : sel.id;
+    const right = side === "right" ? id : sel.id;
+    setSel(null);
+    if (byId[left].right !== byId[right].right) { setMiss({ left, right }); return; }
+    const nextL = { ...doneL, [left]: true };
+    setDoneL(nextL); setDoneR((d) => ({ ...d, [right]: true }));
+    if (Object.keys(nextL).length === rows.length && onDone) onDone();
   }
+  const tileCls = (side, id) => {
+    const done = side === "left" ? doneL[id] : doneR[id];
+    if (done) return "border-success-500 bg-success-50 text-success-700";
+    if (miss && miss[side] === id) return "border-warning-500 bg-warning-50 text-warning-700";
+    if (sel && sel.side === side && sel.id === id) return "border-primary-500 bg-primary-50 text-neutral-950 ring-2 ring-primary-100";
+    const inviting = sel && sel.side !== side ? "border-primary-300" : "";
+    return side === "left"
+      ? `${inviting || "border-neutral-400"} bg-white text-neutral-900 hover:border-primary-300`
+      : `${inviting || "border-transparent"} bg-neutral-200 text-neutral-900 hover:border-primary-300`;
+  };
+  const tile = (side, r, label) => {
+    const done = side === "left" ? doneL[r.id] : doneR[r.id];
+    return (
+      <button key={r.id} type="button" disabled={done} onClick={() => choose(side, r.id)} aria-pressed={!!(sel && sel.side === side && sel.id === r.id)}
+        className={`w-full min-h-12 flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-left transition-colors ${big && side === "right" ? "justify-center text-2xl leading-none" : "text-base font-medium"} ${tileCls(side, r.id)}`}>
+        <span className="min-w-0">{label}</span>
+        {done && <IconCheck size={16} stroke={2} className="shrink-0 ml-auto" />}
+      </button>
+    );
+  };
   return (
-    <div className="grid grid-cols-2 gap-8">
-      <div className="space-y-2">
-        {pairs.map((p) => (
-          <button key={p.term} disabled={done[p.term]} onClick={() => setPicked(p.term)}
-            className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${done[p.term] ? "border-success-200 bg-success-50 text-success-700" : picked === p.term ? "border-primary-400 bg-primary-50" : "border-neutral-200 hover:border-primary-300"}`}>
-            {p.term} {done[p.term] && <Check size={13} className="inline text-success-600" />}
-          </button>
-        ))}
+    <Card className="p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <p className="text-sm text-neutral-600">{instructions}</p>
+        <span className="shrink-0"><Tag color={matched === rows.length ? "success" : "neutral"}>{matched}/{rows.length} matched</Tag></span>
       </div>
-      <div className="space-y-2">
-        {right.map((p) => {
-          const matched = Object.keys(done).some((t) => key(pairs.find((x) => x.term === t)) === key(p));
-          return (
-            <button key={p.term} disabled={matched || !picked} onClick={() => tryMatch(picked, key(p))}
-              className={`w-full rounded-lg border p-3 text-left transition-colors ${matched ? "border-success-200 bg-success-50" : !picked ? "border-neutral-100 text-neutral-400" : "border-neutral-200 hover:border-primary-300"} ${showEmoji ? "text-2xl text-center" : "text-sm font-medium"}`}>
-              {showEmoji ? p.emoji : (p[pairType] ?? p.az)}
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3 sm:gap-6">
+        <div className="space-y-2">
+          <div className="text-sm text-neutral-600">{leftLabel}</div>
+          {rows.map((r) => tile("left", r, r.left))}
+        </div>
+        <div className="space-y-2">
+          <div className="text-sm text-neutral-600">{rightLabel}</div>
+          {rightOrder.map((r) => tile("right", r, r.right))}
+        </div>
       </div>
-    </div>
+      {miss && <div className="mt-4"><Alert tone="pending" icon={IconRefresh} title="Not a pair">Try another match — no points lost.</Alert></div>}
+    </Card>
   );
 }
 
@@ -1215,7 +1394,7 @@ function WheelComponent({ component }) {
   };
   return (
     <Card className="p-6 text-center">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Vocabulary wheel</div>
+      <div className="text-sm text-neutral-600 mb-1">Vocabulary wheel</div>
       <h3 className="font-semibold mb-5">{component.title || "Spin for a prompt"}</h3>
       <div className="relative mx-auto w-52 h-52">
         <div className="absolute -top-1 left-1/2 -tranneutral-x-1/2 z-10 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-neutral-800" />
@@ -1224,10 +1403,10 @@ function WheelComponent({ component }) {
         </button>
       </div>
       <Button className="mt-5" onClick={spin} disabled={!items.length}><Dices size={14} /> Spin the wheel</Button>
-      {selected && <AiNote icon={Sparkles} tone="violet" title={selected.term}>
+      {selected && <div className="mt-5 text-left"><Alert tone="info" icon={IconSparkles} title={selected.term}>
         <span className="font-medium">{selected.az}</span>{selected.q ? <> · {selected.q}</> : null}
-      </AiNote>}
-      {!items.length && <p className="text-sm text-neutral-400 mt-4">Add at least one prompt in Edit content.</p>}
+      </Alert></div>}
+      {!items.length && <p className="text-sm text-neutral-600 mt-4">Add at least one prompt in Edit content.</p>}
     </Card>
   );
 }
@@ -1257,7 +1436,7 @@ function WordSearchComponent({ component }) {
   const solved = puzzle.targets.size > 0 && [...puzzle.targets].every((key) => picked.has(key));
   return (
     <Card className="p-5">
-      <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-xs font-mono uppercase tracking-wide text-neutral-400">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Pill className="bg-success-50 text-success-700">{picked.size}/{puzzle.targets.size} letters</Pill></div>
+      <div className="flex items-start justify-between gap-3 mb-4"><div><div className="text-sm text-neutral-600">Word search</div><h3 className="font-semibold">{component.title || "Find the hidden words"}</h3></div><Tag color={solved ? "success" : "neutral"}>{picked.size}/{puzzle.targets.size} letters</Tag></div>
       {puzzle.words.length ? <>
         <div className="inline-grid gap-1" style={{ gridTemplateColumns: `repeat(${puzzle.grid[0].length}, minmax(0, 1fr))` }}>
           {puzzle.grid.flatMap((row, r) => row.map((letter, c) => {
@@ -1265,26 +1444,26 @@ function WordSearchComponent({ component }) {
             return <button key={key} onClick={() => toggle(key)} className={`w-8 h-8 rounded text-xs font-bold transition-colors ${active ? "bg-success-500 text-white" : "bg-neutral-100 hover:bg-success-100 text-neutral-700"}`}>{letter}</button>;
           }))}
         </div>
-        <div className="flex flex-wrap gap-1.5 mt-4">{puzzle.words.map((word) => <Pill key={word} className="bg-neutral-100 text-neutral-600">{word}</Pill>)}</div>
-        {solved && <div className="mt-4"><AiNote icon={Check} tone="emerald">Every target letter is found — great spelling practice.</AiNote></div>}
-      </> : <p className="text-sm text-neutral-400">Add words in Edit content to build the grid.</p>}
+        <div className="flex flex-wrap gap-1.5 mt-4">{puzzle.words.map((word) => <Tag key={word}>{word}</Tag>)}</div>
+        {solved && <div className="mt-4"><Alert tone="success" icon={IconCheck} title="All found">Every target letter is found — great spelling practice.</Alert></div>}
+      </> : <p className="text-sm text-neutral-600">Add words in Edit content to build the grid.</p>}
     </Card>
   );
 }
 
 function ImageToWordComponent({ component }) {
-  const items = component.items || [];
-  return <div className=""><MatchBoard pairs={items} showEmoji onDone={() => {}} /><p className="text-xs text-neutral-400 mt-3">Match every picture to its English word.</p></div>;
+  const rows = (component.items || []).map((p, i) => ({ id: i, left: p.term, right: p.emoji }));
+  return <MatchGrid rows={rows} leftLabel="Word" rightLabel="Picture" big instructions="Match every picture to its English word." />;
 }
 
 function ThemeGroup({ pairs }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       {["Greetings", "Objects"].map((theme, ti) => (
-        <Card key={theme} className="p-4">
-          <div className="text-sm font-semibold mb-2">{theme}</div>
+        <Card key={theme} className="p-5">
+          <div className="text-sm text-neutral-600 mb-2">{theme}</div>
           <div className="flex flex-wrap gap-1.5">
-            {pairs.filter((_, i) => i % 2 === ti).map((p) => <Pill key={p.term} className="bg-neutral-100 text-neutral-600">{p.term}</Pill>)}
+            {pairs.filter((_, i) => i % 2 === ti).map((p) => <Tag key={p.term}>{p.term}</Tag>)}
           </div>
         </Card>
       ))}
@@ -1297,35 +1476,46 @@ function SentenceComponent({ component }) {
     <Card className="p-6">
       <div className="mb-3"><RoleLegend /></div>
       <ColorSentence tokens={component.sentence || []} />
-      <p className="text-xs text-neutral-400 mt-3">Same colour, same grammar role — everywhere in the app.</p>
+      <p className="text-sm text-neutral-600 mt-3">Same colour, same grammar role — everywhere in the app.</p>
     </Card>
   );
 }
 
 function QuizComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <QuizQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No questions added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <QuizQ key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function QuizQ({ item, n, total }) {
-  const [pick, setPick] = useState(null);
-  const correct = pick === item.answer;
+const CHOICE_LETTERS = "ABCDEFGHIJ";
+// Review colors for a picked answer: the right one turns green, a wrong
+// pick red, the rest step back.
+const choiceState = (value, pick, answer) => (pick == null ? "idle" : value === answer ? "correct" : value === pick ? "wrong" : "dimmed");
+
+// Feedback under an answered question — a miss is "pending" (amber, retry
+// icon), never red: the app encourages rather than punishes.
+function AnswerFeedback({ ok, okTitle = "Düzdür! Correct.", missTitle = "Not quite", actionLabel, onAction, className = "mt-4", children }) {
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Question {n} of {total}</div>
-      <div className="text-lg font-semibold mb-3">{item.q}</div>
-      <div className="space-y-2">
+    <div className={className}>
+      <Alert tone={ok ? "success" : "pending"} icon={ok ? IconCheck : IconRefresh} title={ok ? okTitle : missTitle} actionLabel={actionLabel} onAction={onAction}>{children}</Alert>
+    </div>
+  );
+}
+
+function EmptyActivity({ children }) {
+  return <Card className="p-6 text-sm text-neutral-600">{children}</Card>;
+}
+
+function QuizQ({ item, n }) {
+  const [pick, setPick] = useState(null);
+  return (
+    <QuestionItem n={n} prompt={item.q} answerLabel="Choose one answer">
+      <div className="grid gap-2">
         {item.options.map((o, oi) => (
-          <button key={oi} onClick={() => setPick(oi)}
-            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${
-              pick == null ? "border-neutral-200 hover:border-primary-300" :
-              oi === item.answer ? "border-success-300 bg-success-50 text-success-700" :
-              oi === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
-            {o} {pick != null && oi === item.answer && <Check size={14} className="inline" />}
-          </button>
+          <ChoiceOption key={oi} marker={CHOICE_LETTERS[oi]} state={choiceState(oi, pick, item.answer)} onClick={() => setPick(oi)}>{o}</ChoiceOption>
         ))}
       </div>
-      {pick != null && <div className="mt-3"><AiNote icon={correct ? Check : RotateCcw} tone={correct ? "emerald" : "amber"}>{correct ? "Düzdür!" : "No lost life — just retry."} {item.why}</AiNote></div>}
-    </Card>
+      {pick != null && <AnswerFeedback ok={pick === item.answer} missTitle="Not quite — pick again">{item.why}</AnswerFeedback>}
+    </QuestionItem>
   );
 }
 
@@ -1335,96 +1525,90 @@ function QuizQ({ item, n, total }) {
 function ComprehensionComponent({ component }) {
   const mode = component.mode || "multiple";
   const items = component.items || [];
-  if (mode === "truefalse") return <div className="space-y-4">{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (mode === "truefalse") {
+    if (!items.length) return <EmptyActivity>No statements added yet.</EmptyActivity>;
+    return <QuestionList>{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} />)}</QuestionList>;
+  }
   if (mode === "matching") return <ComprehensionMatch pairs={items} />;
   return <QuizComponent component={component} />;
 }
-function TrueFalseQ({ item, n, total }) {
-  const [pick, setPick] = useState(null); // true | false | null
-  const correct = pick === item.answer;
+// A two-answer question (True/False, Correct/Incorrect) — same review
+// colors as a multiple-choice option, laid out side by side.
+function BinaryChoice({ value, answer, labels, onPick }) {
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">True or false · {n} of {total}</div>
-      <div className="text-lg font-semibold mb-3">{item.statement}</div>
-      <div className="flex gap-2">
-        {[true, false].map((v) => (
-          <button key={String(v)} onClick={() => setPick(v)}
-            className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
-              pick == null ? "border-neutral-200 hover:border-primary-300" :
-              v === item.answer ? "border-success-300 bg-success-50 text-success-700" :
-              v === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
-            {v ? "True" : "False"} {pick != null && v === item.answer && <Check size={14} className="inline ml-1" />}
-          </button>
-        ))}
-      </div>
-      {pick != null && <div className="mt-3"><AiNote icon={correct ? Check : RotateCcw} tone={correct ? "emerald" : "amber"}>{correct ? "Düzdür!" : "Az qaldı."} {item.why}</AiNote></div>}
-    </Card>
+    <div className="grid grid-cols-2 gap-2">
+      {[true, false].map((v) => (
+        <ChoiceOption key={String(v)} state={choiceState(v, value, answer)} onClick={() => onPick(v)}>{v ? labels[0] : labels[1]}</ChoiceOption>
+      ))}
+    </div>
+  );
+}
+function TrueFalseQ({ item, n }) {
+  const [pick, setPick] = useState(null); // true | false | null
+  return (
+    <QuestionItem n={n} prompt={item.statement} answerLabel="True or false?">
+      <BinaryChoice value={pick} answer={item.answer} labels={["True", "False"]} onPick={setPick} />
+      {pick != null && <AnswerFeedback ok={pick === item.answer}>{item.why}</AnswerFeedback>}
+    </QuestionItem>
   );
 }
 // "Match texts" — pair a statement/question with the excerpt from the
-// passage that answers it, same drag-free click-to-match mechanic as the
-// vocabulary Match component, but over free text instead of term/az pairs.
+// passage that answers it, over the same MatchGrid as vocabulary Match.
 function ComprehensionMatch({ pairs }) {
   const { toast } = useStore();
-  const clean = (pairs || []).filter((p) => p.left && p.right).slice(0, 6);
-  const [right] = useState(() => [...clean].reverse());
-  const [picked, setPicked] = useState(null);
-  const [done, setDone] = useState({});
-  if (!clean.length) return <Card className="p-6 text-neutral-400 text-sm text-center">No matching pairs added yet.</Card>;
-  function tryMatch(leftIdx, rightVal) {
-    if (clean[leftIdx].right === rightVal) {
-      const next = { ...done, [leftIdx]: true };
-      setDone(next); setPicked(null);
-      if (Object.keys(next).length === clean.length) toast("Matched — great reading! 🎉");
-    } else setPicked(null);
-  }
-  return (
-    <div className="grid grid-cols-2 gap-8">
-      <div className="space-y-2">
-        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">Statement</div>
-        {clean.map((p, i) => (
-          <button key={i} disabled={done[i]} onClick={() => setPicked(i)}
-            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${done[i] ? "border-success-200 bg-success-50 text-success-700" : picked === i ? "border-primary-400 bg-primary-50" : "border-neutral-200 hover:border-primary-300"}`}>
-            {p.left} {done[i] && <Check size={13} className="inline text-success-600" />}
-          </button>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-1">From the text</div>
-        {right.map((p) => {
-          const matched = Object.keys(done).some((li) => clean[li].right === p.right);
-          return (
-            <button key={p.right} disabled={matched || picked == null} onClick={() => tryMatch(picked, p.right)}
-              className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${matched ? "border-success-200 bg-success-50" : picked == null ? "border-neutral-100 text-neutral-400" : "border-neutral-200 hover:border-primary-300"}`}>
-              {p.right}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+  const rows = (pairs || []).filter((p) => p.left && p.right).slice(0, 6).map((p, i) => ({ id: i, left: p.left, right: p.right }));
+  return <MatchGrid rows={rows} leftLabel="Statement" rightLabel="From the text" instructions="Pick a statement, then the line from the text that answers it." onDone={() => toast("Matched — great reading! 🎉")} />;
+}
+
+// An inline blank inside a sentence — the kit's gray filled field, shrunk
+// to word size, taking the field error/success colors once checked.
+const GAP_STATE = {
+  idle: "bg-neutral-200 border-transparent focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
+  ok: "bg-success-50 border-success-500 text-success-700",
+  miss: "bg-warning-50 border-warning-500 text-warning-700",
+};
+function GapSentence({ text, value, onChange, state = "idle", width = "w-32" }) {
+  return (text || "").split("___").map((seg, i, arr) => (
+    <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="…" aria-label="Your answer"
+        className={`inline-block ${width} mx-1 h-9 rounded-lg border px-2 text-base font-medium text-center align-middle outline-none transition-colors ${GAP_STATE[state]}`} />
+    )}</React.Fragment>
+  ));
 }
 
 function GapFillComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function GapFill({ item, n, total }) {
+// Shared by Gap fill and Word formation: type into the blank, check, and on
+// a miss show the answer with a one-tap retry.
+function useTypedAnswer(answer) {
   const [val, setVal] = useState("");
   const [checked, setChecked] = useState(false);
-  const ok = val.trim().toLowerCase() === item.answer.toLowerCase();
+  const ok = val.trim().toLowerCase() === (answer || "").trim().toLowerCase();
+  return {
+    val, checked, ok,
+    state: checked ? (ok ? "ok" : "miss") : "idle",
+    change: (v) => { setVal(v); setChecked(false); },
+    check: () => setChecked(true),
+    retry: () => { setChecked(false); setVal(""); },
+  };
+}
+function TypedAnswerFooter({ a, item }) {
+  if (!a.checked) return <Button size="sm" onClick={a.check} disabled={!a.val.trim()}>Check</Button>;
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Fill the gap · {n} of {total}</div>
-      <div className="text-lg mb-3">{item.text.split("___").map((seg, i, arr) => (
-        <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
-          <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
-            className={`inline-block w-28 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
-        )}</React.Fragment>
-      ))}</div>
-      {!checked ? <Button size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Button>
-        : <AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür! (Correct!)" : <>Az qaldı — düzgün cavab: <b>{item.answer}</b>. {item.why} <button onClick={() => { setChecked(false); setVal(""); }} className="underline ml-1">Yenidən cəhd et</button></>}</AiNote>}
-    </Card>
+    <AnswerFeedback ok={a.ok} className="" actionLabel={a.ok ? undefined : "Try again"} onAction={a.retry}>
+      {!a.ok && <>Correct answer: <b>{item.answer}</b>. {item.why}</>}
+    </AnswerFeedback>
+  );
+}
+function GapFill({ item, n }) {
+  const a = useTypedAnswer(item.answer);
+  return (
+    <QuestionItem n={n} prompt={<GapSentence text={item.text} value={a.val} onChange={a.change} state={a.state} />}>
+      <TypedAnswerFooter a={a} item={item} />
+    </QuestionItem>
   );
 }
 
@@ -1433,28 +1617,16 @@ function GapFill({ item, n, total }) {
    the root is given, so the check is specifically about word-building. ---- */
 function WordFormationComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function WordFormationItem({ item, n, total }) {
-  const [val, setVal] = useState("");
-  const [checked, setChecked] = useState(false);
-  const ok = val.trim().toLowerCase() === (item.answer || "").toLowerCase();
+function WordFormationItem({ item, n }) {
+  const a = useTypedAnswer(item.answer);
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Word formation · {n} of {total}</div>
-      <div className="flex items-center gap-2 mb-2">
-        <Pill className="bg-primary-50 text-primary-700 font-mono">{item.root}</Pill>
-        {item.pos && <span className="text-xs text-neutral-400">→ {item.pos}</span>}
-      </div>
-      <div className="text-lg mb-3">{(item.sentence || "").split("___").map((seg, i, arr) => (
-        <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
-          <input value={val} onChange={(e) => { setVal(e.target.value); setChecked(false); }} placeholder="…"
-            className={`inline-block w-32 mx-1 border-b-2 text-center focus:outline-none ${checked ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
-        )}</React.Fragment>
-      ))}</div>
-      {!checked ? <Button size="sm" onClick={() => setChecked(true)} disabled={!val.trim()}>Check</Button>
-        : <AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür! (Correct!)" : <>Az qaldı — düzgün cavab: <b>{item.answer}</b>. {item.why} <button onClick={() => { setChecked(false); setVal(""); }} className="underline ml-1">Yenidən cəhd et</button></>}</AiNote>}
-    </Card>
+    <QuestionItem n={n} prompt={<GapSentence text={item.sentence} value={a.val} onChange={a.change} state={a.state} width="w-36" />}
+      answerLabel={<span className="inline-flex flex-wrap items-center gap-2">Form the right word from <Tag color="primary">{item.root}</Tag>{item.pos && <span>→ {item.pos}</span>}</span>}>
+      <TypedAnswerFooter a={a} item={item} />
+    </QuestionItem>
   );
 }
 
@@ -1468,11 +1640,11 @@ function MediaComponent({ component, kind }) {
           <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-neutral-900">
             {kind === "video" ? <Play size={26} className="ml-1" /> : <Volume2 size={26} />}
           </button>
-          <span className="absolute bottom-3 right-3 text-xs text-white/80 font-mono">{component.duration}</span>
+          <span className="absolute bottom-3 right-3 text-xs font-medium text-white/80 tabular-nums">{component.duration}</span>
         </div>
         <div className="p-4">
           <div className="font-semibold">{component.title}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
+          <div className="text-xs text-neutral-600 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
           <button onClick={() => setShowT((s) => !s)} className="text-sm text-primary-600 hover:text-primary-700 mt-2 inline-flex items-center gap-1">{showT ? "Hide" : "Show"} transcript <ChevronRight size={13} className={showT ? "rotate-90 transition-transform" : "transition-transform"} /></button>
           {showT && <p className="text-sm text-neutral-600 mt-2 leading-relaxed">{component.transcript}</p>}
         </div>
@@ -1481,24 +1653,43 @@ function MediaComponent({ component, kind }) {
   );
 }
 
+// A prompt authored as "Colleague: Good morning!" shows the speaker as the
+// bubble's caption instead of inline text.
+function splitSpeaker(line) {
+  const m = /^([^:]{1,24}):\s*(.+)$/s.exec(line || "");
+  return m ? { speaker: m[1].trim(), text: m[2] } : { speaker: null, text: line || "" };
+}
+
+// Laid out as the kit's Chat screen: the situation on top, then the
+// exchange on a gray panel — the other person's lines as white bubbles,
+// the student's sample replies as orange ones, revealed turn by turn.
 function ScenarioComponent({ component }) {
   const [revealed, setRevealed] = useState({});
+  const turns = component.turns || [];
   return (
-    <div className="">
-      <AiNote icon={Sparkles} tone="teal" title="Real situation">{component.situation}</AiNote>
-      <div className="space-y-3 mt-4">
-        {(component.turns || []).map((t, i) => (
-          <div key={i}>
-            <div className="bg-neutral-100 rounded-2xl rounded-tl-sm p-3 text-sm text-neutral-700 max-w-[85%]">{t.prompt}</div>
-            <div className="flex justify-end mt-1.5">
-              {revealed[i] ? <div className="bg-primary-600 text-white rounded-2xl rounded-tr-sm p-3 text-sm max-w-[85%]">{t.sample}</div>
-                : <button onClick={() => setRevealed((r) => ({ ...r, [i]: true }))} className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded-full px-3 py-1.5">Your turn — show a sample reply</button>}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-neutral-400 mt-4">Speaking is practised with your teacher — the app never grades speech.</p>
-    </div>
+    <Card className="p-5 sm:p-6 space-y-4">
+      {component.situation && <Alert tone="info" icon={IconMessageCircle} title="Real situation">{component.situation}</Alert>}
+      {turns.length ? (
+        <ChatPanel>
+          {turns.map((t, i) => {
+            const { speaker, text } = splitSpeaker(t.prompt);
+            return (
+              <React.Fragment key={i}>
+                <MessageBubble from="them" meta={speaker}>{text}</MessageBubble>
+                {revealed[i] ? <MessageBubble from="me" meta="You · sample reply">{t.sample}</MessageBubble> : (
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => setRevealed((r) => ({ ...r, [i]: true }))}>
+                      <IconMessageCircle size={15} stroke={1.75} /> Your turn — show a sample reply
+                    </Button>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </ChatPanel>
+      ) : <p className="text-sm text-neutral-600">No turns added yet.</p>}
+      <p className="flex items-center gap-1.5 text-sm text-neutral-600"><IconInfoCircle size={16} stroke={1.75} className="shrink-0" /> Say your reply out loud first — speaking is practised with your teacher, and the app never grades speech.</p>
+    </Card>
   );
 }
 
@@ -1513,46 +1704,45 @@ function HomeworkComponent({ component }) {
   if (type === "link") return <HomeworkLinkComponent component={component} icon={FileUp} placeholder="Paste your document/form link" />;
   return <HomeworkEssayComponent component={component} />;
 }
+// Homework follows the kit's Assessment page: the task as the question, a
+// muted "Answer" caption, the gray filled field, then the submit row.
+function SubmittedTag({ children = "Sent — waiting for review" }) {
+  return <Tag color="pending">{children}</Tag>;
+}
 function HomeworkEssayComponent({ component }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const count = text.trim() ? text.trim().split(/[.!?]+/).filter((x) => x.trim()).length : 0;
+  const min = component.minSentences || 0;
   return (
-    <div className="">
-      <Card className="p-5">
-        <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} disabled={sent} className={`${inputCls} h-28 resize-none`} placeholder="Write here…" />
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-neutral-400 font-mono">{count}/{component.minSentences} sentences</span>
-          {sent ? <Pill className="bg-pending-50 text-pending-700">Sent — waiting for review</Pill>
-            : <Button size="sm" disabled={count < component.minSentences} onClick={() => setSent(true)}><Send size={13} /> Submit</Button>}
+    <Card>
+      <QuestionItem prompt={component.prompt} answerLabel="Answer">
+        <TextArea value={text} onChange={(e) => setText(e.target.value)} disabled={sent} className="h-32" placeholder="Write here…" />
+        <div className="flex items-center justify-between gap-3 mt-3">
+          <span className={`text-sm tabular-nums ${count >= min ? "text-success-600" : "text-neutral-600"}`}>{count}/{min} sentences</span>
+          {sent ? <SubmittedTag /> : <Button size="sm" disabled={count < min} onClick={() => setSent(true)}><IconSend size={15} stroke={1.75} /> Submit</Button>}
         </div>
-      </Card>
-    </div>
+      </QuestionItem>
+    </Card>
   );
 }
 function HomeworkLinkComponent({ component, icon: Icon, placeholder }) {
   const [url, setUrl] = useState("");
   const [sent, setSent] = useState(false);
   return (
-    <div className="">
-      <Card className="p-5">
-        <p className="text-neutral-600 text-sm mb-3">{component.prompt}</p>
+    <Card>
+      <QuestionItem prompt={component.prompt} answerLabel="Your link">
         {component.resourceUrl && (
-          <a href={component.resourceUrl} target="_blank" rel="noreferrer" className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 mb-3">
-            <Icon size={12} /> Open the resource
+          <a href={component.resourceUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 mb-3">
+            <Icon size={14} /> Open the resource
           </a>
         )}
-        <div className="flex items-center gap-2">
-          <Icon size={16} className="text-neutral-400 shrink-0" />
-          <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={sent} className={inputCls} placeholder={placeholder} />
-        </div>
+        <TextField value={url} onChange={(e) => setUrl(e.target.value)} disabled={sent} placeholder={placeholder} />
         <div className="flex justify-end mt-3">
-          {sent ? <Pill className="bg-pending-50 text-pending-700">Sent — waiting for review</Pill>
-            : <Button size="sm" disabled={!url.trim()} onClick={() => setSent(true)}><Send size={13} /> Submit</Button>}
+          {sent ? <SubmittedTag /> : <Button size="sm" disabled={!url.trim()} onClick={() => setSent(true)}><IconSend size={15} stroke={1.75} /> Submit</Button>}
         </div>
-      </Card>
-    </div>
+      </QuestionItem>
+    </Card>
   );
 }
 
@@ -1580,7 +1770,7 @@ function YoutubeComponent({ component }) {
         </div>
         <div className="p-4">
           <div className="font-semibold">{component.title || "YouTube video"}</div>
-          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
+          {component.notes && <div className="text-xs text-neutral-600 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
     </div>
@@ -1600,7 +1790,7 @@ function SlideDeckComponent({ component }) {
           {component.url ? (
             <iframe className="w-full h-full" src={component.url} title={component.title || "Slide deck"} allowFullScreen loading="lazy" />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-400 text-sm">
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-600 text-sm">
               <MonitorPlay size={22} />
               No deck linked yet — add an embed link in Edit content.
             </div>
@@ -1609,9 +1799,9 @@ function SlideDeckComponent({ component }) {
         <div className="p-4">
           <div className="flex items-center gap-2">
             <span className="font-semibold">{component.title || "Untitled deck"}</span>
-            <Pill className="bg-info-50 text-info-700">{SLIDE_PROVIDER_LABEL[component.provider] || "Deck"}</Pill>
+            <Tag color="info">{SLIDE_PROVIDER_LABEL[component.provider] || "Deck"}</Tag>
           </div>
-          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
+          {component.notes && <div className="text-xs text-neutral-600 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
     </div>
@@ -1632,7 +1822,7 @@ function DocumentComponent({ component }) {
       <Card className="p-0 overflow-hidden">
         <div className={kind === "image" ? "bg-neutral-100" : "aspect-video bg-neutral-100"}>
           {!url ? (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-400 text-sm py-10">
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-600 text-sm py-10">
               <FileText size={22} />
               No file linked yet — add a link in Edit content.
             </div>
@@ -1647,9 +1837,9 @@ function DocumentComponent({ component }) {
         <div className="p-4">
           <div className="flex items-center gap-2">
             <span className="font-semibold">{component.title || "Untitled document"}</span>
-            <Pill className="bg-neutral-100 text-neutral-600">{DOC_KIND_LABEL[kind] || "Document"}</Pill>
+            <Tag>{DOC_KIND_LABEL[kind] || "Document"}</Tag>
           </div>
-          {component.notes && <div className="text-xs text-neutral-400 mt-0.5">{component.notes}</div>}
+          {component.notes && <div className="text-xs text-neutral-600 mt-0.5">{component.notes}</div>}
         </div>
       </Card>
     </div>
@@ -1674,17 +1864,17 @@ function InfoGapTask({ component }) {
   const nameFor = (r) => state.students.find((s) => s.id === r?.studentId)?.name || "Unassigned role";
   return (
     <div className="">
-      <AiNote icon={Handshake} tone="sky" title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</AiNote>
+      <Alert tone="info" icon={IconUsers} title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</Alert>
       <div className="flex gap-2 mt-4 mb-3 flex-wrap">
         {roles.map((r, i) => (
-          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-200 text-neutral-500"}`}>{nameFor(r)}</button>
+          <button key={i} onClick={() => setView(i)} className={`text-sm font-semibold rounded-lg px-3 py-1.5 border ${view === i ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-400 text-neutral-600"}`}>{nameFor(r)}</button>
         ))}
       </div>
       <Card className="p-5">
-        <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">{nameFor(role)} sees only this</div>
+        <div className="text-sm text-neutral-600 mb-2">{nameFor(role)} sees only this</div>
         <p className="text-sm text-neutral-700">{role?.prompt}</p>
       </Card>
-      <p className="text-xs text-neutral-400 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
+      <p className="text-xs text-neutral-600 mt-3">When grouped for real, each student only ever sees their own role — this toggle is just for you to preview all {roles.length}.</p>
     </div>
   );
 }
@@ -1721,17 +1911,17 @@ function TeamQuizRace({ component }) {
     setQi((i) => i + 1); setRoundResult(null); setGameState("playing");
   }
 
-  if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-neutral-400">Add at least 2 teams and 1 question to enable the race.</Card>;
+  if (!items.length || teams.length < 2) return <Card className="p-6 text-sm text-neutral-600">Add at least 2 teams and 1 question to enable the race.</Card>;
 
   if (gameState === "idle") {
     return (
       <Card className="p-6 text-center">
         <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
         <div className="font-semibold mb-1">Team quiz race · {teams.length} teams</div>
-        <p className="text-sm text-neutral-500 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
+        <p className="text-sm text-neutral-600 mb-4">Kahoot / Quizlet-Live style — teams race to answer, speed and accuracy both score points.</p>
         <div className="text-left space-y-1 mb-4">
           {teams.map((t) => (
-            <div key={t.id} className="text-xs text-neutral-500"><b className="text-neutral-700">{t.name}</b>{memberNames(t) ? ` — ${memberNames(t)}` : " — no students assigned yet"}</div>
+            <div key={t.id} className="text-xs text-neutral-600"><b className="text-neutral-700">{t.name}</b>{memberNames(t) ? ` — ${memberNames(t)}` : " — no students assigned yet"}</div>
           ))}
         </div>
         <Button onClick={start}><Trophy size={14} /> Start race</Button>
@@ -1746,12 +1936,12 @@ function TeamQuizRace({ component }) {
         <div className="flex items-center gap-2 mb-4"><Trophy size={20} className="text-pending-500" /><span className="font-semibold">Final leaderboard</span></div>
         {ranked.map((t, i) => (
           <div key={t.id} className="flex items-center gap-3 py-2">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-pending-400 text-white" : "bg-neutral-100 text-neutral-500"}`}>{i + 1}</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-pending-400 text-white" : "bg-neutral-100 text-neutral-600"}`}>{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{t.name}</div>
-              {memberNames(t) && <div className="text-xs text-neutral-400 truncate">{memberNames(t)}</div>}
+              {memberNames(t) && <div className="text-xs text-neutral-600 truncate">{memberNames(t)}</div>}
             </div>
-            <span className="font-mono text-sm">{scores[t.id]} pts</span>
+            <span className="text-sm font-semibold tabular-nums">{scores[t.id]} pts</span>
           </div>
         ))}
         <Button variant="outline" size="sm" className="mt-3" onClick={() => setGameState("idle")}><RotateCcw size={13} /> Play again</Button>
@@ -1762,7 +1952,7 @@ function TeamQuizRace({ component }) {
   const item = items[qi];
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
+      <div className="flex items-center justify-between text-sm tabular-nums text-neutral-600">
         <span>Question {qi + 1} of {items.length}</span>
         <span>{teams.length} teams racing</span>
       </div>
@@ -1770,29 +1960,29 @@ function TeamQuizRace({ component }) {
         <div className="text-base font-medium mb-3">{item.q}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {item.options.map((o, oi) => (
-            <div key={oi} className={`rounded-lg border p-3 text-sm ${gameState === "revealed" && oi === item.answer ? "border-success-300 bg-success-50 text-success-700" : "border-neutral-200"}`}>{o}</div>
+            <div key={oi} className={`rounded-lg border p-3 text-sm ${gameState === "revealed" && oi === item.answer ? "border-success-300 bg-success-50 text-success-700" : "border-neutral-400"}`}>{o}</div>
           ))}
         </div>
       </Card>
       {gameState === "playing" && <Button onClick={revealRound}><Sparkles size={14} /> Reveal — simulate all teams answering</Button>}
       {gameState === "revealed" && (
         <>
-          <Card className="p-4 divide-y divide-neutral-100">
+          <Card className="p-4 divide-y divide-neutral-400">
             {teams.map((t) => (
               <div key={t.id} className="flex items-center gap-3 py-2 text-sm">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{t.name}</div>
-                  {memberNames(t) && <div className="text-xs text-neutral-400 truncate">{memberNames(t)}</div>}
+                  {memberNames(t) && <div className="text-xs text-neutral-600 truncate">{memberNames(t)}</div>}
                 </div>
-                <Pill className={roundResult[t.id].correct ? "bg-success-50 text-success-700" : "bg-warning-50 text-warning-700"}>{roundResult[t.id].correct ? "Correct" : "Missed"}</Pill>
-                <span className="font-mono text-xs text-neutral-400 w-14 text-right">{(roundResult[t.id].ms / 1000).toFixed(1)}s</span>
-                <span className="font-mono text-sm w-14 text-right">+{roundResult[t.id].points}</span>
+                <Tag color={roundResult[t.id].correct ? "success" : "warning"}>{roundResult[t.id].correct ? "Correct" : "Missed"}</Tag>
+                <span className="text-sm tabular-nums text-neutral-600 w-14 text-right">{(roundResult[t.id].ms / 1000).toFixed(1)}s</span>
+                <span className="text-sm font-semibold tabular-nums w-14 text-right">+{roundResult[t.id].points}</span>
               </div>
             ))}
           </Card>
           <div className="flex flex-wrap gap-2">
             {teams.slice().sort((a, b) => scores[b.id] - scores[a.id]).map((t, i) => (
-              <Pill key={t.id} className={i === 0 ? "bg-pending-50 text-pending-700" : "bg-neutral-100 text-neutral-500"}>{i === 0 && "👑 "}{t.name} · {scores[t.id]}</Pill>
+              <Tag key={t.id} color={i === 0 ? "pending" : "neutral"}>{i === 0 && "👑 "}{t.name} · {scores[t.id]}</Tag>
             ))}
           </div>
           <Button onClick={next}>{qi + 1 >= items.length ? "See final leaderboard" : "Next question"} <ArrowRight size={14} /></Button>
@@ -1818,10 +2008,15 @@ function SpeakingRecordComponent({ component }) {
   function again() { setSeconds(0); setState("idle"); }
 
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Speaking · record & get AI feedback</div>
-      <div className="text-lg font-medium mb-1">{component.question}</div>
-      {component.tipAz && <p className="text-xs text-neutral-400 mb-4">{component.tipAz}</p>}
+    <Card className="p-5 sm:p-6">
+      <div className="text-sm text-neutral-600 mb-1">Record your answer · AI feedback</div>
+      <div className="text-lg font-semibold text-neutral-950 leading-snug mb-2">{component.question}</div>
+      {component.tipAz && (
+        <div className="flex items-start gap-2 mb-4 text-sm text-neutral-700">
+          <IconBulb size={16} stroke={1.75} className="shrink-0 mt-0.5 text-pending-600" />
+          <span>{component.tipAz}</span>
+        </div>
+      )}
 
       {state === "idle" && <Button onClick={start}><Mic2 size={14} /> Start recording</Button>}
 
@@ -1829,7 +2024,7 @@ function SpeakingRecordComponent({ component }) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-warning-500" /></span>
-            <span className="text-sm font-mono text-warning-600">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</span>
+            <span className="text-sm font-semibold tabular-nums text-warning-600">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</span>
           </div>
           <div className="flex items-end gap-0.5 h-8 mb-3">
             {Array.from({ length: 40 }).map((_, i) => <span key={i} className="flex-1 bg-warning-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + seconds)) * 80}%` }} />)}
@@ -1838,13 +2033,13 @@ function SpeakingRecordComponent({ component }) {
         </div>
       )}
 
-      {state === "analyzing" && <div className="flex items-center gap-2 text-sm text-neutral-500"><Sparkles size={15} className="text-info-500" /> AI is analyzing your speech…</div>}
+      {state === "analyzing" && <div className="flex items-center gap-2 text-sm text-neutral-700"><IconSparkles size={16} stroke={1.75} className="text-info-600" /> AI is analyzing your speech…</div>}
 
       {state === "done" && (
         <div>
-          <AiNote icon={Sparkles} tone="violet" title="AI feedback">
+          <Alert tone="info" icon={IconSparkles} title="AI feedback">
             Good pace and clear structure — you covered the situation, action and result. Watch: “the project which I lead” → say “which I led” (past tense, since it's finished). Fluency: 7.5/10. Try adding one more concrete detail next time.
-          </AiNote>
+          </Alert>
           <Button variant="outline" size="sm" className="mt-3" onClick={again}><RotateCcw size={13} /> Record again</Button>
         </div>
       )}
@@ -1855,25 +2050,29 @@ function SpeakingRecordComponent({ component }) {
 /* ---- Shadowing — listen to a model sentence, repeat it immediately ---- */
 function ShadowingComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <ShadowItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <ShadowItem key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function ShadowItem({ item, n, total }) {
+function ShadowItem({ item, n }) {
   const [playing, setPlaying] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState(false);
   function playModel() { setPlaying(true); setTimeout(() => setPlaying(false), 1200); }
   function recordRepeat() { setRecording(true); setTimeout(() => { setRecording(false); setRecorded(true); }, 1400); }
   return (
-    <Card className="p-4">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Shadowing · {n} of {total}</div>
-      <div className="text-base font-medium mb-1">“{item.sentence}”</div>
-      {item.note && <div className="text-xs text-neutral-400 mb-3">{item.note}</div>}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={playModel} disabled={playing}><Volume2 size={13} /> {playing ? "Playing…" : "Play model"}</Button>
-        <Button size="sm" onClick={recordRepeat} disabled={recording}><Mic2 size={13} /> {recording ? "Listening…" : "Repeat it"}</Button>
+    <QuestionItem n={n} prompt={<>“{item.sentence}”</>}>
+      {item.note && (
+        <div className="flex items-start gap-2 mb-3 text-sm text-neutral-700">
+          <IconBulb size={16} stroke={1.75} className="shrink-0 mt-0.5 text-pending-600" />
+          <span>{item.note}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={playModel} disabled={playing}><IconVolume size={15} stroke={1.75} /> {playing ? "Playing…" : "Play model"}</Button>
+        <Button size="sm" onClick={recordRepeat} disabled={recording}><IconMicrophone size={15} stroke={1.75} /> {recording ? "Listening…" : "Repeat it"}</Button>
       </div>
-      {recorded && <div className="mt-3"><AiNote icon={Check} tone="emerald">Rhythm and stress matched closely — nice shadowing.</AiNote></div>}
-    </Card>
+      {recorded && <AnswerFeedback ok okTitle="Nice shadowing">Rhythm and stress matched closely.</AnswerFeedback>}
+    </QuestionItem>
   );
 }
 
@@ -1881,18 +2080,23 @@ function ShadowItem({ item, n, total }) {
 function UploadComponent({ component }) {
   const [file, setFile] = useState(null);
   const [sent, setSent] = useState(false);
+  const accept = (component.accept || "").split(",").map((x) => x.trim().replace(/^\./, "").toUpperCase()).filter(Boolean).join(", ");
   return (
-    <Card className="p-5">
-      <p className="text-neutral-600 text-sm mb-3">{component.instructions}</p>
-      {!sent ? (
-        <div>
-          <label className="flex items-center justify-center gap-2 border-2 border-dashed border-neutral-200 rounded-xl p-6 text-sm text-neutral-400 hover:border-primary-300 hover:text-primary-500 cursor-pointer transition-colors">
-            <FileUp size={16} /> {file ? file.name : `Choose a file (${component.accept || "any"})`}
-            <input type="file" accept={component.accept} className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          </label>
-          <div className="flex justify-end mt-3"><Button size="sm" disabled={!file} onClick={() => setSent(true)}><Send size={13} /> Submit</Button></div>
-        </div>
-      ) : <Pill className="bg-pending-50 text-pending-700">“{file?.name}” sent — waiting for review</Pill>}
+    <Card>
+      <QuestionItem prompt={component.instructions} answerLabel="Answer">
+        {!sent ? (
+          <>
+            {/* The kit's "Add File (ZIP, RAR)*" control: a full-width white
+                button with the hairline border. */}
+            <label className={`h-12 flex items-center justify-center gap-2 rounded-lg border border-neutral-400 bg-white px-4 text-sm font-medium text-neutral-900 hover:border-primary-300 hover:text-primary-700 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-100 ${PRESS}`}>
+              <IconFilePlus size={18} stroke={1.75} className="shrink-0" />
+              <span className="truncate">{file ? file.name : `Add file${accept ? ` (${accept})` : ""}`}</span>
+              <input type="file" accept={component.accept} className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            </label>
+            <div className="flex justify-end mt-3"><Button size="sm" disabled={!file} onClick={() => setSent(true)}><IconSend size={15} stroke={1.75} /> Submit</Button></div>
+          </>
+        ) : <SubmittedTag>“{file?.name}” sent — waiting for review</SubmittedTag>}
+      </QuestionItem>
     </Card>
   );
 }
@@ -1933,9 +2137,9 @@ function MemoryComponent({ component }) {
 
   return (
     <div className="">
-      <div className="flex items-center justify-between mb-3 text-xs text-neutral-400">
+      <div className="flex items-center justify-between mb-3 text-sm text-neutral-600">
         <span>{Object.keys(matched).length}/{pairs.length} pairs found</span>
-        <span className="font-mono">{moves} moves</span>
+        <span className="tabular-nums">{moves} moves</span>
       </div>
       <div className="grid grid-cols-4 gap-2.5">
         {cards.map((c) => {
@@ -1943,13 +2147,13 @@ function MemoryComponent({ component }) {
           return (
             <button key={c.id} onClick={() => flip(c)} disabled={isFlipped}
               className={`h-16 rounded-xl border text-xs font-semibold flex items-center justify-center text-center px-1.5 transition duration-(--dur-fast) ${
-                matched[c.pairId] ? "border-success-300 bg-success-50 text-success-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-neutral-200 bg-neutral-800 text-neutral-800 hover:border-pink-300"}`}>
+                matched[c.pairId] ? "border-success-300 bg-success-50 text-success-700" : isFlipped ? "border-pink-300 bg-pink-50 text-pink-700" : "border-neutral-400 bg-neutral-800 text-neutral-800 hover:border-pink-300"}`}>
               {isFlipped ? c.text : ""}
             </button>
           );
         })}
       </div>
-      {done && <div className="mt-4"><AiNote icon={Trophy} tone="emerald">All pairs matched in {moves} moves — great memory! 🎉</AiNote></div>}
+      {done && <div className="mt-4"><Alert tone="success" icon={IconTrophy} title="All pairs matched">Done in {moves} moves — great memory! 🎉</Alert></div>}
     </div>
   );
 }
@@ -1957,9 +2161,10 @@ function MemoryComponent({ component }) {
 /* ---- Sentence scramble — tap word chips into the right order ---- */
 function ScrambleComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-6">{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function ScrambleItem({ item, n, total }) {
+function ScrambleItem({ item, n }) {
   const words = item.sentence.replace(/[.!?]$/, "").split(" ");
   const [pool] = useState(() => shuffled(words.map((w, i) => ({ id: i, w }))));
   const [built, setBuilt] = useState([]);
@@ -1968,19 +2173,20 @@ function ScrambleItem({ item, n, total }) {
   const ok = built.map((b) => b.w).join(" ") === words.join(" ");
 
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Sentence scramble · {n} of {total}</div>
-      <div className="min-h-12 rounded-xl border-2 border-dashed border-neutral-200 p-2.5 flex flex-wrap gap-2 mb-3">
+    <QuestionItem n={n} prompt="Put the words in order" answerLabel="Your sentence">
+      {/* The answer row reads as the kit's filled answer field; the word
+          chips placed into it take the brand tint. */}
+      <div className={`min-h-12 rounded-lg border p-2 flex flex-wrap gap-2 mb-3 ${checked ? (ok ? "border-success-500 bg-success-50" : "border-warning-500 bg-warning-50") : "border-transparent bg-neutral-200"}`}>
         {built.map((b) => (
           <button key={b.id} onClick={() => { setBuilt((v) => v.filter((x) => x.id !== b.id)); setChecked(false); }}
-            className="text-sm font-medium rounded-lg px-2.5 py-1.5 bg-cyan-100 text-cyan-800 hover:bg-cyan-200">{b.w}</button>
+            className={`text-base font-medium rounded-lg px-3 py-1.5 border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 ${PRESS}`}>{b.w}</button>
         ))}
-        {!built.length && <span className="text-xs text-neutral-300 py-1.5">Tap words below to build the sentence…</span>}
+        {!built.length && <span className="text-base text-neutral-600 px-1 py-1.5">Tap the words below to build the sentence…</span>}
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-4">
         {remaining.map((p) => (
           <button key={p.id} onClick={() => { setBuilt((v) => [...v, p]); setChecked(false); }}
-            className="text-sm font-medium rounded-lg px-2.5 py-1.5 border border-neutral-200 hover:border-cyan-300">{p.w}</button>
+            className={`text-base font-medium rounded-lg px-3 py-1.5 border border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:text-primary-700 ${PRESS}`}>{p.w}</button>
         ))}
       </div>
       <div className="flex items-center gap-2">
@@ -1988,11 +2194,11 @@ function ScrambleItem({ item, n, total }) {
         <Button size="sm" variant="outline" onClick={() => { setBuilt([]); setChecked(false); }}>Clear</Button>
       </div>
       {checked && (
-        <div className="mt-3"><AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>
-          {ok ? "Düzdür! Correct word order." : <>Not quite — correct order: <b>{item.sentence}</b>{item.why ? <> · {item.why}</> : null}</>}
-        </AiNote></div>
+        <AnswerFeedback ok={ok} okTitle="Düzdür! Correct word order.">
+          {!ok && <>Correct order: <b>{item.sentence}</b>{item.why ? <> · {item.why}</> : null}</>}
+        </AnswerFeedback>
       )}
-    </Card>
+    </QuestionItem>
   );
 }
 
@@ -2001,28 +2207,26 @@ function ScrambleItem({ item, n, total }) {
    sentence is wrong, not one missing word. ---- */
 function ArrowCorrectionComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <ArrowCorrectionItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <ArrowCorrectionItem key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function ArrowCorrectionItem({ item, n, total }) {
+function ArrowCorrectionItem({ item, n }) {
   const [revealed, setRevealed] = useState(false);
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Arrow correction · {n} of {total}</div>
-      <div className="flex items-start gap-2 text-warning-700 bg-warning-50 rounded-lg p-3 mb-2">
-        <span className="text-sm">{item.wrong}</span>
-      </div>
+    <QuestionItem n={n} prompt={item.wrong} aside={<Tag color="warning">Has a mistake</Tag>}
+      answerLabel={revealed ? "Correction" : "Fix it in your head, then check"}>
       {!revealed ? (
-        <Button size="sm" onClick={() => setRevealed(true)}><CornerDownRight size={14} /> Show correction</Button>
+        <Button size="sm" onClick={() => setRevealed(true)}><IconCornerDownRight size={15} stroke={1.75} /> Show correction</Button>
       ) : (
         <>
-          <div className="flex items-start gap-2 text-success-700 bg-success-50 rounded-lg p-3 mb-2">
-            <CornerDownRight size={16} className="shrink-0 mt-0.5" />
-            <span className="text-sm font-medium">{item.correct}</span>
+          <div className="flex items-start gap-2 rounded-lg border border-success-200 bg-success-50 px-3.5 py-3 text-success-700">
+            <IconCornerDownRight size={18} stroke={1.75} className="shrink-0 mt-0.5" />
+            <span className="text-base font-medium">{item.correct}</span>
           </div>
-          {item.why && <p className="text-xs text-neutral-400">{item.why}</p>}
+          {item.why && <p className="text-sm text-neutral-600 mt-2">{item.why}</p>}
         </>
       )}
-    </Card>
+    </QuestionItem>
   );
 }
 
@@ -2030,28 +2234,16 @@ function ArrowCorrectionItem({ item, n, total }) {
    from Practice's multi-option quiz. ---- */
 function CorrectIncorrectComponent({ component }) {
   const items = component.items || [];
-  return <div className="space-y-4">{items.map((it, i) => <CorrectIncorrectItem key={i} item={it} n={i + 1} total={items.length} />)}</div>;
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
+  return <QuestionList>{items.map((it, i) => <CorrectIncorrectItem key={i} item={it} n={i + 1} />)}</QuestionList>;
 }
-function CorrectIncorrectItem({ item, n, total }) {
+function CorrectIncorrectItem({ item, n }) {
   const [pick, setPick] = useState(null); // true | false | null
-  const ok = pick === item.correct;
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-2">Correct or incorrect? · {n} of {total}</div>
-      <div className="text-lg font-semibold mb-3">{item.sentence}</div>
-      <div className="flex gap-2">
-        {[true, false].map((v) => (
-          <button key={String(v)} onClick={() => setPick(v)}
-            className={`flex-1 rounded-lg border p-3 text-sm font-semibold transition-colors ${
-              pick == null ? "border-neutral-200 hover:border-primary-300" :
-              v === item.correct ? "border-success-300 bg-success-50 text-success-700" :
-              v === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
-            {v ? "Correct" : "Incorrect"} {pick != null && v === item.correct && <Check size={14} className="inline ml-1" />}
-          </button>
-        ))}
-      </div>
-      {pick != null && <div className="mt-3"><AiNote icon={ok ? Check : RotateCcw} tone={ok ? "emerald" : "amber"}>{ok ? "Düzdür!" : "Az qaldı."} {item.why}</AiNote></div>}
-    </Card>
+    <QuestionItem n={n} prompt={item.sentence} answerLabel="Is this sentence correct?">
+      <BinaryChoice value={pick} answer={item.correct} labels={["Correct", "Incorrect"]} onPick={setPick} />
+      {pick != null && <AnswerFeedback ok={pick === item.correct}>{item.why}</AnswerFeedback>}
+    </QuestionItem>
   );
 }
 
@@ -2061,32 +2253,47 @@ function DialogueCompletionComponent({ component }) {
   const turns = component.turns || [];
   const [answers, setAnswers] = useState({});
   const [checked, setChecked] = useState({});
+  // The speaker whose lines are blanked out is the student — their side of
+  // the chat sits on the right, like the kit's outgoing messages.
+  const me = (turns.find((t) => t.blank) || {}).speaker;
+  const norm = (x) => (x || "").trim().toLowerCase();
   return (
-    <Card className="p-5">
-      <div className="text-xs font-mono uppercase tracking-wide text-neutral-400 mb-3">{component.title || "Dialogue completion"}</div>
-      <div className="space-y-3">
-        {turns.map((t, i) => {
-          const ok = (answers[i] || "").trim().toLowerCase() === (t.answer || "").trim().toLowerCase();
-          return (
-            <div key={i} className="flex gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-neutral-100 text-neutral-500 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{t.speaker}</span>
-              {t.blank ? (
-                <div className="flex-1">
-                  <input value={answers[i] || ""} onChange={(e) => { setAnswers((a) => ({ ...a, [i]: e.target.value })); setChecked((c) => ({ ...c, [i]: false })); }}
-                    placeholder="Type this turn…"
-                    className={`w-full text-sm border-b-2 focus:outline-none px-1 py-1 ${checked[i] ? (ok ? "border-success-400 text-success-700" : "border-warning-400 text-warning-700") : "border-primary-300"}`} />
-                  {!checked[i] ? (
-                    <button onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()} className="text-xs text-primary-600 hover:text-primary-700 mt-1 disabled:opacity-40">Check</button>
-                  ) : !ok && <p className="text-xs text-neutral-400 mt-1">Sample answer: “{t.answer}”</p>}
-                </div>
-              ) : (
-                <span className="text-sm text-neutral-700 mt-0.5">{t.text}</span>
-              )}
-            </div>
-          );
-        })}
-        {!turns.length && <p className="text-sm text-neutral-400">No dialogue added yet.</p>}
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div>
+        {component.title && <div className="text-lg font-semibold text-neutral-950">{component.title}</div>}
+        <p className="text-sm text-neutral-600 mt-0.5">Type the missing lines{me ? ` for speaker ${me}` : ""}, then check each one against a model answer.</p>
       </div>
+      {turns.length ? (
+        <ChatPanel>
+          {turns.map((t, i) => {
+            const side = t.speaker === me ? "me" : "them";
+            if (!t.blank) return <MessageBubble key={i} from={side} meta={`Speaker ${t.speaker}`}>{t.text}</MessageBubble>;
+            if (checked[i]) {
+              const exact = norm(answers[i]) === norm(t.answer);
+              return (
+                <div key={i} className="space-y-1.5">
+                  <MessageBubble from="me" meta={exact ? "You · matches the model answer" : "You"}>{answers[i]}</MessageBubble>
+                  <div className="flex justify-end items-center gap-3 text-xs text-neutral-700">
+                    {!exact && <span>Model answer: “{t.answer}”</span>}
+                    <button onClick={() => setChecked((c) => ({ ...c, [i]: false }))} className="font-semibold text-primary-600 hover:text-primary-700">Edit</button>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={i} className="flex justify-end">
+                <div className="w-full sm:max-w-[70%] flex gap-2">
+                  <input value={answers[i] || ""} onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
+                    onKeyDown={(e) => e.key === "Enter" && answers[i]?.trim() && setChecked((c) => ({ ...c, [i]: true }))}
+                    placeholder={`Type ${t.speaker}'s line…`} aria-label={`Speaker ${t.speaker}'s line`}
+                    className="flex-1 min-w-0 h-10 rounded-lg border border-primary-300 bg-white px-3 text-base outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
+                  <Button size="sm" onClick={() => setChecked((c) => ({ ...c, [i]: true }))} disabled={!answers[i]?.trim()}>Check</Button>
+                </div>
+              </div>
+            );
+          })}
+        </ChatPanel>
+      ) : <p className="text-sm text-neutral-600">No dialogue added yet.</p>}
     </Card>
   );
 }
@@ -2116,13 +2323,13 @@ function SpeedRoundComponent({ component }) {
     setTimeout(() => { setFlash(null); setQi((i) => i + 1); }, 450);
   }
 
-  if (!items.length) return <Card className="p-6 text-sm text-neutral-400">Add at least one question to enable the speed round.</Card>;
+  if (!items.length) return <EmptyActivity>Add at least one question to enable the speed round.</EmptyActivity>;
   if (state === "idle") {
     return (
       <Card className="p-6 text-center">
         <Timer size={28} className="mx-auto text-warning-500 mb-2" />
         <div className="font-semibold mb-1">{seconds}-second speed round</div>
-        <p className="text-sm text-neutral-500 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
+        <p className="text-sm text-neutral-600 mb-4">Answer as many as you can. No penalty for a miss — just keep going.</p>
         <Button onClick={start}>Start</Button>
       </Card>
     );
@@ -2131,8 +2338,8 @@ function SpeedRoundComponent({ component }) {
     return (
       <Card className="p-6 text-center">
         <Trophy size={28} className="mx-auto text-pending-500 mb-2" />
-        <div className="text-3xl font-bold font-mono mb-1">{score}</div>
-        <p className="text-sm text-neutral-500 mb-4">points — nice pace! Try again to beat it.</p>
+        <div className="text-3xl font-bold tabular-nums mb-1">{score}</div>
+        <p className="text-sm text-neutral-600 mb-4">points — nice pace! Try again to beat it.</p>
         <Button onClick={start}><RotateCcw size={14} /> Play again</Button>
       </Card>
     );
@@ -2141,13 +2348,13 @@ function SpeedRoundComponent({ component }) {
   return (
     <Card className={`p-5 transition-colors ${flash === "ok" ? "border-success-300 bg-success-50/40" : flash === "no" ? "border-warning-300 bg-warning-50/40" : ""}`}>
       <div className="flex items-center justify-between mb-3">
-        <Pill className="bg-warning-50 text-warning-700 font-mono">{time}s</Pill>
-        <span className="font-mono text-sm text-neutral-500">{score} pts</span>
+        <Tag color="warning">{time}s left</Tag>
+        <span className="text-sm font-semibold tabular-nums text-neutral-700">{score} pts</span>
       </div>
       <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden mb-4"><div className="h-full w-full origin-left bg-warning-400 transition-transform duration-(--dur-base) ease-soft-out" style={{ transform: `scaleX(${(time / seconds)})` }} /></div>
       <div className="text-lg font-semibold mb-3">{q.q}</div>
       <div className="space-y-2">
-        {q.options.map((o, oi) => <button key={oi} onClick={() => answer(oi)} className="w-full rounded-lg border border-neutral-200 hover:border-warning-300 p-3 text-sm text-left transition-colors">{o}</button>)}
+        {q.options.map((o, oi) => <ChoiceOption key={oi} marker={CHOICE_LETTERS[oi]} onClick={() => answer(oi)}>{o}</ChoiceOption>)}
       </div>
     </Card>
   );
@@ -2166,7 +2373,7 @@ function ComponentEditor({ component, onChange, roster, passages = [], registerF
     case "quiz":       return <QuizEditor component={component} onChange={onChange} />;
     case "gapfill":    return <RowsEditor component={component} onChange={onChange} fields={[["text", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["why", "Why (Azerbaijani)"]]} blank={{ text: "", answer: "", why: "" }} label="item" wide={["text", "why"]} />;
     case "wordformation": return <RowsEditor component={component} onChange={onChange} fields={[["root", "Root word"], ["sentence", "Sentence (use ___ for the gap)"], ["answer", "Answer"], ["pos", "Target part of speech"], ["why", "Why (Azerbaijani)"]]} blank={{ root: "", sentence: "", answer: "", pos: "", why: "" }} label="item" wide={["sentence", "why"]} />;
-    case "timeline":   return <AiNote icon={Sparkles} tone="emerald">The tense timeline is a ready interactive component — no setup. Switch to “As student” to try it.</AiNote>;
+    case "timeline":   return <Alert tone="info" icon={IconInfoCircle}>The tense timeline is a ready interactive component — no setup. Switch to “As student” to try it.</Alert>;
     case "sentence":   return <SentenceEditor component={component} onChange={onChange} />;
     case "preposition":return <PrepositionEditor component={component} onChange={onChange} />;
     case "conjugation":return <ConjugationEditor component={component} onChange={onChange} />;
@@ -2227,12 +2434,12 @@ function RowsEditor({ component, onChange, fields, blank, label, wide = [] }) {
     <div className="space-y-3">
       {items.map((it, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-neutral-600">#{i + 1}</span>
             <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {fields.map(([k, lbl]) => (
               <label key={k} className={`block ${wide.includes(k) ? "sm:col-span-2" : ""}`}>
-                <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">{lbl}</span>
+                <span className="text-xs font-semibold text-neutral-600">{lbl}</span>
                 <input className={`${inputCls} mt-1`} value={it[k] || ""} onChange={(e) => setItem(i, k, e.target.value)} />
               </label>
             ))}
@@ -2299,7 +2506,7 @@ function SentenceEditor({ component, onChange }) {
         ))}
         <Button variant="outline" size="sm" onClick={() => onChange({ sentence: [...tokens, { w: "", role: "" }] })}><Plus size={14} /> Add word</Button>
       </div>
-      <div><div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-1.5">Live preview</div><div className="rounded-xl border border-neutral-100 p-3"><ColorSentence tokens={tokens} /></div></div>
+      <div><div className="text-xs font-semibold text-neutral-600 mb-1.5">Live preview</div><div className="rounded-xl border border-neutral-100 p-3"><ColorSentence tokens={tokens} /></div></div>
     </div>
   );
 }
@@ -2311,7 +2518,7 @@ function QuizEditor({ component, onChange }) {
     <div className="space-y-3">
       {items.map((it, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">Q{i + 1}</span>
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-neutral-600">Q{i + 1}</span>
             <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
           <input className={`${inputCls} mb-2`} value={it.q} onChange={(e) => setItem(i, { q: e.target.value })} placeholder="Question" />
           <div className="space-y-1.5 mb-2">
@@ -2367,9 +2574,9 @@ function TrueFalseEditor({ component, onChange }) {
     <div className="space-y-3">
       {items.map((it, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-neutral-600">#{i + 1}</span>
             <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Statement</span>
+          <label className="block mb-2"><span className="text-xs font-semibold text-neutral-600">Statement</span>
             <input className={`${inputCls} mt-1`} value={it.statement || ""} onChange={(e) => setItem(i, { statement: e.target.value })} /></label>
           <div className="flex gap-2 mb-2">
             {[true, false].map((v) => (
@@ -2377,7 +2584,7 @@ function TrueFalseEditor({ component, onChange }) {
                 className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.answer === v ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{v ? "True" : "False"}</button>
             ))}
           </div>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Why (Azerbaijani) — optional</span>
+          <label className="block"><span className="text-xs font-semibold text-neutral-600">Why (Azerbaijani) — optional</span>
             <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
         </div>
       ))}
@@ -2393,9 +2600,9 @@ function CorrectIncorrectEditor({ component, onChange }) {
     <div className="space-y-3">
       {items.map((it, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">#{i + 1}</span>
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-neutral-600">#{i + 1}</span>
             <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sentence</span>
+          <label className="block mb-2"><span className="text-xs font-semibold text-neutral-600">Sentence</span>
             <input className={`${inputCls} mt-1`} value={it.sentence || ""} onChange={(e) => setItem(i, { sentence: e.target.value })} /></label>
           <div className="flex gap-2 mb-2">
             {[true, false].map((v) => (
@@ -2403,7 +2610,7 @@ function CorrectIncorrectEditor({ component, onChange }) {
                 className={`flex-1 text-sm rounded-lg px-3 py-1.5 border ${it.correct === v ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{v ? "Correct" : "Incorrect"}</button>
             ))}
           </div>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Why (Azerbaijani) — optional</span>
+          <label className="block"><span className="text-xs font-semibold text-neutral-600">Why (Azerbaijani) — optional</span>
             <input className={`${inputCls} mt-1`} value={it.why || ""} onChange={(e) => setItem(i, { why: e.target.value })} /></label>
         </div>
       ))}
@@ -2421,7 +2628,7 @@ function DialogueCompletionEditor({ component, onChange }) {
       {turns.map((t, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-neutral-400">Turn {i + 1}</span>
+            <span className="text-xs font-semibold text-neutral-600">Turn {i + 1}</span>
             <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
           </div>
           <div className="grid grid-cols-[5rem_1fr] gap-2 mb-2">
@@ -2431,10 +2638,10 @@ function DialogueCompletionEditor({ component, onChange }) {
             </label>
           </div>
           {t.blank ? (
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sample answer</span>
+            <label className="block"><span className="text-xs font-semibold text-neutral-600">Sample answer</span>
               <input className={`${inputCls} mt-1`} value={t.answer || ""} onChange={(e) => setTurn(i, { answer: e.target.value })} /></label>
           ) : (
-            <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Line</span>
+            <label className="block"><span className="text-xs font-semibold text-neutral-600">Line</span>
               <input className={`${inputCls} mt-1`} value={t.text || ""} onChange={(e) => setTurn(i, { text: e.target.value })} /></label>
           )}
         </div>
@@ -2462,10 +2669,10 @@ function ScenarioEditor({ component, onChange }) {
       <Field label="Situation"><input className={inputCls} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
       {turns.map((t, i) => (
         <div key={i} className="rounded-xl border border-neutral-100 p-3">
-          <div className="flex items-center justify-between mb-2"><span className="text-xs font-mono text-neutral-400">Turn {i + 1}</span>
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-neutral-600">Turn {i + 1}</span>
             <button onClick={() => onChange({ turns: turns.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button></div>
-          <label className="block mb-2"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Prompt (the other person)</span><input className={`${inputCls} mt-1`} value={t.prompt} onChange={(e) => setTurn(i, "prompt", e.target.value)} /></label>
-          <label className="block"><span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Sample reply</span><input className={`${inputCls} mt-1`} value={t.sample} onChange={(e) => setTurn(i, "sample", e.target.value)} /></label>
+          <label className="block mb-2"><span className="text-xs font-semibold text-neutral-600">Prompt (the other person)</span><input className={`${inputCls} mt-1`} value={t.prompt} onChange={(e) => setTurn(i, "prompt", e.target.value)} /></label>
+          <label className="block"><span className="text-xs font-semibold text-neutral-600">Sample reply</span><input className={`${inputCls} mt-1`} value={t.sample} onChange={(e) => setTurn(i, "sample", e.target.value)} /></label>
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={() => onChange({ turns: [...turns, { prompt: "", sample: "" }] })}><Plus size={14} /> Add turn</Button>
@@ -2509,7 +2716,7 @@ function PrepositionEditor({ component, onChange }) {
         <Field label="Place (e.g. the cupboard)"><input className={inputCls} value={component.place} onChange={(e) => onChange({ place: e.target.value })} /></Field>
       </div>
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-1.5">Prepositions to offer</div>
+        <div className="text-xs font-semibold text-neutral-600 mb-1.5">Prepositions to offer</div>
         <div className="space-y-2">
           {options.map((o, i) => (
             <div key={i} className="grid grid-cols-[1fr_auto] gap-2">
@@ -2554,7 +2761,7 @@ function ConjugationEditor({ component, onChange }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {CONJ_PRONOUNS.map((p) => (
               <label key={p} className="block">
-                <span className="text-[10px] font-mono uppercase tracking-wide text-neutral-400">{p}</span>
+                <span className="text-xs font-semibold text-neutral-600">{p}</span>
                 <input className={`${inputCls} mt-1`} value={forms[p] || ""} onChange={(e) => setForm(tense, p, e.target.value)} />
               </label>
             ))}
@@ -2598,7 +2805,7 @@ function ComparisonEditor({ component, onChange }) {
     <div className="space-y-3">
       {steps.map(([key, label]) => (
         <div key={key} className="rounded-xl border border-neutral-100 p-3">
-          <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">{label}</div>
+          <div className="text-xs font-semibold text-neutral-600 mb-2">{label}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input className={inputCls} value={forms[key] || ""} onChange={(e) => onChange({ forms: { ...forms, [key]: e.target.value } })} placeholder="word form" />
             <input className={inputCls} value={examples[key] || ""} onChange={(e) => onChange({ examples: { ...examples, [key]: e.target.value } })} placeholder="example sentence" />
@@ -2733,12 +2940,12 @@ function InfoGapEditor({ component, onChange, roster = [] }) {
   return (
     <div className="space-y-3">
       <Field label="Situation"><textarea className={`${inputCls} h-20 resize-none`} value={component.situation} onChange={(e) => onChange({ situation: e.target.value })} /></Field>
-      <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Roles — assign a real student to each, any group size</div>
+      <div className="text-xs font-semibold text-neutral-600">Roles — assign a real student to each, any group size</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {roles.map((r, i) => (
           <div key={i} className="rounded-xl border border-neutral-100 p-3">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-400">Role {i + 1}</span>
+              <span className="text-xs font-semibold text-neutral-600">Role {i + 1}</span>
               <button onClick={() => onChange({ roles: roles.filter((_, j) => j !== i) })} className="text-neutral-300 hover:text-warning-500"><Trash2 size={14} /></button>
             </div>
             <Field label="Student">
@@ -2775,7 +2982,7 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">Teams — name each, then assign real students</div>
+        <div className="text-xs font-semibold text-neutral-600 mb-2">Teams — name each, then assign real students</div>
         <div className="space-y-3">
           {teams.map((t, i) => (
             <div key={t.id || i} className="rounded-xl border border-neutral-100 p-3">
@@ -2799,7 +3006,7 @@ function TeamQuizRaceEditor({ component, onChange, roster = [] }) {
         <Button variant="outline" size="sm" className="mt-2" onClick={() => onChange({ teams: [...teams, { id: uid("team"), name: `Team ${teams.length + 1}`, studentIds: [] }] })}><Plus size={14} /> Add team</Button>
       </div>
       <div>
-        <div className="text-[11px] font-mono uppercase tracking-wide text-neutral-400 mb-2">Race questions</div>
+        <div className="text-xs font-semibold text-neutral-600 mb-2">Race questions</div>
         <QuizEditor component={component} onChange={onChange} />
       </div>
     </div>

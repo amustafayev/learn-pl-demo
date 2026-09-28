@@ -1,217 +1,711 @@
 /* Retints H5P's editor/player chrome to match this app's design tokens
    (src/index.css). Wired in via H5PConfig's own supported extension point —
-   config.customization.global.{editor,player}.styles — so it's appended
-   after H5P's own stylesheets and wins the cascade without touching any
-   vendored H5P file.
+   config.customization.global.{editor,player}.styles — so no vendored H5P
+   file is touched.
 
-   Two layers, because H5P's own theming coverage is inconsistent:
+   HOW TO RE-THEME: edit the "Roles" block in section 1. Every rule below
+   reads those variables, never a raw hex, so changing e.g. --lucid-accent
+   recolors buttons, active tabs and section headers everywhere at once.
 
-   1. The `--h5p-theme-*` custom properties (h5p/core/styles/
-      h5p-theme-variables.css) — a real, first-class theming API in H5P's
-      current core. Newer/updated parts of core and some libraries already
-      consume these vars, so overriding them here is enough for those.
-   2. Targeted selector overrides for the common chrome that predates that
-      var system and still hardcodes its own colors: the Hub content-type
-      picker (h5p-hub-client.css) and H5P.JoubelUI's button (used as the
-      primary action button by many content types — Crossword, Quiz, etc).
+   LOAD ORDER CAVEAT: H5P loads this file after its core/editor stylesheets
+   but BEFORE each content type's own CSS (H5P.JoubelUI, H5P.Question,
+   H5PEditor.VerticalTabs …). Overrides of those later files use !important
+   — an equal-specificity rule would otherwise lose to them. Overrides of
+   core/editor CSS don't need it.
 
-   This is NOT a full reskin of all 60+ content types — each one's own
-   bespoke UI (e.g. MultiChoice's option layout) keeps its own styling
-   unless targeted individually. This covers the shared chrome every
-   content type goes through: buttons, focus rings, the content-type
-   picker, radius, and font.
-*/
+   Scope: the shared chrome every content type goes through — the editor
+   form (fields, section headers, buttons, tabs), the Hub content-type
+   picker, and the player's shared buttons/score bar. Each content type's
+   own bespoke UI (e.g. Crossword's grid colors, which authors set per
+   activity) keeps its own styling. */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
+/* ================================================================ 1. Tokens */
 :root {
-  /* Primary CTA -> primary-500/400/600 */
-  --h5p-theme-main-cta-base: #ff5c20;
-  --h5p-theme-main-cta-light: #ff7c4d;
-  --h5p-theme-main-cta-dark: #d84d1a;
-  --h5p-theme-contrast-cta: #ffefe9;
-  --h5p-theme-contrast-cta-white: #ff5c20;
+  /* Palette — the app's own tokens, copied from src/index.css (this file is
+     served into H5P's iframes, which can't see the app's CSS variables). */
+  --lucid-primary-50: #ffefe9;
+  --lucid-primary-100: #ffddd3;
+  --lucid-primary-200: #ffbda5;
+  --lucid-primary-400: #ff7c4d;
+  --lucid-primary-500: #ff5c20;
+  --lucid-primary-600: #d84d1a;
+  --lucid-primary-700: #b33d13;
+  --lucid-primary-800: #8c2f0c;
+  --lucid-neutral-50: #ffffff;
+  --lucid-neutral-100: #fcfcfc;
+  --lucid-neutral-200: #f5f5f5;
+  --lucid-neutral-300: #f0f0f0;
+  --lucid-neutral-400: #d9d9d9;
+  --lucid-neutral-500: #bfbfbf;
+  --lucid-neutral-600: #8c8c8c;
+  --lucid-neutral-700: #595959;
+  --lucid-neutral-800: #454545;
+  --lucid-neutral-900: #262626;
+  --lucid-neutral-950: #141414;
+  --lucid-success-50: #eef9e8;
+  --lucid-success-100: #caecb8;
+  --lucid-success-600: #4cb119;
+  --lucid-warning-50: #ffeded;
+  --lucid-warning-100: #ffc8c8;
+  --lucid-warning-600: #e74648;
+  --lucid-pending-50: #fff7e8;
+  --lucid-pending-100: #fde6b6;
+  --lucid-pending-200: #fdd993;
+  --lucid-pending-600: #e49d12;
+  --lucid-pending-900: #694908;
 
-  /* Secondary/alternative surfaces -> neutral-100/200/300/400 */
-  --h5p-theme-secondary-cta-base: #f5f5f5;
-  --h5p-theme-secondary-cta-light: #fcfcfc;
-  --h5p-theme-secondary-cta-dark: #f0f0f0;
-  --h5p-theme-secondary-contrast-cta: #262626;
-  --h5p-theme-secondary-contrast-cta-hover: #ffefe9;
-  --h5p-theme-alternative-base: #f5f5f5;
-  --h5p-theme-alternative-light: #fcfcfc;
-  --h5p-theme-alternative-dark: #f0f0f0;
-  --h5p-theme-alternative-darker: #d9d9d9;
-  --h5p-theme-background: #fcfcfc;
-  --h5p-theme-focus: #ff5c20;
+  /* Roles — the knobs. */
+  --lucid-font: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --lucid-accent: var(--lucid-primary-500);          /* primary buttons, active tabs */
+  --lucid-accent-hover: var(--lucid-primary-600);
+  --lucid-accent-active: var(--lucid-primary-700);
+  --lucid-accent-soft: var(--lucid-primary-50);      /* tinted icon chips, selected rows */
+  --lucid-on-accent: #ffffff;                        /* text/icons on an accent fill */
+  --lucid-focus-ring: 0 0 0 2px var(--lucid-primary-100);
+  --lucid-header-bg: var(--lucid-accent);            /* collapsible section/list headers */
+  --lucid-header-bg-hover: var(--lucid-accent-hover);
+  --lucid-header-text: var(--lucid-on-accent);
+  --lucid-subtle-bg: var(--lucid-neutral-200);       /* secondary buttons, minor headers, inactive tabs */
+  --lucid-subtle-bg-hover: var(--lucid-neutral-300);
+  --lucid-surface: var(--lucid-neutral-50);
+  --lucid-border: var(--lucid-neutral-400);          /* every hairline */
+  --lucid-border-strong: var(--lucid-neutral-500);
+  --lucid-text: var(--lucid-neutral-900);
+  --lucid-text-strong: var(--lucid-neutral-950);
+  --lucid-text-muted: var(--lucid-neutral-700);
+  --lucid-text-disabled: var(--lucid-neutral-600);
+  --lucid-radius: 0.5rem;                            /* controls — never a pill */
+  --lucid-radius-card: 0.875rem;                     /* cards, dialogs */
+  /* The Hub header's logo (replaces H5P's "H5P hub" wordmark): an image
+     plus a name drawn as real text. Swap the image by replacing
+     h5p-custom/logo.svg; set the text to "" for an image-only logo. */
+  --lucid-logo-image: url("/h5p-custom/logo.svg");
+  --lucid-logo-text: "Lucid";
 
-  /* Text -> neutral-950/700/600 */
-  --h5p-theme-text-primary: #141414;
-  --h5p-theme-text-secondary: #595959;
-  --h5p-theme-text-third: #8c8c8c;
+  /* H5P's own theming API (h5p-theme-variables.css) — newer parts of core
+     and some content types read these directly. */
+  --h5p-theme-main-cta-base: var(--lucid-accent);
+  --h5p-theme-main-cta-light: var(--lucid-primary-400);
+  --h5p-theme-main-cta-dark: var(--lucid-accent-hover);
+  --h5p-theme-contrast-cta: var(--lucid-accent-soft);
+  --h5p-theme-contrast-cta-white: var(--lucid-accent);
+  --h5p-theme-secondary-cta-base: var(--lucid-subtle-bg);
+  --h5p-theme-secondary-cta-light: var(--lucid-neutral-100);
+  --h5p-theme-secondary-cta-dark: var(--lucid-subtle-bg-hover);
+  --h5p-theme-secondary-contrast-cta: var(--lucid-text);
+  --h5p-theme-secondary-contrast-cta-hover: var(--lucid-accent-soft);
+  --h5p-theme-alternative-base: var(--lucid-subtle-bg);
+  --h5p-theme-alternative-light: var(--lucid-neutral-100);
+  --h5p-theme-alternative-dark: var(--lucid-subtle-bg-hover);
+  --h5p-theme-alternative-darker: var(--lucid-border);
+  --h5p-theme-background: var(--lucid-neutral-100);
+  --h5p-theme-focus: var(--lucid-accent);
+  --h5p-theme-text-primary: var(--lucid-text-strong);
+  --h5p-theme-text-secondary: var(--lucid-text-muted);
+  --h5p-theme-text-third: var(--lucid-text-disabled);
+  --h5p-theme-ui-base: var(--lucid-surface);
+  --h5p-theme-stroke-1: var(--lucid-border);
+  --h5p-theme-stroke-2: var(--lucid-border);
+  --h5p-theme-stroke-3: var(--lucid-border);
+  --h5p-theme-border-radius-large: var(--lucid-radius-card);
+  --h5p-theme-border-radius-medium: var(--lucid-radius);
+  --h5p-theme-border-radius-small: var(--lucid-radius);
+  --h5p-theme-font-name: var(--lucid-font);
+  --h5p-theme-feedback-correct-main: var(--lucid-success-600);
+  --h5p-theme-feedback-correct-secondary: var(--lucid-success-50);
+  --h5p-theme-feedback-correct-third: var(--lucid-success-100);
+  --h5p-theme-feedback-incorrect-main: var(--lucid-warning-600);
+  --h5p-theme-feedback-incorrect-secondary: var(--lucid-warning-50);
+  --h5p-theme-feedback-incorrect-third: var(--lucid-warning-100);
+  --h5p-theme-feedback-neutral-main: var(--lucid-pending-600);
+  --h5p-theme-feedback-neutral-secondary: var(--lucid-pending-900);
+  --h5p-theme-feedback-neutral-third: var(--lucid-pending-100);
 
-  --h5p-theme-ui-base: #ffffff;
-
-  /* One hairline color everywhere, matching the kit's own rule */
-  --h5p-theme-stroke-1: #d9d9d9;
-  --h5p-theme-stroke-2: #d9d9d9;
-  --h5p-theme-stroke-3: #d9d9d9;
-
-  /* Shape scale -> r14 for cards, r8 for controls (never a pill) */
-  --h5p-theme-border-radius-large: 0.875rem;
-  --h5p-theme-border-radius-medium: 0.5rem;
-  --h5p-theme-border-radius-small: 0.5rem;
-
-  --h5p-theme-font-name: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-
-  /* Feedback -> success/warning/pending tokens */
-  --h5p-theme-feedback-correct-main: #4cb119;
-  --h5p-theme-feedback-correct-secondary: #eef9e8;
-  --h5p-theme-feedback-correct-third: #caecb8;
-  --h5p-theme-feedback-incorrect-main: #e74648;
-  --h5p-theme-feedback-incorrect-secondary: #ffeded;
-  --h5p-theme-feedback-incorrect-third: #ffc8c8;
-  --h5p-theme-feedback-neutral-main: #e49d12;
-  --h5p-theme-feedback-neutral-secondary: #694908;
-  --h5p-theme-feedback-neutral-third: #fde6b6;
-}
-
-/* ---- H5P.JoubelUI's button — the shared primary-action button used by
-   Crossword, Quiz, and many other content types. Still hardcodes its own
-   colors rather than reading the theme vars above. ---- */
-.h5p-joubelui-button {
-  background: #ff5c20;
-  border-radius: 0.5rem;
-  font-family: var(--h5p-theme-font-name);
-}
-.h5p-joubelui-button:focus {
-  background: #d84d1a;
-}
-.h5p-joubelui-button:active {
-  background: #b33d13;
-  box-shadow: inset 0 4px 0 #8c2f0c;
-}
-
-/* ---- Core editor "list" widget's item header bar — the collapsible
-   row header for any repeatable list field (MultiChoice's options,
-   Course Presentation's slides, Question Set's questions, ...). Appears
-   across virtually every content type's editor, not just one. ---- */
-.list-item-title-bar {
-  background: #ff5c20 !important;
-}
-
-/* ---- H5P Hub content-type picker — same "still hardcoded" situation. ---- */
-.h5p-hub {
-  font-family: var(--h5p-theme-font-name);
-}
-.h5p-hub .h5p-hub-button {
-  border-radius: 0.5rem;
-  background-color: #f5f5f5;
-  color: #141414;
-}
-.h5p-hub .h5p-hub-button.h5p-hub-button-primary {
-  background-color: #ff5c20;
-  border-color: #ff5c20;
-}
-.h5p-hub .h5p-hub-button.h5p-hub-button-primary:hover {
-  background-color: #d84d1a;
-  border-color: #d84d1a;
-}
-.h5p-hub .h5p-hub-button.h5p-hub-button-primary:active {
-  background-color: #b33d13;
-  border-color: #b33d13;
-}
-.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary {
-  color: #ff5c20;
-  border-color: #ff5c20;
-}
-.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:hover,
-.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:active {
-  color: #d84d1a;
-  border-color: #d84d1a;
-}
-.h5p-hub .h5p-hub-panel.h5p-hub-section-content-types .h5p-hub-tab-button[aria-selected="true"] {
-  border-bottom-color: #ff5c20;
-}
-.h5p-hub .h5p-hub-tab-panel [role="tablist"] > span {
-  background: #ff5c20;
-}
-.h5p-hub ul.h5p-hub-list-of-numbers .h5p-hub-list-element a.h5p-hub-highlight {
-  background-color: rgba(255, 92, 32, 0.1);
-  border-color: #ff5c20;
+  /* CKEditor 5 (the editor's rich-text fields) reads these. */
+  --ck-color-base-border: var(--lucid-border);
+  --ck-color-focus-border: var(--lucid-accent);
+  --ck-color-focus-outer-shadow: var(--lucid-primary-100);
+  --ck-border-radius: var(--lucid-radius);
 }
 
-/* The Create Content/Upload + search toolbar on the content-type picker —
-   hardcodes a slate-blue (#697585) in h5p-hub-client.css that none of the
-   other overrides above touch. */
-.h5p-hub .h5p-hub-filter-bar,
-.h5p-hub-search-wrapper {
-  background-color: #ff5c20;
+/* ================================================= 2. Editor: type + fields */
+.h5peditor {
+  font-family: var(--lucid-font);
+  color: var(--lucid-text);
+}
+.h5peditor .h5peditor-label,
+.h5peditor .h5peditor-label-wrapper {
+  color: var(--lucid-text-strong);
+}
+.h5peditor .h5peditor-field-description {
+  color: var(--lucid-text-muted);
+}
+.h5peditor input.h5peditor-text,
+.h5peditor .h5peditor-text,
+.h5peditor textarea,
+.h5peditor .ckeditor,
+.h5peditor select,
+.h5peditor > select,
+.h5peditor .field > select,
+.h5peditor .h5peditor-language-switcher select {
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+  box-shadow: none;
+  font-family: inherit;
+}
+.h5peditor textarea:focus,
+.h5peditor .h5peditor-text:focus,
+.h5peditor select:focus,
+.h5peditor .field > select:focus {
+  outline: none;
+  border-color: var(--lucid-accent);
+  box-shadow: var(--lucid-focus-ring);
+}
+.h5peditor ::placeholder,
+.h5peditor .h5peditor-ckeditor-placeholder {
+  color: var(--lucid-text-disabled);
+}
+.h5peditor-label-button,
+.h5peditor-label-button .label,
+.h5peditor-label-button .icon {
+  color: var(--lucid-text-strong);
 }
 
-/* ---- Remaining header bars + stray hardcoded borders in the shared
-   chrome (dialogs, hub panel, metadata form) — kept to what every content
-   type routes through, same boundary as the rest of this file; the
-   bespoke UI inside each of the 60+ content types is still out of scope. */
-
-/* Confirmation dialog (delete/discard prompts) header bar -> brand header,
-   matching list-item-title-bar above. Two selectors: H5P only adds the
-   `.h5p-theme` variant at runtime (h5p-confirmation-dialog.js), and that
-   variant's own core rule already overrides `color`, so it has to be
-   targeted directly rather than relying on cascade from the base rule. */
-.h5p-confirmation-dialog-header,
-.h5p-theme .h5p-confirmation-dialog-header {
-  background: #ff5c20;
-  color: #ffffff;
+/* The bordered panels under a section header. */
+.group > .content,
+.common > .fields,
+.h5peditor .content {
+  border-color: var(--lucid-border);
 }
 
-/* Metadata/license entry section — just a bottom-border divider, not a
-   filled bar, so it gets the app's neutral hairline rather than orange. */
-.h5p-metadata-wrapper .h5p-metadata-header {
-  border-bottom-color: #d9d9d9;
+/* "Important instructions" callout (e.g. Fill in the Blanks) → the app's
+   pending-tone alert, with its example box in the success tone. */
+.h5peditor-field-important-description {
+  background-color: var(--lucid-pending-50);
+  border-color: var(--lucid-pending-200);
+  border-radius: var(--lucid-radius);
+}
+.h5peditor-field-important-description .important-description-example {
+  background-color: var(--lucid-success-50);
+  border-color: var(--lucid-success-100);
+}
+.h5peditor-field-important-description .important-description-example .important-description-example-text {
+  background-color: var(--lucid-surface);
 }
 
-/* Outer border around the whole Hub content-type picker. */
-.h5p-hub .h5p-hub-panel {
-  border-color: #d9d9d9;
+/* Editor tables (TableList / RangeList widgets load after this file). */
+.h5peditor-form.h5peditor-form-manager {
+  border-color: var(--lucid-border);
+}
+.h5peditor td,
+.h5p-editor-table-list tbody td {
+  border-color: var(--lucid-border) !important;
 }
 
-/* Category grouping label inside the Hub's content-type list -> the app's
-   usual gray label-chip treatment instead of a raw #f2f2f2/#313131. */
-.h5p-hub .h5p-hub-category-header {
-  background-color: #f5f5f5;
-  color: #262626;
-}
-
-/* Native checkboxes across the editor's list/field widgets (e.g. a list
-   item's "required" toggle) are bare unstyled browser squares — only a
-   margin is set anywhere in H5P's own CSS. `accent-color` retints the
-   native control to the brand orange without fighting platform rendering
-   with a full custom-appearance rebuild. */
+/* Native checkboxes are bare browser squares — only a margin is set anywhere
+   in H5P's own CSS. `accent-color` retints the check without rebuilding the
+   control. */
 .h5peditor input[type="checkbox"] {
-  accent-color: #ff5c20;
+  accent-color: var(--lucid-accent);
   width: 1.1em;
   height: 1.1em;
 }
 
-/* Expand/collapse triangle before "Text overrides and translations" and
-   its per-library rows (editor/scripts/h5peditor-form.js's $commonButton,
-   and the matching .h5peditor-label-button / .h5peditor-button-collapse
-   variants) renders as a plain hollow square instead of an arrow. The
-   'H5P' icon webfont's cmap does contain real arrow-shaped glyphs at
-   these codepoints (checked with fontTools — not a missing/404 font), so
-   whatever's collapsing it to a box is further down the rendering chain;
-   rather than chase that, draw the arrow in plain CSS so it's guaranteed
-   to render regardless. ▸ = collapsed (click to expand), ▾ = expanded. */
-.common > .h5peditor-label > .icon::before,
-.h5peditor-label-button .icon::before,
-.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse .icon::before {
-  font-family: inherit !important;
-  content: "\25BE" !important;
-  color: #595959;
+/* ============================================ 3. Editor: section headers */
+/* Collapsible groups and repeatable list items (MultiChoice's options,
+   Question Set's questions …). Medium/high importance → the brand header;
+   low importance ("Tips and feedback", "Behavioural settings", "Text
+   overrides and translations") → a quiet gray row. */
+.h5p-li > .list-item-title-bar,
+.h5p-li > .list-item-title-bar.importance-high,
+.group > .title,
+.group.importance-high > .title {
+  background: var(--lucid-header-bg);
+  border-color: var(--lucid-header-bg-hover);
+  color: var(--lucid-header-text);
 }
-.common.collapsed > .h5peditor-label > .icon::before,
-.h5peditor-label-button.collapsed .icon::before,
-.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse.collapsed .icon::before {
-  content: "\25B8" !important;
+.h5p-li > .list-item-title-bar > .h5peditor-label,
+.h5p-li > .list-item-title-bar.importance-high > .h5peditor-label {
+  color: var(--lucid-header-text);
+}
+.h5p-li > .list-item-title-bar .order-group,
+.h5p-li > .list-item-title-bar.importance-high .order-group {
+  background: var(--lucid-header-bg-hover);
+}
+.h5p-li > .list-item-title-bar .order-up:hover,
+.h5p-li > .list-item-title-bar .order-down:hover {
+  background: var(--lucid-accent-active);
+}
+.common > .h5peditor-label,
+.h5p-li > .list-item-title-bar.importance-low,
+.group.importance-low > .title,
+.h5p-metadata-wrapper .field.group > .title,
+.h5p-metadata-additional-information .title {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border);
+  color: var(--lucid-text);
+}
+.h5p-li > .list-item-title-bar.importance-low > .h5peditor-label {
+  color: var(--lucid-text);
+}
+.h5p-li > .list-item-title-bar.importance-low .order-up,
+.h5p-li > .list-item-title-bar.importance-low .order-down {
+  background: var(--lucid-border);
+}
+.h5p-metadata-wrapper .h5p-metadata-header {
+  border-bottom-color: var(--lucid-border);
+}
+
+/* ===================================================== 4. Editor: buttons */
+/* Textual buttons ("Add question", "Add item" …): high importance = the
+   app's primary button, medium = its light button, low = its outline. */
+.h5peditor-button-textual {
+  background: var(--lucid-subtle-bg);
+  background-image: none;
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+  color: var(--lucid-text);
+}
+.h5peditor-button-textual:before,
+.h5peditor-button-textual:after {
+  color: var(--lucid-text);
+}
+.h5peditor-button-textual:hover:not([disabled]) {
+  background: var(--lucid-subtle-bg-hover);
+  background-image: none;
+}
+.h5peditor-button-textual:focus {
+  box-shadow: var(--lucid-focus-ring);
+}
+.h5peditor-button-textual.importance-high {
+  background: var(--lucid-accent);
+  background-image: none;
+  border-color: var(--lucid-accent-hover);
+  color: var(--lucid-on-accent);
+  text-transform: none;
+}
+.h5peditor-button-textual.importance-high:before,
+.h5peditor-button-textual.importance-high:after {
+  color: var(--lucid-on-accent);
+}
+.h5peditor-button-textual.importance-high:hover:not([disabled]) {
+  background: var(--lucid-accent-hover);
+  background-image: none;
+  border-color: var(--lucid-accent-hover);
+}
+.h5peditor-button-textual.importance-low {
+  background: var(--lucid-surface);
+  background-image: none;
+  border-color: var(--lucid-border);
+  color: var(--lucid-text);
+}
+.h5peditor-button-textual.importance-low:hover:not([disabled]) {
+  background: var(--lucid-subtle-bg);
+  background-image: none;
+  border-color: var(--lucid-border);
+}
+.h5peditor-button-textual[disabled],
+.h5peditor-button-textual[aria-disabled="true"] {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-neutral-300);
+  color: var(--lucid-text-disabled);
+}
+.h5peditor-button-textual[disabled]:before,
+.h5peditor-button-textual[aria-disabled="true"]:before {
+  color: var(--lucid-text-disabled);
+}
+.h5peditor-button-textual.h5peditor-range-distribute[aria-disabled="true"] {
+  background: var(--lucid-subtle-bg) !important;
+  border-color: var(--lucid-neutral-300) !important;
+  color: var(--lucid-text-disabled) !important;
+}
+
+/* Copyright and image-edit buttons (white-to-gray gradients in H5P). */
+.h5peditor .h5p-copyright-button {
+  background: var(--lucid-surface);
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+  color: var(--lucid-text);
+}
+.h5peditor .h5p-copyright-button:hover:not([disabled]),
+.h5peditor .h5p-editing-image-button:hover:not([disabled]) {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border-strong);
+}
+
+/* "Collapse all content" (a teal button in H5P) → the light button. */
+.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse {
+  background-color: var(--lucid-subtle-bg);
+  border: 1px solid var(--lucid-border);
+  border-radius: var(--lucid-radius);
+  color: var(--lucid-text);
+}
+.h5peditor .h5p-editor-flex-wrapper .h5peditor-button-collapse:hover:not([disabled]) {
+  background-color: var(--lucid-subtle-bg-hover);
+  border-color: var(--lucid-border);
+}
+
+/* Copy / Paste → the outline button, brand-colored icon. */
+.h5peditor-paste-button,
+.h5peditor-copy-button {
+  background: var(--lucid-surface);
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+  color: var(--lucid-text);
+}
+.h5peditor-paste-button:hover,
+.h5peditor-copy-button:hover {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border-strong);
+}
+.h5peditor-paste-button:active,
+.h5peditor-copy-button:active {
+  background-color: var(--lucid-subtle-bg-hover);
+}
+.h5peditor-copy-button:before,
+.h5peditor-paste-button:before {
+  color: var(--lucid-accent);
+}
+.h5peditor-paste-button.disabled,
+.h5peditor-copy-button.disabled {
+  background-color: var(--lucid-subtle-bg);
+  border-color: var(--lucid-neutral-300);
+  color: var(--lucid-text-disabled);
+}
+.h5peditor-copy-button.disabled:before,
+.h5peditor-paste-button.disabled:before {
+  color: var(--lucid-text-disabled);
+}
+
+/* An image/file field's "Add" button. */
+.h5peditor .file .add {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+}
+.h5peditor .file .add:hover {
+  background: var(--lucid-subtle-bg-hover);
+}
+.h5peditor .file .add:focus {
+  box-shadow: var(--lucid-focus-ring);
+}
+.h5peditor .file .add .h5peditor-field-file-upload-text:before {
+  color: var(--lucid-accent);
+}
+
+/* ============================================ 5. Editor: tabs + small bits */
+/* "Textual / Default" widget switcher above some fields. */
+.h5peditor-widget-option {
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius) var(--lucid-radius) 0 0;
+  background: var(--lucid-subtle-bg);
+  color: var(--lucid-text-muted);
+}
+.h5peditor-widget-option:hover {
+  color: var(--lucid-text-strong);
+}
+.h5peditor-widget-option.h5peditor-widget-active {
+  background: var(--lucid-surface);
+  color: var(--lucid-text-strong);
+}
+.h5peditor-widgets > .h5peditor-widget-wrapper {
+  border-color: var(--lucid-border);
+}
+
+/* Vertical tabs (Question Set's question list). H5PEditor.VerticalTabs
+   loads after this file, hence !important. */
+.h5p-vtabs .h5p-vtab-li.h5p-current .h5p-vtab-a {
+  background: var(--lucid-accent) !important;
+  color: var(--lucid-on-accent) !important;
+}
+.h5p-vtabs .h5p-vtab-li.h5p-current:after {
+  border-left-color: var(--lucid-accent) !important;
+}
+.h5p-vtabs .h5p-vtab-li.h5p-current > .vtab-order-wrapper > .order-up,
+.h5p-vtabs .h5p-vtab-li.h5p-current > .vtab-order-wrapper > .order-down {
+  background: var(--lucid-accent-hover) !important;
+}
+.h5p-vtab-forms,
+.h5p-vtabs-container {
+  border-color: var(--lucid-border) !important;
+}
+.h5p-vtabs-header > span,
+.h5p-vtabs-expand-collapse,
+.h5p-vtab-li > .vtab-order-wrapper > .order-up[aria-disabled="false"]:hover,
+.h5p-vtab-li > .vtab-order-wrapper > .order-down[aria-disabled="false"]:hover {
+  color: var(--lucid-accent-hover) !important;
+}
+.h5p-vtabs .add-entity {
+  background: var(--lucid-accent) !important;
+  background-image: none !important;
+  border-color: var(--lucid-accent-hover) !important;
+  border-radius: var(--lucid-radius) !important;
+  color: var(--lucid-on-accent) !important;
+  text-transform: none !important;
+}
+.h5p-vtabs .add-entity:hover {
+  background: var(--lucid-accent-hover) !important;
+}
+
+/* Metadata ("Metadata" pill next to a title) → outline style. */
+.h5p-metadata-toggler,
+.h5p-metadata-button-tip {
+  background: var(--lucid-surface);
+  border-color: var(--lucid-border);
+  color: var(--lucid-text);
+}
+.h5p-metadata-button-wrapper:hover .h5p-metadata-toggler,
+.h5p-metadata-button-wrapper:hover .h5p-metadata-button-tip {
+  background: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border-strong);
+}
+.h5p-metadata-button-wrapper:active .h5p-metadata-toggler,
+.h5p-metadata-button-wrapper:active .h5p-metadata-button-tip {
+  color: var(--lucid-accent-hover);
+  border-color: var(--lucid-accent);
+}
+
+/* "Tutorial" / "Example" links beside a content type's name (green and
+   purple in H5P) → one neutral chip with a brand icon. */
+.h5p-tutorial-url,
+.h5p-example-url {
+  border-color: var(--lucid-border);
+  border-radius: var(--lucid-radius);
+}
+.h5p-tutorial-url:hover,
+.h5p-tutorial-url:active,
+.h5p-example-url:hover,
+.h5p-example-url:active {
+  background-color: var(--lucid-subtle-bg);
+  border-color: var(--lucid-border-strong);
+}
+.h5p-tutorial-url:focus,
+.h5p-example-url:focus {
+  box-shadow: var(--lucid-focus-ring);
+}
+.h5p-tutorial-url::before,
+.h5p-example-url::before {
+  color: var(--lucid-accent);
+  background-color: var(--lucid-accent-soft);
+  border-radius: var(--lucid-radius);
+}
+.h5p-tutorial-url .h5p-tutorial-url-label,
+.h5p-example-url .h5p-example-url-label {
+  color: var(--lucid-text);
+}
+
+/* Breadcrumb bar of nested editors (e.g. a slide inside Course
+   Presentation). */
+.h5peditor-form-manager-head {
+  background: var(--lucid-subtle-bg);
+  border-bottom-color: var(--lucid-border);
+  color: var(--lucid-text);
+}
+.h5peditor-form-manager-button {
+  color: var(--lucid-text);
+}
+
+/* Confirmation dialog (delete/discard prompts) header → the brand header.
+   H5P adds the `.h5p-theme` variant at runtime (h5p-confirmation-dialog.js)
+   and that variant's core rule already sets `color`, so it's targeted too. */
+.h5p-confirmation-dialog-header,
+.h5p-theme .h5p-confirmation-dialog-header {
+  background: var(--lucid-header-bg);
+  color: var(--lucid-header-text);
+}
+
+/* ====================================================== 6. Hub (picker) */
+.h5p-hub {
+  font-family: var(--lucid-font);
+  color: var(--lucid-text);
+}
+.h5p-hub .link,
+.h5p-hub a {
+  font-family: inherit;
+}
+.h5p-hub .h5p-hub-media-heading,
+.h5p-hub .h5p-hub-result-header,
+.h5p-hub .h5p-hub-sort-by-header {
+  color: var(--lucid-text-strong);
+}
+.h5p-hub .h5p-hub-client-drop-down,
+.h5p-hub .h5p-hub-description,
+.h5p-hub .h5p-hub-content-type-list .h5p-hub-description,
+.h5p-hub .h5p-hub-content-type-list .h5p-hub-content-type-update-info,
+.h5p-hub .h5p-hub-result-hits,
+.h5p-hub ul.h5p-hub-sort-by-list > li > a,
+.h5p-hub small,
+.h5p-hub .h5p-hub-small {
+  color: var(--lucid-text-muted);
+}
+.h5p-hub .h5p-hub-client-drop-down .h5p-hub-selected {
+  color: var(--lucid-text-strong);
+}
+
+/* Header logo — H5P draws its wordmark as an icon-font glyph in this
+   ::before, so it's replaced wholesale (see --lucid-logo-* above). */
+.h5p-hub .h5p-hub-client-drop-down .h5p-hub-icon-hub-icon:before {
+  content: var(--lucid-logo-text);
+  display: inline-block;
+  min-height: 1.75em;
+  line-height: 1.75em;
+  padding-left: 2.25em;
+  background: var(--lucid-logo-image) no-repeat left center / 1.75em 1.75em;
+  font-family: var(--lucid-font);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  vertical-align: middle;
+  color: var(--lucid-text-strong);
+}
+.h5p-hub .h5p-hub-client-drop-down .h5p-hub-icon-hub-icon,
+.h5p-hub .h5p-hub-content-detail .h5p-hub-back-button,
+.h5p-hub .h5p-hub-content-type-detail .h5p-hub-back-button,
+.h5p-hub .h5p-hub-selectedpublisher .h5p-hub-selectedpublisher-back-button,
+.h5p-hub-search-wrapper .h5p-hub-icon-search {
+  color: var(--lucid-text-muted);
+}
+.h5p-hub-search-bar {
+  border-color: var(--lucid-border);
+}
+.h5p-hub .h5p-hub-panel {
+  border-color: var(--lucid-border);
+}
+.h5p-hub .h5p-hub-category-header {
+  background-color: var(--lucid-subtle-bg);
+  color: var(--lucid-text);
+}
+
+/* Create Content / Upload tab row + search toolbar — two slate tones in
+   H5P, two accent tones here. The Paste button sits on it, so it uses
+   translucent white rather than any fixed color. */
+.h5p-hub .h5p-hub-tab-panel [role="tablist"] {
+  background-color: var(--lucid-accent-hover);
+}
+.h5p-hub .h5p-hub-filter-bar,
+.h5p-hub-search-wrapper {
+  background-color: var(--lucid-accent);
+}
+.h5p-hub .h5peditor-paste-button {
+  font-family: inherit;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.7);
+  border-radius: var(--lucid-radius);
+  color: var(--lucid-on-accent);
+}
+.h5p-hub .h5peditor-paste-button:before,
+.h5p-hub .h5peditor-paste-button.disabled:before {
+  color: inherit;
+}
+.h5p-hub .h5peditor-paste-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--lucid-on-accent);
+}
+.h5p-hub .h5peditor-paste-button.disabled {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+}
+.h5p-hub-search-bar:focus {
+  border-color: var(--lucid-accent-hover);
+}
+
+.h5p-hub .h5p-hub-button {
+  border-radius: var(--lucid-radius);
+  background-color: var(--lucid-subtle-bg);
+  color: var(--lucid-text-strong);
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary {
+  background-color: var(--lucid-accent);
+  border-color: var(--lucid-accent);
+  color: var(--lucid-on-accent);
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary:hover {
+  background-color: var(--lucid-accent-hover);
+  border-color: var(--lucid-accent-hover);
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-primary:active {
+  background-color: var(--lucid-accent-active);
+  border-color: var(--lucid-accent-active);
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary {
+  color: var(--lucid-accent);
+  border-color: var(--lucid-accent);
+}
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:hover,
+.h5p-hub .h5p-hub-button.h5p-hub-button-inverse-primary:active {
+  color: var(--lucid-accent-hover);
+  border-color: var(--lucid-accent-hover);
+}
+.h5p-hub .h5p-hub-panel.h5p-hub-section-content-types .h5p-hub-tab-button[aria-selected="true"] {
+  border-bottom-color: var(--lucid-accent);
+}
+.h5p-hub .h5p-hub-tab-panel [role="tablist"] > span {
+  background: var(--lucid-on-accent);
+}
+.h5p-hub ul.h5p-hub-list-of-numbers .h5p-hub-list-element a.h5p-hub-highlight,
+.h5p-hub .h5p-hub-content-type-list .h5p-hub-media[tabindex="0"] {
+  background-color: var(--lucid-accent-soft);
+}
+.h5p-hub ul.h5p-hub-list-of-numbers .h5p-hub-list-element a.h5p-hub-highlight {
+  border-color: var(--lucid-accent);
+}
+
+/* ================================================= 7. Player (student view) */
+.h5p-content {
+  font-family: var(--lucid-font);
+}
+
+/* H5P.JoubelUI's button — "Check", "Retry", "Show solution" in most
+   content types. JoubelUI loads after this file, hence !important. The
+   answer check is the one primary action; the rest use the light button,
+   the same hierarchy as the app's own button rows. */
+.h5p-joubelui-button {
+  background: var(--lucid-accent) !important;
+  border-radius: var(--lucid-radius) !important;
+  color: var(--lucid-on-accent) !important;
+  font-family: var(--lucid-font);
+  box-shadow: none !important;
+}
+.h5p-joubelui-button:hover,
+.h5p-joubelui-button:focus {
+  background: var(--lucid-accent-hover) !important;
+  color: var(--lucid-on-accent) !important;
+}
+.h5p-joubelui-button:focus-visible {
+  outline: none;
+  box-shadow: var(--lucid-focus-ring) !important;
+}
+.h5p-joubelui-button:active {
+  background: var(--lucid-accent-active) !important;
+}
+.h5p-question-show-solution,
+.h5p-question-try-again {
+  background: var(--lucid-subtle-bg) !important;
+  color: var(--lucid-text) !important;
+}
+.h5p-question-show-solution:hover,
+.h5p-question-show-solution:focus,
+.h5p-question-try-again:hover,
+.h5p-question-try-again:focus {
+  background: var(--lucid-subtle-bg-hover) !important;
+  color: var(--lucid-text) !important;
+}
+.h5p-joubelui-button[disabled],
+.h5p-joubelui-button[aria-disabled="true"] {
+  background: var(--lucid-subtle-bg) !important;
+  color: var(--lucid-text-disabled) !important;
+}
+
+/* Score bar and progress bar fills. */
+.h5p-joubelui-score-bar-progress-wrapper {
+  background: var(--lucid-subtle-bg-hover) !important;
+}
+.h5p-joubelui-score-bar-progress {
+  background: var(--lucid-accent) !important;
+}
+.h5p-joubelui-progressbar-background {
+  background-color: var(--lucid-accent) !important;
 }
