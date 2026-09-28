@@ -13,9 +13,10 @@ import {
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
   IconMaximize, IconMinimize, IconRefresh, IconArrowLeft, IconArrowRight, IconInfoCircle,
   IconMessageCircle, IconSend, IconUsers, IconFilePlus, IconBulb, IconVolume, IconMicrophone, IconCornerDownRight, IconSparkles, IconTrophy,
+  IconPlus, IconBookmarks, IconBook2, IconAbc, IconTimeline, IconPlayerPlay, IconPresentation, IconPuzzle, IconUsersGroup, IconClipboardText, IconSearch,
 } from "@tabler/icons-react";
 import { LEVELS } from "../ui.jsx";
-import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, MessageBubble, ChatPanel, PRESS, inputCls } from "../design-system.jsx";
+import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, PRESS, inputCls } from "../design-system.jsx";
 import {
   useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent,
@@ -48,9 +49,6 @@ const cid = () => uid("c");
 // top of this, so it's needed here too rather than repeating "64" or "16"
 // (Tailwind's spacing unit) at every call site.
 const TOPBAR_H = 64;
-// Page bottom padding while the "Add a component" picker is open — the rest
-// of the usual bottom scroll room moves inside the preview card then.
-const PICKER_PAGE_PAD = 16;
 
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
@@ -352,10 +350,6 @@ export default function BlockStudio() {
   // preview sets this to its own position, so a component lands exactly
   // where the teacher clicked, not always at the end.
   const [insertAt, setInsertAt] = useState(null);
-  // Which category is showing in the picker — a vertical nav list, not a
-  // row of tabs: with 9 categories a horizontal strip either wraps or runs
-  // off the edge, a list just gets taller.
-  const [addCategory, setAddCategory] = useState(COMPONENT_CATEGORIES[0].id);
   // Edit mode is a site-builder layout: the left column is always the
   // plain list of components (drag to reorder, click to select) — it never
   // turns into a settings form, so "what are the steps" has one constant
@@ -384,14 +378,10 @@ export default function BlockStudio() {
   // Latest "close the editor" handler, for the Escape listener below (it's
   // only re-subscribed when the selection changes, so it can't close over it).
   const closeEditorRef = useRef(null);
-  const addPanelRef = useRef(null);
   const pickerOpen = insertAt !== null;
-  useContainedWheel(addPanelRef, pickerOpen);
-  // Opening the picker brings it fully into view (it can start partly below
-  // the fold); picking a different "+" slot while it's open doesn't move it.
-  useEffect(() => {
-    if (pickerOpen) addPanelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [pickerOpen]);
+  // Bumped on every open, as the dialog's key, so each open starts fresh.
+  const [pickerKey, setPickerKey] = useState(0);
+  const openPicker = (at) => { setPickerKey((k) => k + 1); setInsertAt(at); };
   // The rail's own scrollable list, kept as a ref rather than relying on
   // rail-item.scrollIntoView(): that call walks every scrollable ancestor,
   // including the page itself, so scrolling the (usually already-fitting)
@@ -429,6 +419,9 @@ export default function BlockStudio() {
   // the page can't scroll further). Drives the outline rail's highlight.
   // The app shell's <main> is the scroll container, not the window.
   const [activeStepId, setActiveStepId] = useState(null);
+  // Focus mode (student view): one activity full screen, the rest of the
+  // app hidden — for projecting a single exercise to the class.
+  const [focusId, setFocusId] = useState(null);
   useEffect(() => {
     if (mode !== "student") return undefined;
     const scroller = document.querySelector("main");
@@ -637,6 +630,7 @@ export default function BlockStudio() {
   const changeMode = async (next) => {
     if (next === mode) return;
     if (next === "student" && !(await flushOpenEditor())) return;
+    setFocusId(null);
     setMode(next);
   };
   const saveAndClose = async () => {
@@ -650,6 +644,29 @@ export default function BlockStudio() {
   };
   const blocks = lessonBlocks(lesson);
   const blockIndex = blocks.findIndex((b) => b.id === block.id);
+  // One level for every activity? Then say it once in the header instead
+  // of repeating the same chip on each step (student view only — the
+  // editor keeps per-step levels, since that's where they're changed).
+  // Games without a level (NO_LEVEL_KINDS) never show a chip, so they
+  // don't count against a shared one.
+  const levels = [...new Set(components.filter((c) => c.level !== undefined).map((c) => c.level || ""))];
+  const sharedLevel = levels.length === 1 && levels[0] ? levels[0] : null;
+  const showOutline = components.length > 3;
+  // Where a picked component will land, in words, for the picker's header.
+  const kindLabel = (c) => (COMPONENT_META[c.kind] || FALLBACK_META).label;
+  const pickerPosition = insertAt === null ? ""
+    : !components.length ? `The first component in ${blockName(block)}`
+      : insertAt >= components.length ? `Goes at the end of ${blockName(block)}, after “${kindLabel(components[components.length - 1])}”`
+        : insertAt === 0 ? `Goes at the start of ${blockName(block)}, before “${kindLabel(components[0])}”`
+          : `Goes between “${kindLabel(components[insertAt - 1])}” and “${kindLabel(components[insertAt])}”`;
+  const focusedIndex = mode === "student" ? components.findIndex((c) => c.id === focusId) : -1;
+  const closeFocus = () => {
+    const id = focusId;
+    setFocusId(null);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    // Back on the page at the activity that was focused.
+    requestAnimationFrame(() => document.getElementById(`step-${id}`)?.scrollIntoView({ block: "start" }));
+  };
   // Moving to another block of the lesson (the step flow, Previous/Next):
   // the open H5P editor saves first, and the next block opens from its top.
   const goToBlock = async (id) => {
@@ -658,16 +675,17 @@ export default function BlockStudio() {
     setSelectedId(null);
     setFullscreenId(null);
     setInsertAt(null);
+    setFocusId(null);
     go({ partId: id });
     document.querySelector("main")?.scrollTo({ top: 0 });
   };
 
   return (
     // One page width for both modes, so switching between editing and the
-    // student view never shifts the page's left/right edges — the width the
-    // rail+canvas(+add-panel) editor needs. Each activity still caps its own
-    // width (ComponentStudent), so the student view doesn't stretch text.
-    <div className="p-5 sm:p-8 max-w-[1600px] mx-auto"
+    // student view never shifts the page's left/right edges. The activities
+    // fill that same width as the header card above them — capped at
+    // max-w-7xl so nothing stretches edge to edge on a big monitor.
+    <div className="p-5 sm:p-8 max-w-7xl mx-auto"
       // Extra bottom scroll room, at least one sticky-header's worth: a
       // block with only a couple of short components otherwise doesn't
       // have enough scrollable height for a component near the end to
@@ -675,12 +693,7 @@ export default function BlockStudio() {
       // the browser just clamps the scroll at the page's real max and the
       // frame's top stays partly behind the header. Padding the bottom
       // guarantees that scroll room always exists.
-      //
-      // While the picker is open that room moves inside the preview card
-      // instead (see the spacer after the picker), so the picker — pinned
-      // inside that card — has somewhere to stay pinned at the end of the
-      // page. Same total height either way, so opening it never jumps.
-      style={{ paddingBottom: pickerOpen ? PICKER_PAGE_PAD : stuckOffset }}>
+      style={{ paddingBottom: stuckOffset }}>
       {/* Pinned below the app shell's own topbar, never under it — this is
           the block's identity plus the "which mode am I in" toggle and
           Save & close, all of which a teacher wants visible no matter how
@@ -729,325 +742,360 @@ export default function BlockStudio() {
         </div>
       </div>
 
-      {/* The block and its place in the lesson, as a tinted-band card like
-          the rest of the app's subject headers (course and class cards):
-          identity on the band; what the block is for and the lesson's
-          blocks as one flow (this one marked, any other a click away) in
-          the body. */}
-      <HeaderCard className="mt-6" icon={I} iconClassName={toneText(BT.tone)} title={blockName(block)}
-        kicker={`Lesson ${lesson.n} · Block ${blockIndex + 1} of ${blocks.length} · ${components.length} ${components.length === 1 ? "activity" : "activities"}`}>
-        {BT.description && <Alert tone="info" icon={IconInfoCircle} title="About this block">{BT.description}</Alert>}
-        <StepNav current={block.id} onSelect={goToBlock}
-          steps={blocks.map((b) => ({ id: b.id, label: blockName(b) }))} />
-        {mode === "edit" && (
-          <div className="flex items-center gap-2 text-sm text-neutral-700">
-            <IconPencil size={16} stroke={1.75} className="shrink-0" /> Click a component below to edit it in place, drag in the list to reorder, and switch to "As student" to see the result.
-          </div>
-        )}
-      </HeaderCard>
+      {/* The whole block as one tinted-band card, like the rest of the
+          app's subject headers (course and class cards): identity on the
+          band; what the block is for and the lesson's blocks as one flow
+          (this one marked, any other a click away) in the first row; the
+          block's activities (or the editor) in a gray well under that. */}
+      <HeaderCard sectioned className="mt-6" icon={I} iconClassName={toneText(BT.tone)} title={blockName(block)}
+        kicker={`Lesson ${lesson.n} · Block ${blockIndex + 1} of ${blocks.length} · ${components.length} ${components.length === 1 ? "activity" : "activities"}${sharedLevel ? ` · Level ${sharedLevel}` : ""}`}>
+        <HeaderCardSection>
+          {BT.description && <Alert tone="info" icon={IconInfoCircle} title="About this block">{BT.description}</Alert>}
+          <StepNav current={block.id} onSelect={goToBlock}
+            steps={blocks.map((b) => ({ id: b.id, label: blockName(b) }))} />
+          {mode === "edit" && (
+            <div className="flex items-center gap-2 text-sm text-neutral-700">
+              <IconPencil size={16} stroke={1.75} className="shrink-0" /> Click a component below to edit it in place, drag in the list to reorder, and switch to "As student" to see the result.
+            </div>
+          )}
+        </HeaderCardSection>
 
-      {mode === "student" ? (
-        // Default (stretch) row alignment on purpose: the outline's sticky
-        // card needs its grid cell to span the whole row to stay pinned
-        // (same reason as the edit rail below).
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
-          {/* A gray canvas under the white activity cards, so page, body and
-              each activity read as three distinct layers. */}
-          <div className="min-w-0 rounded-[14px] border border-neutral-400 bg-neutral-200 p-4 sm:p-6">
-            {components.length ? (
-              <div className="space-y-10">
-                {components.map((c, i) => (
-                  <StudentStep key={c.id} component={c} n={i + 1} components={components}
-                    style={{ scrollMarginTop: stuckOffset + 16 }} />
-                ))}
+        {/* The block's activities live inside the same card as its header —
+            a gray well under the steps — so header and content read as one
+            unit rather than a banner floating above separate cards. */}
+        <HeaderCardSection well>
+          {mode === "student" ? (
+            // Default (stretch) row alignment on purpose: the outline's sticky
+            // card needs its grid cell to span the whole row to stay pinned
+            // (same reason as the edit rail below).
+            <div className={`grid grid-cols-1 gap-6 ${showOutline ? "lg:grid-cols-[minmax(0,1fr)_280px]" : ""}`}>
+              <div className="min-w-0">
+                {components.length ? (
+                  // A hairline between activities, so each reads as its own section.
+                  <div className="divide-y divide-neutral-400">
+                    {components.map((c) => (
+                      <StudentStep key={c.id} component={c} components={components} showLevel={!sharedLevel}
+                        className="py-10 first:pt-0 last:pb-0" style={{ scrollMarginTop: stuckOffset + 16 }}
+                        focused={focusedIndex >= 0 && components[focusedIndex].id === c.id} onFocus={() => setFocusId(c.id)} />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-8 text-center text-neutral-600 text-sm">No components yet — switch to Edit to add some.</Card>
+                )}
               </div>
-            ) : (
-              <Card className="p-8 text-center text-neutral-600 text-sm">No components yet — switch to Edit to add some.</Card>
-            )}
-          </div>
-          <div className="hidden lg:block">
-            {components.length > 0 && (
-              <StudentOutline components={components} activeId={activeStepId} onPick={jumpToStep}
-                style={{ top: stuckOffset + 16, maxHeight: `calc(100vh - ${stuckOffset}px - 32px)` }} />
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-5">
-          {/* Site-builder layout: the left column is always the plain
-              components list — it never turns into a form, so "what are
-              the steps" has one constant answer. The right is the block's
-              live preview; click any component there and that one frame
-              (only that one) swaps to its own editor, in place. */}
-          {/* `items-start` (the old setting here) sizes each grid cell to
-              its own content — fine for the preview column, but it leaves
-              the rail's cell exactly as tall as the rail itself. A sticky
-              element can only stay stuck within its own containing block
-              (its parent's box); once you scroll past a SHORT rail's short
-              cell, it runs out of room to stick and drops back into normal
-              flow, sliding back up and out from under its own sticky
-              position — visible as the rail climbing back up and getting
-              clipped by the header once you're scrolled deep into a long
-              preview column (more/taller components than the rail is
-              tall). Default (stretch) grid alignment makes the rail's OWN
-              grid cell span the full row height instead — i.e. at least as
-              tall as the preview column — giving its sticky child room to
-              stay stuck for the entire scroll. The Card itself stays a
-              plain child of that tall cell (not stretched) so it still
-              only ever looks as tall as its own content. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
-            <div>
-              {/* Pinned right under the sticky header above (top:
-                  stuckOffset — headerH plus the app topbar's own height,
-                  not a guessed fixed value; see headerH's and stuckOffset's
-                  own comments) so the list is always fully visible, never
-                  sliced by scrolling part of it behind that header. */}
-              <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
-                style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
-                  <span className="flex items-center gap-2"><span className="text-base font-semibold text-neutral-950">Components</span><CountBadge>{components.length}</CountBadge></span>
+              {/* A short block is visible almost in one screen — the outline
+                  only earns its column once there's something to jump between. */}
+              {showOutline && (
+                <div className="hidden lg:block">
+                  <StudentOutline components={components} activeId={activeStepId} onPick={jumpToStep}
+                    style={{ top: stuckOffset + 16, maxHeight: `calc(100vh - ${stuckOffset}px - 32px)` }} />
                 </div>
-                <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
+              )}
+              {focusedIndex >= 0 && (
+                <FocusBars block={block} components={components} index={focusedIndex}
+                  onGo={(i) => setFocusId(components[i].id)} onClose={closeFocus} />
+              )}
+            </div>
+          ) : (
+            <div>
+              {/* Site-builder layout: the left column is always the plain
+                  components list — it never turns into a form, so "what are
+                  the steps" has one constant answer. The right is the block's
+                  live preview; click any component there and that one frame
+                  (only that one) swaps to its own editor, in place. */}
+              {/* `items-start` (the old setting here) sizes each grid cell to
+                  its own content — fine for the preview column, but it leaves
+                  the rail's cell exactly as tall as the rail itself. A sticky
+                  element can only stay stuck within its own containing block
+                  (its parent's box); once you scroll past a SHORT rail's short
+                  cell, it runs out of room to stick and drops back into normal
+                  flow, sliding back up and out from under its own sticky
+                  position — visible as the rail climbing back up and getting
+                  clipped by the header once you're scrolled deep into a long
+                  preview column (more/taller components than the rail is
+                  tall). Default (stretch) grid alignment makes the rail's OWN
+                  grid cell span the full row height instead — i.e. at least as
+                  tall as the preview column — giving its sticky child room to
+                  stay stuck for the entire scroll. The Card itself stays a
+                  plain child of that tall cell (not stretched) so it still
+                  only ever looks as tall as its own content. */}
+              <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
+                <div>
+                  {/* Pinned right under the sticky header above (top:
+                      stuckOffset — headerH plus the app topbar's own height,
+                      not a guessed fixed value; see headerH's and stuckOffset's
+                      own comments) so the list is always fully visible, never
+                      sliced by scrolling part of it behind that header. */}
+                  <Card className="p-0 overflow-hidden lg:sticky flex flex-col"
+                    style={{ top: stuckOffset, maxHeight: `calc(100vh - ${stuckOffset}px - 16px)` }}>
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0">
+                      <span className="flex items-center gap-2"><span className="text-base font-semibold text-neutral-950">Components</span><CountBadge>{components.length}</CountBadge></span>
+                    </div>
+                    <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
+                      {components.map((c, i) => {
+                        const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
+                        const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                        return (
+                          <RailItem key={c.id} id={`rail-${c.id}`}
+                            icon={M.icon} tone={M.tone} label={M.label}
+                            meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                            selected={c.id === selectedId}
+                            onClick={() => selectComponent(c.id)}
+                            draggable
+                            onDragStart={() => setDragId(c.id)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
+                            onDragEnd={() => setDragId(null)}
+                            className={dragId === c.id ? "opacity-40" : ""}
+                          />
+                        );
+                      })}
+                      {/* No "Add component" button here — the preview on the
+                          right already has a "+" slot after every component
+                          (and one at the very start/end), so a component
+                          always gets added exactly where it visually lands. */}
+                      {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
+                    </div>
+                  </Card>
+                </div>
+
+                {/* The same gray canvas and step structure as the student view
+                    (numbered heading, level, the activity's own card), so editing
+                    and previewing read as one page — here each step is also a
+                    click target, and the selected one shows its editor in place.
+                    "+ Add component" slots sit between steps like a site
+                    builder's "Add block" pills, each remembering its own
+                    position, so a pick lands exactly where you clicked. */}
+                <div className="min-w-0">
+                  <AddSlot active={insertAt === 0} onClick={() => openPicker(0)} />
                   {components.map((c, i) => {
-                    const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                    const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                    const isSel = c.id === selectedId;
+                    const isFullscreen = c.id === fullscreenId;
+                    const linked = isLinkedComprehension(c, components);
                     return (
-                      <RailItem key={c.id} id={`rail-${c.id}`}
-                        icon={M.icon} tone={M.tone} label={M.label}
-                        meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
-                        selected={c.id === selectedId}
-                        onClick={() => selectComponent(c.id)}
-                        draggable
-                        onDragStart={() => setDragId(c.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => { reorderComponent(dragId, c.id); setDragId(null); }}
-                        onDragEnd={() => setDragId(null)}
-                        className={dragId === c.id ? "opacity-40" : ""}
-                      />
+                      <React.Fragment key={c.id}>
+                        {/* scrollMarginTop tells scrollIntoView (below) that the
+                            sticky header (plus the app topbar above it —
+                            stuckOffset covers both) blocks off that much of
+                            what it'd otherwise think was open viewport —
+                            without it, "nearest" scrolls a step right up to
+                            y:0 of the scroll container, which is actually
+                            hidden behind that header, not visible at all. */}
+                        <section id={`frame-${c.id}`} className="relative" style={{ scrollMarginTop: stuckOffset + 16 }}>
+                          {isSel ? (
+                            // Editing, in place: same heading, same position in
+                            // the stack — the toolbar joins the heading row and
+                            // the editor replaces the rendered activity, in a
+                            // white card with the brand border so the step being
+                            // edited is unmistakable. `key` remounts on selection
+                            // change so the entrance plays per step.
+                            //
+                            // Fullscreen just swaps this SAME div's own classes
+                            // to a fixed, viewport-covering overlay rather than
+                            // rendering a second copy elsewhere — ComponentEditor
+                            // (and anything stateful inside it, like H5P's own
+                            // editor iframe) stays mounted exactly once the
+                            // whole time, so toggling never resets it.
+                            <div key={c.id} className={isFullscreen
+                              ? "fixed inset-0 z-50 bg-neutral-200 p-5 sm:p-8 overflow-y-auto animate-fade-rise"
+                              : "animate-fade-rise"}>
+                              <div className={isFullscreen ? "max-w-5xl mx-auto" : ""}>
+                                <StepHeading component={c} linked={linked} showLevel={false} right={
+                                  <>
+                                    {c.level !== undefined && (
+                                      <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
+                                        title="Level" className="mr-1 h-8 rounded-lg border border-neutral-400 bg-white px-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
+                                        {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
+                                      </select>
+                                    )}
+                                    <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
+                                    <StepTool title="Duplicate" onClick={() => duplicateComponent(i)}><IconCopy size={16} stroke={1.75} /></StepTool>
+                                    <StepTool title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)}><IconArrowUp size={16} stroke={1.75} /></StepTool>
+                                    <StepTool title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)}><IconArrowDown size={16} stroke={1.75} /></StepTool>
+                                    <StepTool title="Remove" danger onClick={() => { removeComponent(i); toast("Component removed"); }}><IconTrash size={16} stroke={1.75} /></StepTool>
+                                    <StepTool title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)}>
+                                      {isFullscreen ? <IconMinimize size={16} stroke={1.75} /> : <IconMaximize size={16} stroke={1.75} />}
+                                    </StepTool>
+                                    <Button size="sm" className="ml-1" onClick={() => selectComponent(null)}><IconCheck size={14} stroke={1.75} /> Done</Button>
+                                  </>
+                                } />
+                                <div className="rounded-[14px] border-2 border-primary-500 bg-white p-4 sm:p-5 shadow-md">
+                                  <ErrorBoundary resetKey={c}>
+                                    <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
+                                      passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
+                                  </ErrorBoundary>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // Not selected: exactly the student view's step,
+                            // plus a hover ring and an "Edit" cue — click
+                            // anywhere on it to edit in place.
+                            <div onClick={() => selectComponent(c.id)}
+                              className="group -m-3 cursor-pointer rounded-[14px] p-3 ring-2 ring-transparent transition duration-(--dur-fast) hover:bg-primary-50/60 hover:ring-primary-300">
+                              <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
+                                <StepHeading component={c} linked={linked} right={
+                                  <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
+                                    <IconPencil size={14} stroke={1.75} /> Edit
+                                  </span>
+                                } />
+                                <ComponentStudent component={c} />
+                              </div>
+                            </div>
+                          )}
+                        </section>
+                        <AddSlot active={insertAt === i + 1} onClick={() => openPicker(i + 1)} />
+                      </React.Fragment>
                     );
                   })}
-                  {/* No "Add component" button here — the preview on the
-                      right already has a "+" slot after every component
-                      (and one at the very start/end), so a component
-                      always gets added exactly where it visually lands. */}
-                  {!components.length && <p className="text-xs text-neutral-500 px-1 py-2">No components yet.</p>}
-                </div>
-              </Card>
-            </div>
+                  {!components.length && (
+                    <button onClick={() => openPicker(0)}
+                      className="w-full rounded-[14px] border-2 border-dashed border-neutral-400 bg-white p-12 text-center text-neutral-600 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
+                      <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-500" />
+                      <div className="text-sm font-medium">This block is empty — add your first component</div>
+                    </button>
+                  )}
 
-            {/* The same gray canvas and step structure as the student view
-                (numbered heading, level, the activity's own card), so editing
-                and previewing read as one page — here each step is also a
-                click target, and the selected one shows its editor in place.
-                "+ Add component" slots sit between steps like a site
-                builder's "Add block" pills, each remembering its own
-                position, so a pick lands exactly where you clicked. */}
-            <div className="min-w-0 rounded-[14px] border border-neutral-400 bg-neutral-200 p-4 sm:p-6">
-              <AddSlot active={insertAt === 0} onClick={() => setInsertAt(0)} />
-              {components.map((c, i) => {
-                const isSel = c.id === selectedId;
-                const isFullscreen = c.id === fullscreenId;
-                const linked = isLinkedComprehension(c, components);
-                return (
-                  <React.Fragment key={c.id}>
-                    {/* scrollMarginTop tells scrollIntoView (below) that the
-                        sticky header (plus the app topbar above it —
-                        stuckOffset covers both) blocks off that much of
-                        what it'd otherwise think was open viewport —
-                        without it, "nearest" scrolls a step right up to
-                        y:0 of the scroll container, which is actually
-                        hidden behind that header, not visible at all. */}
-                    <section id={`frame-${c.id}`} className="relative" style={{ scrollMarginTop: stuckOffset + 16 }}>
-                      {isSel ? (
-                        // Editing, in place: same heading, same position in
-                        // the stack — the toolbar joins the heading row and
-                        // the editor replaces the rendered activity, in a
-                        // white card with the brand border so the step being
-                        // edited is unmistakable. `key` remounts on selection
-                        // change so the entrance plays per step.
-                        //
-                        // Fullscreen just swaps this SAME div's own classes
-                        // to a fixed, viewport-covering overlay rather than
-                        // rendering a second copy elsewhere — ComponentEditor
-                        // (and anything stateful inside it, like H5P's own
-                        // editor iframe) stays mounted exactly once the
-                        // whole time, so toggling never resets it.
-                        <div key={c.id} className={isFullscreen
-                          ? "fixed inset-0 z-50 bg-neutral-200 p-5 sm:p-8 overflow-y-auto animate-fade-rise"
-                          : "animate-fade-rise"}>
-                          <div className={isFullscreen ? "max-w-5xl mx-auto" : ""}>
-                            <StepHeading component={c} n={i + 1} linked={linked} showLevel={false} right={
-                              <>
-                                {c.level !== undefined && (
-                                  <select value={c.level || ""} onChange={(e) => updateComponent(i, { level: e.target.value })}
-                                    title="Level" className="mr-1 h-8 rounded-lg border border-neutral-400 bg-white px-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
-                                    {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
-                                  </select>
-                                )}
-                                <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
-                                <StepTool title="Duplicate" onClick={() => duplicateComponent(i)}><IconCopy size={16} stroke={1.75} /></StepTool>
-                                <StepTool title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)}><IconArrowUp size={16} stroke={1.75} /></StepTool>
-                                <StepTool title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)}><IconArrowDown size={16} stroke={1.75} /></StepTool>
-                                <StepTool title="Remove" danger onClick={() => { removeComponent(i); toast("Component removed"); }}><IconTrash size={16} stroke={1.75} /></StepTool>
-                                <StepTool title={isFullscreen ? "Exit fullscreen" : "Fullscreen — more room to work"} onClick={() => setFullscreenId(isFullscreen ? null : c.id)}>
-                                  {isFullscreen ? <IconMinimize size={16} stroke={1.75} /> : <IconMaximize size={16} stroke={1.75} />}
-                                </StepTool>
-                                <Button size="sm" className="ml-1" onClick={() => selectComponent(null)}><IconCheck size={14} stroke={1.75} /> Done</Button>
-                              </>
-                            } />
-                            <div className="rounded-[14px] border-2 border-primary-500 bg-white p-4 sm:p-5 shadow-md">
-                              <ErrorBoundary resetKey={c}>
-                                <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                                  passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
-                              </ErrorBoundary>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        // Not selected: exactly the student view's step,
-                        // plus a hover ring and an "Edit" cue — click
-                        // anywhere on it to edit in place.
-                        <div onClick={() => selectComponent(c.id)}
-                          className="group -m-3 cursor-pointer rounded-[14px] p-3 ring-2 ring-transparent transition duration-(--dur-fast) hover:bg-white/50 hover:ring-primary-300">
-                          <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
-                            <StepHeading component={c} n={i + 1} linked={linked} right={
-                              <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
-                                <IconPencil size={14} stroke={1.75} /> Edit
-                              </span>
-                            } />
-                            <ComponentStudent component={c} />
-                          </div>
-                        </div>
-                      )}
-                    </section>
-                    <AddSlot active={insertAt === i + 1} onClick={() => setInsertAt(i + 1)} />
-                  </React.Fragment>
-                );
-              })}
-              {!components.length && (
-                <button onClick={() => setInsertAt(0)}
-                  className="w-full rounded-[14px] border-2 border-dashed border-neutral-400 bg-white p-12 text-center text-neutral-600 hover:border-primary-300 hover:text-primary-600 transition duration-(--dur-fast)">
-                  <IconStack2 size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-500" />
-                  <div className="text-sm font-medium">This block is empty — add your first component</div>
-                </button>
-              )}
-
-              {/* The picker itself — sticky to the bottom of the viewport,
-                  but as a normal child of this framed column rather than a
-                  fixed, viewport-wide overlay, so it can never cover the
-                  sidebar or the components list to its left, and it stays
-                  inside the same "frame" the preview lives in. No dimmed
-                  scrim either: the preview above it stays visible and
-                  clickable, so a different "+" slot can be picked without
-                  closing this first. Pinned between the sticky header and
-                  the bottom edge, and capped to fit that gap (its lists
-                  scroll instead) so its own top never slides under the
-                  header — the cap leaves a 16px gap under the header plus
-                  the page's and this canvas's (24px) bottom padding, which
-                  it has to clear at the very end of the page. */}
-              {pickerOpen && (
-                <div ref={addPanelRef}
-                  className="sticky bottom-4 z-30 mt-5 flex flex-col rounded-[14px] border-2 border-primary-300 bg-white shadow-xl overflow-hidden animate-fade-rise"
-                  style={{
-                    top: stuckOffset + 16,
-                    maxHeight: `calc(100vh - ${stuckOffset + 16 + PICKER_PAGE_PAD + 24}px)`,
-                    scrollMarginTop: stuckOffset + 16,
-                    scrollMarginBottom: 16,
-                  }}>
-                  <div className="shrink-0 flex items-start justify-between p-4 border-b border-neutral-200 bg-primary-50/50">
-                    <div>
-                      <h3 className="font-bold text-base tracking-tight text-neutral-950">Add a component</h3>
-                      <p className="text-xs text-neutral-500 mt-0.5">
-                        {insertAt >= components.length ? "Goes at the end of the block" : `Goes in as component ${insertAt + 1}`}
-                      </p>
-                    </div>
-                    <button onClick={() => setInsertAt(null)} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] h-[420px] min-h-0">
-                    <nav className="border-b sm:border-b-0 sm:border-r border-neutral-200 p-3 space-y-0.5 overflow-y-auto overscroll-contain min-h-0">
-                      {state.componentBank && state.componentBank.length > 0 && (
-                        <NavItem icon={IconBookmarkPlus} label="My Component Library"
-                          active={addCategory === "library"} onClick={() => setAddCategory("library")} />
-                      )}
-                      {/* No icon on purpose: NavItem's stroke={1.75} is tuned
-                          for tabler icons; COMPONENT_META's are
-                          lucide-react, which spells that prop differently
-                          and renders invisibly. */}
-                      {COMPONENT_CATEGORIES.map((cat) => (
-                        <NavItem key={cat.id} label={cat.label}
-                          active={addCategory === cat.id} onClick={() => setAddCategory(cat.id)} />
-                      ))}
-                    </nav>
-                    <div className="p-4 overflow-y-auto overscroll-contain min-h-0">
-                      {addCategory === "library" ? (
-                        // grouped by the course/parent it was saved from, so
-                        // the library reads as folders instead of one flat pile
-                        <LibraryPickList
-                          groups={groupBankByParent(state.componentBank).map(({ parent, items }) => ({
-                            id: parent, label: parent,
-                            items: items.map((item) => {
-                              const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-                              const child = bankChildLabel(item);
-                              return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
-                            }),
-                          }))}
-                          onPick={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))}
-                        />
-                      ) : (
-                        <CategoryPickerGrid gridCols="grid-cols-1 md:grid-cols-2"
-                          items={(COMPONENT_CATEGORIES.find((cat) => cat.id === addCategory)?.kinds || []).map((k) => {
-                            const M = COMPONENT_META[k];
-                            return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
-                          })}
-                          onPick={addComponent}
-                        />
-                      )}
-                    </div>
-                  </div>
                 </div>
-              )}
-              {pickerOpen && <div aria-hidden="true" style={{ height: stuckOffset - PICKER_PAGE_PAD }} />}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </HeaderCardSection>
+      </HeaderCard>
+
+      {/* Remounted on each open (key) so it starts on a fresh search and on
+          this block's suggestions. */}
+      <ComponentPicker key={pickerKey} open={pickerOpen} onClose={() => setInsertAt(null)}
+        blockLabel={BT.label} suggested={(BT.components || []).filter((k) => COMPONENT_META[k])}
+        components={components} bank={state.componentBank || []} position={pickerPosition}
+        onPickKind={addComponent} onPickSaved={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))} />
     </div>
   );
 }
 
+// The "Add a component" dialog. A centered Modal (not a panel pinned inside
+// the canvas) so it never half-covers the component above the slot it was
+// opened from. Search runs across every kind at once; otherwise the nav
+// narrows the grid to one category, starting with what this block type
+// suggests.
+const CATEGORY_ICON = {
+  suggested: IconSparkles, library: IconBookmarks,
+  text: IconBook2, vocab: IconAbc, grammar: IconTimeline, practice: IconPencil, speaking: IconMicrophone,
+  media: IconPlayerPlay, present: IconPresentation, h5p: IconPuzzle, peer: IconUsersGroup, homework: IconClipboardText,
+};
+const TOTAL_KINDS = COMPONENT_CATEGORIES.reduce((n, cat) => n + cat.kinds.length, 0);
+
+function ComponentPicker({ open, onClose, blockLabel, suggested, components, bank, position, onPickKind, onPickSaved }) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState(suggested.length ? "suggested" : COMPONENT_CATEGORIES[0].id);
+  const kindItem = (k) => {
+    const M = COMPONENT_META[k];
+    return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
+  };
+  const savedItem = (item) => {
+    const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
+    const child = bankChildLabel(item);
+    return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
+  };
+  const nav = [
+    ...(suggested.length ? [{ id: "suggested", label: `Suggested for ${blockLabel}`, count: suggested.length }] : []),
+    ...(bank.length ? [{ id: "library", label: "My Component Library", count: bank.length }] : []),
+    ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, count: cat.kinds.length })),
+  ];
+
+  // Search: every kind whose name or description matches, grouped by
+  // category, plus matching saved components.
+  const q = query.trim().toLowerCase();
+  const hits = (text) => text.toLowerCase().includes(q);
+  const results = q ? [
+    ...(bank.some((b) => hits(b.title || "")) ? [{ id: "library", label: "My Component Library", saved: true, items: bank.filter((b) => hits(b.title || "")).map(savedItem) }] : []),
+    ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, items: cat.kinds.filter((k) => hits(COMPONENT_META[k].label) || hits(COMPONENT_META[k].hint || "")).map(kindItem) }))
+      .filter((g) => g.items.length),
+  ] : [];
+  const pickFirst = () => {
+    const g = results[0];
+    if (!g) return;
+    if (g.saved) onPickSaved(g.items[0].id); else onPickKind(g.items[0].id);
+  };
+  const current = nav.find((n) => n.id === category);
+  const grid = "grid-cols-1 md:grid-cols-2";
+
+  return (
+    <Modal open={open} onClose={onClose} size="xl" fill bodyClassName="grid grid-cols-1 grid-rows-1 sm:grid-cols-[280px_1fr]"
+      icon={IconPlus} title="Add a component" sub={position}
+      headerExtra={
+        <SearchField autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && pickFirst()}
+          placeholder={`Search all ${TOTAL_KINDS} components…`} />
+      }>
+      <nav className="hidden sm:block border-r border-neutral-400 p-3 space-y-0.5 overflow-y-auto overscroll-contain min-h-0" aria-label="Component categories">
+        {nav.map((n) => (
+          <NavItem key={n.id} icon={CATEGORY_ICON[n.id]} label={n.label} count={n.count}
+            active={!q && category === n.id} onClick={() => { setQuery(""); setCategory(n.id); }} />
+        ))}
+      </nav>
+      <div className="p-5 overflow-y-auto overscroll-contain min-h-0">
+        {q ? (
+          results.length ? (
+            <div className="space-y-6">
+              {results.map((g) => (
+                <section key={g.id}>
+                  <h4 className="mb-2.5 text-sm font-semibold text-neutral-950">{g.label}</h4>
+                  <CategoryPickerGrid gridCols={grid} items={g.items} onPick={g.saved ? onPickSaved : onPickKind} />
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="py-16 text-center">
+              <IconSearch size={28} stroke={1.5} className="mx-auto mb-3 text-neutral-500" />
+              <div className="text-sm font-semibold text-neutral-950">No components match “{query.trim()}”</div>
+              <div className="text-sm text-neutral-600 mt-1">Try a broader word, or pick a category on the left.</div>
+            </div>
+          )
+        ) : (
+          <>
+            {/* Phones have no room for the category list — same choice as a dropdown. */}
+            <Select className="sm:hidden mb-4" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+              {nav.map((item) => <option key={item.id} value={item.id}>{item.label} ({item.count})</option>)}
+            </Select>
+            <div className="mb-4">
+              <h4 className="text-base font-semibold text-neutral-950">{current?.label}</h4>
+              <p className="text-sm text-neutral-600">
+                {category === "suggested" ? `The components a ${blockLabel} block is built for.`
+                  : category === "library" ? "Components you saved from other lessons — inserted as independent copies."
+                    : `${current?.count} ${current?.count === 1 ? "component" : "components"}`}
+              </p>
+            </div>
+            {category === "library" ? (
+              // grouped by the course/parent it was saved from, so the
+              // library reads as folders instead of one flat pile
+              <LibraryPickList
+                groups={groupBankByParent(bank).map(({ parent, items }) => ({ id: parent, label: parent, items: items.map(savedItem) }))}
+                onPick={onPickSaved} />
+            ) : (
+              <CategoryPickerGrid gridCols={grid} onPick={onPickKind}
+                items={(category === "suggested" ? suggested : COMPONENT_CATEGORIES.find((cat) => cat.id === category)?.kinds || []).map(kindItem)} />
+            )}
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+
 // The "+ Add component" pill between two components in the live preview —
 // a site builder's "Add block" affordance. Quiet until hovered, lit when it
 // is the slot the picker is currently inserting into.
-// Wheel/trackpad scrolling that starts over `ref` stays there: its lists
-// scroll as usual, but over anything with nothing left to scroll, the page
-// behind no longer moves instead. `overscroll-behavior: contain` alone isn't
-// enough — browsers ignore it on elements that don't overflow and hand the
-// wheel straight to the page.
-function useContainedWheel(ref, active) {
-  useEffect(() => {
-    const root = ref.current;
-    if (!active || !root) return undefined;
-    const onWheel = (e) => {
-      if (e.ctrlKey || e.deltaY === 0) return;
-      for (let el = e.target; el && el !== root.parentElement; el = el.parentElement) {
-        const scrolls = el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY);
-        const hasRoom = e.deltaY < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-        if (scrolls && hasRoom) return;
-      }
-      e.preventDefault();
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
-    return () => root.removeEventListener("wheel", onWheel);
-  }, [ref, active]);
-}
-
 function AddSlot({ active, onClick }) {
   return (
-    <div className="relative flex items-center justify-center py-3 group">
-      <div className={`absolute inset-x-0 top-1/2 border-t border-dashed transition-colors duration-(--dur-fast) ${active ? "border-primary-300" : "border-transparent group-hover:border-neutral-300"}`} />
+    <div className="relative flex items-center justify-center py-5 group">
+      {/* Doubles as the separator between steps: a hairline, with the add
+          button sitting on it. */}
+      <div className={`absolute inset-x-0 top-1/2 border-t transition-colors duration-(--dur-fast) ${active ? "border-primary-300" : "border-neutral-400 group-hover:border-primary-300"}`} />
       <button onClick={onClick}
         className={`relative z-10 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition duration-(--dur-fast) active:scale-[0.97] ${
-          active ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-300 bg-white text-neutral-500 hover:border-primary-300 hover:text-primary-600"}`}>
+          active ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-400 bg-white text-neutral-700 hover:border-primary-300 hover:text-primary-600"}`}>
         <Plus size={14} /> Add component
       </button>
     </div>
@@ -1064,7 +1112,7 @@ export function BlockStudentView({ block }) {
   if (!components.length) return <Card className="p-8 text-center text-neutral-500 text-sm">No components in this block yet.</Card>;
   return (
     <div className="divide-y divide-neutral-400">
-      {components.map((c, i) => <StudentStep key={c.id} component={c} n={i + 1} components={components} className="py-8 first:pt-2" />)}
+      {components.map((c) => <StudentStep key={c.id} component={c} components={components} className="py-8 first:pt-2" />)}
     </div>
   );
 }
@@ -1077,15 +1125,98 @@ const blockName = (b) => b.title || blockMeta(b.type).label;
 // is the container's call (a gray canvas in Block Studio, hairline dividers
 // on the live-lesson stage). A comprehension set tied to a passage indents
 // under that passage.
-function StudentStep({ component, n, components, style, className = "" }) {
+// Focus mode swaps this SAME section's classes to a fixed layer between the
+// focus bars (see FocusBars) instead of rendering a second copy, so whatever
+// the student has already typed or picked stays put going in and out.
+function StudentStep({ component, components, showLevel = true, style, className = "", focused = false, onFocus }) {
   const linked = isLinkedComprehension(component, components);
   return (
-    <section id={`step-${component.id}`} data-student-step={component.id} style={style} className={className}>
-      <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
-        <StepHeading component={component} n={n} linked={linked} />
-        <ComponentStudent component={component} />
+    <section id={`step-${component.id}`} data-student-step={component.id} style={style}
+      className={focused ? "fixed inset-x-0 top-16 bottom-16 z-50 flex flex-col overflow-y-auto overscroll-contain bg-neutral-50 animate-fade-rise" : className}>
+      {/* In focus, `my-auto` centers a short activity on screen, and a tall
+          one simply scrolls from its top; the heading is dropped because the
+          focus bar above already names the activity. */}
+      <div className={focused ? "my-auto w-full mx-auto max-w-5xl px-5 sm:px-8 py-8 sm:py-12 xl:[zoom:1.15]" : ""}>
+        <div className={linked && !focused ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
+          {!focused && (
+            <StepHeading component={component} linked={linked} showLevel={showLevel}
+              right={onFocus ? <FocusButton onClick={onFocus} /> : undefined} />
+          )}
+          <ComponentStudent component={component} />
+        </div>
       </div>
     </section>
+  );
+}
+
+function FocusButton({ onClick }) {
+  return (
+    <button type="button" onClick={onClick} title="Focus mode — show this activity full screen"
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-neutral-700 transition-colors duration-(--dur-fast) hover:bg-white hover:text-neutral-950">
+      <IconMaximize size={16} stroke={1.75} /> Focus
+    </button>
+  );
+}
+
+// Focus mode's chrome — what the activity is and where it sits (the kit's
+// dashed progress bar, one cell per activity) on top; moving between
+// activities at the bottom. "Full screen" also hides the browser's own UI,
+// for a projector.
+function FocusBars({ block, components, index, onGo, onClose }) {
+  const c = components[index];
+  const M = COMPONENT_META[c.kind] || FALLBACK_META;
+  const Icon = M.icon;
+  const last = index === components.length - 1;
+  const [isFull, setIsFull] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const onChange = () => setIsFull(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFull = () => {
+    const req = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+    req?.catch?.(() => {});
+  };
+  // Esc leaves; ← / → (also what most presentation clickers send) move
+  // between activities — unless the key is going into a field.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.target.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      if (e.key === "ArrowRight" && index < components.length - 1) onGo(index + 1);
+      if (e.key === "ArrowLeft" && index > 0) onGo(index - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, components.length, onGo, onClose]);
+  return (
+    <>
+      <div className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-neutral-400 bg-white px-5 sm:px-8 flex items-center gap-4 animate-fade-rise">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${M.tone}`}><Icon size={18} /></span>
+        <div className="min-w-0">
+          <div className="truncate text-base font-semibold text-neutral-950">{M.label}</div>
+          <div className="truncate text-xs text-neutral-600">{blockName(block)} · Activity {index + 1} of {components.length}</div>
+        </div>
+        <div className="hidden md:block flex-1 max-w-md mx-auto" aria-hidden="true">
+          <SegmentedBar pct={((index + 1) / components.length) * 100} cells={components.length} />
+        </div>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={toggleFull}>
+            {isFull ? <IconMinimize size={15} stroke={1.75} /> : <IconMaximize size={15} stroke={1.75} />} {isFull ? "Exit full screen" : "Full screen"}
+          </Button>
+          <Button size="sm" variant="light" className="whitespace-nowrap" onClick={onClose}><IconX size={15} stroke={1.75} /> Exit focus</Button>
+        </div>
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-[60] h-16 border-t border-neutral-400 bg-white px-5 sm:px-8 flex items-center justify-between gap-4">
+        <Button size="sm" variant={index === 0 ? "disabled" : "outline"} disabled={index === 0} onClick={() => onGo(index - 1)}>
+          <IconArrowLeft size={15} stroke={1.75} /> Previous
+        </Button>
+        <span className="hidden sm:block text-sm text-neutral-600 tabular-nums">{index + 1} / {components.length} · ← → to move · Esc to exit</span>
+        {last
+          ? <Button size="sm" variant="dark" onClick={onClose}><IconCheck size={15} stroke={1.75} /> Done</Button>
+          : <Button size="sm" onClick={() => onGo(index + 1)}>Next <IconArrowRight size={15} stroke={1.75} /></Button>}
+      </div>
+    </>
   );
 }
 
@@ -1093,15 +1224,19 @@ const isLinkedComprehension = (component, components) =>
   component.kind === "comprehension" && Boolean(component.passageRefId)
     && components.some((x) => x.id === component.passageRefId);
 
-// A step's heading — number badge, name, level — shared by the student view
-// and Block Studio's editor so the two always read as the same structure.
-// `right` carries per-context actions (the editor's toolbar, an "Edit" cue);
-// `showLevel={false}` when the level is edited in place instead.
-function StepHeading({ component, n, linked, right, showLevel = true }) {
+// A step's heading — the activity's type icon, name, level — shared by the
+// student view and Block Studio's editor so the two always read as the same
+// structure. The icon (not a number) leads, so it never competes with the
+// activity's own numbered questions ("1.", "2." inside the card). `right`
+// carries per-context actions (the editor's toolbar, an "Edit" cue);
+// `showLevel={false}` when the level is edited in place, or shown once in
+// the block header because every activity shares it.
+function StepHeading({ component, linked, right, showLevel = true }) {
   const M = COMPONENT_META[component.kind] || FALLBACK_META;
+  const Icon = M.icon;
   return (
     <div className="flex items-center gap-3 flex-wrap mb-4">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-sm font-bold text-white">{n}</span>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${M.tone}`}><Icon size={18} /></span>
       <h2 className="text-xl font-semibold tracking-tight text-neutral-950">{M.label}</h2>
       {showLevel && component.level && <Badge color="outline">Level {component.level}</Badge>}
       {linked && <span className="text-xs font-medium text-primary-600">↳ for the passage above</span>}
@@ -1168,16 +1303,15 @@ function StudentOutline({ components, activeId, onPick, style }) {
   );
 }
 
-// One standard shell for every component kind's student view — same max
-// width regardless of what's inside, so a lesson reads as a uniform,
-// scannable list instead of a pile of wildly different widths (10 kinds
-// had no cap at all, the rest split across 4 different max-w values).
-// Individual XxxComponent functions below no longer set their own
-// competing max-w-*; Card framing itself stays per-component (most
-// already return a Card as their own root) — this wrapper only owns width.
+// One standard shell for every component kind's student view — every kind
+// fills its column (the same width as Block Studio's header card), so a
+// lesson reads as a uniform list instead of a pile of different widths.
+// Individual XxxComponent functions below don't set their own max-w-*;
+// Card framing itself stays per-component (most already return a Card as
+// their own root) — this wrapper only owns width.
 export function ComponentStudent({ component }) {
   return (
-    <div className="w-full max-w-3xl">
+    <div className="w-full">
       <ErrorBoundary resetKey={component}>{renderComponentStudent(component)}</ErrorBoundary>
     </div>
   );
@@ -1509,7 +1643,7 @@ function QuizQ({ item, n }) {
   const [pick, setPick] = useState(null);
   return (
     <QuestionItem n={n} prompt={item.q} answerLabel="Choose one answer">
-      <div className="grid gap-2">
+      <div className="grid gap-2 md:grid-cols-2">
         {item.options.map((o, oi) => (
           <ChoiceOption key={oi} marker={CHOICE_LETTERS[oi]} state={choiceState(oi, pick, item.answer)} onClick={() => setPick(oi)}>{o}</ChoiceOption>
         ))}
@@ -1561,54 +1695,78 @@ function ComprehensionMatch({ pairs }) {
 }
 
 // An inline blank inside a sentence — the kit's gray filled field, shrunk
-// to word size, taking the field error/success colors once checked.
+// to word size, taking the field error/success colors once checked (and the
+// info color when "Show answers" filled it in).
 const GAP_STATE = {
   idle: "bg-neutral-200 border-transparent focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
   ok: "bg-success-50 border-success-500 text-success-700",
   miss: "bg-warning-50 border-warning-500 text-warning-700",
+  shown: "bg-info-50 border-info-500 text-info-700",
 };
-function GapSentence({ text, value, onChange, state = "idle", width = "w-32" }) {
+function GapSentence({ text, value, onChange, state = "idle", disabled = false, width = "w-32" }) {
   return (text || "").split("___").map((seg, i, arr) => (
     <React.Fragment key={i}>{seg}{i < arr.length - 1 && (
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="…" aria-label="Your answer"
-        className={`inline-block ${width} mx-1 h-9 rounded-lg border px-2 text-base font-medium text-center align-middle outline-none transition-colors ${GAP_STATE[state]}`} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="…" aria-label="Your answer" disabled={disabled}
+        className={`inline-block ${width} mx-1 h-9 rounded-lg border px-2 text-base font-medium text-center align-middle outline-none transition-colors disabled:opacity-100 ${GAP_STATE[state]}`} />
     )}</React.Fragment>
   ));
 }
 
-function GapFillComponent({ component }) {
-  const items = component.items || [];
-  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
-  return <QuestionList>{items.map((it, i) => <GapFill key={i} item={it} n={i + 1} />)}</QuestionList>;
-}
-// Shared by Gap fill and Word formation: type into the blank, check, and on
-// a miss show the answer with a one-tap retry.
-function useTypedAnswer(answer) {
-  const [val, setVal] = useState("");
+// Answers checked all at once for a whole activity (Gap fill, Word
+// formation, Scramble). Each item's answer lives here, so one footer can
+// score them together, clear only the wrong ones for another try, or fill in
+// the right answers — instead of a Check button under every question.
+function useActivityCheck(items, isRight, answerOf) {
+  const [values, setValues] = useState({});
   const [checked, setChecked] = useState(false);
-  const ok = val.trim().toLowerCase() === (answer || "").trim().toLowerCase();
+  const [shown, setShown] = useState(null); // indices "Show answers" filled in
+  const results = items.map((it, i) => isRight(it, values[i]));
   return {
-    val, checked, ok,
-    state: checked ? (ok ? "ok" : "miss") : "idle",
-    change: (v) => { setVal(v); setChecked(false); },
+    values, checked, results,
+    correct: results.filter(Boolean).length,
+    revealed: shown !== null,
+    set: (i, v) => setValues((s) => ({ ...s, [i]: v })),
     check: () => setChecked(true),
-    retry: () => { setChecked(false); setVal(""); },
+    retry: () => { setValues((s) => Object.fromEntries(Object.entries(s).filter(([i]) => results[i]))); setChecked(false); },
+    reveal: () => {
+      setShown(new Set(results.flatMap((ok, i) => (ok ? [] : [i]))));
+      setValues(Object.fromEntries(items.map((it, i) => [i, answerOf(it)])));
+    },
+    reset: () => { setValues({}); setChecked(false); setShown(null); },
+    stateOf: (i) => (!checked ? "idle" : shown?.has(i) ? "shown" : results[i] ? "ok" : "miss"),
   };
 }
-function TypedAnswerFooter({ a, item }) {
-  if (!a.checked) return <Button size="sm" onClick={a.check} disabled={!a.val.trim()}>Check</Button>;
-  return (
-    <AnswerFeedback ok={a.ok} className="" actionLabel={a.ok ? undefined : "Try again"} onAction={a.retry}>
-      {!a.ok && <>Correct answer: <b>{item.answer}</b>. {item.why}</>}
-    </AnswerFeedback>
-  );
+const normAnswer = (x) => (x || "").trim().toLowerCase();
+
+// The line under a checked item: a nudge when it's wrong (the item's own
+// "why", never the answer — that would spoil "Try again"), or the answer
+// once "Show answers" filled it in.
+function itemNote(state, item, answer) {
+  if (state === "miss") return <ItemNote icon={IconRefresh} iconCls="text-pending-600">{item.why || "Not quite — have another look."}</ItemNote>;
+  if (state === "shown") return <ItemNote icon={IconEye} iconCls="text-info-600">Answer: <b>{answer}</b>{item.why ? <> · {item.why}</> : null}</ItemNote>;
+  return null;
 }
-function GapFill({ item, n }) {
-  const a = useTypedAnswer(item.answer);
+function ItemNote({ icon: Icon, iconCls, children }) {
+  return <p className="flex items-start gap-2 text-sm text-neutral-700"><Icon size={16} stroke={1.75} className={`shrink-0 mt-0.5 ${iconCls}`} /><span>{children}</span></p>;
+}
+function CheckFooter({ a, total, canCheck, hint }) {
+  return <QuestionFooter checked={a.checked} correct={a.correct} total={total} revealed={a.revealed} canCheck={canCheck} hint={hint}
+    onCheck={a.check} onRetry={a.retry} onReveal={a.reveal} onReset={a.reset} />;
+}
+
+function GapFillComponent({ component }) {
+  const items = component.items || [];
+  const a = useActivityCheck(items, (it, v) => normAnswer(v) === normAnswer(it.answer), (it) => it.answer);
+  if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
   return (
-    <QuestionItem n={n} prompt={<GapSentence text={item.text} value={a.val} onChange={a.change} state={a.state} />}>
-      <TypedAnswerFooter a={a} item={item} />
-    </QuestionItem>
+    <QuestionList>
+      {items.map((it, i) => (
+        <QuestionItem key={i} n={i + 1} prompt={<GapSentence text={it.text} value={a.values[i] || ""} onChange={(v) => a.set(i, v)} state={a.stateOf(i)} disabled={a.checked} />}>
+          {itemNote(a.stateOf(i), it, it.answer)}
+        </QuestionItem>
+      ))}
+      <CheckFooter a={a} total={items.length} canCheck={Object.values(a.values).some((v) => v?.trim())} hint="Fill in the gaps, then check them all at once." />
+    </QuestionList>
   );
 }
 
@@ -1617,16 +1775,19 @@ function GapFill({ item, n }) {
    the root is given, so the check is specifically about word-building. ---- */
 function WordFormationComponent({ component }) {
   const items = component.items || [];
+  const a = useActivityCheck(items, (it, v) => normAnswer(v) === normAnswer(it.answer), (it) => it.answer);
   if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
-  return <QuestionList>{items.map((it, i) => <WordFormationItem key={i} item={it} n={i + 1} />)}</QuestionList>;
-}
-function WordFormationItem({ item, n }) {
-  const a = useTypedAnswer(item.answer);
   return (
-    <QuestionItem n={n} prompt={<GapSentence text={item.sentence} value={a.val} onChange={a.change} state={a.state} width="w-36" />}
-      answerLabel={<span className="inline-flex flex-wrap items-center gap-2">Form the right word from <Tag color="primary">{item.root}</Tag>{item.pos && <span>→ {item.pos}</span>}</span>}>
-      <TypedAnswerFooter a={a} item={item} />
-    </QuestionItem>
+    <QuestionList>
+      {items.map((it, i) => (
+        <QuestionItem key={i} n={i + 1}
+          prompt={<GapSentence text={it.sentence} value={a.values[i] || ""} onChange={(v) => a.set(i, v)} state={a.stateOf(i)} disabled={a.checked} width="w-36" />}
+          answerLabel={<span className="inline-flex flex-wrap items-center gap-2">Form the right word from <Tag color="primary">{it.root}</Tag>{it.pos && <span>→ {it.pos}</span>}</span>}>
+          {itemNote(a.stateOf(i), it, it.answer)}
+        </QuestionItem>
+      ))}
+      <CheckFooter a={a} total={items.length} canCheck={Object.values(a.values).some((v) => v?.trim())} hint="Form each word, then check them all at once." />
+    </QuestionList>
   );
 }
 
@@ -2159,45 +2320,56 @@ function MemoryComponent({ component }) {
 }
 
 /* ---- Sentence scramble — tap word chips into the right order ---- */
+const scrambleWords = (item) => item.sentence.replace(/[.!?]$/, "").split(" ");
 function ScrambleComponent({ component }) {
   const items = component.items || [];
+  const a = useActivityCheck(items,
+    (it, built) => (built || []).map((b) => b.w).join(" ") === scrambleWords(it).join(" "),
+    (it) => scrambleWords(it).map((w, id) => ({ id, w })));
   if (!items.length) return <EmptyActivity>No sentences added yet.</EmptyActivity>;
-  return <QuestionList>{items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} />)}</QuestionList>;
+  return (
+    <QuestionList>
+      {items.map((it, i) => <ScrambleItem key={i} item={it} n={i + 1} built={a.values[i] || []} onChange={(v) => a.set(i, v)} state={a.stateOf(i)} />)}
+      <CheckFooter a={a} total={items.length} canCheck={Object.values(a.values).some((v) => v?.length)} hint="Build each sentence, then check them all at once." />
+    </QuestionList>
+  );
 }
-function ScrambleItem({ item, n }) {
-  const words = item.sentence.replace(/[.!?]$/, "").split(" ");
+const SCRAMBLE_ROW = {
+  idle: "border-transparent bg-neutral-200",
+  ok: "border-success-500 bg-success-50",
+  miss: "border-warning-500 bg-warning-50",
+  shown: "border-info-500 bg-info-50",
+};
+function ScrambleItem({ item, n, built, onChange, state }) {
+  const words = scrambleWords(item);
   const [pool] = useState(() => shuffled(words.map((w, i) => ({ id: i, w }))));
-  const [built, setBuilt] = useState([]);
-  const [checked, setChecked] = useState(false);
+  const locked = state !== "idle";
   const remaining = pool.filter((p) => !built.some((b) => b.id === p.id));
-  const ok = built.map((b) => b.w).join(" ") === words.join(" ");
-
   return (
     <QuestionItem n={n} prompt="Put the words in order" answerLabel="Your sentence">
       {/* The answer row reads as the kit's filled answer field; the word
           chips placed into it take the brand tint. */}
-      <div className={`min-h-12 rounded-lg border p-2 flex flex-wrap gap-2 mb-3 ${checked ? (ok ? "border-success-500 bg-success-50" : "border-warning-500 bg-warning-50") : "border-transparent bg-neutral-200"}`}>
+      <div className={`min-h-12 rounded-lg border p-2 flex flex-wrap gap-2 ${SCRAMBLE_ROW[state]}`}>
         {built.map((b) => (
-          <button key={b.id} onClick={() => { setBuilt((v) => v.filter((x) => x.id !== b.id)); setChecked(false); }}
-            className={`text-base font-medium rounded-lg px-3 py-1.5 border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 ${PRESS}`}>{b.w}</button>
+          <button key={b.id} disabled={locked} onClick={() => onChange(built.filter((x) => x.id !== b.id))}
+            className={`text-base font-medium rounded-lg px-3 py-1.5 border border-primary-200 bg-primary-50 text-primary-700 enabled:hover:bg-primary-100 ${PRESS}`}>{b.w}</button>
         ))}
         {!built.length && <span className="text-base text-neutral-600 px-1 py-1.5">Tap the words below to build the sentence…</span>}
       </div>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {remaining.map((p) => (
-          <button key={p.id} onClick={() => { setBuilt((v) => [...v, p]); setChecked(false); }}
-            className={`text-base font-medium rounded-lg px-3 py-1.5 border border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:text-primary-700 ${PRESS}`}>{p.w}</button>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={() => setChecked(true)} disabled={!built.length}>Check</Button>
-        <Button size="sm" variant="outline" onClick={() => { setBuilt([]); setChecked(false); }}>Clear</Button>
-      </div>
-      {checked && (
-        <AnswerFeedback ok={ok} okTitle="Düzdür! Correct word order.">
-          {!ok && <>Correct order: <b>{item.sentence}</b>{item.why ? <> · {item.why}</> : null}</>}
-        </AnswerFeedback>
+      {!locked && (remaining.length > 0 || built.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {remaining.map((p) => (
+            <button key={p.id} onClick={() => onChange([...built, p])}
+              className={`text-base font-medium rounded-lg px-3 py-1.5 border border-neutral-400 bg-white text-neutral-900 hover:border-primary-300 hover:text-primary-700 ${PRESS}`}>{p.w}</button>
+          ))}
+          {built.length > 0 && (
+            <button onClick={() => onChange([])} className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+              <IconRefresh size={15} stroke={1.75} /> Clear
+            </button>
+          )}
+        </div>
       )}
+      {(state === "miss" || state === "shown") && <div className="mt-3">{itemNote(state, item, item.sentence)}</div>}
     </QuestionItem>
   );
 }

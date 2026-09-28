@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconGripVertical, IconPlus, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconEyeOff, IconGripVertical, IconPlus, IconRefresh, IconSearch, IconUsers, IconVolume, IconX } from "@tabler/icons-react";
 import { usePresence, usePresenceList } from "./motion.js";
 
 /* ---------------------------------------------------------------- Layout */
@@ -31,7 +31,7 @@ export function PageHeader({ kicker, title, sub, right }) {
   return (
     <div className="flex items-start justify-between gap-4 mb-6">
       <div>
-        {kicker && <div className="text-sm text-neutral-500 mb-1">{kicker}</div>}
+        {kicker && <div className="text-sm text-neutral-600 mb-1">{kicker}</div>}
         <h1 className="text-2xl font-bold tracking-tight text-neutral-950">{title}</h1>
         {sub && <p className="text-neutral-600 mt-1">{sub}</p>}
       </div>
@@ -93,30 +93,75 @@ export function ProgressBar({ pct, tone = "primary" }) {
   );
 }
 
+/* --------------------------------------------------------- useContainedWheel */
+// Wheel/trackpad scrolling that starts over `ref` stays there: its lists
+// scroll as usual, but over anything with nothing left to scroll, the page
+// behind no longer moves instead. `overscroll-behavior: contain` alone isn't
+// enough — browsers ignore it on elements that don't overflow and hand the
+// wheel straight to the page.
+export function useContainedWheel(ref, active) {
+  useEffect(() => {
+    const root = ref.current;
+    if (!active || !root) return undefined;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.deltaY === 0) return;
+      for (let el = e.target; el && el !== root.parentElement; el = el.parentElement) {
+        const scrolls = el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY);
+        const hasRoom = e.deltaY < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+        if (scrolls && hasRoom) return;
+      }
+      e.preventDefault();
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    return () => root.removeEventListener("wheel", onWheel);
+  }, [ref, active]);
+}
+
 /* ------------------------------------------------------------------ Modal */
 // The "Add Discussion" dialog sheet: white rounded-2xl card, header with
 // title + X close, footer with an outline secondary action + primary submit.
-export function Modal({ open, onClose, title, sub, children, footer, wide }) {
+const MODAL_SIZE = { md: "max-w-md", lg: "max-w-2xl", xl: "max-w-5xl" };
+
+// `fill`: a fixed-height dialog whose body lays out its own scrolling areas
+// (a nav list beside a grid) instead of the whole dialog scrolling as one.
+// Wheel scrolling anywhere over the dialog or its backdrop never reaches the
+// page behind it (useContainedWheel).
+// Header, in the kit's card-header language: an optional brand-tinted icon
+// tile, the title (with an optional count badge, like the kit's "Student 13"),
+// the hairline-bordered icon button to close — the same treatment as the
+// topbar's chat/bell buttons — and `headerExtra` (e.g. a search field) inside
+// the header block, so the header ends in one hairline rather than stacking
+// a second bordered row under it.
+export function Modal({ open, onClose, title, sub, icon: Icon, count, headerExtra, children, footer, wide, size = wide ? "lg" : "md", fill = false, bodyClassName = "p-5" }) {
   // Stay mounted while the exit animation plays — `open` drives the classes,
   // `present` drives mounting. The delay comes from the same token the
   // animation does, so the two can't fall out of step.
   const present = usePresence(open);
+  const overlayRef = useRef(null);
+  useContainedWheel(overlayRef, present);
   if (!present) return null;
   return (
-    <div className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/20 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
-      <div
-        className={`bg-white w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 max-h-[85vh] overflow-y-auto ${open ? "animate-panel-in" : "animate-panel-out"}`}
+    <div ref={overlayRef} className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-neutral-950/20 ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
+        className={`bg-white w-full ${MODAL_SIZE[size]} rounded-[14px] border border-neutral-400 shadow-xl mt-10 sm:mt-0 ${fill ? "flex flex-col h-[min(720px,85vh)] overflow-hidden" : "max-h-[85vh] overflow-y-auto"} ${open ? "animate-panel-in" : "animate-panel-out"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between p-5 border-b border-neutral-200 sticky top-0 bg-white rounded-t-[14px]">
-          <div>
-            <h3 className="font-bold text-lg tracking-tight text-neutral-950">{title}</h3>
-            {sub && <p className="text-sm text-neutral-500 mt-0.5">{sub}</p>}
+        <div className="shrink-0 sticky top-0 z-10 bg-white rounded-t-[14px] border-b border-neutral-400 px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            {Icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"><Icon size={20} stroke={1.75} /></span>}
+            <div className={`min-w-0 flex-1 ${Icon ? "" : "pt-0.5"}`}>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-semibold tracking-tight text-neutral-950">{title}</h3>
+                {count != null && <CountBadge>{count}</CountBadge>}
+              </div>
+              {sub && <p className="mt-0.5 text-sm text-neutral-600">{sub}</p>}
+            </div>
+            <Button variant="outline" size="sm" iconOnly icon={IconX} onClick={onClose} aria-label="Close" title="Close" className="shrink-0" />
           </div>
-          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 p-1"><IconX size={18} stroke={1.75} /></button>
+          {headerExtra && <div className="mt-4">{headerExtra}</div>}
         </div>
-        <div className="p-5">{children}</div>
-        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-200 sticky bottom-0 bg-white rounded-b-[14px]">{footer}</div>}
+        <div className={`${fill ? "flex-1 min-h-0" : ""} ${bodyClassName}`}>{children}</div>
+        {footer && <div className="flex justify-end gap-2 p-5 border-t border-neutral-400 sticky bottom-0 bg-white rounded-b-[14px]">{footer}</div>}
       </div>
     </div>
   );
@@ -144,7 +189,7 @@ export function Drawer({ open, onClose, title, sub, children, width = "max-w-md"
           <div className="flex items-start justify-between p-5 border-b border-neutral-200 shrink-0">
             <div className="min-w-0">
               {title && <h3 className="font-bold text-lg tracking-tight text-neutral-950 truncate">{title}</h3>}
-              {sub && <p className="text-sm text-neutral-500 mt-0.5">{sub}</p>}
+              {sub && <p className="text-sm text-neutral-600 mt-0.5">{sub}</p>}
             </div>
             <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 p-1 shrink-0"><IconX size={18} stroke={1.75} /></button>
           </div>
@@ -177,7 +222,7 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
             <Avatar name={s.name} color={on ? "primary" : "neutral"} />
             <div className="min-w-0 flex-1">
               <div className="font-medium text-sm truncate text-neutral-950">{s.name}</div>
-              <div className="text-xs text-neutral-500">{metaFor(s)}</div>
+              <div className="text-xs text-neutral-600">{metaFor(s)}</div>
             </div>
             {/* visual only — the whole row is already the click target, so
                 this can't be a real nested <button> like Checkbox itself is */}
@@ -187,7 +232,7 @@ export function StudentCheckList({ students, isSelected, onToggle, metaFor, empt
           </button>
         );
       })}
-      {!students.length && <p className="text-sm text-neutral-500 p-2">{emptyText}</p>}
+      {!students.length && <p className="text-sm text-neutral-600 p-2">{emptyText}</p>}
     </div>
   );
 }
@@ -210,17 +255,19 @@ export function CategoryPickerGrid({ items, onPick, gridCols = "grid-cols-1 sm:g
         const Icon = item.icon;
         return (
           <button key={item.id} onClick={() => onPick(item.id)}
-            className={`relative flex items-start gap-2.5 rounded-lg border p-3 text-left ${PRESS} ${item.used ? "border-info-300 bg-info-50/60 hover:bg-info-50" : "border-neutral-200 hover:border-primary-300 hover:bg-primary-50/40"}`}>
-            {item.used > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-info-600 text-[10px] font-bold text-white">{item.used}</span>}
+            className={`group relative flex items-start gap-3 rounded-lg border border-neutral-400 bg-white p-3.5 text-left transition-colors hover:border-primary-500 hover:bg-primary-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 focus-visible:border-primary-500 ${PRESS}`}>
             {/* item.icon is whatever set provided the catalog entry (this
                 app's block/component catalogs are still lucide-react,
                 whose stroke-width prop is `strokeWidth` not `stroke` —
                 don't pass a tabler-style `stroke` here or it overrides
                 the SVG's actual stroke color and the glyph vanishes) */}
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={17} /></span>
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-neutral-900">{item.label}</span>
-              {item.description && <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{item.description}</span>}
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={19} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-neutral-950">{item.label}</span>
+                {item.used > 0 && <span className="shrink-0 rounded-md bg-info-50 px-1.5 py-0.5 text-xs font-semibold text-info-700">{item.used}× in block</span>}
+              </span>
+              {item.description && <span className="mt-1 block text-sm leading-snug text-neutral-600">{item.description}</span>}
             </span>
           </button>
         );
@@ -242,7 +289,7 @@ export function CategoryPicker({ groups, onPick, columns = 2 }) {
     <div className="space-y-4">
       {groups.map((g) => (
         <div key={g.id}>
-          <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500 mb-1.5">{g.label}</div>
+          <div className="text-xs font-semibold text-neutral-600 mb-1.5">{g.label}</div>
           <CategoryPickerGrid items={g.items} onPick={onPick} gridCols={gridCols} />
         </div>
       ))}
@@ -272,7 +319,7 @@ export function LibraryPickList({ groups, onPick }) {
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={15} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate text-neutral-900">{item.label}</span>
-                    {item.description && <span className="block text-[11px] text-neutral-500 truncate">{item.description}</span>}
+                    {item.description && <span className="block text-xs text-neutral-600 truncate">{item.description}</span>}
                   </span>
                   <IconPlus size={14} stroke={1.75} className="text-primary-600 shrink-0" />
                 </button>
@@ -306,7 +353,7 @@ export function RailItem({ icon: Icon, tone, label, meta, selected, grip = true,
       {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon size={16} /></span>}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium truncate text-neutral-900">{label}</span>
-        {meta && <span className="block text-[11px] text-neutral-500 truncate">{meta}</span>}
+        {meta && <span className="block text-xs text-neutral-600 truncate">{meta}</span>}
       </span>
     </button>
   );
@@ -627,7 +674,32 @@ export function QuestionItem({ n, prompt, answerLabel, aside, children, classNam
         </div>
       )}
       {answerLabel && <div className="mt-3 mb-2 text-sm text-neutral-600">{answerLabel}</div>}
-      <div className={answerLabel ? "" : "mt-3"}>{children}</div>
+      {children != null && children !== false && <div className={answerLabel ? "" : "mt-3"}>{children}</div>}
+    </div>
+  );
+}
+
+// The last row of a QuestionList whose answers are checked all at once —
+// the kit's Assessment page ends in one submit action rather than a button
+// under every question. Before checking: a hint and "Check answers". After:
+// the score, plus "Show answers" / "Try again" (or "Start over" once
+// everything is right or the answers were shown).
+export function QuestionFooter({ checked, correct, total, revealed = false, canCheck = true, hint, onCheck, onRetry, onReveal, onReset }) {
+  const done = revealed || correct === total;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+      {checked ? (
+        <span className="flex flex-wrap items-center gap-2 text-sm text-neutral-700">
+          <Tag color={revealed ? "info" : correct === total ? "success" : "pending"}>{revealed ? "Answers shown" : `${correct} of ${total} correct`}</Tag>
+          {!revealed && (correct === total ? "Everything's right — nice work." : "Fix the marked ones and check again.")}
+        </span>
+      ) : <span className="text-sm text-neutral-600">{hint}</span>}
+      <div className="flex items-center gap-2">
+        {!checked && <Button size="sm" disabled={!canCheck} onClick={onCheck}>Check answers</Button>}
+        {checked && !done && onReveal && <Button size="sm" variant="outline" onClick={onReveal}><IconEye size={15} stroke={1.75} /> Show answers</Button>}
+        {checked && !done && <Button size="sm" onClick={onRetry}><IconRefresh size={15} stroke={1.75} /> Try again</Button>}
+        {checked && done && <Button size="sm" variant="outline" onClick={onReset}><IconRefresh size={15} stroke={1.75} /> Start over</Button>}
+      </div>
     </div>
   );
 }
@@ -732,7 +804,7 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
         )}
       </div>
       <div className="p-5">
-        {category && <div className="text-sm text-neutral-500">{category}</div>}
+        {category && <div className="text-sm text-neutral-600">{category}</div>}
         {stats.length > 0 && (
           <div className="mt-2.5 flex items-center gap-4 text-sm text-neutral-800">
             {stats.map((s, i) => (
@@ -760,25 +832,41 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
 // A page's own subject as a card (a block in Block Studio): the same tinted
 // band as CourseCard/ClassCard — white icon tile, kicker and title on a soft
 // tone — with a white body under it for whatever belongs to that subject.
-export function HeaderCard({ tone = "primary", icon: Icon, iconClassName = "", kicker, title, titleTag = "h1", right, children, className = "" }) {
+// `sectioned`: children are HeaderCardSection rows instead of one padded
+// body — e.g. a details row, then a gray well holding the page's main
+// content, so the header visibly contains everything under it.
+//
+// Deliberately NOT clipped (no overflow-hidden/-clip): the card can hold
+// whole activities, and a popover inside one (a reading word's definition)
+// must be able to hang past the card's edge. The tinted band and the well
+// round their own corners instead — 13px, the card's 14px radius inside its
+// 1px border.
+export function HeaderCard({ tone = "primary", icon: Icon, iconClassName = "", kicker, title, titleTag = "h1", right, sectioned = false, children, className = "" }) {
   const Title = titleTag;
   return (
-    <Card className={`overflow-hidden ${className}`}>
-      <div className={`p-5 sm:p-6 ${BAND_TINT[tone]}`}>
+    <Card className={className}>
+      <div className={`p-5 sm:p-6 rounded-t-[13px] last:rounded-b-[13px] ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {Icon && <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ${iconClassName}`}><Icon size={20} /></span>}
             <div className="min-w-0">
-              {kicker && <div className="mb-1 truncate text-xs font-semibold uppercase tracking-wide text-neutral-600">{kicker}</div>}
+              {kicker && <div className="mb-1 truncate text-sm text-neutral-700">{kicker}</div>}
               <Title className="truncate text-2xl font-bold tracking-tight text-neutral-950">{title}</Title>
             </div>
           </div>
           {right}
         </div>
       </div>
-      {children && <div className="p-5 sm:p-6 space-y-4">{children}</div>}
+      {children && (sectioned ? children : <div className="p-5 sm:p-6 space-y-4">{children}</div>)}
     </Card>
   );
+}
+
+// A row of a `sectioned` HeaderCard: plain white, or a gray `well` that
+// cards and lists sit on (the same gray-panel-inside-a-card as the kit's
+// Chat screen).
+export function HeaderCardSection({ well = false, className = "", children }) {
+  return <div className={`${well ? "border-t border-neutral-400 bg-neutral-200 p-4 sm:p-6 last:rounded-b-[13px]" : "p-5 sm:p-6 space-y-4"} ${className}`}>{children}</div>;
 }
 
 export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, currentLessonTitle, roster = [], studentCountLabel, progressPct, onViewDetail, className = "" }) {
@@ -793,7 +881,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
         <div className="mt-1.5 text-sm text-neutral-600">{courseTitle}</div>
       </div>
       <div className="p-5">
-        <div className="text-sm text-neutral-500 min-h-[1.25rem]">{currentLessonTitle ? `Current: ${currentLessonTitle}` : ""}</div>
+        <div className="text-sm text-neutral-600 min-h-[1.25rem]">{currentLessonTitle ? `Current: ${currentLessonTitle}` : ""}</div>
         <div className="mt-2.5 flex items-center gap-2">
           <div className="flex -space-x-2 overflow-hidden">
             {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={s.color} size="xs" />)}
@@ -819,7 +907,7 @@ export function SessionRow({ title, subtitle, active, className = "" }) {
       <span className={`h-2 w-2 rounded-full ${active ? "bg-primary-500" : "bg-neutral-400"}`} />
       <div>
         <div className="text-sm font-semibold text-neutral-900">{title}</div>
-        {subtitle && <div className={`text-xs ${active ? "text-primary-600" : "text-neutral-500"}`}>{subtitle}</div>}
+        {subtitle && <div className={`text-xs ${active ? "text-primary-600" : "text-neutral-600"}`}>{subtitle}</div>}
       </div>
     </div>
   );
@@ -856,7 +944,7 @@ export function ComingSoon({ icon: Icon, title, sub }) {
     <Card className="p-10 text-center max-w-lg mx-auto">
       {Icon && <span className="w-12 h-12 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4"><Icon size={22} stroke={1.75} /></span>}
       <div className="font-bold text-lg mb-1.5 text-neutral-950">{title}</div>
-      <p className="text-sm text-neutral-500">{sub}</p>
+      <p className="text-sm text-neutral-600">{sub}</p>
     </Card>
   );
 }
@@ -877,8 +965,8 @@ export function SpeakButton({ text, className = "" }) {
     <span className={`inline-flex items-center gap-0.5 ${className}`}>
       {["us", "uk"].map((accent) => (
         <button key={accent} type="button" title={`Play ${accent.toUpperCase()} pronunciation`} onClick={(e) => { e.stopPropagation(); speak(accent); }}
-          className="inline-flex items-center gap-0.5 text-[10px] font-mono text-neutral-500 hover:text-primary-600 rounded px-1 py-0.5 hover:bg-neutral-100 transition-colors">
-          <IconVolume size={12} stroke={1.75} /> {accent.toUpperCase()}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 hover:text-primary-600 rounded-md px-1.5 py-0.5 hover:bg-primary-50 transition-colors">
+          <IconVolume size={14} stroke={1.75} /> {accent.toUpperCase()}
         </button>
       ))}
     </span>
@@ -940,7 +1028,7 @@ export function SegmentedToggle({ value, onChange, options = [{ id: "light", lab
 /* ------------------------------------------------------------- Nav / Tabs */
 // Sidebar nav-item — leaf building block; the sidebar shell itself is
 // assembled per-page, not part of the factory.
-export function NavItem({ icon: Icon, label, active, onClick, badge, collapsed = false }) {
+export function NavItem({ icon: Icon, label, active, onClick, badge, count, collapsed = false }) {
   return (
     <button
       onClick={onClick}
@@ -952,12 +1040,13 @@ export function NavItem({ icon: Icon, label, active, onClick, badge, collapsed =
           flush-left in the collapsed rail instead of centering it. */}
       {!collapsed && <span className="flex-1 text-left">{label}</span>}
       {!collapsed && badge != null && <Badge color="neutral">{badge}</Badge>}
+      {!collapsed && count != null && <CountBadge active={active}>{count}</CountBadge>}
     </button>
   );
 }
 
 export function NavSectionLabel({ children }) {
-  return <div className="px-3 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{children}</div>;
+  return <div className="px-3 pb-2 pt-4 text-sm text-neutral-600">{children}</div>;
 }
 
 // One sliding underline, shared by both tab bars below so the measurement

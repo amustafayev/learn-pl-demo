@@ -212,7 +212,7 @@ export function CourseView() {
                   className="w-full flex items-center gap-3 text-left hover:opacity-80">
                   <span className="text-sm font-medium text-neutral-900 w-40 truncate shrink-0">{c.name}</span>
                   <div className="flex-1 min-w-[120px]"><SegmentedBar pct={pct} /></div>
-                  <span className="text-xs font-mono text-neutral-500 w-10 text-right shrink-0">{pct}%</span>
+                  <span className="text-xs tabular-nums text-neutral-600 w-10 text-right shrink-0">{pct}%</span>
                   <Badge color={entry.status === "done" ? "success" : "pending"} className="shrink-0">{entry.status === "done" ? "Completed" : "In Progress"}</Badge>
                 </button>
               ))}
@@ -273,7 +273,7 @@ export function CourseView() {
                   <button onClick={() => toggleLesson(l.id)} className="text-neutral-400 hover:text-primary-600 shrink-0 p-1 -ml-1">
                     {isOpen ? <IconChevronDown size={16} stroke={1.75} /> : <IconChevronRight size={16} stroke={1.75} />}
                   </button>
-                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
+                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm tabular-nums font-bold shrink-0 ${
                     view.locked ? "bg-neutral-100 text-neutral-400" : view.progress === 100 ? "bg-success-500 text-white" : view.progress == null ? "bg-neutral-100 text-neutral-700" : "bg-primary-500 text-white"}`}>
                     {view.locked ? <IconLock size={14} stroke={1.75} /> : `L${l.n}`}
                   </span>
@@ -292,7 +292,7 @@ export function CourseView() {
                   {view.progress != null && (
                     <div className="flex items-center gap-2 w-36">
                       <div className="flex-1"><SegmentedBar pct={view.progress} /></div>
-                      <span className="text-xs font-mono text-neutral-500 w-9 text-right shrink-0">{view.progress}%</span>
+                      <span className="text-xs tabular-nums text-neutral-600 w-9 text-right shrink-0">{view.progress}%</span>
                     </div>
                   )}
                   {view.progress != null && (
@@ -459,7 +459,7 @@ export function LessonBuilderView() {
           return (
             <div key={b.id} className="relative pl-10">
               {i < blocks.length - 1 && <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-primary-100" />}
-              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-2 border-primary-500 flex items-center justify-center text-xs font-mono font-bold text-primary-600 shadow-sm">
+              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-2 border-primary-500 flex items-center justify-center text-xs tabular-nums font-bold text-primary-600 shadow-sm">
                 {i + 1}
               </div>
 

@@ -95,12 +95,12 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
           <p className="text-neutral-600">Pick a class, then the material — the roster comes with the class. Everyone joins and works through the lesson individually while you guide and watch.</p>
 
           {!state.classes.length ? (
-            <Card className="p-5 text-sm text-neutral-500">No classes yet — create one from a course page first.</Card>
+            <Card className="p-5 text-sm text-neutral-600">No classes yet — create one from a course page first.</Card>
           ) : (
             <>
               {/* 1. class & material */}
               <Card className="p-5">
-                <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">1 · Class &amp; material</div>
+                <div className="text-base font-semibold text-neutral-950 mb-3">1 · Class &amp; material</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="Class">
                     <Select value={classId || ""} onChange={(e) => setClassId(e.target.value)}>
@@ -117,13 +117,13 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
                     </Select>
                   </Field>
                 </div>
-                {course && <p className="text-xs text-neutral-500 mt-2">{course.title} · {course.level}</p>}
+                {course && <p className="text-xs text-neutral-600 mt-2">{course.title} · {course.level}</p>}
                 {lesson && (
                   <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                     {lessonBlocks(lesson).map((b) => { const BT = blockMeta(b.type); const I = BT.icon || IconSchool; return (
                       <span key={b.id} title={b.title} className={`w-7 h-7 rounded-md flex items-center justify-center ${BT.tone}`}><I size={14} /></span>
                     ); })}
-                    <span className="text-xs text-neutral-500 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
+                    <span className="text-xs text-neutral-600 ml-1">{lessonBlocks(lesson).length} blocks students will work through</span>
                   </div>
                 )}
               </Card>
@@ -131,23 +131,23 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
               {/* 2. invite */}
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500">2 · Invite &amp; notify</div>
+                  <div className="text-base font-semibold text-neutral-950">2 · Invite &amp; notify</div>
                   <div className="flex gap-2 text-xs">
                     <button onClick={() => setInvited(roster.map((s) => s.id))} className="text-primary-600 hover:text-primary-700">All</button>
                     <span className="text-neutral-300">·</span>
-                    <button onClick={() => setInvited([])} className="text-neutral-500 hover:text-neutral-700">None</button>
+                    <button onClick={() => setInvited([])} className="text-neutral-600 hover:text-neutral-700">None</button>
                   </div>
                 </div>
                 {!roster.length && <p className="text-xs text-pending-600 mb-2">No students enrolled in {cls?.name || "this class"} yet.</p>}
                 <StudentCheckList students={roster} isSelected={(s) => invited.includes(s.id)} onToggle={(s) => toggle(s.id)}
                   metaFor={(s) => `${s.level} · ${s.status}`} />
-                <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500"><IconBell size={13} stroke={1.75} /> Invited students get a platform notification with the join link.</div>
+                <div className="mt-3 flex items-center gap-2 text-xs text-neutral-600"><IconBell size={13} stroke={1.75} /> Invited students get a platform notification with the join link.</div>
               </Card>
             </>
           )}
 
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-1.5 text-xs font-mono bg-neutral-100 rounded-lg px-2.5 py-1.5 text-neutral-600">lucid.app/live/LUCID-8842 <IconCopy size={12} stroke={1.75} /></div>
+            <div className="inline-flex items-center gap-1.5 text-xs tabular-nums bg-neutral-100 rounded-lg px-2.5 py-1.5 text-neutral-600">lucid.app/live/LUCID-8842 <IconCopy size={12} stroke={1.75} /></div>
             <Button variant="primary" onClick={start} className={!ready ? "opacity-50" : ""}><IconBroadcast size={15} stroke={1.75} /> Start session &amp; notify {invited.length ? `(${invited.length})` : ""}</Button>
           </div>
         </div>
@@ -262,7 +262,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
           <span className="inline-flex items-center gap-2 font-semibold shrink-0">
             <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-warning-500" /></span>LIVE
           </span>
-          <span className="font-mono text-sm text-neutral-300 inline-flex items-center gap-1.5 shrink-0"><IconClock size={14} stroke={1.75} /> {clock(elapsed)}</span>
+          <span className="tabular-nums text-sm text-neutral-300 inline-flex items-center gap-1.5 shrink-0"><IconClock size={14} stroke={1.75} /> {clock(elapsed)}</span>
           <span className="hidden md:block text-sm text-neutral-400 truncate">{course?.title} · L{lesson?.n} {lesson?.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -294,7 +294,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                   <button onClick={() => goBlock(focus - 1)} disabled={focus === 0} className="p-1.5 rounded-lg hover:bg-neutral-100 disabled:opacity-30 shrink-0"><IconChevronLeft size={16} stroke={1.75} /></button>
                   {blocks.map((b, i) => { const BT = blockMeta(b.type); const I = BT.icon || IconSchool; return (
                     <button key={b.id} onClick={() => goBlock(i)} title={b.title}
-                      className={`shrink-0 inline-flex items-center gap-1.5 text-sm rounded-lg pl-1.5 pr-2.5 py-1 border transition-colors ${focus === i ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500 hover:border-neutral-300"}`}>
+                      className={`shrink-0 inline-flex items-center gap-1.5 text-sm rounded-lg pl-1.5 pr-2.5 py-1 border transition-colors ${focus === i ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-600 hover:border-neutral-300"}`}>
                       <span className={`w-5 h-5 rounded flex items-center justify-center ${BT.tone}`}><I size={12} /></span>
                       {i + 1}
                     </button>
@@ -307,7 +307,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                 {/* stage header: what we're on, together/individual, who's here */}
                 <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Block {focus + 1} of {nBlocks} · you're teaching</div>
+                    <div className="text-base font-semibold text-neutral-950">Block {focus + 1} of {nBlocks} · you're teaching</div>
                     <h2 className="text-xl font-bold tracking-tight text-neutral-950">{current?.title}</h2>
                   </div>
                   {together
@@ -318,14 +318,14 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                 {/* shared presence — you + who's viewing this with you */}
                 <div className="flex items-center gap-2 mb-6">
                   <div className="flex -space-x-2">
-                    <div className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-[10px] font-bold ring-2 ring-white">You</div>
-                    {here.slice(0, 6).map((p) => <div key={p.id} className="w-7 h-7 rounded-full bg-neutral-800 text-white flex items-center justify-center text-[10px] font-semibold ring-2 ring-white">{initials(p.name)}</div>)}
+                    <div className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-xs font-bold ring-2 ring-white">You</div>
+                    {here.slice(0, 6).map((p) => <div key={p.id} className="w-7 h-7 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xs font-semibold ring-2 ring-white">{initials(p.name)}</div>)}
                   </div>
-                  <span className="text-xs text-neutral-500">{together ? `You + ${here.length} here — everyone sees this same page` : `${here.length} learner${here.length === 1 ? "" : "s"} working on this now`}</span>
+                  <span className="text-xs text-neutral-600">{together ? `You + ${here.length} here — everyone sees this same page` : `${here.length} learner${here.length === 1 ? "" : "s"} working on this now`}</span>
                 </div>
 
                 {/* the actual content, exactly as a learner sees it */}
-                {current ? <BlockStudentView block={current} /> : <Card className="p-8 text-center text-neutral-500 text-sm">This lesson has no blocks yet.</Card>}
+                {current ? <BlockStudentView block={current} /> : <Card className="p-8 text-center text-neutral-600 text-sm">This lesson has no blocks yet.</Card>}
               </div>
             </div>
 
@@ -333,7 +333,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
             <div className="border-l border-neutral-200 bg-white overflow-y-auto flex flex-col">
               {/* tracking */}
               <div className="p-4 border-b border-neutral-200">
-                <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Session tracking</div>
+                <div className="text-base font-semibold text-neutral-950 mb-3">Session tracking</div>
                 <label className={`flex items-start gap-2.5 rounded-xl border p-3 mb-3 cursor-pointer ${consent ? "border-success-200 bg-success-50" : "border-pending-200 bg-pending-50"}`}>
                   <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-primary-600" />
                   <span className="text-xs"><span className="font-semibold inline-flex items-center gap-1.5"><IconShieldCheck size={14} stroke={1.75} className={consent ? "text-success-600" : "text-pending-600"} /> Consented to recording</span>
@@ -349,7 +349,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                     <div className="flex items-end gap-0.5 h-5 flex-1">
                       {Array.from({ length: 28 }).map((_, i) => <span key={i} className="flex-1 bg-warning-300 rounded-full" style={{ height: `${20 + Math.abs(Math.sin(i * 1.3 + elapsed)) * 80}%` }} />)}
                     </div>
-                    <span className="font-mono text-[11px] text-neutral-500">{clock(elapsed)}</span>
+                    <span className="tabular-nums text-xs text-neutral-600">{clock(elapsed)}</span>
                   </div>
                 )}
               </div>
@@ -389,7 +389,7 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
                       {p.joined && (
                         <div className="flex items-center gap-2 mt-2 pl-12">
                           <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden flex-1"><div className="h-full bg-primary-500" style={{ width: `${Math.round((Math.min(p.idx, nBlocks) / nBlocks) * 100)}%` }} /></div>
-                          <span className="font-mono text-[10px] text-neutral-500 w-8 text-right">{Math.min(p.idx, nBlocks)}/{nBlocks}</span>
+                          <span className="tabular-nums text-xs text-neutral-600 w-8 text-right">{Math.min(p.idx, nBlocks)}/{nBlocks}</span>
                         </div>
                       )}
                     </div>
@@ -399,11 +399,11 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
 
               {/* feed */}
               <div className="p-4 border-t border-neutral-200">
-                <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-2 flex items-center gap-1.5"><IconActivity size={13} stroke={1.75} /> Live activity</div>
+                <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-1.5"><IconActivity size={13} stroke={1.75} /> Live activity</div>
                 <div className="space-y-1 max-h-52 overflow-y-auto">
                   {feed.map((e, i) => (
                     <div key={i} className="flex items-center gap-2.5 py-1 text-sm">
-                      <span className="font-mono text-[11px] text-neutral-400 w-9 shrink-0">{clock(e.t)}</span>
+                      <span className="tabular-nums text-xs text-neutral-600 w-9 shrink-0">{clock(e.t)}</span>
                       <span className="text-neutral-700">{e.text}</span>
                     </div>
                   ))}
@@ -424,8 +424,8 @@ function RecToggle({ on, disabled, onClick, iconOn: On, iconOff: Off, label, hin
   return (
     <button onClick={onClick} disabled={disabled}
       className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition-colors ${disabled ? "opacity-50 cursor-not-allowed border-neutral-200" : on ? "border-warning-300 bg-warning-50" : "border-neutral-200 hover:border-primary-300"}`}>
-      <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${on ? "bg-warning-600 text-white" : "bg-neutral-100 text-neutral-500"}`}>{on ? <On size={18} stroke={1.75} /> : <Off size={18} stroke={1.75} />}</span>
-      <span className="min-w-0"><span className="font-medium text-sm block text-neutral-950">{label}</span><span className="text-xs text-neutral-500">{on ? "Recording…" : hint}</span></span>
+      <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${on ? "bg-warning-600 text-white" : "bg-neutral-100 text-neutral-600"}`}>{on ? <On size={18} stroke={1.75} /> : <Off size={18} stroke={1.75} />}</span>
+      <span className="min-w-0"><span className="font-medium text-sm block text-neutral-950">{label}</span><span className="text-xs text-neutral-600">{on ? "Recording…" : hint}</span></span>
     </button>
   );
 }
@@ -433,7 +433,7 @@ function RecToggle({ on, disabled, onClick, iconOn: On, iconOff: Off, label, hin
 function RoomCode() {
   const { toast } = useStore();
   return (
-    <button onClick={() => toast("Join link copied")} className="inline-flex items-center gap-1.5 text-xs font-mono bg-neutral-100 hover:bg-neutral-200 rounded-lg px-2.5 py-1.5 text-neutral-700">LUCID-8842 <IconCopy size={12} stroke={1.75} /></button>
+    <button onClick={() => toast("Join link copied")} className="inline-flex items-center gap-1.5 text-xs tabular-nums bg-neutral-100 hover:bg-neutral-200 rounded-lg px-2.5 py-1.5 text-neutral-700">LUCID-8842 <IconCopy size={12} stroke={1.75} /></button>
   );
 }
 
@@ -465,20 +465,20 @@ function Ended({ elapsed, rec, joined, total, blocks, lesson, onEnd }) {
         <h1 className="text-2xl font-bold tracking-tight mb-6 text-neutral-950">Session summary</h1>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[[clock(elapsed), "duration"], [`${joined.length}/${total}`, "attended"], [rec.voice ? clock(elapsed) : "—", "voice recorded"], [`${joined.filter((p) => p.presence === "done").length}`, "finished lesson"]].map(([v, l]) => (
-            <Card key={l} className="p-4"><div className="font-mono text-2xl font-bold text-neutral-950">{v}</div><div className="text-xs text-neutral-500 mt-1">{l}</div></Card>
+            <Card key={l} className="p-4"><div className="tabular-nums text-2xl font-bold text-neutral-950">{v}</div><div className="text-xs text-neutral-600 mt-1">{l}</div></Card>
           ))}
         </div>
-        <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-2">Attended · how far each got</div>
+        <div className="text-base font-semibold text-neutral-950 mb-2">Attended · how far each got</div>
         <Card className="p-2 mb-6 divide-y divide-neutral-100">
           {joined.map((p) => (
             <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
               <Avatar name={p.name} color="dark" size="sm" />
               <span className="flex-1 text-neutral-900">{p.name}</span>
               <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden w-24"><div className="h-full bg-primary-500" style={{ width: `${Math.round((Math.min(p.idx, nBlocks) / nBlocks) * 100)}%` }} /></div>
-              <span className="text-xs text-neutral-500 font-mono w-16 text-right">{p.presence === "done" ? "done" : `${Math.min(p.idx, nBlocks)}/${nBlocks}`}</span>
+              <span className="text-xs text-neutral-600 tabular-nums w-16 text-right">{p.presence === "done" ? "done" : `${Math.min(p.idx, nBlocks)}/${nBlocks}`}</span>
             </div>
           ))}
-          {!joined.length && <div className="px-3 py-4 text-sm text-neutral-500">No students joined this session.</div>}
+          {!joined.length && <div className="px-3 py-4 text-sm text-neutral-600">No students joined this session.</div>}
         </Card>
         {rec.voice ? (
           <Alert icon={IconSparkles} tone="primary" title="AI lesson notes ready to review">From the recording, the app drafted notes (covered topics, new words, mistakes, next steps) for each attendee. You review and edit before they save — new words drop into each learner's vocab list.</Alert>

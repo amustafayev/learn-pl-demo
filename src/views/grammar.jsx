@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { IconLanguage, IconBookmark, IconCheck, IconVolume } from "@tabler/icons-react";
 import { ROLE, READ_STATUS, WORD_STATUS, HIGHLIGHT_COLORS } from "../data.jsx";
@@ -302,9 +302,34 @@ export function WordWeb({ center = "meeting", branches }) {
    Words are coloured on the page by the learner's status (new/learning/known).
    ========================================================================= */
 
+// Rough height of the word definition popover, for choosing whether it
+// opens below or above the tapped word.
+const POPOVER_ROOM = 300;
+
 export function Reader({ text, onSaveWord, showStatusColors = true }) {
   const [translate, setTranslate] = useState(true);
   const [open, setOpen] = useState(null); // index of tapped word
+  // Which way the definition opens, decided on tap from where the word sits
+  // on screen — above it near the bottom edge, right-aligned near the right
+  // edge — so it never hangs off the viewport.
+  const [place, setPlace] = useState({ up: false, right: false });
+  const openRef = useRef(null); // the open word + its definition
+
+  // An open definition closes on a press anywhere outside it (a different
+  // word just opens that one instead) or on Esc. Esc is caught in the
+  // capture phase and stopped, so in focus mode it closes only the
+  // definition, not focus mode too.
+  useEffect(() => {
+    if (open === null) return undefined;
+    const onPointer = (e) => { if (!openRef.current?.contains(e.target)) setOpen(null); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(null); } };
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
   const [saved, setSaved] = useState({});
   const [revealedAz, setRevealedAz] = useState({}); // AZ shown behind a button when the toggle is off
   const [playing, setPlaying] = useState(null); // "uk" | "us" while a pronunciation plays
@@ -337,15 +362,19 @@ export function Reader({ text, onSaveWord, showStatusColors = true }) {
           const statusCls = tok.color ? "" : showStatusColors ? READ_STATUS[tok.status] || "" : "";
           const isSaved = saved[tok.term];
           return (
-            <span key={i} className="relative inline-block">
+            <span key={i} ref={open === i ? openRef : undefined} className="relative inline-block">
               <button
-                onClick={() => setOpen(open === i ? null : i)}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setPlace({ up: r.bottom + POPOVER_ROOM > window.innerHeight && r.top > POPOVER_ROOM, right: r.left + 288 > window.innerWidth - 16 });
+                  setOpen(open === i ? null : i);
+                }}
                 className={`cursor-pointer leading-snug hover:bg-primary-50 rounded px-0.5 -mx-0.5 ${statusCls} ${highlightCls} ${open === i ? "bg-primary-100" : ""}`}
               >
                 {tok.term}
               </button>
               {open === i && (
-                <span className="absolute z-20 left-0 top-full mt-1 w-72 bg-white rounded-xl border border-neutral-400 shadow-xl p-4 text-left block text-base leading-normal">
+                <span className={`absolute z-10 w-72 bg-white rounded-xl border border-neutral-400 shadow-xl p-4 text-left block text-base leading-normal ${place.up ? "bottom-full mb-1" : "top-full mt-1"} ${place.right ? "right-0" : "left-0"}`}>
                   <span className="flex items-start justify-between gap-2">
                     <b className="text-neutral-950">{tok.term}</b>
                     {tok.emoji && <span className="text-2xl leading-none" title="picture definition">{tok.emoji}</span>}
