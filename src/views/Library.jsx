@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconRefresh, IconWand,
+  IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconWand,
   IconCheck, IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBoxMultiple, IconBuildingStore,
 } from "@tabler/icons-react";
 import {
-  Page, PageHeader, Card, Button, Tag, SectionLabel, Alert, Modal, Field, TextField, TextArea, ComingSoon, SpeakButton,
+  Page, PageHeader, Card, Button, Tag, SectionLabel, Alert, Modal, Field, TextField, TextArea, ComingSoon,
 } from "../design-system.jsx";
 import { useStore, groupBankByParent, bankChildLabel, kitContents, discardH5PContent } from "../store.jsx";
 import { BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
-import { COMPONENT_META } from "./parts.jsx";
+import { COMPONENT_META, ComponentStudent } from "./parts.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -152,152 +152,53 @@ function WordSetsList({ open }) {
   return (
     <>
       <SectionLabel>Category word sets</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {state.wordSets.map((ws) => (
-          <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Tag color="primary">{ws.category}</Tag>
-              <span className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center"><IconStack2 size={16} stroke={1.75} /></span>
-            </div>
-            <div className="font-bold mb-1 text-neutral-950">{ws.title}</div>
-            <div className="text-sm text-neutral-500">{ws.level} · {ws.words.length} words</div>
-          </button>
-        ))}
-      </div>
+      {/* One list card with a column header, the same shape as the course
+          tree — a set is just a named list of words, nothing to preview. */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-4 bg-neutral-50 px-5 py-2.5 border-b border-neutral-200">
+          <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Word set</span>
+          <span className="hidden sm:block w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Category</span>
+          <span className="hidden sm:block w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Level</span>
+          <span className="hidden sm:block w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Words</span>
+          <span className="w-4 shrink-0" />
+        </div>
+        <div className="divide-y divide-neutral-200">
+          {state.wordSets.map((ws) => (
+            <button key={ws.id} onClick={() => open(ws.id)}
+              className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-(--dur-fast) hover:bg-neutral-50">
+              <span className="flex-1 min-w-0 flex items-center gap-3">
+                <span className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0"><IconStack2 size={16} stroke={1.75} /></span>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-neutral-950 truncate">{ws.title}</span>
+                  <span className="block sm:hidden text-xs text-neutral-500 mt-0.5">{ws.category} · {ws.level} · {ws.words.length} words</span>
+                </span>
+              </span>
+              <span className="hidden sm:block w-28 shrink-0"><Tag color="neutral">{ws.category}</Tag></span>
+              <span className="hidden sm:block w-16 shrink-0 text-sm text-neutral-700">{ws.level}</span>
+              <span className="hidden sm:block w-16 shrink-0 text-sm tabular-nums text-neutral-700">{ws.words.length}</span>
+              <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-neutral-400" />
+            </button>
+          ))}
+        </div>
+      </Card>
     </>
   );
 }
 
+// A set's words as a plain list — the same Word list students get in a
+// lesson, so the two never drift apart.
 function WordSetPanel({ setId, back }) {
-  const { state, toast } = useStore();
+  const { state } = useStore();
   const [assign, setAssign] = useState(false);
-  const [mode, setMode] = useState("flash"); // flash | match | test
   const ws = state.wordSets.find((w) => w.id === setId);
   return (
     <Page>
       <button onClick={back} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4"><IconArrowLeft size={14} stroke={1.75} /> Library</button>
       <PageHeader title={ws.title} sub={`${ws.category} · ${ws.level} · ${ws.words.length} words`}
         right={<Button variant="primary" size="sm" onClick={() => setAssign(true)}><IconSend size={14} stroke={1.75} /> Assign set</Button>} />
-
-      <div className="flex gap-1.5 mb-5 bg-neutral-100 rounded-xl p-1 w-fit">
-        {[["flash", "Flashcards"], ["match", "Drag & drop"], ["test", "Auto-test"]].map(([id, label]) => (
-          <button key={id} onClick={() => setMode(id)} className={`text-sm font-semibold rounded-lg px-4 py-1.5 ${mode === id ? "bg-surface shadow-sm text-primary-700" : "text-neutral-500"}`}>{label}</button>
-        ))}
-      </div>
-
-      {mode === "flash" && <Flashcards words={ws.words} />}
-      {mode === "match" && <MatchGame words={ws.words} onDone={() => toast("Matched — encourage, don't punish 🎉")} />}
-      {mode === "test" && <AutoTest words={ws.words} />}
-
+      <ComponentStudent component={{ id: ws.id, kind: "wordlist", items: ws.words }} />
       <AssignModal open={assign} onClose={() => setAssign(false)} what={`Word set: ${ws.title}`} kind="vocabulary" />
     </Page>
-  );
-}
-
-function Flashcards({ words }) {
-  const [i, setI] = useState(0);
-  const [flip, setFlip] = useState(false);
-  const wd = words[i];
-  return (
-    <div className="max-w-md">
-      <div role="button" tabIndex={0} onClick={() => setFlip((f) => !f)} onKeyDown={(e) => e.key === "Enter" && setFlip((f) => !f)}
-        className="w-full h-48 rounded-2xl border border-neutral-200 bg-surface shadow-sm flex flex-col items-center justify-center gap-1.5 hover:border-primary-300 transition-colors px-6 cursor-pointer">
-        {flip ? (
-          <>
-            {wd.def && <span className="text-base font-medium text-neutral-600 text-center">{wd.def}</span>}
-            <span className="text-xl font-bold text-primary-600">({wd.az})</span>
-          </>
-        ) : (
-          <>
-            <span className="text-2xl font-bold text-neutral-950">{wd.term}</span>
-            <SpeakButton text={wd.term} />
-          </>
-        )}
-      </div>
-      <div className="flex items-center justify-between mt-4">
-        <Button variant="outline" size="sm" onClick={() => { setI((i - 1 + words.length) % words.length); setFlip(false); }}>Prev</Button>
-        <span className="text-sm text-neutral-500 font-mono">{i + 1} / {words.length}</span>
-        <Button variant="outline" size="sm" onClick={() => { setI((i + 1) % words.length); setFlip(false); }}>Next</Button>
-      </div>
-      <p className="text-xs text-neutral-500 mt-3 flex items-center gap-1"><IconRefresh size={12} stroke={1.75} /> Tap the card to flip. Auto-generated from saved words.</p>
-    </div>
-  );
-}
-
-function MatchGame({ words, onDone }) {
-  const pairs = words.slice(0, 4);
-  const [azOrder] = useState(() => [...pairs].reverse());
-  const [picked, setPicked] = useState(null);
-  const [done, setDone] = useState({});
-  function tryMatch(term, az) {
-    const correct = pairs.find((p) => p.term === term).az === az;
-    if (correct) {
-      const next = { ...done, [term]: true };
-      setDone(next); setPicked(null);
-      if (Object.keys(next).length === pairs.length && onDone) onDone();
-    } else {
-      setPicked(null);
-    }
-  }
-  return (
-    <div className="grid grid-cols-2 gap-8 max-w-lg">
-      <div className="space-y-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">English</div>
-        {pairs.map((p) => (
-          <button key={p.term} disabled={done[p.term]} onClick={() => setPicked(p.term)}
-            className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${
-              done[p.term] ? "border-success-200 bg-success-50 text-success-700" : picked === p.term ? "border-primary-400 bg-primary-50" : "border-neutral-200 hover:border-primary-300"}`}>
-            {p.term} {done[p.term] && <IconCheck size={13} stroke={1.75} className="inline text-success-600" />}
-            {p.def && <span className="block text-xs font-normal text-neutral-500 mt-0.5">{p.def}</span>}
-          </button>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">Azerbaijani</div>
-        {azOrder.map((p) => {
-          const matched = Object.keys(done).some((t) => pairs.find((x) => x.term === t).az === p.az);
-          return (
-            <button key={p.az} disabled={matched || !picked} onClick={() => tryMatch(picked, p.az)}
-              className={`w-full rounded-lg border p-3 text-sm font-medium text-left transition-colors ${
-                matched ? "border-success-200 bg-success-50 text-success-700" : !picked ? "border-neutral-100 text-neutral-400" : "border-neutral-200 hover:border-primary-300"}`}>
-              {p.az}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function AutoTest({ words }) {
-  const q = words[0];
-  const options = [words[0].az, words[1]?.az, words[2]?.az].filter(Boolean);
-  const [pick, setPick] = useState(null);
-  const correct = pick === q.az;
-  return (
-    <Card className="p-6 max-w-md">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2">Auto-generated · question 1 of {words.length}</div>
-      <div className="text-lg font-semibold mb-1 text-neutral-950">What is “{q.term}” in Azerbaijani?</div>
-      <p className="text-sm text-neutral-500 mb-4 min-h-[1.25rem]">{q.def}</p>
-      <div className="space-y-2">
-        {options.map((o) => (
-          <button key={o} onClick={() => setPick(o)}
-            className={`w-full rounded-lg border p-3 text-sm text-left transition-colors ${
-              pick == null ? "border-neutral-200 hover:border-primary-300" :
-              o === q.az ? "border-success-300 bg-success-50 text-success-700" :
-              o === pick ? "border-warning-300 bg-warning-50 text-warning-700" : "border-neutral-200 opacity-60"}`}>
-            {o} {pick != null && o === q.az && <IconCheck size={14} stroke={1.75} className="inline" />}
-          </button>
-        ))}
-      </div>
-      {pick != null && (
-        <div className="mt-4">
-          <Alert icon={correct ? IconCheck : IconRefresh} tone={correct ? "success" : "pending"}>
-            {correct ? "Düzdür! (Correct!) — instant feedback, in Azerbaijani." : "Az qaldı — try again. “" + q.term + "” = “" + q.az + "”. No lost life; just retry."}
-          </Alert>
-        </div>
-      )}
-    </Card>
   );
 }
 
