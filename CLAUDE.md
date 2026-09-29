@@ -23,6 +23,7 @@ your own version of it.
 | Routing (real URLs, `react-router-dom`) | `src/router.jsx` (`Bridge`, `buildPath`, `mergeRoute`, `TAB_PATH`) + `<Routes>` tree in `src/english-platform-prototype.jsx` |
 | Mock "database" (persistence rules — the only layer to replace for a real backend) | `src/db/mockDb.jsx` (`reducer`, `createInitialState`) |
 | Seed fixtures + static UI config (labels, templates, icons) | `src/data.jsx` |
+| Authored lesson content (blocks → components for Everyday English + IT L4) | `src/seedLessons.js` (pulled into `SEED_LESSONS` by `data.jsx`); local files it embeds live in `public/seed/` |
 | React binding over the mock db (Context/Provider, `useStore()`/`useNav()`) | `src/store.jsx` — no persistence logic of its own |
 
 ## Routing
@@ -108,6 +109,22 @@ seam so a real one can be dropped in later without touching any view:
   real Xsolla project's axios client factory (one client instance, one
   normalized error contract, `setHTTPToken`/`clearHTTPToken`) — swapped to
   `fetch` since there's no axios dependency to justify yet.
+- **`src/seedLessons.js`** — fully authored lesson content, so Block Studio
+  and the course tree show realistic, varied blocks instead of every block
+  falling back to its type's identical 1–2 starter components. Everyday
+  English is authored end to end and IT English L4 (the ITler — Morning
+  class's current lesson) too; between them they use every component kind
+  but `h5pActivity` (needs the H5P server) and every kind's variants. Block
+  ids are stable (`<lesson>-<n>`, matching what `lessonBlocks` gives an
+  unbuilt block) so block URLs survive reloads. The Resources block embeds
+  local files from `public/seed/` (a map SVG, a small PDF, an HTML slide
+  page) rather than third-party URLs.
+- **Component bank persistence** — the saved-component library is the one
+  piece of state kept in `localStorage` (`persistComponentBank` /
+  `savedComponentBank` in `db/mockDb.jsx`). A seed item added to
+  `SEED_COMPONENT_BANK` later reaches an already-saved library exactly
+  once (tracked by `lucid.component-bank.offered-seeds`), so a new seed
+  shows up but one a teacher deleted doesn't come back.
 - **`src/data.jsx`** — static seed fixtures (`SEED_COURSES`, `SEED_STUDENTS`,
   …, what a real backend's database would already contain) plus static UI
   config that isn't per-teacher data at all (`BLOCK_TYPES`, `LESSON_TEMPLATES`,

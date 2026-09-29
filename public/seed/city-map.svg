@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" font-family="DM Sans, Arial, sans-serif">
+  <rect width="800" height="500" fill="#f5f5f5"/>
+  <!-- streets -->
+  <g stroke="#ffffff" stroke-width="34" stroke-linecap="square">
+    <line x1="0" y1="250" x2="800" y2="250"/>
+    <line x1="400" y1="0" x2="400" y2="500"/>
+    <line x1="140" y1="0" x2="140" y2="500"/>
+    <line x1="400" y1="110" x2="800" y2="110"/>
+  </g>
+  <g fill="#8c8c8c" font-size="13" letter-spacing="1">
+    <text x="560" y="255">MAIN STREET</text>
+    <text x="408" y="470" transform="rotate(-90 408 470)">RIVER ROAD</text>
+    <text x="600" y="115">HILL STREET</text>
+  </g>
+  <!-- park -->
+  <rect x="440" y="290" width="330" height="180" rx="14" fill="#caecb8"/>
+  <text x="605" y="385" text-anchor="middle" font-size="22" fill="#2e6b0f" font-weight="700">City Park</text>
+  <!-- places -->
+  <g font-size="16" font-weight="700" fill="#141414">
+    <rect x="440" y="140" width="150" height="80" rx="10" fill="#ffddd3"/><text x="515" y="186" text-anchor="middle">Museum</text>
+    <rect x="620" y="140" width="150" height="80" rx="10" fill="#e8f4ff"/><text x="695" y="186" text-anchor="middle">Bank</text>
+    <rect x="180" y="140" width="190" height="80" rx="10" fill="#fff7e8"/><text x="275" y="186" text-anchor="middle">Café</text>
+    <rect x="180" y="290" width="190" height="80" rx="10" fill="#f0f0f0"/><text x="275" y="336" text-anchor="middle">Train station</text>
+    <rect x="10" y="290" width="100" height="80" rx="10" fill="#ffeded"/><text x="60" y="336" text-anchor="middle">Pharmacy</text>
+  </g>
+  <!-- traffic lights + you are here -->
+  <circle cx="400" cy="250" r="11" fill="#faad14" stroke="#141414" stroke-width="2"/>
+  <text x="418" y="238" font-size="13" fill="#141414">traffic lights</text>
+  <circle cx="275" cy="420" r="12" fill="#ff5c20"/>
+  <text x="295" y="425" font-size="15" font-weight="700" fill="#ff5c20">You are here</text>
+</svg>

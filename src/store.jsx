@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
-import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, COMPONENT_BANK_KEY } from "./db/mockDb.jsx";
+import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, persistComponentBank } from "./db/mockDb.jsx";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { MOTION, cssMs } from "./motion.js";
 
@@ -88,7 +88,7 @@ export function StoreProvider({ children }) {
   // state. Keep just this library across reloads so it remains available
   // when the teacher starts a different lesson later.
   useEffect(() => {
-    try { window.localStorage.setItem(COMPONENT_BANK_KEY, JSON.stringify(state.componentBank)); } catch { /* prototype still works without storage */ }
+    persistComponentBank(state.componentBank);
   }, [state.componentBank]);
 
   const toast = useCallback((text, tone) => {

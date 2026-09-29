@@ -27,15 +27,38 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 // dev server from a phone via its LAN address).
 export const uid = (prefix) =>
   prefix + Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
-export const COMPONENT_BANK_KEY = "lucid.component-bank";
+const COMPONENT_BANK_KEY = "lucid.component-bank";
 
+// Which seed items a saved library has already been offered. A seed item
+// added to data.jsx later should still reach someone whose library was saved
+// before it existed — but only once, so one they deleted doesn't reappear on
+// the next reload. A library saved before this key existed had the original
+// three seeds.
+const OFFERED_SEEDS_KEY = "lucid.component-bank.offered-seeds";
+const ORIGINAL_SEED_IDS = ["cb1", "cb2", "cb3"];
+
+// Read-only on purpose: this runs as useReducer's lazy initializer, which
+// StrictMode calls twice in dev — writing here would make the second call
+// see every seed as already offered. The write happens in
+// persistComponentBank, after the state has actually been committed.
 function savedComponentBank() {
   try {
     const saved = window.localStorage.getItem(COMPONENT_BANK_KEY);
-    return saved ? JSON.parse(saved) : clone(SEED_COMPONENT_BANK);
+    if (!saved) return clone(SEED_COMPONENT_BANK);
+    const bank = JSON.parse(saved);
+    const offered = JSON.parse(window.localStorage.getItem(OFFERED_SEEDS_KEY) || "null") || ORIGINAL_SEED_IDS;
+    const fresh = SEED_COMPONENT_BANK.filter((c) => !offered.includes(c.id) && !bank.some((b) => b.id === c.id));
+    return [...bank, ...clone(fresh)];
   } catch {
     return clone(SEED_COMPONENT_BANK);
   }
+}
+
+export function persistComponentBank(bank) {
+  try {
+    window.localStorage.setItem(COMPONENT_BANK_KEY, JSON.stringify(bank));
+    window.localStorage.setItem(OFFERED_SEEDS_KEY, JSON.stringify(SEED_COMPONENT_BANK.map((c) => c.id)));
+  } catch { /* prototype still works without storage */ }
 }
 
 // Blocks for a lesson — hydrated from the shorthand `parts` list (an array

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Giving directions</title>
+<style>
+  html,body{margin:0;height:100%;font-family:"DM Sans",Arial,sans-serif}
+  body{display:flex;flex-direction:column;background:#141414;color:#fff}
+  .slide{flex:1;display:flex;flex-direction:column;justify-content:center;padding:6vw 8vw}
+  .kicker{color:#ff7c4d;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:1.6vw}
+  h1{font-size:5vw;margin:.4em 0 .3em;line-height:1.05}
+  ul{font-size:2.4vw;line-height:1.7;margin:0;padding-left:1.1em;color:#e0e0e0}
+  b{color:#fff}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:1.4vw 3vw;background:#000;font-size:1.4vw;color:#8c8c8c}
+  button{background:#ff5c20;color:#fff;border:0;border-radius:8px;padding:.5em 1em;font:inherit;font-weight:700;cursor:pointer}
+</style></head>
+<body>
+  <section class="slide" id="s"></section>
+  <nav><button onclick="go(-1)">‹ Prev</button><span id="n"></span><button onclick="go(1)">Next ›</button></nav>
+<script>
+  const slides = [
+    ["Lesson 3 · Getting around", "Giving directions", ["Ask politely, listen for key words, repeat to check."]],
+    ["Asking", "How to ask", ["<b>Excuse me,</b> how do I get to…?", "<b>Is there</b> a pharmacy near here?", "<b>Is it far?</b>"]],
+    ["Moving", "Direction words", ["<b>Go straight on</b> — don't turn", "<b>Turn left / right</b> at the…", "<b>Take the second left</b>"]],
+    ["Places", "Where is it?", ["<b>opposite</b> the park", "<b>next to</b> the bakery", "<b>on the corner</b> of…"]],
+    ["Distance", "How far?", ["It's <b>five minutes on foot</b>.", "It's <b>two stops</b> by bus.", "You <b>can't miss it</b>."]],
+    ["Your turn", "Practice", ["Use the city map: describe the route from the station to the museum."]],
+  ];
+  let i = 0;
+  function go(d){ i = Math.max(0, Math.min(slides.length - 1, i + d)); render(); }
+  function render(){
+    const [k, t, items] = slides[i];
+    document.getElementById("s").innerHTML = '<div class="kicker">' + k + '</div><h1>' + t + '</h1><ul>' + items.map(x => '<li>' + x + '</li>').join("") + '</ul>';
+    document.getElementById("n").textContent = (i + 1) + " / " + slides.length;
+  }
+  render();
+</script>
+</body></html>

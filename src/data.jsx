@@ -2,6 +2,7 @@ import {
   BookOpen, Layers, Headphones, Shapes, PenTool, Mic, NotebookPen, Mail, ClipboardCheck, Gamepad2,
   Handshake, FileText, Puzzle,
 } from "lucide-react";
+import { EVERYDAY_BUILT, TENSE_CONTENT, withContent } from "./seedLessons.js";
 
 /* =========================================================================
    Lucid — teacher console. Mock data + design constants.
@@ -180,6 +181,7 @@ let pid = 0;
 const P = (type, title, meta, extra = {}) => ({ id: `p${++pid}`, type, title, meta, ...extra });
 
 // Full authored content for the flagship "Tense forms" lesson (IT English · L4)
+// — block list here, each block's components in seedLessons.js.
 const TENSE_PARTS = [
   P("reading",    "Passage — How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
   P("vocabulary", "Words — 12 target tense & time words",      "deploy · ship · release · by then …"),
@@ -189,7 +191,12 @@ const TENSE_PARTS = [
   P("practice",   "Practice Grammar — Fill the gaps & tense rules", "Auto-graded · instant feedback in AZ"),
   P("playground", "Playground — Crossword & Word Tower Challenge", "Gamified vocabulary challenge & puzzles"),
   P("homework",   "Homework — Write 5 sentences using target tenses", "Student submits at home for teacher review"),
-];
+].map((part, i) => withContent(part, "B1", TENSE_CONTENT[i]));
+
+// A lesson whose blocks are fully authored carries them as `built`; `parts`
+// (the block-type shorthand every other lesson uses) must stay in step with
+// it, the same way db/mockDb.jsx keeps the two in sync on every edit.
+const authored = (built) => ({ built, parts: built.map((b) => b.type) });
 
 export const SEED_COURSES = [
   { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, templateId: "general" },
@@ -212,10 +219,10 @@ export const SEED_LESSONS = {
     { id: "it6", n: 6, title: "Explaining a technical decision",     parts: ["reading", "vocabulary", "listening", "listening", "grammar", "practice", "homework"],                     active: 0 },
   ],
   every: [
-    { id: "ev1", n: 1, title: "Greetings & small talk",     parts: ["reading", "vocabulary", "grammar", "practice", "homework"],        active: 21 },
-    { id: "ev2", n: 2, title: "Ordering food & drinks",     parts: ["reading", "vocabulary", "listening", "practice", "homework"],      active: 20 },
-    { id: "ev3", n: 3, title: "Getting around the city",    parts: ["reading", "vocabulary", "listening", "grammar", "practice", "homework"], active: 18 },
-    { id: "ev4", n: 4, title: "Shopping & prices",          parts: ["reading", "vocabulary", "practice", "homework"],                   active: 9 },
+    { id: "ev1", n: 1, title: "Greetings & small talk", ...authored(EVERYDAY_BUILT.ev1), active: 21 },
+    { id: "ev2", n: 2, title: "Ordering food & drinks", ...authored(EVERYDAY_BUILT.ev2), active: 20 },
+    { id: "ev3", n: 3, title: "Getting around the city", ...authored(EVERYDAY_BUILT.ev3), active: 18 },
+    { id: "ev4", n: 4, title: "Shopping & prices", ...authored(EVERYDAY_BUILT.ev4), active: 9 },
   ],
   ielts: [
     { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9 },
@@ -289,6 +296,36 @@ export const SEED_TEXTS = [
       s(" while we looked into this. We have "), w("identified", "müəyyən etdik", "found or recognised something", "We identified the root cause.", "learning"),
       s(" the cause and will "), w("follow up", "əlaqə saxlamaq", "to check back or continue contact", "I'll follow up with you tomorrow.", "new"),
       s(" by tomorrow. Please "), w("reach out", "əlaqə saxla", "to contact someone", "Reach out if you have questions.", "learning"), s(" if anything is unclear."),
+    ],
+  },
+  {
+    id: "t_neighbour", title: "Meeting a new neighbour", topic: "Everyday", level: "A2", wordCount: 62, hasTranslation: true,
+    body: [
+      s("On Saturday a new family moved in next door. I went over to say "), w("hello", "salam", "a friendly word you say when you meet someone", "Hello! I'm Nigar from number 12.", "known", { emoji: "👋", ipaUk: "/həˈləʊ/", ipaUs: "/həˈloʊ/" }),
+      s(" and "), w("introduce", "təqdim etmək", "to tell someone your name when you meet", "Let me introduce myself.", "learning"),
+      s(" myself. Their names are Tom and Sara. Tom works at the hospital and Sara is a teacher. We talked about the "), w("weather", "hava", "rain, sun, wind and temperature outside", "The weather is lovely today, isn't it?", "new", { emoji: "🌤️", ipaUk: "/ˈweð.ə/", ipaUs: "/ˈweð.ɚ/" }),
+      s(" and the park nearby. Before I left, I said, “Nice to "), w("meet", "tanış olmaq", "to see and talk to someone for the first time", "Nice to meet you!", "known"),
+      s(" you. See you "), w("around", "ətrafda", "somewhere nearby, from time to time", "See you around!", "new"), s("!”"),
+    ],
+  },
+  {
+    id: "t_city", title: "Finding the museum", topic: "Travel", level: "A2", wordCount: 70, hasTranslation: true,
+    body: [
+      s("Last summer I visited Tbilisi for the first time. On my second day I wanted to see the national museum, but I got "), w("lost", "azmaq", "not knowing where you are or how to get somewhere", "I got lost in the old town.", "new", { emoji: "🧭", ipaUk: "/lɒst/", ipaUs: "/lɑːst/" }),
+      s(". I asked a woman at a bus "), w("stop", "dayanacaq", "a place where a bus stops for passengers", "The bus stop is across the road.", "known"),
+      s(" for "), w("directions", "istiqamət", "instructions for how to get to a place", "Can you give me directions to the station?", "learning"),
+      s(". She said, “Go straight on, then turn left at the "), w("traffic lights", "svetofor", "red, yellow and green lights that control traffic", "Turn right at the traffic lights.", "new", { emoji: "🚦", ipaUk: "/ˈtræf.ɪk laɪts/", ipaUs: "/ˈtræf.ɪk laɪts/" }),
+      s(". The museum is "), w("opposite", "qarşısında", "on the other side, facing something", "The bank is opposite the post office.", "learning"), s(" the park.” It took ten minutes."),
+    ],
+  },
+  {
+    id: "t_market", title: "A Saturday at the market", topic: "Everyday", level: "B1", wordCount: 66, hasTranslation: true,
+    body: [
+      s("Every Saturday I go to the market with a shopping list. Fruit is usually "), w("cheaper", "daha ucuz", "costing less money", "Apples are cheaper at the market.", "learning"),
+      s(" there than in the supermarket. Today strawberries were on "), w("sale", "endirim", "when things are sold at a lower price", "These shoes are on sale this week.", "new", { emoji: "🏷️", ipaUk: "/seɪl/", ipaUs: "/seɪl/" }),
+      s(", so I bought two boxes. I asked, “How much are the tomatoes?” and the seller gave me a small "), w("discount", "endirim", "money taken off the normal price", "Can I get a discount if I buy three?", "new"),
+      s(". I paid in cash and kept the "), w("receipt", "qəbz", "a paper that shows what you paid", "Keep the receipt in case you need to return it.", "learning", { emoji: "🧾", ipaUk: "/rɪˈsiːt/", ipaUs: "/rɪˈsiːt/" }),
+      s(". I spent less than I "), w("expected", "gözləmək", "thought something would happen", "The trip was easier than I expected.", "known"), s("."),
     ],
   },
 ];
@@ -591,6 +628,38 @@ export const SEED_BLOCK_BANK = [
     ] },
   },
   {
+    id: "bb4", type: "practice", title: "Café role-play pack", from: "Everyday English · Lesson 2",
+    content: { components: [
+      { id: "bb4c1", kind: "dialoguecompletion", level: "A2", title: "At the counter", turns: [
+        { speaker: "A", text: "Hi, what can I get you?" },
+        { speaker: "B", text: "___", blank: true, answer: "Could I have a large latte, please?" },
+        { speaker: "A", text: "Anything to eat?" },
+        { speaker: "B", text: "___", blank: true, answer: "No, thanks. Can I pay by card?" },
+      ] },
+      { id: "bb4c2", kind: "scenario", level: "A2", situation: "Your order is wrong — you asked for tea, not coffee.", turns: [
+        { prompt: "Waiter: Here's your coffee.", sample: "Sorry, I think I ordered a tea." },
+        { prompt: "Waiter: Oh, I'm so sorry! I'll change it.", sample: "No problem, thank you." },
+      ] },
+    ] },
+  },
+  {
+    id: "bb5", type: "vocabulary", title: "Directions starter pack", from: "Everyday English · Lesson 3",
+    content: { components: [
+      { id: "bb5c1", kind: "wordlist", level: "A2", items: [
+        { term: "turn left", az: "sola dön", def: "go to the left", example: "Turn left at the bank." },
+        { term: "opposite", az: "qarşısında", def: "on the other side, facing something", example: "The café is opposite the station." },
+        { term: "next to", az: "yanında", def: "very close, at the side of", example: "The pharmacy is next to the bakery." },
+        { term: "crossroads", az: "yol ayrıcı", def: "a place where two roads cross", example: "Turn right at the crossroads." },
+      ] },
+      { id: "bb5c2", kind: "crossword", items: [
+        { word: "map", clue: "A picture of streets that shows you the way" },
+        { word: "bridge", clue: "You walk over it to cross a river" },
+        { word: "corner", clue: "Where two streets meet" },
+        { word: "station", clue: "Where you catch a train" },
+      ] },
+    ] },
+  },
+  {
     id: "bb3", type: "practice", title: "Dev-words crossword", from: "Playground",
     content: { components: [
       { id: "bb3c1", kind: "crossword", items: [
@@ -627,6 +696,56 @@ export const SEED_COMPONENT_BANK = [
       { emoji: "📦", term: "package", az: "bağlama" },
     ] }
   },
+  {
+    id: "cb4", title: "Polite requests quiz", kind: "quiz", from: "Everyday English · Lesson 2",
+    data: { id: "cb4d", kind: "quiz", level: "A2", items: [
+      { q: "The most polite way to order is:", options: ["Give me a tea.", "I want tea.", "Could I have a tea, please?"], answer: 2, why: "“Could I have…, please?” ən nəzakətli formadır." },
+      { q: "___ you like some dessert?", options: ["Would", "Do", "Are"], answer: 0, why: "Təklif: “Would you like…?”" },
+      { q: "Can we have the ___, please? We'd like to pay.", options: ["menu", "bill", "tip"], answer: 1, why: "Ödəmək üçün “the bill” istənilir." },
+    ] }
+  },
+  {
+    id: "cb5", title: "Food & drink flashcards", kind: "flashcards", from: "Everyday English · Lesson 2",
+    data: { id: "cb5d", kind: "flashcards", level: "A2", items: [
+      { term: "menu", az: "menyu", example: "Could I see the menu, please?" },
+      { term: "bill", az: "hesab", example: "Can we have the bill, please?" },
+      { term: "takeaway", az: "özü ilə aparmaq", example: "Is that for here or takeaway?" },
+      { term: "dessert", az: "desert", example: "Would you like a dessert?" },
+    ] }
+  },
+  {
+    id: "cb6", title: "Asking for directions — dialogue", kind: "dialoguecompletion", from: "Everyday English · Lesson 3",
+    data: { id: "cb6d", kind: "dialoguecompletion", level: "A2", title: "Excuse me, where's the station?", turns: [
+      { speaker: "A", text: "Excuse me, how do I get to the station?" },
+      { speaker: "B", text: "___", blank: true, answer: "Go straight on and take the second left." },
+      { speaker: "A", text: "Is it far?" },
+      { speaker: "B", text: "___", blank: true, answer: "No, about five minutes on foot." },
+    ] }
+  },
+  {
+    id: "cb7", title: "Irregular verb “go” — conjugation", kind: "conjugation", from: "IT English · Lesson 4",
+    data: { id: "cb7d", kind: "conjugation", level: "A2", verb: "go", tenses: {
+      "Present simple": { I: "go", You: "go", "He/She/It": "goes", We: "go", They: "go" },
+      "Past simple": { I: "went", You: "went", "He/She/It": "went", We: "went", They: "went" },
+      "Present perfect": { I: "have gone", You: "have gone", "He/She/It": "has gone", We: "have gone", They: "have gone" },
+    } }
+  },
+  {
+    id: "cb8", title: "Returning an item — role-play", kind: "scenario", from: "Everyday English · Lesson 4",
+    data: { id: "cb8d", kind: "scenario", level: "B1", situation: "You bought trainers yesterday, but they're too small.", turns: [
+      { prompt: "Shop assistant: Hi, how can I help you?", sample: "Hi, I bought these trainers yesterday, but they're too small." },
+      { prompt: "Shop assistant: Do you have the receipt?", sample: "Yes, here it is." },
+      { prompt: "Shop assistant: Would you like a bigger size or a refund?", sample: "Could I try on a size 42, please?" },
+    ] }
+  },
+  {
+    id: "cb9", title: "Standup phrases — shadowing", kind: "shadowing", from: "IT English · Lesson 4",
+    data: { id: "cb9d", kind: "shadowing", level: "B1", items: [
+      { sentence: "I've fixed two of the three bugs so far.", note: "Contraction: “I've” — say it as one sound." },
+      { sentence: "I'll have them ready by Wednesday.", note: "Stress: READY, WEDNESDAY." },
+      { sentence: "Nothing is blocking me today.", note: "Fall on “today”." },
+    ] }
+  },
 ];
 
 // A Kit bundles saved Blocks and/or saved Components under one title, so a
@@ -636,6 +755,7 @@ export const SEED_COMPONENT_BANK = [
 // that includes it.
 export const SEED_KITS = [
   { id: "kit1", title: "Standup recap kit", blockIds: ["bb1"], componentIds: ["cb1"] },
+  { id: "kit2", title: "Travel survival kit", blockIds: ["bb4", "bb5"], componentIds: ["cb6", "cb8"] },
 ];
 
 // Word of the day — one shared word pushed to every learner (from the docs'
