@@ -169,7 +169,7 @@ export default function Dashboard() {
 
 // The dashboard's quick "Assign" doesn't start from a student's own page, so
 // it needs one extra step first: pick who, then reuse the exact same real
-// assign flow (lessons/blocks/kits/words/new task) as the student page does.
+// assign flow (lessons/blocks/words/new task) as the student page does.
 function AssignFromDashboardModal({ open, onClose }) {
   const { state } = useStore();
   const [student, setStudent] = useState(null);

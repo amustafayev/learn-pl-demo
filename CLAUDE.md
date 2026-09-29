@@ -78,7 +78,7 @@ seam so a real one can be dropped in later without touching any view:
   instead of `useReducer`. It also owns the handful of pure selector/derive
   functions that describe how the mock data relates to itself (`lessonBlocks`,
   `activeClassCourse`, `classesOnCourse`, `courseAvgProgress`,
-  `groupBankByParent`, `kitContents`, …) — a real backend would either
+  `groupBankByParent`, …) — a real backend would either
   replicate this logic or return it pre-joined, so it lives next to the state
   shape it describes, not in the React layer. `classesOnCourse`/
   `courseAvgProgress` encode a load-bearing rule: **a course has no progress

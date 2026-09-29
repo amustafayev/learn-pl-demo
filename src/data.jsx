@@ -811,16 +811,6 @@ export const SEED_COMPONENT_BANK = [
   },
 ];
 
-// A Kit bundles saved Blocks and/or saved Components under one title, so a
-// teacher can hand a student a whole "meal" of components in one assign
-// action instead of one at a time. Kits reference bank items by id — they
-// don't own content — so editing a saved block/component updates every kit
-// that includes it.
-export const SEED_KITS = [
-  { id: "kit1", title: "Standup recap kit", blockIds: ["bb1"], componentIds: ["cb1"] },
-  { id: "kit2", title: "Travel survival kit", blockIds: ["bb4", "bb5"], componentIds: ["cb6", "cb8"] },
-];
-
 // Word of the day — one shared word pushed to every learner (from the docs'
 // "gizmos" list). Rotates daily in the real product; fixed in the demo.
 export const WORD_OF_DAY = {

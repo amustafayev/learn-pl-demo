@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
-import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, persistComponentBank } from "./db/mockDb.jsx";
+import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, persistComponentBank } from "./db/mockDb.jsx";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
@@ -17,7 +17,7 @@ import { MOTION, cssMs } from "./motion.js";
 // Re-exported so every view that already does `import { lessonBlocks, ... }
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
-export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, uid, h5pClient, saveMedia };
+export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, uid, h5pClient, saveMedia };
 
 // Deep copy of `value` whose H5P activities each get their own server-side
 // content (see db/h5pClient.js) — or null, after telling the teacher why, if

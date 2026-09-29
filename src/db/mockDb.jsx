@@ -1,5 +1,5 @@
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_KITS, SEED_CLASSES,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
   TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
@@ -126,15 +126,6 @@ export function groupBankByParent(items) {
 // item's own detail line instead of repeating the parent in every row.
 export const bankChildLabel = (item) => (item.from || "").split(" · ").slice(1).join(" · ");
 
-// Resolve a Kit's referenced block/component ids into their current titles
-// — since a Kit only stores ids, this always reflects the bank's latest
-// state (rename a saved block and every kit using it updates automatically).
-export function kitContents(kit, blockBank, componentBank) {
-  const blocks = (kit.blockIds || []).map((id) => blockBank.find((b) => b.id === id)).filter(Boolean);
-  const components = (kit.componentIds || []).map((id) => componentBank.find((c) => c.id === id)).filter(Boolean);
-  return { blocks, components, count: blocks.length + components.length };
-}
-
 // Lazy-init (passed as useReducer's third arg) so each mount gets a fresh
 // deep copy of the seed data instead of sharing one mutable module-level
 // object across remounts.
@@ -148,7 +139,6 @@ export function createInitialState() {
     wordSets: clone(SEED_WORDSETS),
     blockBank: clone(SEED_BLOCK_BANK),
     componentBank: savedComponentBank(),
-    kits: clone(SEED_KITS),
     teacher: clone(TEACHER),
     toasts: [],
   };
@@ -291,15 +281,6 @@ export function reducer(state, action) {
     }
     case "REMOVE_COMPONENT_FROM_BANK":
       return { ...state, componentBank: (state.componentBank || []).filter((c) => c.id !== action.bankId) };
-    case "SAVE_KIT": {
-      // a Kit references bank items by id rather than copying their content,
-      // so editing a saved block/component updates every kit that uses it.
-      const { title, blockIds, componentIds } = action;
-      const kit = { id: uid("kit"), title, blockIds: blockIds || [], componentIds: componentIds || [] };
-      return { ...state, kits: [kit, ...(state.kits || [])] };
-    }
-    case "REMOVE_KIT":
-      return { ...state, kits: (state.kits || []).filter((k) => k.id !== action.kitId) };
     case "BUILD_RECAP_LESSON": {
       // assemble a brand-new lesson from every My-Blocks item compatible with
       // the student's course template, deep-copied so it's independent of
