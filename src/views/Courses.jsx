@@ -6,7 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, PillTabs } from "../design-system.jsx";
 import {
-  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classesOnCourse, courseAvgProgress,
+  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, courseAvgProgress,
   uid, copyWithOwnH5P, discardH5PContent,
 } from "../store.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
@@ -163,9 +163,6 @@ export function CourseView() {
   const overallPct = classCourse
     ? (classCourse.status === "done" ? 100 : lessons.length ? Math.round(((classCurrentIndex + 1) / lessons.length) * 100) : 0)
     : null;
-  // Plain course view (no ?classId=) — there's no single "progress" to show
-  // for the course itself, only for each class actually assigned to it.
-  const onCourse = !cls ? classesOnCourse(state, course.id) : [];
 
   return (
     <Page>
@@ -189,7 +186,9 @@ export function CourseView() {
           <Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>
         </div>} />
 
-      {classCourse ? (
+      {/* Only viewed through a class (?classId=) — a course has no progress
+          of its own, so the plain course page shows none at all. */}
+      {classCourse && (
         <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-baseline gap-2 shrink-0">
             <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
@@ -197,29 +196,6 @@ export function CourseView() {
           </div>
           <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
           <Badge color={classCourse.status === "done" ? "success" : "pending"} className="shrink-0">{classCourse.status === "done" ? "Completed" : "In Progress"}</Badge>
-        </Card>
-      ) : (
-        // No class context — a course has no progress of its own, only as
-        // many progress numbers as classes actually assigned to it.
-        <Card className="p-5 mb-6">
-          <div className="text-sm font-semibold text-neutral-600 mb-3">
-            {onCourse.length ? `Taught in ${onCourse.length} class${onCourse.length === 1 ? "" : "es"}` : "Not assigned to any class yet"}
-          </div>
-          {onCourse.length ? (
-            <div className="space-y-3">
-              {onCourse.map(({ cls: c, entry, pct }) => (
-                <button key={c.id} onClick={() => go({ tab: "classes", classId: c.id, courseId: course.id })}
-                  className="w-full flex items-center gap-3 text-left hover:opacity-80">
-                  <span className="text-sm font-medium text-neutral-900 w-40 truncate shrink-0">{c.name}</span>
-                  <div className="flex-1 min-w-[120px]"><SegmentedBar pct={pct} /></div>
-                  <span className="text-xs tabular-nums text-neutral-600 w-10 text-right shrink-0">{pct}%</span>
-                  <Badge color={entry.status === "done" ? "success" : "pending"} className="shrink-0">{entry.status === "done" ? "Completed" : "In Progress"}</Badge>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-neutral-500">Assign this course to a class in Classes to start tracking progress.</p>
-          )}
         </Card>
       )}
 

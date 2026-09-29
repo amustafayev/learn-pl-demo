@@ -87,9 +87,9 @@ seam so a real one can be dropped in later without touching any view:
   Progress, "locked", "current lesson", and completion % all live per
   class-course pairing, never on the course or lesson record directly. A
   plain `/courses/:id` view (no `?classId=`) must never render a progress
-  number/badge for the course itself — only "which classes are taking this,
-  and how far is each one" (`Courses.jsx`'s `CourseView`, no-`classCourse`
-  branch), or nothing at all if no class has been assigned yet.
+  number/badge for the course itself, and doesn't list the classes taking it
+  either (that card was removed on request) — class progress is only shown
+  when the course is opened through a class.
 - **`src/db/h5pClient.js`** — the one real backend today: the H5P server in
   `server/`, built on `createApiClient("/h5p")` (below). It also owns the
   rule that a lesson component's H5P content follows that component:
