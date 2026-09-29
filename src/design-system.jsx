@@ -272,7 +272,11 @@ export function CategoryPickerGrid({ items, onPick, gridCols = "grid-cols-1 sm:g
                 the SVG's actual stroke color and the glyph vanishes) */}
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><Icon size={19} /></span>
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
+              {/* flex-wrap: in the two-column "Add a block" grid a card is
+                  ~200px wide, and "Grammar" + "1× in block" is wider than
+                  that — the badge ran off the card's edge. It now drops
+                  under the name only when there isn't room beside it. */}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-sm font-semibold text-neutral-950">{item.label}</span>
                 {item.used > 0 && <span className="shrink-0 rounded-md bg-info-50 px-1.5 py-0.5 text-xs font-semibold text-info-700">{item.used}× in block</span>}
               </span>
