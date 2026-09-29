@@ -132,13 +132,22 @@ const MODAL_SIZE = { md: "max-w-md", lg: "max-w-2xl", xl: "max-w-5xl" };
 // topbar's chat/bell buttons — and `headerExtra` (e.g. a search field) inside
 // the header block, so the header ends in one hairline rather than stacking
 // a second bordered row under it.
-export function Modal({ open, onClose, title, sub, icon: Icon, count, headerExtra, children, footer, wide, size = wide ? "lg" : "md", fill = false, bodyClassName = "p-5" }) {
+const MODAL_ICON_TONE = { primary: "bg-primary-50 text-primary-600", warning: "bg-warning-50 text-warning-600" };
+
+export function Modal({ open, onClose, title, sub, icon: Icon, iconTone = "primary", count, headerExtra, children, footer, wide, size = wide ? "lg" : "md", fill = false, bodyClassName = "p-5" }) {
   // Stay mounted while the exit animation plays — `open` drives the classes,
   // `present` drives mounting. The delay comes from the same token the
   // animation does, so the two can't fall out of step.
   const present = usePresence(open);
   const overlayRef = useRef(null);
   useContainedWheel(overlayRef, present);
+  // Esc closes, like the backdrop and the X.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   if (!present) return null;
   return (
     <div ref={overlayRef} className={`fixed inset-0 z-40 flex items-start sm:items-center justify-center p-4 bg-overlay ${open ? "animate-overlay-in" : "animate-overlay-out"}`} onClick={onClose}>
@@ -148,7 +157,7 @@ export function Modal({ open, onClose, title, sub, icon: Icon, count, headerExtr
       >
         <div className="shrink-0 sticky top-0 z-10 bg-surface rounded-t-[14px] border-b border-neutral-400 px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
-            {Icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"><Icon size={20} stroke={1.75} /></span>}
+            {Icon && <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${MODAL_ICON_TONE[iconTone]}`}><Icon size={20} stroke={1.75} /></span>}
             <div className={`min-w-0 flex-1 ${Icon ? "" : "pt-0.5"}`}>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-semibold tracking-tight text-neutral-950">{title}</h3>
@@ -392,6 +401,10 @@ const BUTTON_FILL = {
   dark: "bg-neutral-950 hover:bg-neutral-900 text-neutral-50",
   light: "bg-neutral-200 hover:bg-neutral-300 text-neutral-900",
   outline: "bg-surface hover:bg-neutral-200 text-neutral-900 border border-neutral-400",
+  // Destructive confirmations only (remove, delete) — the kit's warning red
+  // is its error/danger color. 500 is the same in both themes, so white text
+  // stays right in dark mode too.
+  danger: "bg-warning-500 hover:bg-warning-600 text-white",
   disabled: "bg-neutral-200 text-neutral-600 cursor-not-allowed",
 };
 const BUTTON_SIZE = {

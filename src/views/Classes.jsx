@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  IconPlus, IconChevronRight, IconUserPlus, IconX, IconUsers, IconSchool,
+  IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, PRESS, PRESS_FLAT } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, CountBadge, PRESS, PRESS_FLAT } from "../design-system.jsx";
 import { useStore, useNav, activeClassCourse } from "../store.jsx";
 import { DAY_LABELS, scheduleLabel } from "../data.jsx";
 
@@ -135,6 +135,11 @@ function ClassDetailView({ classId }) {
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null); // student pending removal
+  // The confirm dialog keeps showing the student it was opened for while it
+  // plays its exit animation, after confirmRemove is already cleared.
+  const lastRemove = useRef(null);
+  if (confirmRemove) lastRemove.current = confirmRemove;
+  const removing = confirmRemove || lastRemove.current;
 
   const cls = state.classes.find((c) => c.id === classId);
   if (!cls) return null;
@@ -221,10 +226,9 @@ function ClassDetailView({ classId }) {
         <div>
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 font-semibold text-neutral-950"><IconUsers size={16} stroke={1.75} /> Student <Badge color="neutral">{roster.length}</Badge></div>
-              <button onClick={() => setEnrollOpen((v) => !v)} title="Enroll student" className={`flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:border-primary-300 hover:text-primary-600 ${PRESS}`}>
-                <IconUserPlus size={15} stroke={1.75} />
-              </button>
+              <div className="flex items-center gap-2 text-base font-semibold text-neutral-950"><IconUsers size={18} stroke={1.75} /> Students <CountBadge>{roster.length}</CountBadge></div>
+              <Button variant="outline" size="sm" iconOnly icon={IconUserPlus} onClick={() => setEnrollOpen((v) => !v)}
+                title="Enroll a student" aria-label="Enroll a student" aria-expanded={enrollOpen} />
             </div>
 
             {enrollOpen && (
@@ -246,9 +250,9 @@ function ClassDetailView({ classId }) {
               </div>
             )}
 
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y divide-neutral-400">
               {roster.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 py-2.5 group">
+                <div key={s.id} className="flex items-center gap-2 py-2.5">
                   <button onClick={() => go({ tab: "students", studentId: s.id })} className={`flex items-center gap-2.5 min-w-0 flex-1 text-left ${PRESS_FLAT}`}>
                     <div className="relative shrink-0">
                       <Avatar name={s.name} color={avatarColorFor(s.id)} size="sm" />
@@ -256,23 +260,48 @@ function ClassDetailView({ classId }) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate text-neutral-950">{s.name}</div>
-                      <div className="text-xs text-neutral-500">{s.progress}% · {s.status}</div>
+                      <div className="text-xs text-neutral-600">{s.progress}% · {s.status}</div>
                     </div>
                   </button>
-                  <button title="Remove from class" onClick={() => setConfirmRemove(s)} className={`shrink-0 text-neutral-300 hover:text-warning-600 p-1 opacity-0 group-hover:opacity-100 ${PRESS_FLAT}`}><IconX size={13} stroke={1.75} /></button>
+                  {/* Always visible (no hover-only reveal — a tablet has no hover),
+                      quiet until pointed at, then the danger color. */}
+                  <button type="button" onClick={() => setConfirmRemove(s)}
+                    title={`Remove ${s.name.split(" ")[0]} from this class`} aria-label={`Remove ${s.name} from ${cls.name}`}
+                    className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-warning-50 hover:text-warning-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-200 ${PRESS_FLAT}`}>
+                    <IconUserMinus size={17} stroke={1.75} />
+                  </button>
                 </div>
               ))}
-              {!roster.length && <p className="py-4 text-sm text-neutral-500">No students enrolled yet.</p>}
+              {!roster.length && <p className="py-4 text-sm text-neutral-600">No students enrolled yet.</p>}
             </div>
           </Card>
         </div>
       </div>
 
+      {/* Cancel takes focus, so Enter on a stray keypress never removes. */}
       <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)}
-        title="Remove from this class?"
-        sub={confirmRemove ? `${confirmRemove.name} — ${cls.name}` : ""}
-        footer={<><Button variant="outline" onClick={() => setConfirmRemove(null)}>Cancel</Button><Button variant="primary" className="!bg-warning-600 hover:!bg-warning-700" onClick={() => removeStudent(confirmRemove)}><IconX size={14} stroke={1.75} /> Remove</Button></>}>
-        <p className="text-sm text-neutral-600">They'll lose access to this class's course and lessons. You can re-enroll them (here or in a different class) any time.</p>
+        icon={IconUserMinus} iconTone="warning"
+        title={`Remove ${removing?.name.split(" ")[0] || "student"} from this class?`} sub={cls.name}
+        footer={<>
+          <Button variant="outline" autoFocus onClick={() => setConfirmRemove(null)}>Cancel</Button>
+          <Button variant="danger" onClick={() => removeStudent(confirmRemove)}><IconUserMinus size={16} stroke={1.75} /> Remove from class</Button>
+        </>}>
+        {removing && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-lg border border-neutral-400 p-3">
+              <Avatar name={removing.name} color={avatarColorFor(removing.id)} size="md" />
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-neutral-950">{removing.name}</div>
+                <div className="text-sm text-neutral-600">{removing.level} · {removing.progress}% · {removing.status}</div>
+              </div>
+            </div>
+            <ul className="space-y-2 text-sm text-neutral-700">
+              <li className="flex gap-2"><IconX size={16} stroke={1.75} className="mt-0.5 shrink-0 text-warning-600" /> Leaves this class and its course — no more of its lessons or live sessions.</li>
+              <li className="flex gap-2"><IconCheck size={16} stroke={1.75} className="mt-0.5 shrink-0 text-success-600" /> Their profile, progress and saved words stay. Nothing is deleted.</li>
+              <li className="flex gap-2"><IconCheck size={16} stroke={1.75} className="mt-0.5 shrink-0 text-success-600" /> You can re-enroll them here, or in another class, any time.</li>
+            </ul>
+          </div>
+        )}
       </Modal>
     </Page>
   );
