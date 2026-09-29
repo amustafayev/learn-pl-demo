@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Check, Play, Volume2,
+  Plus, Trash2, Check, Play, Pause,
   Sparkles, RotateCcw, ChevronRight, ArrowRight,
   BookOpen, Layers, MousePointerClick, FileQuestion, PenTool, Shapes, Video,
   Headphones, Briefcase, ClipboardList, Copy,
@@ -14,12 +14,13 @@ import {
   IconMaximize, IconMinimize, IconRefresh, IconArrowLeft, IconArrowRight, IconInfoCircle,
   IconMessageCircle, IconSend, IconUsers, IconFilePlus, IconBulb, IconVolume, IconMicrophone, IconCornerDownRight, IconSparkles, IconTrophy,
   IconPlus, IconBookmarks, IconBook2, IconAbc, IconTimeline, IconPlayerPlay, IconPresentation, IconPuzzle, IconUsersGroup, IconClipboardText, IconSearch,
+  IconListCheck, IconPlayerPause,
 } from "@tabler/icons-react";
 import { LEVELS } from "../ui.jsx";
-import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, PRESS, inputCls } from "../design-system.jsx";
+import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
   useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel,
-  lessonBlocks, uid, copyWithOwnH5P, discardH5PContent,
+  lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { BLOCK_TYPES, ROLE, blockMeta } from "../data.jsx";
@@ -53,7 +54,7 @@ const TOPBAR_H = 64;
 /* ---- component-kind registry: label, icon, tone, default data ---- */
 export const COMPONENT_META = {
   passage:    { label: "Reading passage",       icon: BookOpen,          tone: "text-sky-600 bg-sky-50 dark:bg-sky-950 dark:text-sky-400",      hint: "A tappable text with translations and saved words" },
-  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50 dark:bg-orange-950 dark:text-orange-400", hint: "Multiple-choice questions checked against a passage" },
+  comprehension: { label: "Reading comprehension", icon: ListChecks,     tone: "text-orange-600 bg-orange-50 dark:bg-orange-950 dark:text-orange-400", hint: "Questions checked against a passage or a listening" },
   wordlist:   { label: "Word list",             icon: Layers,            tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Term, translation, definition and example, in a list" },
   flashcards: { label: "Flashcards",            icon: Copy,              tone: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-400", hint: "Flip cards, one word at a time, for quick recall" },
   match:      { label: "Drag & drop match",     icon: MousePointerClick, tone: "text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-950 dark:text-fuchsia-400", hint: "Pair each word with its translation or picture" },
@@ -78,7 +79,7 @@ export const COMPONENT_META = {
   dialoguecompletion: { label: "Dialogue completion", icon: MessageSquare, tone: "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400",  hint: "Fill in the missing turns of a short dialogue" },
   speedround: { label: "Speed round",           icon: Timer,             tone: "text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400",      hint: "Timed multiple-choice round for quick recall practice" },
   video:      { label: "Video",                 icon: Video,             tone: "text-rose-600 bg-rose-50 dark:bg-rose-950 dark:text-rose-400",    hint: "A short clip with a transcript to reveal" },
-  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", hint: "An audio clip with a transcript to reveal" },
+  listening:  { label: "Listening",             icon: Headphones,        tone: "text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400", hint: "An audio clip to play — upload an MP3 or paste a link" },
   youtube:    { label: "YouTube video",         icon: PlayCircle,        tone: "text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400",      hint: "Embed a real YouTube video with your own notes" },
   scenario:   { label: "Scenario task",         icon: Briefcase,         tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    hint: "A real-life conversation to role-play, turn by turn" },
   speakingRecord: { label: "Record & AI feedback", icon: AudioLines,     tone: "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400",    hint: "Student records an answer, gets simulated AI feedback" },
@@ -213,7 +214,9 @@ export function defaultComponent(kind, texts = []) {
       { q: "They ___ the bug yesterday.", options: ["fix", "fixed", "have fixed"], answer: 1, why: "" },
     ] };
     case "video":      return { ...base, title: "Small talk basics", duration: "2:45", transcript: "Hi, how are you? — I'm good, thanks. How was your weekend? — Really nice, I visited my family." };
-    case "listening":  return { ...base, title: "At the reception", duration: "1:30", transcript: "Good morning, do you have an appointment? — Yes, at ten, with Ms. Aliyeva." };
+    // Starts empty: the audio is the teacher's own file, and a transcript is
+    // theirs to add (or not) — a made-up one would play against nothing.
+    case "listening":  return { ...base, title: "", audioFileId: null, audioName: "", audioUrl: "", duration: "", transcript: "", showTranscript: false };
     case "scenario":   return { ...base, situation: "You greet a colleague at the coffee machine.", turns: [
       { prompt: "Colleague: Good morning! How was your weekend?", sample: "It was great, thanks — I visited my family." },
       { prompt: "Colleague: Ready for the standup?", sample: "Almost — let me grab a coffee first." },
@@ -306,7 +309,10 @@ export function componentPreview(component, texts = []) {
     case "dialoguecompletion": return `${(component.turns || []).length} turns · ${component.title || ""}`;
     case "crossword": case "wheel": case "wordsearch": case "imagetoword":
       return `${(items || component.words || []).length} words`;
-    case "video": case "listening": return `${component.duration || "—"} · ${component.title || "untitled"}`;
+    case "video": return `${component.duration || "—"} · ${component.title || "untitled"}`;
+    case "listening": return component.audioFileId || component.audioUrl
+      ? `${component.duration || "—"} · ${component.title || component.audioName || "untitled"}`
+      : "No audio yet";
     case "youtube": return component.title || "Untitled video";
     case "scenario": return `${(component.turns || []).length} turns · ${component.situation || ""}`;
     case "homework": {
@@ -595,15 +601,30 @@ export default function BlockStudio() {
   // list's own button), then select the new component — selecting it is
   // what makes its frame in the preview show its editor, so a fresh
   // component opens ready to fill in, not just added at the end unseen.
-  const insertNew = async (component, label) => {
+  // `where(list)` overrides the slot, for inserts that belong next to a
+  // particular component rather than wherever the picker was opened.
+  const insertNew = async (component, label, where) => {
     const list = await flushOpenEditor();
     if (!list) return;
-    const at = insertAt === null ? list.length : Math.min(insertAt, list.length);
+    const at = where ? where(list) : insertAt === null ? list.length : Math.min(insertAt, list.length);
     const next = [...list]; next.splice(at, 0, component);
     setComponents(next); setInsertAt(null); setSelectedId(component.id);
     toast(label);
   };
   const addComponent = (kind) => insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
+  // A Listening's "Add questions" — a comprehension set already linked to
+  // it, dropped right under it (after any sets it already has), so the
+  // questions sit with the audio they're about.
+  const addQuestionsFor = (source) => insertNew(
+    { ...defaultComponent("comprehension", state.texts), level: source.level, passageRefId: source.id,
+      items: [{ q: "", options: ["", "", ""], answer: 0, why: "" }] },
+    "Added questions for this listening",
+    (list) => {
+      let at = list.findIndex((x) => x.id === source.id) + 1;
+      while (at > 0 && at < list.length && list[at].kind === "comprehension" && list[at].passageRefId === source.id) at++;
+      return at > 0 ? at : list.length;
+    },
+  );
 
   const duplicateComponent = async (i) => {
     const list = await flushOpenEditor();
@@ -834,11 +855,11 @@ export default function BlockStudio() {
                     <div ref={railListRef} className="p-3 space-y-1.5 overflow-y-auto overscroll-contain min-h-0">
                       {components.map((c, i) => {
                         const M = COMPONENT_META[c.kind] || { label: c.kind, icon: Shapes, tone: "bg-neutral-100 text-neutral-600" };
-                        const linkedPassage = c.kind === "comprehension" && c.passageRefId && components.find((x) => x.id === c.passageRefId);
+                        const source = linkedSource(c, components);
                         return (
                           <RailItem key={c.id} id={`rail-${c.id}`}
-                            icon={M.icon} tone={M.tone} label={M.label}
-                            meta={linkedPassage ? `${i + 1} · ↳ linked passage` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
+                            icon={M.icon} tone={M.tone} label={componentLabel(c, components)}
+                            meta={source ? `${i + 1} · ↳ linked ${sourceNoun(source)}` : `Component ${i + 1}${c.level ? ` · ${c.level}` : ""}`}
                             selected={c.id === selectedId}
                             onClick={() => selectComponent(c.id)}
                             draggable
@@ -871,7 +892,7 @@ export default function BlockStudio() {
                   {components.map((c, i) => {
                     const isSel = c.id === selectedId;
                     const isFullscreen = c.id === fullscreenId;
-                    const linked = isLinkedComprehension(c, components);
+                    const linked = linkedSource(c, components);
                     return (
                       <React.Fragment key={c.id}>
                         {/* scrollMarginTop tells scrollIntoView (below) that the
@@ -922,7 +943,9 @@ export default function BlockStudio() {
                                 <div className="rounded-[14px] border-2 border-primary-500 bg-surface p-4 sm:p-5 shadow-md">
                                   <ErrorBoundary resetKey={c}>
                                     <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                                      passages={components.filter((x) => x.kind === "passage")} registerFlush={registerFlush} />
+                                      sources={components.filter((x) => x.kind === "passage" || x.kind === "listening")}
+                                      linkedCount={components.filter((x) => linkedSource(x, components)?.id === c.id).length}
+                                      onAddQuestions={() => addQuestionsFor(c)} registerFlush={registerFlush} />
                                   </ErrorBoundary>
                                 </div>
                               </div>
@@ -939,7 +962,7 @@ export default function BlockStudio() {
                                     <IconPencil size={14} stroke={1.75} /> Edit
                                   </span>
                                 } />
-                                <ComponentStudent component={c} />
+                                <ComponentStudent component={c} source={linked} />
                               </div>
                             </div>
                           )}
@@ -1123,13 +1146,13 @@ const blockName = (b) => b.title || blockMeta(b.type).label;
 // One activity as the learner meets it, laid out like the kit's assessment
 // page: a numbered heading and the activity under it. Spacing between steps
 // is the container's call (a gray canvas in Block Studio, hairline dividers
-// on the live-lesson stage). A comprehension set tied to a passage indents
-// under that passage.
+// on the live-lesson stage). A comprehension set tied to a passage or a
+// listening indents under it.
 // Focus mode swaps this SAME section's classes to a fixed layer between the
 // focus bars (see FocusBars) instead of rendering a second copy, so whatever
 // the student has already typed or picked stays put going in and out.
 function StudentStep({ component, components, showLevel = true, style, className = "", focused = false, onFocus }) {
-  const linked = isLinkedComprehension(component, components);
+  const linked = linkedSource(component, components);
   return (
     <section id={`step-${component.id}`} data-student-step={component.id} style={style}
       className={focused ? "fixed inset-x-0 top-16 bottom-16 z-50 flex flex-col overflow-y-auto overscroll-contain bg-neutral-50 animate-fade-rise" : className}>
@@ -1142,7 +1165,7 @@ function StudentStep({ component, components, showLevel = true, style, className
             <StepHeading component={component} linked={linked} showLevel={showLevel}
               right={onFocus ? <FocusButton onClick={onFocus} /> : undefined} />
           )}
-          <ComponentStudent component={component} />
+          <ComponentStudent component={component} source={linked} />
         </div>
       </div>
     </section>
@@ -1194,7 +1217,7 @@ function FocusBars({ block, components, index, onGo, onClose }) {
       <div className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-neutral-400 bg-surface px-5 sm:px-8 flex items-center gap-4 animate-fade-rise">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${M.tone}`}><Icon size={18} /></span>
         <div className="min-w-0">
-          <div className="truncate text-base font-semibold text-neutral-950">{M.label}</div>
+          <div className="truncate text-base font-semibold text-neutral-950">{componentLabel(c, components)}</div>
           <div className="truncate text-xs text-neutral-600">{blockName(block)} · Activity {index + 1} of {components.length}</div>
         </div>
         <div className="hidden md:block flex-1 max-w-md mx-auto" aria-hidden="true">
@@ -1220,9 +1243,18 @@ function FocusBars({ block, components, index, onGo, onClose }) {
   );
 }
 
-const isLinkedComprehension = (component, components) =>
-  component.kind === "comprehension" && Boolean(component.passageRefId)
-    && components.some((x) => x.id === component.passageRefId);
+// The passage or listening a comprehension set is checked against — null if
+// it isn't linked, or its source has since left the block.
+export const linkedSource = (component, components) =>
+  (component.kind === "comprehension" && component.passageRefId
+    && components.find((x) => x.id === component.passageRefId)) || null;
+export const sourceNoun = (source) => (source?.kind === "listening" ? "listening" : "passage");
+// One question engine for reading and listening; a set tied to a Listening
+// is just named for what the student actually does with it.
+export const componentLabel = (component, components) =>
+  linkedSource(component, components)?.kind === "listening"
+    ? "Listening comprehension"
+    : (COMPONENT_META[component.kind] || FALLBACK_META).label;
 
 // A step's heading — the activity's type icon, name, level — shared by the
 // student view and Block Studio's editor so the two always read as the same
@@ -1237,9 +1269,9 @@ function StepHeading({ component, linked, right, showLevel = true }) {
   return (
     <div className="flex items-center gap-3 flex-wrap mb-4">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${M.tone}`}><Icon size={18} /></span>
-      <h2 className="text-xl font-semibold tracking-tight text-neutral-950">{M.label}</h2>
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-950">{linked?.kind === "listening" ? "Listening comprehension" : M.label}</h2>
       {showLevel && component.level && <Badge color="outline">Level {component.level}</Badge>}
-      {linked && <span className="text-xs font-medium text-primary-600">↳ for the passage above</span>}
+      {linked && <span className="text-xs font-medium text-primary-600">↳ for the {sourceNoun(linked)} above</span>}
       {right && <div className="ml-auto flex items-center gap-1">{right}</div>}
     </div>
   );
@@ -1293,7 +1325,7 @@ function StudentOutline({ components, activeId, onPick, style }) {
           const M = COMPONENT_META[c.kind] || FALLBACK_META;
           return (
             <RailItem key={c.id} grip={false} icon={M.icon} tone={M.tone}
-              label={`${i + 1}. ${M.label}`} meta={c.level ? `Level ${c.level}` : undefined}
+              label={`${i + 1}. ${componentLabel(c, components)}`} meta={c.level ? `Level ${c.level}` : undefined}
               selected={c.id === activeId} aria-current={c.id === activeId ? "step" : undefined}
               onClick={() => onPick(c.id)} />
           );
@@ -1309,15 +1341,17 @@ function StudentOutline({ components, activeId, onPick, style }) {
 // Individual XxxComponent functions below don't set their own max-w-*;
 // Card framing itself stays per-component (most already return a Card as
 // their own root) — this wrapper only owns width.
-export function ComponentStudent({ component }) {
+// `source` — what a comprehension set is linked to, when the caller knows —
+// only changes its wording ("from the audio" vs "from the text").
+export function ComponentStudent({ component, source }) {
   return (
     <div className="w-full">
-      <ErrorBoundary resetKey={component}>{renderComponentStudent(component)}</ErrorBoundary>
+      <ErrorBoundary resetKey={component}>{renderComponentStudent(component, source)}</ErrorBoundary>
     </div>
   );
 }
 
-function renderComponentStudent(component) {
+function renderComponentStudent(component, source) {
   switch (component.kind) {
     case "passage":    return <PassageComponent component={component} />;
     case "wordlist":   return <WordListComponent component={component} />;
@@ -1339,11 +1373,11 @@ function renderComponentStudent(component) {
     case "correctincorrect": return <CorrectIncorrectComponent component={component} />;
     case "dialoguecompletion": return <DialogueCompletionComponent component={component} />;
     case "speedround": return <SpeedRoundComponent component={component} />;
-    case "video":      return <MediaComponent component={component} kind="video" />;
-    case "listening":  return <MediaComponent component={component} kind="listening" />;
+    case "video":      return <MediaComponent component={component} />;
+    case "listening":  return <ListeningComponent component={component} />;
     case "scenario":   return <ScenarioComponent component={component} />;
     case "homework":   return <HomeworkComponent component={component} />;
-    case "comprehension": return <ComprehensionComponent component={component} />;
+    case "comprehension": return <ComprehensionComponent component={component} fromAudio={source?.kind === "listening"} />;
     case "youtube":    return <YoutubeComponent component={component} />;
     case "speakingRecord": return <SpeakingRecordComponent component={component} />;
     case "shadowing":  return <ShadowingComponent component={component} />;
@@ -1653,17 +1687,18 @@ function QuizQ({ item, n }) {
   );
 }
 
-/* ---- Reading comprehension — checked against a linked passage, in
-   whichever question format the teacher picks. "multiple" reuses the plain
-   Quiz UI; "truefalse"/"matching" get their own renderer below. ---- */
-function ComprehensionComponent({ component }) {
+/* ---- Reading / listening comprehension — checked against a linked
+   passage or listening, in whichever question format the teacher picks.
+   "multiple" reuses the plain Quiz UI; "truefalse"/"matching" get their own
+   renderer below. ---- */
+function ComprehensionComponent({ component, fromAudio = false }) {
   const mode = component.mode || "multiple";
   const items = component.items || [];
   if (mode === "truefalse") {
     if (!items.length) return <EmptyActivity>No statements added yet.</EmptyActivity>;
     return <QuestionList>{items.map((it, i) => <TrueFalseQ key={i} item={it} n={i + 1} />)}</QuestionList>;
   }
-  if (mode === "matching") return <ComprehensionMatch pairs={items} />;
+  if (mode === "matching") return <ComprehensionMatch pairs={items} fromAudio={fromAudio} />;
   return <QuizComponent component={component} />;
 }
 // A two-answer question (True/False, Correct/Incorrect) — same review
@@ -1687,11 +1722,14 @@ function TrueFalseQ({ item, n }) {
   );
 }
 // "Match texts" — pair a statement/question with the excerpt from the
-// passage that answers it, over the same MatchGrid as vocabulary Match.
-function ComprehensionMatch({ pairs }) {
+// passage (or the line from the audio) that answers it, over the same
+// MatchGrid as vocabulary Match.
+function ComprehensionMatch({ pairs, fromAudio }) {
   const { toast } = useStore();
   const rows = (pairs || []).filter((p) => p.left && p.right).slice(0, 6).map((p, i) => ({ id: i, left: p.left, right: p.right }));
-  return <MatchGrid rows={rows} leftLabel="Statement" rightLabel="From the text" instructions="Pick a statement, then the line from the text that answers it." onDone={() => toast("Matched — great reading! 🎉")} />;
+  return fromAudio
+    ? <MatchGrid rows={rows} leftLabel="Statement" rightLabel="From the audio" instructions="Pick a statement, then what you heard that answers it." onDone={() => toast("Matched — great listening! 🎉")} />
+    : <MatchGrid rows={rows} leftLabel="Statement" rightLabel="From the text" instructions="Pick a statement, then the line from the text that answers it." onDone={() => toast("Matched — great reading! 🎉")} />;
 }
 
 // An inline blank inside a sentence — the kit's gray filled field, shrunk
@@ -1791,26 +1829,150 @@ function WordFormationComponent({ component }) {
   );
 }
 
-function MediaComponent({ component, kind }) {
-  const [replays, setReplays] = useState(0);
-  const [showT, setShowT] = useState(false);
+// A transcript is optional, and even when there is one the teacher may keep
+// it from students (it gives the answers away). Older components predate the
+// switch and always showed theirs, so only an explicit `false` hides it.
+const transcriptShown = (component) =>
+  Boolean((component.transcript || "").trim()) && component.showTranscript !== false;
+
+function TranscriptToggle({ transcript }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen((s) => !s)} className="text-sm text-primary-600 hover:text-primary-700 mt-2 inline-flex items-center gap-1">{open ? "Hide" : "Show"} transcript <ChevronRight size={13} className={open ? "rotate-90 transition-transform" : "transition-transform"} /></button>
+      {open && <p className="text-sm text-neutral-600 mt-2 leading-relaxed whitespace-pre-line">{transcript.trim()}</p>}
+    </>
+  );
+}
+
+function MediaComponent({ component }) {
   return (
     <div className="">
       <Card className="p-0 overflow-hidden">
         <div className="aspect-video bg-ink flex items-center justify-center relative">
-          <button onClick={() => setReplays((r) => r + 1)} className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-ink">
-            {kind === "video" ? <Play size={26} className="ml-1" /> : <Volume2 size={26} />}
+          <button className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-ink">
+            <Play size={26} className="ml-1" />
           </button>
           <span className="absolute bottom-3 right-3 text-xs font-medium text-white/80 tabular-nums">{component.duration}</span>
         </div>
         <div className="p-4">
           <div className="font-semibold">{component.title}</div>
-          <div className="text-xs text-neutral-600 mt-0.5">{kind === "video" ? "Subtitled" : `Audio · replays: ${replays}`}</div>
-          <button onClick={() => setShowT((s) => !s)} className="text-sm text-primary-600 hover:text-primary-700 mt-2 inline-flex items-center gap-1">{showT ? "Hide" : "Show"} transcript <ChevronRight size={13} className={showT ? "rotate-90 transition-transform" : "transition-transform"} /></button>
-          {showT && <p className="text-sm text-neutral-600 mt-2 leading-relaxed">{component.transcript}</p>}
+          <div className="text-xs text-neutral-600 mt-0.5">Subtitled</div>
+          {transcriptShown(component) && <TranscriptToggle transcript={component.transcript} />}
         </div>
       </Card>
     </div>
+  );
+}
+
+// m:ss for a number of seconds (audio reports fractional seconds).
+const fmtTime = (secs) => {
+  const t = Math.max(0, Math.floor(secs || 0));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+};
+
+// One <audio> element's playback state, shared by the student card and the
+// editor's preview. The caller renders the element itself with
+// `audioProps` — hidden, since the kit has no native-player look to match.
+// `onLength` hears the file's real length once its metadata loads.
+function useAudioPlayer(src, onLength) {
+  const ref = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [length, setLength] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [plays, setPlays] = useState(0);
+  const toggle = () => {
+    const a = ref.current;
+    if (!a || failed) return;
+    if (!a.paused) { a.pause(); return; }
+    if (a.ended || a.currentTime === 0) setPlays((n) => n + 1);
+    a.play().catch(() => {}); // a real failure also fires `error` below
+  };
+  const seek = (secs) => {
+    const a = ref.current;
+    if (!a || !length) return;
+    a.currentTime = Math.max(0, Math.min(length, secs));
+    setTime(a.currentTime);
+  };
+  return {
+    playing, time, length, failed, plays, toggle, seek,
+    audioProps: {
+      ref, src: src || undefined, preload: "metadata",
+      // A new file starts over from a clean slate.
+      onLoadStart: () => { setPlaying(false); setTime(0); setLength(0); setFailed(false); },
+      onLoadedMetadata: (e) => {
+        const d = Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0;
+        setLength(d);
+        if (d) onLength?.(d);
+      },
+      onTimeUpdate: (e) => setTime(e.currentTarget.currentTime),
+      onPlay: () => setPlaying(true),
+      onPause: () => setPlaying(false),
+      onEnded: () => setPlaying(false),
+      onError: () => { setFailed(true); setPlaying(false); },
+    },
+  };
+}
+
+// Click (or ←/→ by 5s) to jump. The fill is a scaleX, not a width, so it
+// never costs a layout pass — same reasoning as the factory's ProgressBar.
+function SeekBar({ player, onDark = false }) {
+  const pct = player.length ? player.time / player.length : 0;
+  return (
+    <div role="slider" tabIndex={0} aria-label="Position in the audio"
+      aria-valuemin={0} aria-valuemax={Math.round(player.length)} aria-valuenow={Math.round(player.time)}
+      aria-valuetext={`${fmtTime(player.time)} of ${fmtTime(player.length)}`}
+      onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); player.seek(((e.clientX - r.left) / r.width) * player.length); }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        player.seek(player.time + (e.key === "ArrowRight" ? 5 : -5));
+      }}
+      className="py-2 cursor-pointer outline-none rounded-full focus-visible:ring-2 focus-visible:ring-primary-300">
+      <div className={`h-1.5 rounded-full overflow-hidden ${onDark ? "bg-white/25" : "bg-neutral-300"}`}>
+        <div className="h-full w-full origin-left bg-primary-500" style={{ transform: `scaleX(${pct})` }} />
+      </div>
+    </div>
+  );
+}
+
+// The student's Listening card — the same dark stage and round play button
+// as before, now playing the teacher's actual file (uploaded, or a link).
+function ListeningComponent({ component }) {
+  const { src, missing } = useMediaSrc(component.audioFileId, component.audioUrl);
+  const player = useAudioPlayer(src);
+  const hasAudio = Boolean(component.audioFileId || component.audioUrl);
+  const broken = missing || player.failed;
+  const total = player.length ? fmtTime(player.length) : component.duration || "—";
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="aspect-video bg-ink flex items-center justify-center relative">
+        {src && <audio {...player.audioProps} className="hidden" />}
+        {hasAudio && !broken ? (
+          <>
+            <button type="button" onClick={player.toggle} disabled={!src} aria-label={player.playing ? "Pause" : "Play"}
+              className="w-16 h-16 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-ink disabled:opacity-60">
+              {player.playing ? <Pause size={26} /> : <Play size={26} className="ml-1" />}
+            </button>
+            <div className="absolute inset-x-4 bottom-2 flex items-center gap-3">
+              <div className="flex-1 min-w-0"><SeekBar player={player} onDark /></div>
+              <span className="text-xs font-medium text-white/80 tabular-nums shrink-0">{fmtTime(player.time)} / {total}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 px-6 text-center text-white/70">
+            <Headphones size={28} />
+            <span className="text-sm">{broken ? "This audio couldn't be loaded." : "No audio yet."}</span>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <div className="font-semibold">{component.title || component.audioName || "Listening"}</div>
+        <div className="text-xs text-neutral-600 mt-0.5">Audio · replays: {Math.max(0, player.plays - 1)}</div>
+        {transcriptShown(component) && <TranscriptToggle transcript={component.transcript} />}
+      </div>
+    </Card>
   );
 }
 
@@ -2536,7 +2698,7 @@ function SpeedRoundComponent({ component }) {
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function ComponentEditor({ component, onChange, roster, passages = [], registerFlush }) {
+function ComponentEditor({ component, onChange, roster, sources = [], linkedCount = 0, onAddQuestions, registerFlush }) {
   switch (component.kind) {
     case "passage":    return <PassageEditor component={component} onChange={onChange} />;
     case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
@@ -2559,10 +2721,10 @@ function ComponentEditor({ component, onChange, roster, passages = [], registerF
     case "dialoguecompletion": return <DialogueCompletionEditor component={component} onChange={onChange} />;
     case "speedround": return <SpeedRoundEditor component={component} onChange={onChange} />;
     case "video":      return <MediaEditor component={component} onChange={onChange} />;
-    case "listening":  return <MediaEditor component={component} onChange={onChange} />;
+    case "listening":  return <ListeningEditor component={component} onChange={onChange} linkedCount={linkedCount} onAddQuestions={onAddQuestions} />;
     case "scenario":   return <ScenarioEditor component={component} onChange={onChange} />;
     case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
-    case "comprehension": return <ComprehensionEditor component={component} onChange={onChange} passages={passages} />;
+    case "comprehension": return <ComprehensionEditor component={component} onChange={onChange} sources={sources} />;
     case "youtube":    return <YoutubeEditor component={component} onChange={onChange} />;
     case "slidedeck":  return <SlideDeckEditor component={component} onChange={onChange} />;
     case "document":   return <DocumentEditor component={component} onChange={onChange} />;
@@ -2713,10 +2875,13 @@ function QuizEditor({ component, onChange }) {
 
 const COMPREHENSION_MODES = [["multiple", "Multiple choice"], ["truefalse", "True / False"], ["matching", "Match texts"]];
 
-function ComprehensionEditor({ component, onChange, passages = [] }) {
+function ComprehensionEditor({ component, onChange, sources = [] }) {
   const { state } = useStore();
   const mode = component.mode || "multiple";
-  const passageTitle = (p) => state.texts.find((t) => t.id === p.textId)?.title || "Untitled passage";
+  const sourceTitle = (x) => (x.kind === "listening"
+    ? `Listening — ${x.title || x.audioName || "untitled audio"}`
+    : `Reading — ${state.texts.find((t) => t.id === x.textId)?.title || "untitled passage"}`);
+  const fromAudio = sources.find((x) => x.id === component.passageRefId)?.kind === "listening";
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -2724,17 +2889,17 @@ function ComprehensionEditor({ component, onChange, passages = [] }) {
           <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
         ))}
       </div>
-      <Field label="Linked passage (optional)">
+      <Field label="Questions about (optional)">
         <select className={inputCls} value={component.passageRefId || ""} onChange={(e) => onChange({ passageRefId: e.target.value || null })}>
-          <option value="">No specific passage</option>
-          {passages.map((p) => <option key={p.id} value={p.id}>{passageTitle(p)}</option>)}
+          <option value="">Nothing specific</option>
+          {sources.map((x) => <option key={x.id} value={x.id}>{sourceTitle(x)}</option>)}
         </select>
-        <p className="text-xs text-neutral-400 mt-1.5">Links this check to a passage already in this block — shown nested under it in the course tree.</p>
+        <p className="text-xs text-neutral-400 mt-1.5">Links these questions to a passage or a listening already in this block — shown nested under it, here and in the course tree.</p>
       </Field>
       {mode === "multiple" && <QuizEditor component={component} onChange={onChange} />}
       {mode === "truefalse" && <TrueFalseEditor component={component} onChange={onChange} />}
       {mode === "matching" && <RowsEditor component={component} onChange={onChange}
-        fields={[["left", "Statement / question"], ["right", "Answer from the text"]]} blank={{ left: "", right: "" }} label="pair" wide={["left", "right"]} />}
+        fields={[["left", "Statement / question"], ["right", fromAudio ? "Answer from the audio" : "Answer from the text"]]} blank={{ left: "", right: "" }} label="pair" wide={["left", "right"]} />}
     </div>
   );
 }
@@ -2828,7 +2993,156 @@ function MediaEditor({ component, onChange }) {
     <div>
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Duration"><input className={inputCls} value={component.duration} onChange={(e) => onChange({ duration: e.target.value })} /></Field>
-      <Field label="Transcript"><textarea className={`${inputCls} h-24 resize-none`} value={component.transcript} onChange={(e) => onChange({ transcript: e.target.value })} /></Field>
+      <TranscriptFields component={component} onChange={onChange} />
+    </div>
+  );
+}
+
+// Transcript (optional) + whether students get to see it. The switch only
+// appears once there's something to show.
+function TranscriptFields({ component, onChange }) {
+  const has = Boolean((component.transcript || "").trim());
+  return (
+    <>
+      <Field label="Transcript (optional)">
+        <textarea className={`${inputCls} h-24 resize-none`} value={component.transcript || ""} placeholder="What's said in the recording — leave empty if you don't have one."
+          onChange={(e) => onChange({ transcript: e.target.value })} />
+      </Field>
+      {has && (
+        <div className="flex items-start gap-3 -mt-1 mb-4">
+          <Switch checked={component.showTranscript !== false} onChange={(v) => onChange({ showTranscript: v })} className="shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-neutral-900">Show transcript to students</div>
+            <div className="text-xs text-neutral-500">Off — students only hear it; the transcript stays here for you.</div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i;
+
+// A local file's length, read from its metadata before it's attached — so
+// the card knows it straight away. null when the browser can't decode it,
+// i.e. students wouldn't be able to play it either.
+function readAudioLength(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const a = new Audio();
+    const done = (v) => { URL.revokeObjectURL(url); resolve(v); };
+    a.preload = "metadata";
+    a.onloadedmetadata = () => done(Number.isFinite(a.duration) ? a.duration : 0);
+    a.onerror = () => done(null);
+    a.src = url;
+  });
+}
+
+// The file-picker control, styled as the kit's "Add File" hairline button
+// (same as the student Upload activity's).
+function AudioFilePicker({ label, onFile, busy, compact = false }) {
+  return (
+    <label className={`${compact ? "h-9 px-3" : "h-12 px-4 w-full"} inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-400 bg-surface text-sm font-medium text-neutral-900 hover:border-primary-300 hover:text-primary-700 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-100 ${PRESS}`}>
+      <IconFilePlus size={compact ? 16 : 18} stroke={1.75} className="shrink-0" />
+      <span className="truncate">{busy ? "Saving…" : label}</span>
+      <input type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg" className="sr-only" disabled={busy}
+        onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+    </label>
+  );
+}
+
+function ListeningEditor({ component, onChange, linkedCount = 0, onAddQuestions }) {
+  const { toast } = useStore();
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState("");
+  // The upload resolves after an await — by then the editor may have
+  // re-rendered with a newer `onChange` (e.g. the title was typed meanwhile);
+  // the old one would write back a stale component list over it.
+  const latest = useRef(onChange);
+  useEffect(() => { latest.current = onChange; });
+  const { src, missing } = useMediaSrc(component.audioFileId, component.audioUrl);
+  // A pasted link's length is only known once it loads — keep the stored
+  // duration (shown on the card before anyone presses play) in step.
+  const player = useAudioPlayer(src, (secs) => { if (fmtTime(secs) !== component.duration) onChange({ duration: fmtTime(secs) }); });
+  const hasAudio = Boolean(component.audioFileId || component.audioUrl);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("audio/") && !AUDIO_EXT.test(file.name)) { toast("That isn't an audio file — pick an MP3, M4A, WAV or OGG.", "err"); return; }
+    setBusy(true);
+    try {
+      const secs = await readAudioLength(file);
+      if (secs === null) { toast("This browser can't play that file — try an MP3.", "err"); return; }
+      const audioFileId = await saveMedia(file);
+      latest.current({
+        audioFileId, audioName: file.name, audioUrl: "", duration: secs ? fmtTime(secs) : "",
+        ...(component.title ? {} : { title: file.name.replace(/\.[^.]+$/, "") }),
+      });
+      toast("Audio added");
+    } catch {
+      toast("Couldn't save that file — try again.", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const attachLink = () => {
+    const url = link.trim();
+    if (!url) return;
+    onChange({ audioUrl: url, audioFileId: null, audioName: "", duration: "" });
+    setLink("");
+  };
+
+  return (
+    <div>
+      <Field label="Title"><input className={inputCls} value={component.title || ""} placeholder="e.g. Ordering at the counter" onChange={(e) => onChange({ title: e.target.value })} /></Field>
+
+      <div className="mb-4">
+        <span className="text-xs font-semibold text-neutral-600">Audio</span>
+        <div className="mt-1.5">
+          {hasAudio ? (
+            <>
+              <div className="rounded-lg border border-neutral-400 bg-surface p-3 flex items-center gap-3">
+                {src && <audio {...player.audioProps} className="hidden" />}
+                <Button iconOnly size="sm" icon={player.playing ? IconPlayerPause : IconPlayerPlay} disabled={!src || player.failed}
+                  variant={!src || player.failed ? "disabled" : "primary"} aria-label={player.playing ? "Pause" : "Play"} onClick={player.toggle} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-neutral-950">{component.audioName || component.audioUrl}</div>
+                  {missing || player.failed
+                    ? <div className="text-xs text-warning-600 py-1">Couldn't load this audio — replace it or paste another link.</div>
+                    : <SeekBar player={player} />}
+                </div>
+                <span className="text-xs tabular-nums text-neutral-600 shrink-0">{fmtTime(player.time)} / {player.length ? fmtTime(player.length) : component.duration || "—"}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <AudioFilePicker compact label="Replace file" onFile={upload} busy={busy} />
+                <Button size="sm" variant="light" onClick={() => onChange({ audioFileId: null, audioName: "", audioUrl: "", duration: "" })}>
+                  <IconTrash size={15} stroke={1.75} /> Remove audio
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <AudioFilePicker label="Upload audio (MP3, M4A, WAV, OGG)" onFile={upload} busy={busy} />
+              <div className="flex items-center gap-2 mt-2">
+                <input className={inputCls} value={link} placeholder="…or paste a link to an audio file" aria-label="Audio link"
+                  onChange={(e) => setLink(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") attachLink(); }} />
+                <Button size="sm" variant={link.trim() ? "outline" : "disabled"} className="shrink-0" onClick={attachLink}>Use link</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <TranscriptFields component={component} onChange={onChange} />
+
+      {onAddQuestions && (
+        <Alert tone="primary" icon={IconListCheck} title="Questions about this audio"
+          actionLabel={linkedCount ? "Add another set" : "Add questions"} onAction={onAddQuestions}>
+          {linkedCount
+            ? `${linkedCount} question set${linkedCount === 1 ? "" : "s"} linked below.`
+            : "Multiple choice, true / false or matching — placed right under this listening."}
+        </Alert>
+      )}
     </div>
   );
 }

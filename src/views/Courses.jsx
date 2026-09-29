@@ -12,7 +12,7 @@ import {
 import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
-import { COMPONENT_META, blockComponents, componentPreview } from "./parts.jsx";
+import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way
 // down, and its own copy of any H5P content. Null if that copy failed.
@@ -347,12 +347,12 @@ export function CourseView() {
                             {b.components.map((c) => {
                               const M = COMPONENT_META[c.kind] || { label: c.kind, icon: IconBookmarkPlus, tone: "bg-neutral-100 text-neutral-500" };
                               const CI = M.icon;
-                              const linkedPassage = c.kind === "comprehension" && c.passageRefId && b.components.some((x) => x.id === c.passageRefId);
+                              const linkedPassage = Boolean(linkedSource(c, b.components));
                               return (
                                 <div key={c.id} className={`group flex items-center gap-2 py-1 pr-1 rounded-lg hover:bg-neutral-50 ${linkedPassage ? "ml-4 border-l border-primary-100 pl-2" : ""}`}>
                                   <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${M.tone}`}><CI size={11} /></span>
                                   <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
-                                    <span className="text-xs text-neutral-600">{linkedPassage ? "↳ " : ""}{M.label}</span>
+                                    <span className="text-xs text-neutral-600">{linkedPassage ? "↳ " : ""}{componentLabel(c, b.components)}</span>
                                     <span className="text-[11px] text-neutral-500 ml-1.5">{componentPreview(c, state.texts)}</span>
                                   </button>
                                   {c.level && <Tag color="neutral">{c.level}</Tag>}

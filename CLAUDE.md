@@ -22,6 +22,7 @@ your own version of it.
 | Font | **DM Sans**, loaded via Google Fonts `@import` in `index.css`, wired to Tailwind's `font-sans` |
 | Routing (real URLs, `react-router-dom`) | `src/router.jsx` (`Bridge`, `buildPath`, `mergeRoute`, `TAB_PATH`) + `<Routes>` tree in `src/english-platform-prototype.jsx` |
 | Mock "database" (persistence rules — the only layer to replace for a real backend) | `src/db/mockDb.jsx` (`reducer`, `createInitialState`) |
+| Uploaded media (Listening audio) — mock file storage | `src/db/mediaStore.js` (IndexedDB; reached via `store.jsx`'s `saveMedia` / `useMediaSrc`) |
 | Seed fixtures + static UI config (labels, templates, icons) | `src/data.jsx` |
 | Authored lesson content (blocks → components for Everyday English + IT L4) | `src/seedLessons.js` (pulled into `SEED_LESSONS` by `data.jsx`); local files it embeds live in `public/seed/` |
 | React binding over the mock db (Context/Provider, `useStore()`/`useNav()`) | `src/store.jsx` — no persistence logic of its own |
@@ -122,7 +123,27 @@ seam so a real one can be dropped in later without touching any view:
   (`<lesson>-<n>`, matching what `lessonBlocks` gives an unbuilt block) so
   block URLs survive reloads. The Resources block embeds
   local files from `public/seed/` (a map SVG, a small PDF, an HTML slide
-  page) rather than third-party URLs.
+  page) rather than third-party URLs, and its Listening components play
+  real recordings from `public/seed/audio/`, each followed by a linked
+  question set (multiple choice / true-false / matching). The IT standup
+  keeps its transcript but hides it from students (`showTranscript: false`).
+- **`src/db/mediaStore.js`** — the mock file storage for audio a teacher
+  uploads to a Listening component: IndexedDB (`lucid.media`), not
+  `localStorage`, since an MP3 alone can blow `localStorage`'s ~5MB and
+  break the component bank's saving. A component only ever holds the
+  returned id (`audioFileId`, plus `audioName`); `audioUrl` is the
+  alternative for a pasted link or a seed file. Views reach it through
+  `store.jsx`: `saveMedia(file)` and `useMediaSrc(fileId, url)` →
+  `{ src, missing }` (an object URL, released on unmount). Swap these two
+  for an upload endpoint returning a URL and nothing above changes.
+  Replacing a file doesn't delete the old blob, on purpose — a duplicated
+  or library-saved copy may still point at it.
+- **Listening transcripts are optional** — shown to students only when
+  there's text *and* `showTranscript !== false` (older components predate
+  the switch and keep showing theirs). A comprehension set's `passageRefId`
+  can point at a Listening as well as a Passage; linked to a Listening it's
+  labelled "Listening comprehension" everywhere (`componentLabel` /
+  `linkedSource` in `parts.jsx`).
 - **Component bank persistence** — the saved-component library is the one
   piece of state kept in `localStorage` (`persistComponentBank` /
   `savedComponentBank` in `db/mockDb.jsx`). A seed item added to

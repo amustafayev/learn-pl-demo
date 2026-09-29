@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
 import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, persistComponentBank } from "./db/mockDb.jsx";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
+import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
 
 /* =========================================================================
@@ -16,7 +17,7 @@ import { MOTION, cssMs } from "./motion.js";
 // Re-exported so every view that already does `import { lessonBlocks, ... }
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
-export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, uid, h5pClient };
+export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, kitContents, uid, h5pClient, saveMedia };
 
 // Deep copy of `value` whose H5P activities each get their own server-side
 // content (see db/h5pClient.js) — or null, after telling the teacher why, if
@@ -121,4 +122,27 @@ export function useNav() {
   const ctx = useContext(NavCtx);
   if (!ctx) throw new Error("useNav must be used inside <NavProvider>");
   return ctx;
+}
+
+// A playable URL for a component's audio: an uploaded file (stored by id in
+// db/mediaStore.js, turned into an object URL here and released again on
+// unmount) wins over a pasted/seed link. `src` is null while there's no
+// audio yet (or the file is still loading); `missing` is true once an
+// uploaded file turns out to be gone — e.g. the browser's site data was
+// cleared — so the card can say so instead of waiting forever.
+export function useMediaSrc(fileId, url) {
+  const [loaded, setLoaded] = useState({ fileId: null, src: null });
+  useEffect(() => {
+    if (!fileId) return undefined;
+    let objectUrl = null; let alive = true;
+    loadMedia(fileId).then((blob) => {
+      if (!alive) return;
+      objectUrl = blob ? URL.createObjectURL(blob) : null;
+      setLoaded({ fileId, src: objectUrl });
+    }).catch(() => { if (alive) setLoaded({ fileId, src: null }); });
+    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [fileId]);
+  if (!fileId) return { src: url || null, missing: false };
+  const ready = loaded.fileId === fileId;
+  return { src: ready ? loaded.src : null, missing: ready && !loaded.src };
 }

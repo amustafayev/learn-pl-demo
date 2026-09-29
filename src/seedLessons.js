@@ -176,7 +176,13 @@ const EV2 = [
     { kind: "wordsearch", title: "Find the café words", words: ["MENU", "BILL", "TIP", "ORDER", "CAKE", "TEA"] },
   ]),
   block("ev2", 3, "listening", "A2", [
-    { kind: "listening", title: "Ordering at the counter", duration: "1:40", transcript: "Barista: Hi, what can I get you? — Customer: Could I have a large cappuccino, please? — Barista: Sure. Anything to eat? — Customer: Yes, a croissant, please. — Barista: For here or takeaway? — Customer: For here, thanks. — Barista: That's six manats fifty." },
+    { kind: "listening", title: "Ordering at the counter", audioUrl: "/seed/audio/counter.m4a", duration: "0:15", showTranscript: true, transcript: "Barista: Hi, what can I get you? — Customer: Could I have a large cappuccino, please? — Barista: Sure. Anything to eat? — Customer: Yes, a croissant, please. — Barista: For here or takeaway? — Customer: For here, thanks. — Barista: That's six manats fifty." },
+    { kind: "comprehension", mode: "truefalse", passageRefId: 1, items: [
+      { statement: "The customer orders a small cappuccino.", answer: false, why: "O, “a large cappuccino” istəyir." },
+      { statement: "The customer wants something to eat too.", answer: true, why: "“Yes, a croissant, please.”" },
+      { statement: "The customer takes the order away.", answer: false, why: "“For here, thanks.” — kafedə qalır." },
+      { statement: "It costs six manats fifty.", answer: true, why: "“That's six manats fifty.”" },
+    ] },
     { kind: "video", title: "Polite phrases for cafés", duration: "2:45", transcript: "When you order, “Could I have…” and “I'd like…” sound more polite than “Give me…”. To pay, ask “Can I have the bill, please?”" },
     { kind: "youtube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Model café conversation", notes: "Watch once for the gist, then again and write down every polite phrase you hear." },
   ]),
@@ -259,7 +265,13 @@ const EV3 = [
     ] },
   ]),
   block("ev3", 3, "listening", "A2", [
-    { kind: "listening", title: "Excuse me, where's the station?", duration: "1:55", transcript: "Tourist: Excuse me, how do I get to the train station? — Local: Go straight on down this street, then take the second left. — Tourist: Second left… and then? — Local: Walk past the supermarket. The station is on your right, opposite the bank. — Tourist: Is it far? — Local: No, about five minutes on foot." },
+    { kind: "listening", title: "Excuse me, where's the station?", audioUrl: "/seed/audio/station.m4a", duration: "0:18", showTranscript: true, transcript: "Tourist: Excuse me, how do I get to the train station? — Local: Go straight on down this street, then take the second left. — Tourist: Second left… and then? — Local: Walk past the supermarket. The station is on your right, opposite the bank. — Tourist: Is it far? — Local: No, about five minutes on foot." },
+    { kind: "comprehension", mode: "multiple", passageRefId: 1, items: [
+      { q: "Which turn does the tourist take?", options: ["The first left", "The second left", "The second right"], answer: 1, why: "“…then take the second left.”" },
+      { q: "What does the tourist walk past?", options: ["The bank", "The supermarket", "The museum"], answer: 1, why: "“Walk past the supermarket.”" },
+      { q: "Where is the station?", options: ["Next to the supermarket", "On the left, behind the bank", "On the right, opposite the bank"], answer: 2, why: "“The station is on your right, opposite the bank.”" },
+      { q: "How far is it?", options: ["About five minutes on foot", "About fifteen minutes on foot", "Two stops by bus"], answer: 0, why: "“No, about five minutes on foot.”" },
+    ] },
     { kind: "youtube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Giving directions — model video", notes: "Pause after each instruction and trace the route on the city map in the Resources block." },
   ]),
   block("ev3", 4, "grammar", "A2", [
@@ -448,7 +460,22 @@ const EV5 = [
     { kind: "flashcards", items: NEW_CITY_WORDS.slice(0, 15).map(({ term, az, example }) => ({ term, az, example })) },
   ]),
   block("ev5", 3, "listening", "B1", [
-    { kind: "listening", title: "Viewing a flat", duration: "4:30", transcript: "Agent: Hi, you must be here to see the flat. Come in. — Renter: Thanks. Oh, it's brighter than in the photos. — Agent: Yes, the living room gets the sun all afternoon. The kitchen is through here — everything is new: the fridge, the cooker and the washing machine. — Renter: Great. And how much is the rent? — Agent: It's twelve hundred a month, and the deposit is two months' rent. — Renter: Are bills included? — Agent: Water is included, but electricity and internet are extra. — Renter: How far is it to the metro? — Agent: About six minutes on foot, straight down the hill. The bus stop is just outside. — Renter: And the neighbours? Is it a quiet building? — Agent: Very quiet. Most people here are young families or people who work in the centre. — Renter: When could I move in? — Agent: From the first of next month. If you like it, I can send you the contract today. — Renter: I'd like to think about it tonight and call you tomorrow morning, if that's OK. — Agent: Of course. Take your time." },
+    { kind: "listening", title: "Viewing a flat", audioUrl: "/seed/audio/flat.m4a", duration: "0:56", showTranscript: true, transcript: "Agent: Hi, you must be here to see the flat. Come in. — Renter: Thanks. Oh, it's brighter than in the photos. — Agent: Yes, the living room gets the sun all afternoon. The kitchen is through here — everything is new: the fridge, the cooker and the washing machine. — Renter: Great. And how much is the rent? — Agent: It's twelve hundred a month, and the deposit is two months' rent. — Renter: Are bills included? — Agent: Water is included, but electricity and internet are extra. — Renter: How far is it to the metro? — Agent: About six minutes on foot, straight down the hill. The bus stop is just outside. — Renter: And the neighbours? Is it a quiet building? — Agent: Very quiet. Most people here are young families or people who work in the centre. — Renter: When could I move in? — Agent: From the first of next month. If you like it, I can send you the contract today. — Renter: I'd like to think about it tonight and call you tomorrow morning, if that's OK. — Agent: Of course. Take your time." },
+    { kind: "comprehension", mode: "matching", passageRefId: 1, items: [
+      { left: "How much is the rent?", right: "Twelve hundred a month" },
+      { left: "How big is the deposit?", right: "Two months' rent" },
+      { left: "Which bill is included?", right: "Water" },
+      { left: "How far is the metro?", right: "About six minutes on foot" },
+      { left: "When could the renter move in?", right: "From the first of next month" },
+      { left: "When will the renter call back?", right: "Tomorrow morning" },
+    ] },
+    { kind: "comprehension", mode: "truefalse", passageRefId: 1, items: [
+      { statement: "The flat is darker than in the photos.", answer: false, why: "“It's brighter than in the photos.”" },
+      { statement: "The kitchen has new appliances.", answer: true, why: "“Everything is new: the fridge, the cooker and the washing machine.”" },
+      { statement: "Electricity and internet are included in the rent.", answer: false, why: "Yalnız su daxildir — “electricity and internet are extra”." },
+      { statement: "The building is quiet.", answer: true, why: "“Very quiet.”" },
+      { statement: "The renter signs the contract the same day.", answer: false, why: "O, sabah zəng edəcəyini deyir." },
+    ] },
     { kind: "video", title: "Renting a flat abroad — what to ask", duration: "6:10", transcript: "Before you sign anything, ask about four things. First, the total cost: rent, deposit, and which bills are included. Second, the contract: how long it is, and what happens if you need to leave early. Third, repairs: who fixes the heating or the washing machine if it breaks? And finally, the area: visit at night as well as during the day, walk to the nearest metro, and find the closest grocery shop and pharmacy. A cheap flat far from transport can cost you more in time and money every single day." },
   ]),
   block("ev5", 4, "grammar", "B1", [
@@ -670,7 +697,13 @@ export const TENSE_CONTENT = [
   ],
   // Listenings — Real standup audio recording
   [
-    { kind: "listening", title: "Monday standup — backend team", duration: "1:45", transcript: "Aysel: Last week I finished the payment API. Today I'm writing the tests, and I'll have them ready by Wednesday. — Rashad: I've fixed two of the three login bugs so far. The last one is blocking me — I need access to the logs. — Lead: OK, I'll give you access after this call." },
+    { kind: "listening", title: "Monday standup — backend team", audioUrl: "/seed/audio/standup.m4a", duration: "0:16", showTranscript: false, transcript: "Aysel: Last week I finished the payment API. Today I'm writing the tests, and I'll have them ready by Wednesday. — Rashad: I've fixed two of the three login bugs so far. The last one is blocking me — I need access to the logs. — Lead: OK, I'll give you access after this call." },
+    { kind: "comprehension", mode: "multiple", passageRefId: 1, items: [
+      { q: "What did Aysel finish last week?", options: ["The login screen", "The payment API", "The tests"], answer: 1, why: "“Last week I finished the payment API.”" },
+      { q: "When will the tests be ready?", options: ["Today", "By Wednesday", "By Friday"], answer: 1, why: "“I'll have them ready by Wednesday.”" },
+      { q: "How many login bugs has Rashad fixed so far?", options: ["One", "Two", "Three"], answer: 1, why: "“I've fixed two of the three login bugs so far.”" },
+      { q: "What is blocking Rashad?", options: ["He needs access to the logs", "He needs more time", "His laptop is broken"], answer: 0, why: "“I need access to the logs.”" },
+    ] },
     { kind: "shadowing", items: [
       { sentence: "I've fixed two of the three bugs so far.", note: "Contraction: “I've” — say it as one sound." },
       { sentence: "I'll have them ready by Wednesday.", note: "Stress: READY, WEDNESDAY." },

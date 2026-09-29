@@ -186,7 +186,7 @@ const TENSE_PARTS = [
   P("reading",    "Passage — How we talk about time at work", "240 words · B1 · tap-to-translate on", { textId: "t_standup" }),
   P("vocabulary", "Words — 12 target tense & time words",      "deploy · ship · release · by then …"),
   P("listening",  "Videos — Video explanation of tense forms", "Video lesson · 4:15 · subtitled"),
-  P("listening",  "Listenings — Real standup audio recording", "Audio recording · 1:45 · with transcript"),
+  P("listening",  "Listenings — Real standup audio recording", "Audio recording · 0:16 · 4 questions"),
   P("grammar",    "Grammar — Tenses on a timeline",           "Interactive visual grammar block"),
   P("practice",   "Practice Grammar — Fill the gaps & tense rules", "Auto-graded · instant feedback in AZ"),
   P("playground", "Playground — Crossword & Word Tower Challenge", "Gamified vocabulary challenge & puzzles"),
