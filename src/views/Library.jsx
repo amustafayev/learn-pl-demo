@@ -3,9 +3,10 @@ import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-do
 import {
   IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconWand,
   IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBoxMultiple, IconBuildingStore,
+  IconCode, IconCoffee, IconBriefcase, IconPlane, IconCertificate, IconStethoscope, IconBook, IconFileText, IconLanguage,
 } from "@tabler/icons-react";
 import {
-  Page, PageHeader, Card, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
+  Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
 } from "../design-system.jsx";
 import { useStore, groupBankByParent, bankChildLabel, discardH5PContent } from "../store.jsx";
 import { BLOCK_TYPES } from "../data.jsx";
@@ -78,6 +79,21 @@ function WordSetPanelRoute() {
 
 /* ------------------------------- reading ------------------------------- */
 
+// Each topic gets its own card tint and icon, so a shelf of texts scans at a
+// glance instead of reading as identical gray tiles. Tints reuse the five
+// tones courses are colored with (IT and Everyday match their courses);
+// topics that share a tone are told apart by icon.
+const TOPIC_LOOK = {
+  IT: { tone: "primary", icon: IconCode },
+  Everyday: { tone: "pending", icon: IconCoffee },
+  Business: { tone: "success", icon: IconBriefcase },
+  Travel: { tone: "info", icon: IconPlane },
+  IELTS: { tone: "success", icon: IconCertificate },
+  Medical: { tone: "warning", icon: IconStethoscope },
+  Academic: { tone: "info", icon: IconBook },
+};
+const topicLook = (topic) => TOPIC_LOOK[topic] || { tone: "primary", icon: IconFileText };
+
 function ReadingList({ open }) {
   const { state } = useStore();
   const [add, setAdd] = useState(false);
@@ -95,16 +111,18 @@ function ReadingList({ open }) {
 
       <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>Reading texts · grouped by topic & level</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {state.texts.map((t) => (
-          <button key={t.id} onClick={() => open(t.id)} className="text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Tag color="neutral">{t.topic}</Tag>
-              <IconChevronRight size={16} stroke={1.75} className="text-neutral-300" />
-            </div>
-            <div className="font-bold mb-1 text-neutral-950">{t.title}</div>
-            <div className="text-sm text-neutral-500">{t.level} · {t.wordCount} words{t.hasTranslation ? " · tappable" : ""}</div>
-          </button>
-        ))}
+        {state.texts.map((t) => {
+          const look = topicLook(t.topic);
+          return (
+            <CourseCard key={t.id} icon={look.icon} tone={look.tone} title={t.title}
+              category={`${t.topic} · Level ${t.level}`}
+              stats={[
+                { icon: IconFileText, value: `${t.wordCount} words` },
+                ...(t.hasTranslation ? [{ icon: IconLanguage, value: "Tap to translate" }] : []),
+              ]}
+              onViewDetail={() => open(t.id)} />
+          );
+        })}
       </div>
       <AddTextModal open={add} onClose={() => setAdd(false)} />
       <OwnTextModal open={own} onClose={() => setOwn(false)} />
