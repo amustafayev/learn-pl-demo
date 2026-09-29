@@ -1,5 +1,6 @@
 import {
   SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
+  SEED_TAUGHT_LESSONS,
   TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
@@ -78,25 +79,51 @@ export const lessonBlocks = (l) =>
 // studying right now.
 export const activeClassCourse = (cls) => (cls?.courses || []).find((c) => c.status === "in-progress") || null;
 
-// A course has no progress of its own — it's just authored content until a
-// class is actually assigned to it. Progress only exists per class: a done
-// course-entry reads 100%, an in-progress one reads by how far its current
-// lesson sits in the course, and a class that hasn't started yet reads 0%.
-// Returns one row per class actually assigned to `courseId` — empty if none
-// are, which is the "this course isn't being taught anywhere yet" case.
-export function classesOnCourse(state, courseId) {
+// Which course a student is studying — derived from their class's active
+// course, never stored on the student (it would go stale the moment the
+// class's course changes).
+export const studentCourseId = (state, student) =>
+  activeClassCourse(state.classes.find((c) => c.id === student?.classId))?.courseId || null;
+
+// Where one class stands on one course, teacher-side and lesson-level only:
+// the lesson it's on next, what it was last taught and when, and how many
+// of the course's lessons it has been taught. All derived from the class's
+// `courses` entry plus the taughtLessons log — a real backend would return
+// the same shape from GET /classes/:classId/courses/:courseId.
+// null when the class isn't assigned that course.
+export function classCourseProgress(state, cls, courseId) {
+  const entry = cls?.courses.find((c) => c.courseId === courseId);
+  if (!entry) return null;
   const lessons = state.lessons[courseId] || [];
+  const log = (state.taughtLessons || [])
+    .filter((t) => t.classId === cls.id && t.courseId === courseId)
+    .sort((a, b) => (a.taughtAt < b.taughtAt ? 1 : -1)); // newest first
+  // lessonId -> the latest time it was taught
+  const taughtAt = {};
+  log.forEach((t) => { if (!taughtAt[t.lessonId]) taughtAt[t.lessonId] = t.taughtAt; });
+  const taughtCount = lessons.filter((l) => taughtAt[l.id]).length;
+  const nextIndex = lessons.findIndex((l) => l.id === entry.currentLessonId);
+  const last = log[0] ? { lesson: lessons.find((l) => l.id === log[0].lessonId) || null, taughtAt: log[0].taughtAt } : null;
+  const allTaught = lessons.length > 0 && taughtCount === lessons.length;
+  return {
+    entry, lessons, taughtAt, taughtCount, total: lessons.length, last, allTaught,
+    // "Next up" means nothing once the course is done or every lesson has
+    // been taught; before any lesson is set it falls back to the first.
+    next: entry.status === "done" || allTaught ? null : lessons[nextIndex >= 0 ? nextIndex : 0] || null,
+    pct: entry.status === "done" ? 100 : lessons.length ? Math.round((taughtCount / lessons.length) * 100) : 0,
+  };
+}
+
+// A course has no progress of its own — it's just authored content until a
+// class is actually assigned to it. Progress only exists per class (see
+// classCourseProgress). Returns one row per class actually assigned to
+// `courseId` — empty if none are, which is the "this course isn't being
+// taught anywhere yet" case.
+export function classesOnCourse(state, courseId) {
   return state.classes
-    .map((cls) => ({ cls, entry: cls.courses.find((c) => c.courseId === courseId) }))
-    .filter((x) => x.entry)
-    .map(({ cls, entry }) => {
-      const pct = entry.status === "done"
-        ? 100
-        : lessons.length
-          ? Math.max(0, Math.round(((lessons.findIndex((l) => l.id === entry.currentLessonId) + 1) / lessons.length) * 100))
-          : 0;
-      return { cls, entry, pct };
-    });
+    .map((cls) => ({ cls, progress: classCourseProgress(state, cls, courseId) }))
+    .filter((x) => x.progress)
+    .map(({ cls, progress }) => ({ cls, entry: progress.entry, pct: progress.pct, progress }));
 }
 
 // The single number a course card can show — the average of every class
@@ -135,6 +162,7 @@ export function createInitialState() {
     lessons: clone(SEED_LESSONS),
     classes: clone(SEED_CLASSES),
     students: clone(SEED_STUDENTS),
+    taughtLessons: clone(SEED_TAUGHT_LESSONS),
     texts: clone(SEED_TEXTS),
     wordSets: clone(SEED_WORDSETS),
     blockBank: clone(SEED_BLOCK_BANK),
@@ -143,6 +171,11 @@ export function createInitialState() {
     toasts: [],
   };
 }
+
+const firstLessonId = (state, courseId) => (state.lessons[courseId] || [])[0]?.id || null;
+// The one-active-course rule: any other in-progress course becomes paused.
+const pauseActive = (courses, exceptCourseId) =>
+  courses.map((x) => (x.status === "in-progress" && x.courseId !== exceptCourseId ? { ...x, status: "paused" } : x));
 
 export function reducer(state, action) {
   switch (action.type) {
@@ -289,12 +322,12 @@ export function reducer(state, action) {
       // made where that needs async work (their own H5P content).
       const { studentId, focusLabel, contents } = action;
       const student = state.students.find((s) => s.id === studentId);
-      if (!student || !student.courseId) return state;
-      const course = state.courses.find((c) => c.id === student.courseId);
+      const courseId = studentCourseId(state, student);
+      if (!student || !courseId) return state;
+      const course = state.courses.find((c) => c.id === courseId);
       const templateTypes = LESSON_TEMPLATES[course?.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
       const compatible = state.blockBank.filter((b) => templateTypes.includes(b.type));
       if (!compatible.length) return state;
-      const courseId = student.courseId;
       const list = state.lessons[courseId] || [];
       const built = compatible.map((item) => {
         const content = JSON.parse(JSON.stringify(contents?.[item.id] || item.content || { components: [] }));
@@ -305,70 +338,88 @@ export function reducer(state, action) {
       const students = state.students.map((s) => (s.id === studentId ? { ...s, extraLessons: [...(s.extraLessons || []), lesson.id] } : s));
       return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] }, students };
     }
-    case "SET_STUDENT_COURSE": {
-      // Full unenroll only (courseId: null) — also drops the student from
-      // whatever class they were in. Enrolling now always goes through a
-      // specific Class (SET_STUDENT_CLASS) — a student's only assignment
-      // is which class they're in; the class carries the course.
-      const { studentId, courseId } = action;
-      const student = state.students.find((s) => s.id === studentId);
-      const classes = student?.classId
-        ? state.classes.map((c) => (c.id === student.classId ? { ...c, studentIds: c.studentIds.filter((id) => id !== studentId) } : c))
-        : state.classes;
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, courseId, classId: null } : s));
-      return { ...state, students, classes };
-    }
+    /* ---------------- classes (teacher side) ----------------
+       Each action below is one call a real backend would expose — the
+       payload is exactly the request body, and the reducer applies the
+       same rules the server would (so swapping this for fetches changes
+       nothing a view sees):
+
+         ADD_CLASS                POST   /classes                              { name, scheduleDays, courseId? }
+         ASSIGN_CLASS_COURSE      POST   /classes/:classId/courses             { courseId }
+         SET_CLASS_COURSE_STATUS  PATCH  /classes/:classId/courses/:courseId   { status }
+         SET_CLASS_CURRENT_LESSON PATCH  /classes/:classId/courses/:courseId   { currentLessonId }
+         MARK_LESSON_TAUGHT       POST   /classes/:classId/courses/:courseId/taught-lessons  { lessonId, taughtAt }
+         SET_STUDENT_CLASS        PATCH  /students/:studentId                  { classId }  (null = leave the class)
+
+       Server-side rules mirrored here: at most one "in-progress" course
+       per class (activating one pauses the other); teaching a lesson
+       appends to the log and moves "next up" past it, never backwards. */
     case "ADD_CLASS": {
       const { courseId, name, scheduleDays } = action;
-      const cls = { id: uid("cls"), name, scheduleDays: scheduleDays || [], studentIds: [],
-        courses: courseId ? [{ courseId, currentLessonId: null, status: "in-progress" }] : [] };
+      const cls = { id: uid("cls"), name, scheduleDays: scheduleDays || [],
+        courses: courseId ? [{ courseId, currentLessonId: firstLessonId(state, courseId), status: "in-progress" }] : [] };
       return { ...state, classes: [...state.classes, cls] };
     }
-    // Assigns a new course to a class's history — a class can study several
-    // courses over time (see SEED_CLASSES), so this appends rather than
-    // replaces. No-op if the course is already in the class's history.
+    // Adds a course to the class's history and makes it the active one; a
+    // course already in progress is paused (not finished), so it can be
+    // resumed later. No-op if the course is already in the history.
     case "ASSIGN_CLASS_COURSE": {
       const { classId, courseId } = action;
       const classes = state.classes.map((c) => {
         if (c.id !== classId || c.courses.some((x) => x.courseId === courseId)) return c;
-        return { ...c, courses: [...c.courses, { courseId, currentLessonId: null, status: "in-progress" }] };
+        return { ...c, courses: [...pauseActive(c.courses), { courseId, currentLessonId: firstLessonId(state, courseId), status: "in-progress" }] };
       });
       return { ...state, classes };
     }
-    // Marks one of a class's courses done/in-progress — e.g. "the class
-    // finished this course, move on to the next one".
+    // done / in-progress / paused. Making one in-progress (resume, reopen)
+    // pauses whichever other course was active.
     case "SET_CLASS_COURSE_STATUS": {
       const { classId, courseId, status } = action;
-      const classes = state.classes.map((c) => (c.id !== classId ? c :
-        { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? { ...x, status } : x)) }));
+      const classes = state.classes.map((c) => {
+        if (c.id !== classId) return c;
+        const courses = status === "in-progress" ? pauseActive(c.courses, courseId) : c.courses;
+        return { ...c, courses: courses.map((x) => (x.courseId === courseId ? { ...x, status } : x)) };
+      });
       return { ...state, classes };
     }
-    // Which lesson of one of its assigned courses the whole class is
-    // currently on — the class-level equivalent of the old per-student
-    // lesson assignment.
+    // The teacher's manual correction of "next up".
     case "SET_CLASS_CURRENT_LESSON": {
       const { classId, courseId, lessonId } = action;
       const classes = state.classes.map((c) => (c.id !== classId ? c :
         { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? { ...x, currentLessonId: lessonId } : x)) }));
       return { ...state, classes };
     }
-    case "SET_STUDENT_CLASS": {
-      // Enrolling in a Class enrolls in its course too (classId is the
-      // source of truth; courseId stays denormalized on the student so
-      // every existing course-scoped view keeps working unchanged).
-      // classId: null unenrolls from both the class and the course.
-      const { studentId, classId } = action;
-      const student = state.students.find((s) => s.id === studentId);
-      const target = classId ? state.classes.find((c) => c.id === classId) : null;
+    // A lesson was taught to a class (a live lesson ended, or the teacher
+    // pressed "Mark as taught"): log it, and move "next up" to the lesson
+    // after it — unless the class is already further along (re-teaching an
+    // earlier lesson as a review never drags the class back). Teaching a
+    // course also makes it the class's active one.
+    case "MARK_LESSON_TAUGHT": {
+      const { classId, courseId, lessonId, taughtAt } = action;
+      const lessons = state.lessons[courseId] || [];
+      const taughtIdx = lessons.findIndex((l) => l.id === lessonId);
+      if (taughtIdx < 0) return state;
       const classes = state.classes.map((c) => {
-        let studentIds = c.studentIds;
-        if (c.id === student?.classId) studentIds = studentIds.filter((id) => id !== studentId);
-        if (c.id === classId && !studentIds.includes(studentId)) studentIds = [...studentIds, studentId];
-        return studentIds === c.studentIds ? c : { ...c, studentIds };
+        if (c.id !== classId) return c;
+        // Reviewing a finished course doesn't take over from the active one.
+        const done = c.courses.find((x) => x.courseId === courseId)?.status === "done";
+        const courses = (done ? c.courses : pauseActive(c.courses, courseId)).map((x) => {
+          if (x.courseId !== courseId) return x;
+          const curIdx = lessons.findIndex((l) => l.id === x.currentLessonId);
+          const nextIdx = Math.min(Math.max(curIdx, taughtIdx + 1), lessons.length - 1);
+          return { ...x, status: x.status === "done" ? "done" : "in-progress", currentLessonId: lessons[nextIdx].id };
+        });
+        return { ...c, courses };
       });
-      const students = state.students.map((s) =>
-        s.id === studentId ? { ...s, classId: classId || null, courseId: activeClassCourse(target)?.courseId || null } : s);
-      return { ...state, students, classes };
+      const entry = { id: uid("tl"), classId, courseId, lessonId, taughtAt };
+      return { ...state, classes, taughtLessons: [...(state.taughtLessons || []), entry] };
+    }
+    // Membership is the student's classId alone — the roster and the
+    // student's course are derived from it (see studentCourseId).
+    case "SET_STUDENT_CLASS": {
+      const { studentId, classId } = action;
+      const students = state.students.map((s) => (s.id === studentId ? { ...s, classId: classId || null } : s));
+      return { ...state, students };
     }
     case "SET_RECORDING_SUMMARY": {
       // written when a teacher ends a recorded live lesson and drafts notes —

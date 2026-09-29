@@ -889,7 +889,7 @@ export function HeaderCardSection({ well = false, className = "", children }) {
   return <div className={`${well ? "border-t border-neutral-400 bg-neutral-200 p-4 sm:p-6 last:rounded-b-[13px]" : "p-5 sm:p-6 space-y-4"} ${className}`}>{children}</div>;
 }
 
-export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, currentLessonTitle, roster = [], studentCountLabel, progressPct, onViewDetail, className = "" }) {
+export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, lessonLine, roster = [], studentCountLabel, progressPct, progressLabel = "Progress", onViewDetail, className = "" }) {
   return (
     <Card className={`overflow-hidden !rounded-xl ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
@@ -901,7 +901,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
         <div className="mt-1.5 text-sm text-neutral-600">{courseTitle}</div>
       </div>
       <div className="p-5">
-        <div className="text-sm text-neutral-600 min-h-[1.25rem]">{currentLessonTitle ? `Current: ${currentLessonTitle}` : ""}</div>
+        <div className="text-sm text-neutral-700 min-h-[1.25rem] truncate">{lessonLine || ""}</div>
         <div className="mt-2.5 flex items-center gap-2">
           <div className="flex -space-x-2 overflow-hidden">
             {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={s.color} size="xs" />)}
@@ -910,7 +910,7 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
         </div>
         {progressPct != null && (
           <div className="mt-4">
-            <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
+            <div className="mb-1.5 text-sm font-bold text-neutral-950">{progressLabel}</div>
             <SegmentedBar pct={progressPct} />
           </div>
         )}

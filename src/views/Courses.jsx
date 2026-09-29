@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
-  IconPlus, IconChevronRight, IconChevronDown, IconLock, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
+  IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
   IconEye, IconSearch, IconMaximize, IconMinimize,
-  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck, IconFlag, IconPlayerPlay,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, PillTabs } from "../design-system.jsx";
 import {
-  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, courseAvgProgress,
+  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
   uid, copyWithOwnH5P, discardH5PContent,
 } from "../store.jsx";
-import { BLOCK_TYPES, LESSON_TEMPLATES, blockMeta } from "../data.jsx";
+import { timeAgo, shortDate } from "../format.js";
+import ClassLessonBar from "../components/ClassLessonBar.jsx";
+import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
@@ -85,8 +87,8 @@ export function CourseView() {
   // course's own authored lock/current/progress fields below. Absent this,
   // the tree shows the course's generic template state (no class taken it).
   const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
-  const classCourse = cls?.courses.find((c) => c.courseId === course?.id) || null;
-  const classCurrentIndex = classCourse ? lessons.findIndex((l) => l.id === classCourse.currentLessonId) : -1;
+  const progress = cls && course ? classCourseProgress(state, cls, course.id) : null;
+  const classCourse = progress?.entry || null;
 
   // Hydrate every lesson's shorthand `parts` into a real `built` array with
   // stable ids as soon as the tree needs to show them — without this, a
@@ -105,25 +107,25 @@ export function CourseView() {
   const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
   const toggleBlock = (key) => setExpandedBlocks((m) => ({ ...m, [key]: !m[key] }));
 
-  // A lesson has no progress/lock/current state of its own — a course is
-  // pure authored content until a class is actually assigned to it. Viewed
-  // through a class (?classId=), the tree shows THAT class's real position;
-  // viewed plainly from Courses, `progress` comes back `null` so the badge
-  // and lock icon disappear entirely rather than showing a made-up state.
-  function classLessonView(l, i) {
-    if (!classCourse) return { locked: false, progress: null, current: false };
-    if (classCourse.status === "done") return { locked: false, progress: 100, current: false };
-    if (classCurrentIndex < 0) return { locked: false, progress: 0, current: false };
-    if (i < classCurrentIndex) return { locked: false, progress: 100, current: false };
-    if (i === classCurrentIndex) return { locked: false, progress: 50, current: true };
-    return { locked: true, progress: 0, current: false };
+  // A lesson has no progress of its own — a course is pure authored content
+  // until a class is assigned to it. Viewed through a class (?classId=), each
+  // lesson reads as that class's fact: taught (and when), next up, or not
+  // taught yet. Lesson-level only — nothing is tracked inside a lesson, so
+  // there's no percentage per lesson. Viewed plainly, `state` is null and
+  // no status shows at all.
+  function classLessonView(l) {
+    if (!progress) return { state: null };
+    const taughtAt = progress.taughtAt[l.id] || null;
+    if (progress.next?.id === l.id) return { state: "next", taughtAt };
+    if (taughtAt) return { state: "taught", taughtAt };
+    return { state: classCourse.status === "done" ? "taught" : "later", taughtAt };
   }
 
   // The whole tree (Lesson → Block → Component), built once per render so
   // the header row, the block rail and the expanded body all read off the
   // same numbers. Search matches roll up: a matching component reveals its
   // block, a matching block reveals its lesson.
-  const tree = lessons.map((l, i) => {
+  const tree = lessons.map((l) => {
     const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, state.texts) }));
     const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
 
@@ -139,17 +141,17 @@ export function CourseView() {
       if (blockHit || compHit) { blockMatch[b.id] = true; lessonMatch = true; }
     });
 
-    return { lesson: l, view: classLessonView(l, i), blocks, totalComponents, lessonMatch, blockMatch };
+    return { lesson: l, view: classLessonView(l), blocks, totalComponents, lessonMatch, blockMatch };
   });
-  // Status filter only means anything once a class gives these lessons a
-  // real progress number — see classLessonView above.
-  const progressCount = tree.filter((t) => t.view.progress > 0 && t.view.progress < 100).length;
-  const doneCount = tree.filter((t) => t.view.progress === 100).length;
+  // Status filter only means anything viewed through a class — see
+  // classLessonView above.
+  const taughtCount = tree.filter((t) => t.view.state === "taught").length;
+  const notTaughtCount = tree.filter((t) => t.view.state === "next" || t.view.state === "later").length;
   const visibleTree = tree
     .filter((t) => !q || t.lessonMatch)
     .filter((t) => {
-      if (statusFilter === "progress") return t.view.progress > 0 && t.view.progress < 100;
-      if (statusFilter === "done") return t.view.progress === 100;
+      if (statusFilter === "taught") return t.view.state === "taught";
+      if (statusFilter === "not-taught") return t.view.state === "next" || t.view.state === "later";
       return true;
     });
 
@@ -160,9 +162,6 @@ export function CourseView() {
   }
   const collapseAll = () => { setExpandedLessons({}); setExpandedBlocks({}); };
 
-  const overallPct = classCourse
-    ? (classCourse.status === "done" ? 100 : lessons.length ? Math.round(((classCurrentIndex + 1) / lessons.length) * 100) : 0)
-    : null;
 
   return (
     <Page>
@@ -176,11 +175,13 @@ export function CourseView() {
         right={<div className="flex items-center gap-2">
           {classCourse && (
             <Button variant="light" size="sm" onClick={() => {
-              const next = classCourse.status === "done" ? "in-progress" : "done";
+              const next = classCourse.status === "in-progress" ? "done" : "in-progress";
               dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: next });
-              toast(next === "done" ? `${course.title} marked completed for ${cls.name}` : `${course.title} reopened for ${cls.name}`);
+              toast(next === "done" ? `${course.title} marked completed for ${cls.name}`
+                : classCourse.status === "paused" ? `${course.title} resumed for ${cls.name}` : `${course.title} reopened for ${cls.name}`);
             }}>
-              {classCourse.status === "done" ? "Reopen course" : <><IconCircleCheck size={14} stroke={1.75} /> Mark as completed</>}
+              {classCourse.status === "in-progress" ? <><IconCircleCheck size={14} stroke={1.75} /> Mark as completed</>
+                : classCourse.status === "paused" ? <><IconPlayerPlay size={14} stroke={1.75} /> Resume course</> : "Reopen course"}
             </Button>
           )}
           <Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>
@@ -189,13 +190,37 @@ export function CourseView() {
       {/* Only viewed through a class (?classId=) — a course has no progress
           of its own, so the plain course page shows none at all. */}
       {classCourse && (
-        <Card className="p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-baseline gap-2 shrink-0">
-            <span className="text-3xl font-bold text-neutral-950">{overallPct}%</span>
-            <span className="text-sm font-semibold text-neutral-600">Total Progress</span>
+        // Where this class left off: how much of the course it has been
+        // taught, the lesson it's on next, and the last one it was taught.
+        <Card className="p-5 mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-baseline gap-2 shrink-0">
+              <span className="text-3xl font-bold text-neutral-950">{progress.taughtCount}<span className="text-neutral-600 text-xl font-semibold"> / {progress.total}</span></span>
+              <span className="text-sm font-semibold text-neutral-600">lessons taught</span>
+            </div>
+            <div className="flex-1 min-w-[160px]"><SegmentedBar pct={progress.pct} cells={Math.max(progress.total, 1)} /></div>
+            <Badge color={CLASS_COURSE_STATUS[classCourse.status].color} className="shrink-0">{CLASS_COURSE_STATUS[classCourse.status].label}</Badge>
           </div>
-          <div className="flex-1 min-w-[160px]"><SegmentedBar pct={overallPct} /></div>
-          <Badge color={classCourse.status === "done" ? "success" : "pending"} className="shrink-0">{classCourse.status === "done" ? "Completed" : "In Progress"}</Badge>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-neutral-400 pt-4 text-sm">
+            {progress.next ? (
+              <span className="text-neutral-700">Next up: <b className="text-neutral-950">Lesson {progress.next.n} · {progress.next.title}</b></span>
+            ) : (
+              <span className="text-neutral-700">{classCourse.status === "done" ? "Course completed" : "Every lesson has been taught"}</span>
+            )}
+            <span className="text-neutral-600" title={progress.last ? shortDate(progress.last.taughtAt) : undefined}>
+              {progress.last?.lesson ? `Last taught: Lesson ${progress.last.lesson.n} · ${timeAgo(progress.last.taughtAt)}` : "Nothing taught yet"}
+            </span>
+            {progress.next && (
+              <Button size="sm" className="sm:ml-auto" onClick={() => go({ lessonId: progress.next.id })}>
+                Continue Lesson {progress.next.n} <IconChevronRight size={15} stroke={1.75} />
+              </Button>
+            )}
+            {progress.allTaught && classCourse.status !== "done" && (
+              <Button size="sm" variant="outline" className="sm:ml-auto" onClick={() => { dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: "done" }); toast(`${course.title} marked completed for ${cls.name}`); }}>
+                <IconCircleCheck size={15} stroke={1.75} /> Mark course completed
+              </Button>
+            )}
+          </div>
         </Card>
       )}
 
@@ -212,8 +237,8 @@ export function CourseView() {
           {classCourse && (
             <PillTabs value={statusFilter} onChange={setStatusFilter} tabs={[
               { id: "all", label: "All" },
-              { id: "progress", label: "In Progress", count: progressCount },
-              { id: "done", label: "Completed", count: doneCount },
+              { id: "taught", label: "Taught", count: taughtCount },
+              { id: "not-taught", label: "Not taught yet", count: notTaughtCount },
             ]} />
           )}
         </div>
@@ -235,28 +260,27 @@ export function CourseView() {
             actually carry those columns (viewed through a class). */}
         <div className="flex items-center gap-4 bg-neutral-50 px-5 py-2.5 border-b border-neutral-200">
           <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Session</span>
-          {classCourse && <span className="w-36 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Progress</span>}
-          {classCourse && <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Status</span>}
+          {classCourse && <span className="w-40 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">For {cls.name}</span>}
         </div>
         <div className="divide-y divide-neutral-200">
         {visibleTree.map(({ lesson: l, view, blocks, totalComponents, blockMatch }) => {
           const isOpen = q ? true : !!expandedLessons[l.id];
 
           return (
-            <div key={l.id} className={`transition-colors ${view.current ? "bg-primary-50/40" : "hover:bg-neutral-50"}`}>
+            <div key={l.id} className={`transition-colors ${view.state === "next" ? "bg-primary-50/40" : "hover:bg-neutral-50"}`}>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleLesson(l.id)} className="text-neutral-400 hover:text-primary-600 shrink-0 p-1 -ml-1">
                     {isOpen ? <IconChevronDown size={16} stroke={1.75} /> : <IconChevronRight size={16} stroke={1.75} />}
                   </button>
                   <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm tabular-nums font-bold shrink-0 ${
-                    view.locked ? "bg-neutral-100 text-neutral-400" : view.progress === 100 ? "bg-success-500 text-white" : view.progress == null ? "bg-neutral-100 text-neutral-700" : "bg-primary-500 text-white"}`}>
-                    {view.locked ? <IconLock size={14} stroke={1.75} /> : `L${l.n}`}
+                    view.state === "taught" ? "bg-success-500 text-white" : view.state === "next" ? "bg-primary-500 text-white" : "bg-neutral-200 text-neutral-700"}`}>
+                    {`L${l.n}`}
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-base text-neutral-900 truncate">{l.title}</h3>
-                      {view.current && <Tag color="primary">Current Lesson</Tag>}
+                      {view.state === "next" && <Tag color="primary">Next up</Tag>}
                     </div>
                     <div className="text-xs text-neutral-500 mt-0.5">
                       {blocks.length} blocks · {totalComponents} components
@@ -265,20 +289,18 @@ export function CourseView() {
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0">
-                  {view.progress != null && (
-                    <div className="flex items-center gap-2 w-36">
-                      <div className="flex-1"><SegmentedBar pct={view.progress} /></div>
-                      <span className="text-xs tabular-nums text-neutral-600 w-9 text-right shrink-0">{view.progress}%</span>
-                    </div>
+                  {view.state && (
+                    <span className="w-40 shrink-0 text-sm" title={view.taughtAt ? shortDate(view.taughtAt) : undefined}>
+                      {view.state === "taught"
+                        ? <span className="inline-flex items-center gap-1.5 font-medium text-success-600"><IconCircleCheck size={16} stroke={1.75} /> Taught{view.taughtAt ? ` ${timeAgo(view.taughtAt)}` : ""}</span>
+                        : view.state === "next"
+                          ? <span className="font-semibold text-primary-600">Next up{view.taughtAt ? ` · also taught ${timeAgo(view.taughtAt)}` : ""}</span>
+                          : <span className="text-neutral-600">Not taught yet</span>}
+                    </span>
                   )}
-                  {view.progress != null && (
-                    <Badge color={view.locked ? "neutral" : view.progress === 100 ? "success" : view.progress > 0 ? "pending" : "primary"} className="shrink-0">
-                      {view.locked ? "Locked" : view.progress === 100 ? "Completed" : view.progress > 0 ? "In Progress" : "Not started yet"}
-                    </Badge>
-                  )}
-                  {classCourse && classCourse.status !== "done" && !view.current && (
+                  {classCourse && classCourse.status !== "done" && view.state !== "next" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
-                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0">Set as current</button>
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0"><IconFlag size={13} stroke={1.75} /> Set as next up</button>
                   )}
                   {classCourse && (
                     <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
@@ -379,6 +401,7 @@ export function LessonBuilderView() {
 
   const course = state.courses.find((c) => c.id === route.courseId);
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
+  const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
 
   useEffect(() => {
     dispatch({ type: "ENSURE_BUILT", courseId: route.courseId, lessonId: route.lessonId });
@@ -413,11 +436,18 @@ export function LessonBuilderView() {
 
   return (
     <Page>
-      <Breadcrumbs items={[
+      <Breadcrumbs items={cls ? [
+        { label: "Classes", onClick: () => go({ tab: "classes", classId: null }) },
+        { label: cls.name, onClick: () => go({ tab: "classes", classId: cls.id }) },
+        { label: course.title, onClick: () => go({ lessonId: null }) },
+        { label: `Lesson ${lesson.n}: ${lesson.title}` },
+      ] : [
         { label: "Courses", onClick: () => go({ courseId: null, lessonId: null }) },
         { label: course.title, onClick: () => go({ lessonId: null }) },
         { label: `Lesson ${lesson.n}: ${lesson.title}` },
       ]} />
+      {/* Opened from a class: where that class stands on this lesson. */}
+      {cls && <ClassLessonBar cls={cls} course={course} lesson={lesson} className="mb-6" />}
 
       <PageHeader title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
         right={<div className="flex gap-2">

@@ -211,7 +211,7 @@ export const SEED_COURSES = [
 
 // Lessons keyed by course — pure authored content. No `progress`/`locked`/
 // `current` here: a lesson has none of those on its own, only per class
-// (see Courses.jsx's classLessonView / db/mockDb.jsx's classesOnCourse).
+// (see db/mockDb.jsx's classCourseProgress / classesOnCourse).
 // `active` is a separate, real metric (how many students engaged with this
 // lesson), kept as-is.
 export const SEED_LESSONS = {
@@ -238,34 +238,62 @@ export const SEED_LESSONS = {
 
 /* ------------------------------- classes ------------------------------- */
 
-// Class is the top-level, durable thing: a roster of students on a
-// schedule. A Course gets assigned to it (courseId) — a class can switch
-// courses over time, or have none assigned yet. `currentLessonId` is which
-// lesson of the assigned course the whole class is on right now; that's
-// the one place lesson sequencing lives — students don't get individually
-// assigned/unassigned to lessons, they're on whatever lesson their class is on.
+// Class is the top-level, durable thing: a group of students on a schedule.
+// Membership lives on the student (`student.classId`) — the roster is always
+// derived from that, never stored on the class as well, so there's one
+// source of truth (a real backend's `students.class_id` foreign key).
 export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// A class's `courses` is its assignment history — every course it has ever
-// studied, each with its own progress pointer. At most one entry is
-// normally "in-progress" at a time; earlier ones are "done". A class isn't
-// locked into a single course forever — see ASSIGN_CLASS_COURSE in store.jsx.
+// A class's `courses` is its assignment history (a backend's `class_courses`
+// rows) — every course it has studied, each with:
+//   status          "in-progress" | "paused" | "done" — at most ONE
+//                   in-progress per class (the reducer enforces it: making
+//                   one active pauses the other)
+//   currentLessonId the lesson the class is on next ("next up") — the one
+//                   place lesson sequencing lives; students aren't assigned
+//                   lessons individually, they follow their class
+// What was actually taught, and when, is SEED_TAUGHT_LESSONS below — the
+// "last taught" line and the "N of M lessons taught" count are derived
+// from that log, never stored here.
 export const SEED_CLASSES = [
   {
-    id: "cls_it_morning", name: "ITler — Morning", scheduleDays: [1, 3], studentIds: ["s_rashad", "s_nigar", "s_leyla"],
+    id: "cls_it_morning", name: "ITler — Morning", scheduleDays: [1, 3],
     courses: [
-      { courseId: "every", currentLessonId: null, status: "done" },
+      { courseId: "every", currentLessonId: "ev5", status: "done" },
       { courseId: "it", currentLessonId: "it4", status: "in-progress" },
     ],
   },
   {
-    id: "cls_it_evening", name: "ITler — Evening", scheduleDays: [2, 4], studentIds: ["s_elvin", "s_kamran"],
+    id: "cls_it_evening", name: "ITler — Evening", scheduleDays: [2, 4],
     courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress" }],
   },
   {
-    id: "cls_ielts_main", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5], studentIds: ["s_aysel"],
+    id: "cls_ielts_main", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5],
     courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress" }],
   },
+];
+
+// A class's status on one of its courses, as a badge.
+export const CLASS_COURSE_STATUS = {
+  "in-progress": { color: "pending", label: "In Progress" },
+  paused: { color: "neutral", label: "Paused" },
+  done: { color: "success", label: "Completed" },
+};
+
+// Append-only log of lessons a class was taught (a backend's
+// `taught_lessons` table): one row per teaching session, written by
+// MARK_LESSON_TAUGHT (ending a live lesson, or "Mark as taught" on a lesson
+// opened from a class). ISO timestamps only — "5 days ago" is formatting.
+export const SEED_TAUGHT_LESSONS = [
+  { id: "tl_seed_1", classId: "cls_it_morning", courseId: "every", lessonId: "ev1", taughtAt: "2026-07-06T09:00:00.000Z" },
+  { id: "tl_seed_2", classId: "cls_it_morning", courseId: "every", lessonId: "ev2", taughtAt: "2026-07-13T09:00:00.000Z" },
+  { id: "tl_seed_3", classId: "cls_it_morning", courseId: "every", lessonId: "ev3", taughtAt: "2026-07-20T09:00:00.000Z" },
+  { id: "tl_seed_4", classId: "cls_it_morning", courseId: "every", lessonId: "ev4", taughtAt: "2026-07-27T09:00:00.000Z" },
+  { id: "tl_seed_4b", classId: "cls_it_morning", courseId: "every", lessonId: "ev5", taughtAt: "2026-08-03T09:00:00.000Z" },
+  { id: "tl_seed_5", classId: "cls_it_morning", courseId: "it", lessonId: "it1", taughtAt: "2026-09-07T09:00:00.000Z" },
+  { id: "tl_seed_6", classId: "cls_it_morning", courseId: "it", lessonId: "it2", taughtAt: "2026-09-14T09:00:00.000Z" },
+  { id: "tl_seed_7", classId: "cls_it_morning", courseId: "it", lessonId: "it3", taughtAt: "2026-09-24T09:00:00.000Z" },
+  { id: "tl_seed_8", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", taughtAt: "2026-09-26T16:00:00.000Z" },
 ];
 
 /* ------------------------------- reading library ------------------------------- */
@@ -446,7 +474,7 @@ const act = (type, detail, when) => ({ type, detail, when });
 
 export const SEED_STUDENTS = [
   {
-    id: "s_rashad", name: "Rashad Aliyev", courseId: "it", classId: "cls_it_morning", level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
+    id: "s_rashad", name: "Rashad Aliyev", classId: "cls_it_morning", level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
     xp: 3820, status: "in progress", last: "2h ago", step: 4, progress: 57, atRisk: false,
     placement: { level: "B1", when: "3 months ago", score: 62 },
     cefr: [{ m: "Apr", v: 1 }, { m: "May", v: 1.4 }, { m: "Jun", v: 1.7 }, { m: "Jul", v: 2.0 }],
@@ -496,7 +524,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
-    id: "s_nigar", name: "Nigar Mammadova", courseId: "it", classId: "cls_it_morning", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
+    id: "s_nigar", name: "Nigar Mammadova", classId: "cls_it_morning", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
     xp: 9120, status: "in progress", last: "20m ago", step: 6, progress: 92, atRisk: false,
     placement: { level: "B2", when: "6 months ago", score: 78 },
     cefr: [{ m: "Apr", v: 2.4 }, { m: "May", v: 2.7 }, { m: "Jun", v: 3.0 }, { m: "Jul", v: 3.3 }],
@@ -529,7 +557,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_elvin", name: "Elvin Huseynov", courseId: "it", classId: "cls_it_evening", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
+    id: "s_elvin", name: "Elvin Huseynov", classId: "cls_it_evening", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
     xp: 1240, status: "in progress", last: "1d ago", step: 1, progress: 24, atRisk: false,
     placement: { level: "B1", when: "1 month ago", score: 54 },
     cefr: [{ m: "May", v: 1.0 }, { m: "Jun", v: 1.2 }, { m: "Jul", v: 1.3 }],
@@ -558,7 +586,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_leyla", name: "Leyla Qasimova (demo)", courseId: "it", classId: "cls_it_morning", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
+    id: "s_leyla", name: "Leyla Qasimova (demo)", classId: "cls_it_morning", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
     xp: 6400, status: "completed", last: "3h ago", step: 7, progress: 100, atRisk: false,
     placement: { level: "B2", when: "5 months ago", score: 81 },
     cefr: [{ m: "Apr", v: 2.6 }, { m: "May", v: 2.9 }, { m: "Jun", v: 3.2 }, { m: "Jul", v: 3.4 }],
@@ -582,7 +610,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
-    id: "s_kamran", name: "Kamran Safarov", courseId: "it", classId: "cls_it_evening", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
+    id: "s_kamran", name: "Kamran Safarov", classId: "cls_it_evening", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
     xp: 120, status: "not started", last: "6d ago", step: -1, progress: 0, atRisk: true,
     riskReason: "No activity for 6 days · streak dropped to 0 · never finished placement follow-up",
     placement: { level: "A2", when: "1 week ago", score: 41 },
@@ -607,7 +635,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_aysel", name: "Aysel Rahimli", courseId: "ielts", classId: "cls_ielts_main", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
+    id: "s_aysel", name: "Aysel Rahimli", classId: "cls_ielts_main", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
     xp: 4550, status: "in progress", last: "5h ago", step: 5, progress: 71, atRisk: true,
     riskReason: "Effort high (11 sessions/wk) but grammar score flat 3 weeks — a human should look",
     placement: { level: "B2", when: "2 months ago", score: 69 },

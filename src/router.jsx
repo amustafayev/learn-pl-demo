@@ -65,8 +65,13 @@ function mergeRoute(r, patch) {
 // real href (not just a `go()` call) can import the specific builder it needs.
 export const coursesPath = () => "/courses";
 export const courseDetailPath = (courseId, classId) => `/courses/${courseId}${classId ? `?classId=${classId}` : ""}`;
-export const lessonPath = (courseId, lessonId) => `/courses/${courseId}/lessons/${lessonId}`;
-export const partPath = (courseId, lessonId, partId) => `/courses/${courseId}/lessons/${lessonId}/parts/${partId}`;
+// A lesson or block opened from a class keeps ?classId= all the way down,
+// so the lesson page and Block Studio know which class is being taught
+// (where it left off, "Mark as taught") — the content itself is the same
+// for every class, only that context differs.
+const classQuery = (classId) => (classId ? `?classId=${classId}` : "");
+export const lessonPath = (courseId, lessonId, classId) => `/courses/${courseId}/lessons/${lessonId}${classQuery(classId)}`;
+export const partPath = (courseId, lessonId, partId, classId) => `/courses/${courseId}/lessons/${lessonId}/parts/${partId}${classQuery(classId)}`;
 export const classesPath = () => "/classes";
 export const classDetailPath = (classId) => `/classes/${classId}`;
 export const studentsPath = (filter) => `/students${filter ? `?filter=${filter}` : ""}`;
@@ -75,8 +80,8 @@ export const studentDetailPath = (studentId, filter) => `/students/${studentId}/
 function buildPath(r) {
   switch (r.tab) {
     case "courses":
-      if (r.partId) return partPath(r.courseId, r.lessonId, r.partId);
-      if (r.lessonId) return lessonPath(r.courseId, r.lessonId);
+      if (r.partId) return partPath(r.courseId, r.lessonId, r.partId, r.classId);
+      if (r.lessonId) return lessonPath(r.courseId, r.lessonId, r.classId);
       // classId here means "viewed through this class's progress" (set when
       // opening a course from its card on a Class page) — carried as a query
       // param since the course itself still lives at /courses/:courseId.

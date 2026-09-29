@@ -84,12 +84,41 @@ seam so a real one can be dropped in later without touching any view:
   `courseAvgProgress` encode a load-bearing rule: **a course has no progress
   of its own** — it's authored content (lessons/blocks/components) until a
   class is actually assigned to it (see `SEED_CLASSES`' `courses` array).
-  Progress, "locked", "current lesson", and completion % all live per
-  class-course pairing, never on the course or lesson record directly. A
+  Progress, "next up" and "lessons taught" all live per class-course
+  pairing, never on the course or lesson record directly. A
   plain `/courses/:id` view (no `?classId=`) must never render a progress
   number/badge for the course itself, and doesn't list the classes taking it
   either (that card was removed on request) — class progress is only shown
   when the course is opened through a class.
+- **Class progress (teacher side, lesson-level only)** — answers "where did
+  this class leave off?"; nothing is tracked inside a lesson, and there is
+  no per-lesson percentage. The model, shaped like the backend tables it
+  stands in for:
+  - `class.courses[]` (`class_courses`): `{ courseId, status, currentLessonId }`
+    — `status` is `"in-progress" | "paused" | "done"`, at most **one**
+    in-progress per class (making one active pauses the other);
+    `currentLessonId` is the lesson the class is on next ("next up").
+  - `state.taughtLessons[]` (`taught_lessons`, append-only):
+    `{ id, classId, courseId, lessonId, taughtAt }` — ISO timestamps only;
+    "5 days ago" is formatting (`src/format.js`).
+  - Membership is `student.classId` alone. The roster and a student's
+    course are **derived** (`studentCourseId`), never stored a second time.
+  - `classCourseProgress(state, cls, courseId)` is the one read model:
+    `{ next, last: { lesson, taughtAt }, taughtAt: {lessonId→iso},
+    taughtCount, total, pct, allTaught }` — what
+    `GET /classes/:id/courses/:courseId` would return.
+  - Writes, one action per endpoint (full list above the class cases in
+    `mockDb.jsx`): `ASSIGN_CLASS_COURSE`, `SET_CLASS_COURSE_STATUS`,
+    `SET_CLASS_CURRENT_LESSON` and `MARK_LESSON_TAUGHT`, which logs the
+    lesson and moves "next up" past it (never backwards). The client sends
+    facts (`lessonId`, `taughtAt`); the rule of what comes next lives in
+    the reducer, as it would on the server.
+  - A lesson or block opened from a class carries `?classId=` in its URL
+    (`lessonPath`/`partPath`), and `ClassLessonBar` shows that class's
+    position on it. Ending a live lesson marks its lesson taught.
+  - Student-level progress (`student.progress`/`step`) is still seed data
+    and doesn't follow the class — deliberately out of scope until the
+    student view exists.
 - **`src/db/h5pClient.js`** — the one real backend today: the H5P server in
   `server/`, built on `createApiClient("/h5p")` (below). It also owns the
   rule that a lesson component's H5P content follows that component:

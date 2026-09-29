@@ -5,7 +5,8 @@ import {
   IconChevronLeft, IconChevronRight, IconUsersGroup, IconUser, IconNotebook,
 } from "@tabler/icons-react";
 import { Card, Button, Tag, Alert, Field, Select, StudentCheckList, Avatar } from "../design-system.jsx";
-import { useStore, lessonBlocks, activeClassCourse } from "../store.jsx";
+import { useStore, lessonBlocks, activeClassCourse, classCourseProgress, markLessonTaught } from "../store.jsx";
+import { timeAgo } from "../format.js";
 import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
 import { LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
@@ -58,7 +59,7 @@ export default function LiveSession({ context, onEnd }) {
       />
     );
   }
-  return <LiveRoom course={course} lesson={lesson} blocks={lessonBlocks(lesson)} invitedIds={invited} onEnd={onEnd} />;
+  return <LiveRoom cls={cls} course={course} lesson={lesson} blocks={lessonBlocks(lesson)} invitedIds={invited} onEnd={onEnd} />;
 }
 
 /* ------------------------------- setup ------------------------------- */
@@ -72,7 +73,10 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
 
   // default-select the whole roster whenever the class changes
   useEffect(() => { setInvited(roster.map((s) => s.id)); /* eslint-disable-next-line */ }, [classId]);
-  useEffect(() => { if (!lessonId && lessons[0]) setLessonId(lessons[0].id); /* eslint-disable-next-line */ }, [classId]);
+  // The lesson picker starts on where this class left off (its next-up
+  // lesson), not always Lesson 1.
+  const progress = cls && course ? classCourseProgress(state, cls, course.id) : null;
+  useEffect(() => { if (!lessonId && lessons[0]) setLessonId((progress?.next || lessons[0]).id); /* eslint-disable-next-line */ }, [classId]);
 
   const toggle = (id) => setInvited((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
   const ready = cls && lesson && invited.length;
@@ -113,7 +117,11 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
                   <Field label="Lesson">
                     <Select value={lessonId || ""} onChange={(e) => setLessonId(e.target.value)}>
                       <option value="" disabled>Choose a lesson…</option>
-                      {lessons.map((l) => <option key={l.id} value={l.id}>Lesson {l.n}: {l.title}</option>)}
+                      {lessons.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          Lesson {l.n}: {l.title}{progress?.next?.id === l.id ? " — next up" : progress?.taughtAt[l.id] ? ` — taught ${timeAgo(progress.taughtAt[l.id])}` : ""}
+                        </option>
+                      ))}
                     </Select>
                   </Field>
                 </div>
@@ -158,8 +166,8 @@ function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, set
 
 /* ------------------------------- live room ------------------------------- */
 
-function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
-  const { state, toast } = useStore();
+function LiveRoom({ cls, course, lesson, blocks, invitedIds, onEnd }) {
+  const { state, toast, dispatch } = useStore();
   const roster = useMemo(() => state.students.filter((s) => invitedIds.includes(s.id)), [state.students, invitedIds]);
   const seed = useMemo(() => roster.map((s, i) => ({
     id: s.id, name: s.name, joined: i === 0, presence: i === 0 ? "active" : "offline", idx: 0,
@@ -174,6 +182,18 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
   const [feed, setFeed] = useState([{ t: 0, text: "Session started — students are joining" }]);
   const [phase, setPhase] = useState("live");
   const [notesOpen, setNotesOpen] = useState(false);
+  const [nextLesson, setNextLesson] = useState(null);
+
+  // Ending the lesson records that this class was taught it, which moves
+  // the class's "next up" on — so next time the teacher opens the class it
+  // says where they left off. The summary lets them keep the class on this
+  // lesson instead if they didn't get through it.
+  function endLesson() {
+    if (cls && course && lesson) {
+      setNextLesson(markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: state.lessons[course.id] || [] }));
+    }
+    setPhase("ended");
+  }
 
   const peopleRef = useRef(seed);
   const elapsedRef = useRef(0);
@@ -278,12 +298,12 @@ function LiveRoom({ course, lesson, blocks, invitedIds, onEnd }) {
               {freshLesson?.teacherNotes?.trim() && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-pending-400" />}
             </button>
           )}
-          <Button variant="primary" onClick={() => setPhase("ended")} className="!bg-warning-600 hover:!bg-warning-700"><IconPhoneOff size={15} stroke={1.75} /> End lesson</Button>
+          <Button variant="danger" onClick={endLesson}><IconPhoneOff size={15} stroke={1.75} /> End lesson</Button>
         </div>
       </div>
 
       {phase === "ended"
-        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} lesson={lesson} onEnd={onEnd} />
+        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} lesson={lesson} cls={cls} course={course} nextLesson={nextLesson} onEnd={onEnd} />
         : (
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
             {/* STAGE — the lesson content the teacher teaches from (what students see) */}
@@ -437,7 +457,28 @@ function RoomCode() {
   );
 }
 
-function Ended({ elapsed, rec, joined, total, blocks, lesson, onEnd }) {
+// Where the class will pick up next time, right after the lesson ends —
+// with a one-tap "keep them on this lesson" for a lesson they didn't finish.
+function TaughtCard({ cls, course, lesson, nextLesson }) {
+  const { dispatch, toast } = useStore();
+  const [kept, setKept] = useState(false);
+  const keep = () => {
+    dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: lesson.id });
+    toast(`${cls.name} stays on Lesson ${lesson.n} next time`);
+    setKept(true);
+  };
+  const next = kept ? lesson : nextLesson;
+  return (
+    <div className="mb-6">
+      <Alert tone="success" icon={IconCheck} title={`Lesson ${lesson.n} marked as taught for ${cls.name}`}
+        actionLabel={!kept && nextLesson ? `Keep them on Lesson ${lesson.n}` : undefined} onAction={keep}>
+        {next ? <>Next time they pick up at <b>Lesson {next.n}: {next.title}</b>.</> : <>That was the last lesson of {course.title}.</>}
+      </Alert>
+    </div>
+  );
+}
+
+function Ended({ elapsed, rec, joined, total, blocks, lesson, cls, course, nextLesson, onEnd }) {
   const { dispatch, toast } = useStore();
   const [drafted, setDrafted] = useState(false);
   const nBlocks = blocks.length || 1;
@@ -463,6 +504,7 @@ function Ended({ elapsed, rec, joined, total, blocks, lesson, onEnd }) {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 text-success-600 mb-1"><IconCheck size={18} stroke={1.75} /> <span className="font-semibold">Lesson ended</span></div>
         <h1 className="text-2xl font-bold tracking-tight mb-6 text-neutral-950">Session summary</h1>
+        {cls && course && lesson && <TaughtCard cls={cls} course={course} lesson={lesson} nextLesson={nextLesson} />}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[[clock(elapsed), "duration"], [`${joined.length}/${total}`, "attended"], [rec.voice ? clock(elapsed) : "—", "voice recorded"], [`${joined.filter((p) => p.presence === "done").length}`, "finished lesson"]].map(([v, l]) => (
             <Card key={l} className="p-4"><div className="tabular-nums text-2xl font-bold text-neutral-950">{v}</div><div className="text-xs text-neutral-600 mt-1">{l}</div></Card>

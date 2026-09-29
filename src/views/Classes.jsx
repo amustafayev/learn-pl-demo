@@ -4,8 +4,9 @@ import {
   IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, CountBadge, PRESS, PRESS_FLAT } from "../design-system.jsx";
-import { useStore, useNav, activeClassCourse } from "../store.jsx";
-import { DAY_LABELS, scheduleLabel } from "../data.jsx";
+import { useStore, useNav, activeClassCourse, classCourseProgress } from "../store.jsx";
+import { timeAgo, shortDate } from "../format.js";
+import { DAY_LABELS, CLASS_COURSE_STATUS, scheduleLabel } from "../data.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -92,17 +93,16 @@ function ClassesView() {
           const roster = state.students.filter((s) => s.classId === cls.id);
           const active = activeClassCourse(cls);
           const course = state.courses.find((c) => c.id === active?.courseId);
-          const lessons = state.lessons[active?.courseId] || [];
-          const currentIndex = lessons.findIndex((l) => l.id === active?.currentLessonId);
-          const current = lessons[currentIndex];
-          const progressPct = active ? (active.status === "done" ? 100 : lessons.length ? Math.round(((currentIndex + 1) / lessons.length) * 100) : 0) : null;
+          const p = active ? classCourseProgress(state, cls, active.courseId) : null;
           return (
             <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
               title={cls.name} scheduleLabel={scheduleLabel(cls.scheduleDays)}
-              courseTitle={course ? course.title : "No course assigned"} currentLessonTitle={current?.title}
+              courseTitle={course ? course.title : "No course in progress"}
+              lessonLine={p?.next ? `Next up: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
+              progressLabel={p ? `${p.taughtCount} of ${p.total} lessons taught` : undefined}
               roster={roster.map((s) => ({ id: s.id, name: s.name, color: avatarColorFor(s.id) }))}
               studentCountLabel={roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
-              progressPct={progressPct} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
+              progressPct={p ? p.pct : null} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
           );
         })}
         {!state.classes.length && !creating && (
@@ -153,9 +153,14 @@ function ClassDetailView({ classId }) {
     toast(`${s.name.split(" ")[0]} removed from ${cls.name}`);
     setConfirmRemove(null);
   }
+  // The new course becomes the class's active one; whatever was in
+  // progress is paused (resumable from its course page), and the toast
+  // says so rather than letting it happen silently.
   function assignCourse(courseId) {
+    const paused = state.courses.find((c) => c.id === activeClassCourse(cls)?.courseId);
     dispatch({ type: "ASSIGN_CLASS_COURSE", classId: cls.id, courseId });
-    toast(`${state.courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`);
+    const title = state.courses.find((c) => c.id === courseId)?.title;
+    toast(paused ? `${title} is now in progress for ${cls.name} — ${paused.title} paused` : `${title} assigned to ${cls.name}`);
     setAssignOpen(false);
   }
 
@@ -188,29 +193,44 @@ function ClassDetailView({ classId }) {
           }>Courses</SectionLabel>
 
           <div className="space-y-3">
-            {cls.courses.map((entry) => {
+            {/* Active course first — it's where the class left off. */}
+            {[...cls.courses].sort((a, b) => (a.status === "in-progress" ? -1 : b.status === "in-progress" ? 1 : 0)).map((entry) => {
               const course = state.courses.find((c) => c.id === entry.courseId);
               if (!course) return null;
-              const lessons = state.lessons[course.id] || [];
-              const currentIndex = lessons.findIndex((l) => l.id === entry.currentLessonId);
-              const pct = entry.status === "done" ? 100 : lessons.length ? Math.round(((currentIndex + 1) / lessons.length) * 100) : 0;
-              const current = lessons[currentIndex];
+              const p = classCourseProgress(state, cls, course.id);
+              const st = CLASS_COURSE_STATUS[entry.status] || CLASS_COURSE_STATUS["in-progress"];
+              const openCourse = () => go({ tab: "courses", courseId: course.id, classId: cls.id });
               return (
-                <button key={course.id} onClick={() => go({ tab: "courses", courseId: course.id, classId: cls.id })}
-                  className="w-full text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
+                <Card key={course.id} className="p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <div className="font-bold text-neutral-950 truncate">{course.title}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">{course.level}{current ? ` · Last lesson: ${current.title}` : ""}</div>
+                    <button onClick={openCourse} className="min-w-0 text-left group">
+                      <div className="font-bold text-neutral-950 truncate group-hover:text-primary-600">{course.title}</div>
+                      <div className="text-sm text-neutral-600 mt-0.5">{course.level} · {p.taughtCount} of {p.total} lessons taught</div>
+                    </button>
+                    <Badge color={st.color}>{st.label}</Badge>
+                  </div>
+                  <SegmentedBar pct={p.pct} cells={Math.max(p.total, 1)} />
+                  {/* Where the class left off — the whole point of the card. */}
+                  <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                    {p.next ? (
+                      <span className="text-neutral-700">Next up: <b className="text-neutral-950">Lesson {p.next.n} · {p.next.title}</b></span>
+                    ) : (
+                      <span className="text-neutral-700">{entry.status === "done" ? "Course completed" : "Every lesson has been taught"}</span>
+                    )}
+                    <span className="text-neutral-600" title={p.last ? shortDate(p.last.taughtAt) : undefined}>
+                      {p.last?.lesson ? `Last taught: Lesson ${p.last.lesson.n} · ${timeAgo(p.last.taughtAt)}` : "Nothing taught yet"}
+                    </span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={openCourse}>All lessons</Button>
+                      {p.next && entry.status !== "done" && (
+                        <Button size="sm" variant={entry.status === "in-progress" ? "primary" : "light"}
+                          onClick={() => go({ tab: "courses", courseId: course.id, classId: cls.id, lessonId: p.next.id })}>
+                          Continue Lesson {p.next.n} <IconChevronRight size={15} stroke={1.75} />
+                        </Button>
+                      )}
                     </div>
-                    <Badge color={entry.status === "done" ? "success" : "pending"}>{entry.status === "done" ? "Completed" : "In Progress"}</Badge>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-neutral-700 shrink-0">{pct}%</span>
-                    <div className="flex-1"><SegmentedBar pct={pct} /></div>
-                    <IconChevronRight size={16} stroke={1.75} className="text-neutral-300 shrink-0" />
-                  </div>
-                </button>
+                </Card>
               );
             })}
             {!cls.courses.length && (

@@ -12,7 +12,7 @@ import {
   Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Alert, StatCard,
   Field, TextField, TextArea, Modal,
 } from "../design-system.jsx";
-import { useStore, useNav, buildRecapLesson } from "../store.jsx";
+import { useStore, useNav, buildRecapLesson, studentCourseId, activeClassCourse } from "../store.jsx";
 import { statusPill } from "../data.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 import { WordStatusPill } from "./grammar.jsx";
@@ -67,7 +67,7 @@ export function StudentsView() {
                   {className(s.classId) && <Tag color="neutral">{className(s.classId)}</Tag>}
                   {s.atRisk && <IconAlertTriangle size={13} stroke={1.75} className="text-warning-500 shrink-0" />}
                 </div>
-                <div className="text-xs text-neutral-500 truncate">{courseName(s.courseId)} · {s.goal}</div>
+                <div className="text-xs text-neutral-500 truncate">{courseName(studentCourseId(state, s))} · {s.goal}</div>
               </div>
               <span className="font-mono text-xs text-neutral-500 hidden sm:inline shrink-0">{s.level}</span>
               <Tag color={statusPill(s.status)}>{s.status}</Tag>
@@ -98,7 +98,7 @@ export function StudentDetail() {
 
   const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
   const cls = state.classes.find((c) => c.id === s.classId);
-  const course = state.courses.find((c) => c.id === s.courseId);
+  const course = state.courses.find((c) => c.id === studentCourseId(state, s));
 
   function moveToClass(classId) {
     dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId });
@@ -160,7 +160,7 @@ export function StudentDetail() {
         <div className="space-y-1.5 max-h-80 overflow-y-auto">
           {state.classes.map((c) => {
             const on = c.id === s.classId;
-            const courseTitle = state.courses.find((co) => co.id === c.courseId)?.title;
+            const courseTitle = state.courses.find((co) => co.id === activeClassCourse(c)?.courseId)?.title;
             return (
               <button key={c.id} onClick={() => moveToClass(c.id)} disabled={on}
                 className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
@@ -206,8 +206,9 @@ function Overview({ s }) {
   const { state, dispatch, toast } = useStore();
   const [concept, score] = weakest(s.concepts);
   const radar = Object.entries(s.concepts).map(([k, v]) => ({ concept: k.length > 10 ? k.split(" ")[0] : k, mastery: v }));
-  const course = state.courses.find((c) => c.id === s.courseId);
-  const lessons = state.lessons[s.courseId] || [];
+  const courseId = studentCourseId(state, s);
+  const course = state.courses.find((c) => c.id === courseId);
+  const lessons = state.lessons[courseId] || [];
   const recapLessons = (s.extraLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -439,7 +440,7 @@ function Notes({ s }) {
 
 function PathView({ s }) {
   const { state } = useStore();
-  const lessons = state.lessons[s.courseId] || [];
+  const lessons = state.lessons[studentCourseId(state, s)] || [];
   const reached = s.step;
   const checkpoints = lessons.map((l, i) => ({
     n: l.n, title: l.title,

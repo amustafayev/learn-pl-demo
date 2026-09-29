@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
-import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, persistComponentBank } from "./db/mockDb.jsx";
+import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel, persistComponentBank } from "./db/mockDb.jsx";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
@@ -17,7 +17,7 @@ import { MOTION, cssMs } from "./motion.js";
 // Re-exported so every view that already does `import { lessonBlocks, ... }
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
-export { lessonBlocks, activeClassCourse, classesOnCourse, courseAvgProgress, groupBankByParent, bankChildLabel, uid, h5pClient, saveMedia };
+export { lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel, uid, h5pClient, saveMedia };
 
 // Deep copy of `value` whose H5P activities each get their own server-side
 // content (see db/h5pClient.js) — or null, after telling the teacher why, if
@@ -81,6 +81,18 @@ export async function buildRecapLesson(dispatch, toast, student, course, blockBa
 }
 
 const StoreCtx = createContext(null);
+
+// "This lesson was taught to this class" — ending a live lesson, or "Mark
+// as taught" on a lesson opened from a class. The timestamp is taken here
+// (a real backend would stamp it server-side); the db layer logs it and
+// moves the class's "next up" on. Returns the lesson that's next up after
+// it (null once the course runs out), for the caller's own message.
+export function markLessonTaught(dispatch, toast, { cls, courseId, lesson, lessons }) {
+  dispatch({ type: "MARK_LESSON_TAUGHT", classId: cls.id, courseId, lessonId: lesson.id, taughtAt: new Date().toISOString() });
+  const next = lessons[lessons.findIndex((l) => l.id === lesson.id) + 1] || null;
+  toast(next ? `Lesson ${lesson.n} marked as taught for ${cls.name} — next up: Lesson ${next.n}` : `Lesson ${lesson.n} marked as taught for ${cls.name} — that was the last lesson`);
+  return next;
+}
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
