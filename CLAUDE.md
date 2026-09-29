@@ -415,7 +415,10 @@ thing reuses it too, instead of every page growing its own copy.
   `SegmentedBar` (the dashed multi-cell progress bar on course cards)
 - **Controls**: `Switch`, `Checkbox`, `SegmentedToggle` (the Light/Dark
   switcher — an r8 `neutral-300` track with an r4 white inner tab, not a pill;
-  options may carry an optional `icon`)
+  options may carry an optional `icon`), `MenuButton` (the kit's label +
+  chevron Button opening a one-choice menu — list filters like the course
+  tree's Taught / Not taught yet; `active` tints it while a non-default
+  choice is applied; closes on pick, outside press or Esc)
 - **Navigation**: `NavItem`, `NavSectionLabel`, `TabBar` (underline tabs),
   `PillTabs` (filter pills with a count badge)
 - **Overlays**: `Modal`, `StudentCheckList` (the shared "pick some students"

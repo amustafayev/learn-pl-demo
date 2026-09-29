@@ -1183,3 +1183,51 @@ export function PillTabs({ tabs, value, onChange }) {
     </div>
   );
 }
+
+/* ------------------------------------------------------------ MenuButton */
+// The kit's label + chevron Button (its "Recent ▾" variant), opening a small
+// menu of choices under it — one picked at a time, e.g. a list filter.
+// Closes on a pick, a press anywhere outside, or Esc (caught in the capture
+// phase, so inside a modal or focus mode it closes only the menu).
+// `options` = [{ id, label, count? }]; `active` tints the button while a
+// non-default choice is applied, so a filtered list never looks unfiltered.
+export function MenuButton({ icon: Icon, label, value, options, onChange, active = false, size = "md", align = "right" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <Button variant="outline" size={size} chevron aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        className={active ? "!border-primary-500 !text-primary-700" : ""}>
+        {Icon && <Icon size={size === "sm" ? 15 : 16} stroke={1.75} />}
+        {label}
+      </Button>
+      {open && (
+        <div role="menu" className={`absolute top-full mt-1.5 z-20 min-w-52 rounded-xl border border-neutral-400 bg-surface p-1.5 shadow-xl animate-fade-rise ${align === "right" ? "right-0" : "left-0"}`}>
+          {options.map((o) => {
+            const on = o.id === value;
+            return (
+              <button key={o.id} type="button" role="menuitemradio" aria-checked={on}
+                onClick={() => { onChange?.(o.id); setOpen(false); }}
+                className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors duration-(--dur-fast) ${on ? "bg-neutral-200 font-semibold text-neutral-950" : "text-neutral-800 hover:bg-neutral-200"}`}>
+                <IconCheck size={15} stroke={2} className={`shrink-0 text-primary-600 ${on ? "" : "invisible"}`} />
+                <span className="flex-1 whitespace-nowrap">{o.label}</span>
+                {o.count != null && <CountBadge active={on}>{o.count}</CountBadge>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

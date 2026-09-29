@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
-  IconEye, IconSearch, IconMaximize, IconMinimize,
+  IconEye, IconFilter, IconArrowsMaximize, IconArrowsMinimize,
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck, IconFlag, IconPlayerPlay,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, PillTabs } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge } from "../design-system.jsx";
 import {
   useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
   uid, copyWithOwnH5P, discardH5PContent,
@@ -161,6 +161,7 @@ export function CourseView() {
     setExpandedLessons(nextL); setExpandedBlocks(nextB);
   }
   const collapseAll = () => { setExpandedLessons({}); setExpandedBlocks({}); };
+  const anyExpanded = Object.values(expandedLessons).some(Boolean);
 
 
   return (
@@ -225,31 +226,32 @@ export function CourseView() {
       )}
 
       {/* Course tree: Lesson → Block → Component — one table-like card,
-          rows divided by a hairline (not a stack of separate cards), with
-          a status filter mirroring the kit's "Session" list: All / In
-          Progress / Completed pill tabs, only meaningful (so only shown)
-          once a class gives these lessons a real progress number. */}
+          rows divided by a hairline (not a stack of separate cards). Its
+          toolbar is one bar at one control height: the title on the left;
+          search, the status filter (only viewed through a class — that's
+          what gives lessons a taught / not-taught state) and a single
+          expand/collapse toggle on the right. */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm font-semibold text-neutral-700 inline-flex items-center gap-1.5">
-            <IconSitemap size={14} stroke={1.75} /> Course tree ({lessons.length} lessons) — lessons → blocks → components
-          </span>
+        <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-950">
+          <IconSitemap size={16} stroke={1.75} className="text-neutral-600" /> Course tree <CountBadge>{lessons.length}</CountBadge>
+        </h2>
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          <SearchField value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a block or component…"
+            aria-label="Find a block or component" className="w-full sm:w-72" />
           {classCourse && (
-            <PillTabs value={statusFilter} onChange={setStatusFilter} tabs={[
-              { id: "all", label: "All" },
-              { id: "taught", label: "Taught", count: taughtCount },
-              { id: "not-taught", label: "Not taught yet", count: notTaughtCount },
-            ]} />
+            <MenuButton icon={IconFilter} value={statusFilter} onChange={setStatusFilter} active={statusFilter !== "all"}
+              label={{ all: "Filter", taught: "Taught", "not-taught": "Not taught yet" }[statusFilter]}
+              options={[
+                { id: "all", label: "All lessons", count: tree.length },
+                { id: "taught", label: "Taught", count: taughtCount },
+                { id: "not-taught", label: "Not taught yet", count: notTaughtCount },
+              ]} />
           )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <IconSearch size={13} stroke={1.75} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a block or component…"
-              className="text-xs border border-neutral-300 rounded-lg pl-7 pr-2.5 py-1.5 w-56 focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100" />
-          </div>
-          <button onClick={expandAll} className="text-xs text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1"><IconMaximize size={12} stroke={1.75} /> Expand all</button>
-          <button onClick={collapseAll} className="text-xs text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1"><IconMinimize size={12} stroke={1.75} /> Collapse all</button>
+          <Button variant="outline" onClick={anyExpanded ? collapseAll : expandAll}>
+            {anyExpanded
+              ? <><IconArrowsMinimize size={16} stroke={1.75} /> Collapse all</>
+              : <><IconArrowsMaximize size={16} stroke={1.75} /> Expand all</>}
+          </Button>
         </div>
       </div>
 
