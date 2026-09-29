@@ -440,13 +440,6 @@ export const SEED_WORDSETS = [
   ] },
 ];
 
-// commonly-confused pairs (➕ feature, previewable)
-export const CONFUSED = [
-  { a: "affect", b: "effect", note: "affect = verb (to change); effect = noun (the result)" },
-  { a: "its", b: "it's", note: "its = possessive; it's = it is" },
-  { a: "since", b: "for", note: "since + a point in time; for + a length of time" },
-];
-
 /* ------------------------------- students ------------------------------- */
 
 const act = (type, detail, when) => ({ type, detail, when });

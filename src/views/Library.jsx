@@ -8,7 +8,7 @@ import {
   Page, PageHeader, Card, Button, Tag, SectionLabel, Alert, Modal, Field, TextField, TextArea, ComingSoon, SpeakButton,
 } from "../design-system.jsx";
 import { useStore, groupBankByParent, bankChildLabel, kitContents, discardH5PContent } from "../store.jsx";
-import { CONFUSED, BLOCK_TYPES } from "../data.jsx";
+import { BLOCK_TYPES } from "../data.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
@@ -152,7 +152,7 @@ function WordSetsList({ open }) {
   return (
     <>
       <SectionLabel>Category word sets</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.wordSets.map((ws) => (
           <button key={ws.id} onClick={() => open(ws.id)} className="text-left bg-surface rounded-2xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition duration-(--dur-fast) p-5">
             <div className="flex items-center justify-between mb-3">
@@ -162,16 +162,6 @@ function WordSetsList({ open }) {
             <div className="font-bold mb-1 text-neutral-950">{ws.title}</div>
             <div className="text-sm text-neutral-500">{ws.level} · {ws.words.length} words</div>
           </button>
-        ))}
-      </div>
-
-      <SectionLabel>Commonly confused words</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {CONFUSED.map((c) => (
-          <Card key={c.a} className="p-4">
-            <div className="font-mono text-sm mb-1"><span className="text-warning-600">{c.a}</span> <span className="text-neutral-300">vs</span> <span className="text-primary-600">{c.b}</span></div>
-            <p className="text-xs text-neutral-600">{c.note}</p>
-          </Card>
         ))}
       </div>
     </>
