@@ -196,7 +196,12 @@ const TENSE_PARTS = [
 // A lesson whose blocks are fully authored carries them as `built`; `parts`
 // (the block-type shorthand every other lesson uses) must stay in step with
 // it, the same way db/mockDb.jsx keeps the two in sync on every edit.
-const authored = (built) => ({ built, parts: built.map((b) => b.type) });
+// Titled like an unbuilt block (db/mockDb.jsx's lessonBlocks): the plain
+// block-type name, no subtitle.
+const authored = (built) => ({
+  built: built.map((b) => ({ ...b, title: BLOCK_TYPES[b.type]?.label || b.type, meta: "—" })),
+  parts: built.map((b) => b.type),
+});
 
 export const SEED_COURSES = [
   { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, templateId: "general" },
@@ -223,6 +228,7 @@ export const SEED_LESSONS = {
     { id: "ev2", n: 2, title: "Ordering food & drinks", ...authored(EVERYDAY_BUILT.ev2), active: 20 },
     { id: "ev3", n: 3, title: "Getting around the city", ...authored(EVERYDAY_BUILT.ev3), active: 18 },
     { id: "ev4", n: 4, title: "Shopping & prices", ...authored(EVERYDAY_BUILT.ev4), active: 9 },
+    { id: "ev5", n: 5, title: "My first week in a new city", ...authored(EVERYDAY_BUILT.ev5), active: 6 },
   ],
   ielts: [
     { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9 },
@@ -328,6 +334,37 @@ export const SEED_TEXTS = [
       s(". I spent less than I "), w("expected", "gözləmək", "thought something would happen", "The trip was easier than I expected.", "known"), s("."),
     ],
   },
+  // Deliberately long (~450 words, many tappable words) — the text a
+  // layout has to survive, not just the 50-word ones above.
+  {
+    id: "t_newcity", title: "My first week in a new city", topic: "Travel", level: "B1", wordCount: 456, hasTranslation: true,
+    body: [
+      s("Last month I "), w("moved", "köçdüm", "went to live in a different place", "We moved to Baku in 2020.", "known"),
+      s(" to Istanbul for a new job. I had visited the city twice as a tourist, but living there turned out to be "), w("completely", "tamamilə", "in every way; totally", "The new office is completely different.", "learning"),
+      s(" different. On my first morning I woke up at six because I was so "), w("nervous", "həyəcanlı", "worried and a little afraid", "I always feel nervous before an interview.", "new", { emoji: "😬", ipaUk: "/ˈnɜː.vəs/", ipaUs: "/ˈnɝː.vəs/" }),
+      s(". I made a strong coffee, stood by the window and tried to remember the way to the office, which I had only ever seen on a map. The first real "), w("challenge", "çətinlik", "something difficult that tests you", "Finding a flat was a real challenge.", "learning"),
+      s(" was transport. I bought a travel card at the metro station, but nobody had told me that I needed to "), w("top up", "balansı artırmaq", "add money to a card so you can use it", "I need to top up my travel card.", "new", { emoji: "💳" }),
+      s(" the card before every journey. The machine only spoke Turkish, so a kind student showed me which buttons to press. My daily "), w("commute", "işə gedib-gəlmə", "the journey to and from work", "My commute takes forty minutes.", "new", { emoji: "🚇", ipaUk: "/kəˈmjuːt/", ipaUs: "/kəˈmjuːt/" }),
+      s(" takes about forty minutes: a short walk, two stops on the metro and then a bus up the hill. The trains are very "), w("crowded", "adamla dolu", "full of people", "The metro is crowded in the morning.", "learning"),
+      s(" during "), w("rush hour", "pik saat", "the busy time when people travel to and from work", "Avoid the city centre in rush hour.", "new"),
+      s(", so now I leave home fifteen minutes earlier and I usually get a seat. At work, my new "), w("colleagues", "həmkarlar", "people you work with", "My colleagues took me out for lunch.", "known"),
+      s(" were friendly and "), w("welcoming", "qonaqpərvər", "friendly to people who are new", "The team was very welcoming.", "new"),
+      s(". On the first day they took me to a small restaurant near the office, where we ate lentil soup and fresh bread. Everyone asked me questions about Baku, and I asked them where to find a good flat. Finding one was the hardest part of the week. I visited four places in three days. The first was too dark, the second was far from the metro, and the third was far too expensive. In the end I chose a small, bright flat on the fourth floor. My "), w("landlord", "ev sahibi", "a person who rents a home to you", "My landlord lives downstairs.", "new", { emoji: "🔑", ipaUk: "/ˈlænd.lɔːd/", ipaUs: "/ˈlænd.lɔːrd/" }),
+      s(", an older man called Mehmet, asked for a "), w("deposit", "depozit", "money you pay before renting, which you get back later", "The deposit is two months' rent.", "learning"),
+      s(" of two months' rent, which was more than I had planned for. On Saturday I decided to "), w("explore", "kəşf etmək", "travel around a place to learn about it", "Let's explore the old town.", "learning"),
+      s(" my new "), w("neighbourhood", "məhəllə", "the area around your home", "It's a quiet neighbourhood with lots of cafés.", "new"),
+      s(". I found a bakery, a pharmacy and a small grocery shop where the owner already knows my name. At the Sunday market I bought a warm jacket for half price — a real "), w("bargain", "sərfəli alış", "something bought for much less than usual", "This jacket was a real bargain.", "learning", { emoji: "🏷️" }),
+      s(". In the afternoon I took the "), w("ferry", "bərə", "a boat that carries people across water", "We took the ferry to the island.", "new", { emoji: "⛴️", ipaUk: "/ˈfer.i/", ipaUs: "/ˈfer.i/" }),
+      s(" across the Bosphorus. The "), w("view", "mənzərə", "what you can see from a place", "The view from the hill is amazing.", "known"),
+      s(" of the old city from the water was beautiful, and for the first time that week I forgot about my worries. Of course, not everything was easy. Some evenings I felt a little "), w("homesick", "vətən həsrəti çəkən", "sad because you are away from home", "I felt homesick on my birthday.", "new", { emoji: "🏠" }),
+      s(" and called my parents for a long chat. I am still trying to "), w("get used to", "öyrəşmək", "become familiar with something new", "I'm getting used to the noise.", "learning"),
+      s(" the noise of the city and the "), w("steep", "dik", "rising or falling sharply", "The streets here are very steep.", "new"),
+      s(" streets that make every walk feel like exercise. But every day I understand a little more, I get lost a little less, and I feel more "), w("confident", "özünə inamlı", "sure of yourself and your abilities", "She feels confident when she speaks English.", "learning"),
+      s(" when I speak to people in shops and cafés. My colleagues say it takes about three months to "), w("settle in", "uyğunlaşmaq", "become comfortable in a new place", "It took me a month to settle in.", "new"),
+      s(" properly. I believe them, and I am sure that "), w("eventually", "nəhayət", "in the end, after some time", "Eventually we found the station.", "known"),
+      s(" this busy, noisy, beautiful city will feel like home."),
+    ],
+  },
 ];
 
 /* ------------------------------- word sets ------------------------------- */
@@ -367,6 +404,39 @@ export const SEED_WORDSETS = [
     { term: "nevertheless", az: "buna baxmayaraq", def: "in spite of what was just mentioned" },
     { term: "consequently", az: "nəticədə", def: "as a result of something" },
     { term: "in contrast", az: "əksinə", def: "showing a clear difference when compared with something else" },
+  ] },
+  // Deliberately long (30 words) — goes with Everyday English L5.
+  { id: "ws_newcity", title: "Moving to a new city", category: "Travel", level: "B1", words: [
+    { term: "move", az: "köçmək", def: "to go to live in a different place" },
+    { term: "commute", az: "işə gedib-gəlmək", def: "to travel to and from work" },
+    { term: "crowded", az: "adamla dolu", def: "full of people" },
+    { term: "rush hour", az: "pik saat", def: "the busy time when people travel to and from work" },
+    { term: "top up", az: "balansı artırmaq", def: "to add money to a card" },
+    { term: "travel card", az: "yol kartı", def: "a card you use to pay for buses and trains" },
+    { term: "landlord", az: "ev sahibi", def: "a person who rents a home to you" },
+    { term: "tenant", az: "kirayəçi", def: "a person who rents a home from someone" },
+    { term: "deposit", az: "depozit", def: "money you pay before renting, returned later" },
+    { term: "rent", az: "kirayə haqqı", def: "money you pay every month to live in a place" },
+    { term: "bills", az: "kommunal xərclər", def: "money you pay for electricity, water and internet" },
+    { term: "contract", az: "müqavilə", def: "a written agreement you sign" },
+    { term: "flat", az: "mənzil", def: "a set of rooms to live in, inside a building" },
+    { term: "furnished", az: "mebelli", def: "with furniture already in it" },
+    { term: "neighbourhood", az: "məhəllə", def: "the area around your home" },
+    { term: "grocery shop", az: "ərzaq mağazası", def: "a shop that sells food and everyday things" },
+    { term: "pharmacy", az: "aptek", def: "a shop that sells medicine" },
+    { term: "bargain", az: "sərfəli alış", def: "something bought for much less than usual" },
+    { term: "ferry", az: "bərə", def: "a boat that carries people across water" },
+    { term: "view", az: "mənzərə", def: "what you can see from a place" },
+    { term: "explore", az: "kəşf etmək", def: "to travel around a place to learn about it" },
+    { term: "get lost", az: "azmaq", def: "to not know where you are" },
+    { term: "homesick", az: "vətən həsrəti çəkən", def: "sad because you are away from home" },
+    { term: "get used to", az: "öyrəşmək", def: "to become familiar with something new" },
+    { term: "settle in", az: "uyğunlaşmaq", def: "to become comfortable in a new place" },
+    { term: "confident", az: "özünə inamlı", def: "sure of yourself" },
+    { term: "welcoming", az: "qonaqpərvər", def: "friendly to people who are new" },
+    { term: "challenge", az: "çətinlik", def: "something difficult that tests you" },
+    { term: "steep", az: "dik", def: "rising or falling sharply" },
+    { term: "eventually", az: "nəhayət", def: "in the end, after some time" },
   ] },
 ];
 

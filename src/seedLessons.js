@@ -5,7 +5,8 @@
    Without authored content a block falls back to its type's 1–2 starter
    components (parts.jsx `defaultContent`), so every Practice block in every
    lesson would look identical. These lessons are written out fully instead:
-   Everyday English end to end (each lesson on its own topic), plus IT
+   Everyday English end to end (each lesson on its own topic; L5 is
+   deliberately long, for layout stress-testing), plus IT
    English L4, the ITler — Morning class's current lesson. Between them they
    exercise every component kind except the H5P one (which needs the H5P
    server), and every variant a kind has (comprehension as multiple choice /
@@ -43,13 +44,16 @@ export function withContent(base, level, components) {
   };
 }
 
-const block = (lessonId, n, type, title, meta, level, components) =>
-  withContent({ id: `${lessonId}-${n}`, type, title, meta }, level, components);
+// No title/meta here on purpose: an authored block shows the same plain
+// block-type name a hydrated one does ("Reading", "Vocabulary") — data.jsx
+// fills both in from BLOCK_TYPES, exactly like db/mockDb.jsx's lessonBlocks.
+const block = (lessonId, n, type, level, components) =>
+  withContent({ id: `${lessonId}-${n}`, type }, level, components);
 
 /* ------------------------------- Everyday English ------------------------------- */
 
 const EV1 = [
-  block("ev1", 1, "reading", "Passage — Meeting a new neighbour", "62 words · A2 · tap-to-translate on", "A2", [
+  block("ev1", 1, "reading", "A2", [
     { kind: "passage", textId: "t_neighbour" },
     { kind: "comprehension", mode: "multiple", passageRefId: 1, items: [
       { q: "When did the new family move in?", options: ["On Friday", "On Saturday", "On Sunday"], answer: 1, why: "Mətn: “On Saturday a new family moved in next door.”" },
@@ -57,7 +61,7 @@ const EV1 = [
       { q: "What did they talk about?", options: ["Work and money", "The weather and the park", "Their families"], answer: 1, why: "“We talked about the weather and the park nearby.”" },
     ] },
   ]),
-  block("ev1", 2, "vocabulary", "Words — Greetings & small talk", "8 target phrases · flip, match, remember", "A2", [
+  block("ev1", 2, "vocabulary", "A2", [
     { kind: "wordlist", items: [
       { term: "hello", az: "salam", def: "a friendly word you say when you meet someone", example: "Hello! I'm Nigar." },
       { term: "introduce", az: "təqdim etmək", def: "to tell someone your name when you meet", example: "Let me introduce my colleague." },
@@ -90,7 +94,7 @@ const EV1 = [
       { label: "a long weekend" }, { label: "spend the weekend" }, { label: "last weekend" },
     ] },
   ]),
-  block("ev1", 3, "grammar", "Grammar — “to be” & the present simple", "Colour-coded sentence · be conjugated · quick check", "A2", [
+  block("ev1", 3, "grammar", "A2", [
     { kind: "sentence", sentence: [
       { w: "My new neighbour", role: "subject" }, { w: "works", role: "verb" }, { w: "at the hospital", role: "place" },
       { w: "and", role: "connector" }, { w: "walks", role: "verb" }, { w: "the dog", role: "object" },
@@ -106,7 +110,7 @@ const EV1 = [
       { q: "We ___ at home last weekend.", options: ["was", "were", "are"], answer: 1, why: "Keçmiş zaman, “we” → “were”." },
     ] },
   ]),
-  block("ev1", 4, "practice", "Practice — Small talk in action", "Dialogue · gap fill · word order · right or wrong", "A2", [
+  block("ev1", 4, "practice", "A2", [
     { kind: "dialoguecompletion", title: "Meeting in the lift", turns: [
       { speaker: "A", text: "Hi! You're new here, aren't you?" },
       { speaker: "B", text: "___", blank: true, answer: "Yes, I just moved in. I'm Sara, from flat 5." },
@@ -132,14 +136,14 @@ const EV1 = [
       { sentence: "I am agree with you.", correct: false, why: "“agree” feildir: “I agree with you.”" },
     ] },
   ]),
-  block("ev1", 5, "homework", "Homework — Introduce yourself", "Short writing + a one-minute recording", "A2", [
+  block("ev1", 5, "homework", "A2", [
     { kind: "homework", type: "essay", prompt: "Write 5–6 sentences introducing yourself to a new neighbour: your name, where you are from, your job, and one thing you like doing at the weekend.", minSentences: 5 },
     { kind: "speakingRecord", question: "Imagine you meet your new neighbour in the lift. Say hello, introduce yourself and ask them one question. You have one minute.", tipAz: "Salamlaş, özünü təqdim et, sonra sual ver — tələsmədən danış." },
   ]),
 ];
 
 const EV2 = [
-  block("ev2", 1, "reading", "Passage — At the café", "44 words · A2 · tap-to-translate on", "A2", [
+  block("ev2", 1, "reading", "A2", [
     { kind: "passage", textId: "t_cafe" },
     { kind: "comprehension", mode: "truefalse", passageRefId: 1, items: [
       { statement: "The writer orders a coffee before work.", answer: true, why: "“I usually order a coffee before work.”" },
@@ -148,7 +152,7 @@ const EV2 = [
       { statement: "The writer never buys food there.", answer: false, why: "“Sometimes I grab a sandwich too.”" },
     ] },
   ]),
-  block("ev2", 2, "vocabulary", "Words — Café & menu", "8 words · pictures · word search", "A2", [
+  block("ev2", 2, "vocabulary", "A2", [
     { kind: "wordlist", items: [
       { term: "menu", az: "menyu", def: "a list of food and drinks you can order", example: "Could I see the menu, please?" },
       { term: "order", az: "sifariş vermək", def: "to ask for food or drink", example: "Are you ready to order?" },
@@ -171,12 +175,12 @@ const EV2 = [
     ] },
     { kind: "wordsearch", title: "Find the café words", words: ["MENU", "BILL", "TIP", "ORDER", "CAKE", "TEA"] },
   ]),
-  block("ev2", 3, "listening", "Listening — Ordering at the counter", "Audio 1:40 · video 2:45 · model conversation", "A2", [
+  block("ev2", 3, "listening", "A2", [
     { kind: "listening", title: "Ordering at the counter", duration: "1:40", transcript: "Barista: Hi, what can I get you? — Customer: Could I have a large cappuccino, please? — Barista: Sure. Anything to eat? — Customer: Yes, a croissant, please. — Barista: For here or takeaway? — Customer: For here, thanks. — Barista: That's six manats fifty." },
     { kind: "video", title: "Polite phrases for cafés", duration: "2:45", transcript: "When you order, “Could I have…” and “I'd like…” sound more polite than “Give me…”. To pay, ask “Can I have the bill, please?”" },
     { kind: "youtube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Model café conversation", notes: "Watch once for the gist, then again and write down every polite phrase you hear." },
   ]),
-  block("ev2", 4, "practice", "Practice — Polite requests", "Quiz · gap fill · correct the mistake · 30-second round", "A2", [
+  block("ev2", 4, "practice", "A2", [
     { kind: "quiz", items: [
       { q: "The most polite way to order is:", options: ["Give me a tea.", "I want tea.", "Could I have a tea, please?"], answer: 2, why: "“Could I have…, please?” ən nəzakətli formadır." },
       { q: "___ you like some dessert?", options: ["Would", "Do", "Are"], answer: 0, why: "Təklif: “Would you like…?”" },
@@ -201,7 +205,7 @@ const EV2 = [
       { q: "Is it ___ here or takeaway?", options: ["for", "to", "at"], answer: 0, why: "" },
     ] },
   ]),
-  block("ev2", 5, "homework", "Homework — Record your order", "Video submission + shadowing practice", "A2", [
+  block("ev2", 5, "homework", "A2", [
     { kind: "homework", type: "video", prompt: "Record a 1-minute video of yourself ordering breakfast at a café. Use “Could I have…”, “I'd like…” and ask for the bill at the end. Paste the link below.", minSentences: 0 },
     { kind: "shadowing", items: [
       { sentence: "Could I have a large cappuccino, please?", note: "Stress: LARGE cappuccino, PLEASE — rising at the end." },
@@ -212,7 +216,7 @@ const EV2 = [
 ];
 
 const EV3 = [
-  block("ev3", 1, "reading", "Passage — Finding the museum", "70 words · A2 · tap-to-translate on", "A2", [
+  block("ev3", 1, "reading", "A2", [
     { kind: "passage", textId: "t_city" },
     { kind: "comprehension", mode: "matching", passageRefId: 1, items: [
       { left: "Which city did the writer visit?", right: "Tbilisi" },
@@ -221,7 +225,7 @@ const EV3 = [
       { left: "Where is the museum?", right: "Opposite the park" },
     ] },
   ]),
-  block("ev3", 2, "vocabulary", "Words — Directions & places", "8 words · crossword · wheel warm-up", "A2", [
+  block("ev3", 2, "vocabulary", "A2", [
     { kind: "wordlist", items: [
       { term: "turn left", az: "sola dön", def: "go to the left", example: "Turn left at the bank." },
       { term: "go straight on", az: "düz get", def: "continue in the same direction", example: "Go straight on for two minutes." },
@@ -254,11 +258,11 @@ const EV3 = [
       { term: "crowded", az: "sıx", q: "Which place in your city is the most crowded?" },
     ] },
   ]),
-  block("ev3", 3, "listening", "Listening — Asking for directions", "Audio 1:55 · model video", "A2", [
+  block("ev3", 3, "listening", "A2", [
     { kind: "listening", title: "Excuse me, where's the station?", duration: "1:55", transcript: "Tourist: Excuse me, how do I get to the train station? — Local: Go straight on down this street, then take the second left. — Tourist: Second left… and then? — Local: Walk past the supermarket. The station is on your right, opposite the bank. — Tourist: Is it far? — Local: No, about five minutes on foot." },
     { kind: "youtube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Giving directions — model video", notes: "Pause after each instruction and trace the route on the city map in the Resources block." },
   ]),
-  block("ev3", 4, "grammar", "Grammar — Places, comparisons & “if”", "Preposition scene · comparison ladder · first conditional", "A2", [
+  block("ev3", 4, "grammar", "A2", [
     { kind: "preposition", object: "🚲", anchor: "🏛️", subject: "the bike", place: "the museum",
       options: ["in front of", "behind", "next to", "opposite", "on"], answer: "in front of" },
     { kind: "comparison",
@@ -270,7 +274,7 @@ const EV3 = [
       { condition: "you get lost", result: "you can ask someone at the bus stop" },
     ] },
   ]),
-  block("ev3", 5, "practice", "Practice — Find your way", "Dialogue · word order · right or wrong · pair info-gap", "A2", [
+  block("ev3", 5, "practice", "A2", [
     { kind: "dialoguecompletion", title: "Lost near the square", turns: [
       { speaker: "A", text: "Excuse me, is there a pharmacy near here?" },
       { speaker: "B", text: "___", blank: true, answer: "Yes, go straight on and turn right at the crossroads." },
@@ -301,19 +305,19 @@ const EV3 = [
       ],
       items: [] },
   ]),
-  block("ev3", 6, "resources", "Resources — City map & travel guide", "Map image · metro guide (PDF) · directions slides", "A2", [
+  block("ev3", 6, "resources", "A2", [
     { kind: "document", docKind: "image", url: "/seed/city-map.svg", title: "Old-town map", notes: "Use it with the info-gap task and the directions video." },
     { kind: "document", docKind: "pdf", url: "/seed/metro-guide.pdf", title: "Metro quick guide", notes: "Two pages — lines, fares and useful phrases." },
     { kind: "slidedeck", provider: "slides", url: "/seed/directions-deck.html", title: "Giving directions — 6 slides", notes: "Walk through it before the listening task." },
   ]),
-  block("ev3", 7, "homework", "Homework — Describe your route", "Share a link + upload a sketch", "A2", [
+  block("ev3", 7, "homework", "A2", [
     { kind: "homework", type: "link", prompt: "Open a map of your city and write directions from your home to your favourite café or park (6+ steps). Share the document link here.", minSentences: 0 },
     { kind: "upload", instructions: "Upload a photo or sketch of your route with the key places labelled (PDF or image).", accept: ".pdf,.png,.jpg,.jpeg" },
   ]),
 ];
 
 const EV4 = [
-  block("ev4", 1, "reading", "Passage — A Saturday at the market", "66 words · B1 · tap-to-translate on", "B1", [
+  block("ev4", 1, "reading", "B1", [
     { kind: "passage", textId: "t_market" },
     { kind: "comprehension", mode: "multiple", passageRefId: 1, items: [
       { q: "Why does the writer buy fruit at the market?", options: ["It's fresher", "It's usually cheaper", "It's closer to home"], answer: 1, why: "“Fruit is usually cheaper there than in the supermarket.”" },
@@ -321,7 +325,7 @@ const EV4 = [
       { q: "How did the writer pay?", options: ["By card", "In cash", "By phone"], answer: 1, why: "“I paid in cash and kept the receipt.”" },
     ] },
   ]),
-  block("ev4", 2, "vocabulary", "Words — Shopping & money", "8 words · definitions · word formation", "B1", [
+  block("ev4", 2, "vocabulary", "B1", [
     { kind: "wordlist", items: [
       { term: "price", az: "qiymət", def: "how much money something costs", example: "The price is on the label." },
       { term: "cheap", az: "ucuz", def: "costing little money", example: "This bag was really cheap." },
@@ -350,7 +354,7 @@ const EV4 = [
       { emoji: "🧾", term: "receipt", az: "qəbz" },
     ] },
   ]),
-  block("ev4", 3, "practice", "Practice — At the shop", "Quiz · gap fill · corrections · role-play · team race", "B1", [
+  block("ev4", 3, "practice", "B1", [
     { kind: "quiz", items: [
       { q: "How ___ are these shoes?", options: ["many", "much", "more"], answer: 1, why: "Qiymət soruşanda: “How much…?”" },
       { q: "How ___ apples do you need?", options: ["much", "many", "lot"], answer: 1, why: "Sayılan isimlər: “How many…?”" },
@@ -389,8 +393,232 @@ const EV4 = [
         { q: "Choose the correct comparative.", options: ["more cheap", "cheaper", "cheapest"], answer: 1 },
       ] },
   ]),
-  block("ev4", 4, "homework", "Homework — Plan a shopping trip", "Writing · 6+ sentences", "B1", [
+  block("ev4", 4, "homework", "B1", [
     { kind: "homework", type: "essay", prompt: "You have 100 manats for a Saturday shopping trip. Write 6+ sentences: where you will go, what you will buy, and compare prices between two shops (use cheaper / more expensive).", minSentences: 6 },
+  ]),
+];
+
+// Deliberately long, for seeing how layouts hold up: 12 steps (the step bar,
+// outline and course tree all run long), a ~450-word passage, and components
+// with many items — a 24-word list, 12-question quiz, 12-turn dialogue,
+// 12-word crossword and so on.
+const NEW_CITY_WORDS = [
+  ["move", "köçmək", "to go to live in a different place", "We moved to Baku in 2020."],
+  ["commute", "işə gedib-gəlmək", "to travel to and from work", "My commute takes forty minutes."],
+  ["crowded", "adamla dolu", "full of people", "The metro is crowded in the morning."],
+  ["rush hour", "pik saat", "the busy time when people travel to and from work", "Avoid the city centre in rush hour."],
+  ["top up", "balansı artırmaq", "to add money to a card", "I need to top up my travel card."],
+  ["landlord", "ev sahibi", "a person who rents a home to you", "My landlord lives downstairs."],
+  ["deposit", "depozit", "money you pay before renting, returned later", "The deposit is two months' rent."],
+  ["rent", "kirayə haqqı", "money you pay every month to live in a place", "The rent is due on the first of the month."],
+  ["flat", "mənzil", "a set of rooms to live in, inside a building", "Our flat is on the fourth floor."],
+  ["neighbourhood", "məhəllə", "the area around your home", "It's a quiet neighbourhood."],
+  ["grocery shop", "ərzaq mağazası", "a shop that sells food and everyday things", "There's a grocery shop on the corner."],
+  ["bargain", "sərfəli alış", "something bought for much less than usual", "This jacket was a real bargain."],
+  ["ferry", "bərə", "a boat that carries people across water", "We took the ferry to the island."],
+  ["view", "mənzərə", "what you can see from a place", "The view from the hill is amazing."],
+  ["explore", "kəşf etmək", "to travel around a place to learn about it", "Let's explore the old town."],
+  ["homesick", "vətən həsrəti çəkən", "sad because you are away from home", "I felt homesick on my birthday."],
+  ["get used to", "öyrəşmək", "to become familiar with something new", "I'm getting used to the noise."],
+  ["confident", "özünə inamlı", "sure of yourself", "She feels confident when she speaks."],
+  ["eventually", "nəhayət", "in the end, after some time", "Eventually we found the station."],
+  ["welcoming", "qonaqpərvər", "friendly to people who are new", "The team was very welcoming."],
+  ["challenge", "çətinlik", "something difficult that tests you", "Finding a flat was a real challenge."],
+  ["steep", "dik", "rising or falling sharply", "The streets here are very steep."],
+  ["journey", "səfər", "travelling from one place to another", "The journey takes two hours."],
+  ["settle in", "uyğunlaşmaq", "to become comfortable in a new place", "It took me a month to settle in."],
+].map(([term, az, def, example]) => ({ term, az, def, example }));
+
+const EV5 = [
+  block("ev5", 1, "reading", "B1", [
+    { kind: "passage", textId: "t_newcity" },
+    { kind: "comprehension", mode: "multiple", passageRefId: 1, items: [
+      { q: "Why did the writer move to Istanbul?", options: ["To study", "For a new job", "To be near family"], answer: 1, why: "“Last month I moved to Istanbul for a new job.”" },
+      { q: "Why did the writer wake up at six on the first morning?", options: ["The alarm was wrong", "They were nervous", "The neighbours were noisy"], answer: 1, why: "“…because I was so nervous.”" },
+      { q: "What did nobody tell the writer about the travel card?", options: ["It only works on buses", "It must be topped up before every journey", "It is free for new residents"], answer: 1, why: "“…I needed to top up the card before every journey.”" },
+      { q: "How long is the daily commute?", options: ["About fifteen minutes", "About forty minutes", "About an hour"], answer: 1, why: "“My daily commute takes about forty minutes.”" },
+      { q: "Why does the writer now leave home earlier?", options: ["To buy coffee", "To get a seat on the crowded trains", "To walk up the hill"], answer: 1, why: "Pik saatda qatarlar doludur — oturmaq üçün tez çıxır." },
+      { q: "What was wrong with the second flat?", options: ["It was too dark", "It was far from the metro", "It was too expensive"], answer: 1, why: "“…the second was far from the metro.”" },
+      { q: "What did the writer buy at the Sunday market?", options: ["A warm jacket", "Fresh bread", "A travel card"], answer: 0, why: "“I bought a warm jacket for half price.”" },
+      { q: "How long do colleagues say it takes to settle in?", options: ["About a week", "About a month", "About three months"], answer: 2, why: "“…it takes about three months to settle in properly.”" },
+    ] },
+  ]),
+  block("ev5", 2, "vocabulary", "B1", [
+    { kind: "wordlist", items: NEW_CITY_WORDS },
+    { kind: "flashcards", items: NEW_CITY_WORDS.slice(0, 15).map(({ term, az, example }) => ({ term, az, example })) },
+  ]),
+  block("ev5", 3, "listening", "B1", [
+    { kind: "listening", title: "Viewing a flat", duration: "4:30", transcript: "Agent: Hi, you must be here to see the flat. Come in. — Renter: Thanks. Oh, it's brighter than in the photos. — Agent: Yes, the living room gets the sun all afternoon. The kitchen is through here — everything is new: the fridge, the cooker and the washing machine. — Renter: Great. And how much is the rent? — Agent: It's twelve hundred a month, and the deposit is two months' rent. — Renter: Are bills included? — Agent: Water is included, but electricity and internet are extra. — Renter: How far is it to the metro? — Agent: About six minutes on foot, straight down the hill. The bus stop is just outside. — Renter: And the neighbours? Is it a quiet building? — Agent: Very quiet. Most people here are young families or people who work in the centre. — Renter: When could I move in? — Agent: From the first of next month. If you like it, I can send you the contract today. — Renter: I'd like to think about it tonight and call you tomorrow morning, if that's OK. — Agent: Of course. Take your time." },
+    { kind: "video", title: "Renting a flat abroad — what to ask", duration: "6:10", transcript: "Before you sign anything, ask about four things. First, the total cost: rent, deposit, and which bills are included. Second, the contract: how long it is, and what happens if you need to leave early. Third, repairs: who fixes the heating or the washing machine if it breaks? And finally, the area: visit at night as well as during the day, walk to the nearest metro, and find the closest grocery shop and pharmacy. A cheap flat far from transport can cost you more in time and money every single day." },
+  ]),
+  block("ev5", 4, "grammar", "B1", [
+    { kind: "sentence", sentence: [
+      { w: "Every morning", role: "time" }, { w: "my neighbour", role: "subject" }, { w: "takes", role: "verb" },
+      { w: "the first ferry", role: "object" }, { w: "across the river", role: "place" }, { w: "because", role: "connector" },
+      { w: "she", role: "subject" }, { w: "hates", role: "verb" }, { w: "the crowded metro", role: "object" },
+      { w: "during rush hour", role: "time" }, { w: "." },
+    ] },
+    { kind: "conjugation", verb: "move", tenses: {
+      "Present simple": { I: "move", You: "move", "He/She/It": "moves", We: "move", They: "move" },
+      "Past simple": { I: "moved", You: "moved", "He/She/It": "moved", We: "moved", They: "moved" },
+      "Present perfect": { I: "have moved", You: "have moved", "He/She/It": "has moved", We: "have moved", They: "have moved" },
+      "Future (going to)": { I: "am going to move", You: "are going to move", "He/She/It": "is going to move", We: "are going to move", They: "are going to move" },
+    } },
+    { kind: "conditional", type: "first", branches: [
+      { condition: "you top up your card now", result: "you won't have to queue at the machine later" },
+      { condition: "the rent is too high", result: "we'll look for a flat further from the centre" },
+      { condition: "it rains on Saturday", result: "we'll visit the museum instead of the market" },
+      { condition: "you take the ferry at sunset", result: "you'll get the best view of the old city" },
+    ] },
+  ]),
+  block("ev5", 5, "practice", "B1", [
+    { kind: "quiz", items: [
+      { q: "I ___ to Istanbul last month.", options: ["move", "moved", "have moved"], answer: 1, why: "“last month” → Past simple." },
+      { q: "She ___ here since January.", options: ["lives", "lived", "has lived"], answer: 2, why: "“since January” → Present perfect." },
+      { q: "The metro is always ___ at 8 a.m.", options: ["crowded", "crowd", "crowding"], answer: 0, why: "Sifət lazımdır: crowded." },
+      { q: "How ___ is the rent?", options: ["many", "much", "long"], answer: 1, why: "Pul üçün “How much”." },
+      { q: "I'm still getting used to ___ in a big city.", options: ["live", "living", "lived"], answer: 1, why: "“get used to” + -ing." },
+      { q: "If it rains, we ___ the museum.", options: ["visit", "will visit", "visited"], answer: 1, why: "First conditional: if + present, will + verb." },
+      { q: "The view from the ferry was ___ than I expected.", options: ["beautiful", "more beautiful", "most beautiful"], answer: 1, why: "Müqayisə: more beautiful than." },
+      { q: "My landlord asked ___ a deposit.", options: ["for", "to", "about"], answer: 0, why: "“ask for something”." },
+      { q: "We ___ our new neighbours yet.", options: ["didn't meet", "haven't met", "don't meet"], answer: 1, why: "“yet” → Present perfect inkar." },
+      { q: "The streets are very ___, so walking is hard work.", options: ["steep", "flat", "wide"], answer: 0, why: "Dik küçələr: steep." },
+      { q: "___ you ever taken a ferry?", options: ["Did", "Have", "Do"], answer: 1, why: "Təcrübə: “Have you ever…?”" },
+      { q: "It took me three months to ___.", options: ["settle in", "settle down in", "set in"], answer: 0, why: "Uyğunlaşmaq: settle in." },
+    ] },
+  ]),
+  block("ev5", 6, "practice", "B1", [
+    { kind: "gapfill", items: [
+      { text: "My daily ___ takes forty minutes.", answer: "commute", why: "İşə gedib-gəlmə: commute." },
+      { text: "Don't forget to ___ up your travel card.", answer: "top", why: "“top up” — balansı artırmaq." },
+      { text: "The ___ is two months' rent.", answer: "deposit", why: "İcarədən əvvəl ödənilən pul: deposit." },
+      { text: "I've ___ here for three weeks.", answer: "lived", why: "Present perfect: have + lived." },
+      { text: "It's a quiet ___ with lots of cafés.", answer: "neighbourhood", why: "Evin ətrafı: neighbourhood." },
+      { text: "We took the ___ across the river.", answer: "ferry", why: "Suyun o tayına keçən qayıq: ferry." },
+      { text: "I feel much more ___ when I speak now.", answer: "confident", why: "Özünə inamlı: confident." },
+      { text: "Some evenings I feel a little ___.", answer: "homesick", why: "Vətən həsrəti: homesick." },
+      { text: "The market was full of ___ — everything was half price.", answer: "bargains", why: "Cəm: bargains." },
+      { text: "___ this city will feel like home.", answer: "Eventually", why: "Nəhayət: eventually." },
+    ] },
+    { kind: "scramble", items: [
+      { sentence: "I have lived here for three weeks.", why: "Present perfect + for + müddət." },
+      { sentence: "The trains are crowded during rush hour.", why: "Mübtəda + are + sifət + zaman." },
+      { sentence: "Could you tell me how to top up this card?", why: "Nəzakətli dolayı sual: Could you tell me how to…?" },
+      { sentence: "We are going to explore the old town on Saturday.", why: "Plan: be going to + feil." },
+      { sentence: "My landlord asked for a deposit of two months' rent.", why: "ask for + isim." },
+      { sentence: "It usually takes three months to settle in.", why: "It takes + müddət + to + feil." },
+    ] },
+  ]),
+  block("ev5", 7, "practice", "B1", [
+    { kind: "dialoguecompletion", title: "Calling about the flat", turns: [
+      { speaker: "A", text: "Hello, I'm calling about the flat on Hill Street. Is it still available?" },
+      { speaker: "B", text: "___", blank: true, answer: "Yes, it is. Would you like to come and see it?" },
+      { speaker: "A", text: "I'd love to. How much is the rent?" },
+      { speaker: "B", text: "___", blank: true, answer: "It's twelve hundred a month, plus a deposit of two months' rent." },
+      { speaker: "A", text: "Are any bills included?" },
+      { speaker: "B", text: "___", blank: true, answer: "Water is included, but electricity and internet are extra." },
+      { speaker: "A", text: "And how far is it from the metro?" },
+      { speaker: "B", text: "___", blank: true, answer: "About six minutes on foot, straight down the hill." },
+      { speaker: "A", text: "That sounds good. When could I see it?" },
+      { speaker: "B", text: "___", blank: true, answer: "How about tomorrow at six, after work?" },
+      { speaker: "A", text: "Perfect. See you tomorrow, then." },
+      { speaker: "B", text: "___", blank: true, answer: "Great — I'll text you the exact address." },
+    ] },
+  ]),
+  block("ev5", 8, "speaking", "B1", [
+    { kind: "scenario", situation: "The heating in your new flat stopped working last night. You call your landlord to ask for a repair.", turns: [
+      { prompt: "Landlord: Hello, Mehmet speaking.", sample: "Hi Mehmet, it's the tenant from the fourth floor." },
+      { prompt: "Landlord: Oh, hello! Is everything OK?", sample: "Not really — the heating stopped working last night." },
+      { prompt: "Landlord: I'm sorry to hear that. Is the boiler making any noise?", sample: "No, it's completely silent, and the radiators are cold." },
+      { prompt: "Landlord: OK. Can someone come in tomorrow morning?", sample: "I work until five. Would the afternoon be possible?" },
+      { prompt: "Landlord: Let me check… The engineer can come at half past five.", sample: "That's perfect, thank you. Should I leave a key with a neighbour just in case?" },
+      { prompt: "Landlord: No need, I'll come with him. Stay warm tonight!", sample: "Thanks, I'll use the extra blankets. See you tomorrow." },
+    ] },
+    { kind: "shadowing", items: [
+      { sentence: "I'm calling about the flat on Hill Street.", note: "Stress: CALLing, FLAT, HILL Street." },
+      { sentence: "Is it still available?", note: "Rise at the end — a yes/no question." },
+      { sentence: "Are any bills included?", note: "Linking: “are-any”." },
+      { sentence: "How far is it from the metro?", note: "Stress: FAR, METro." },
+      { sentence: "Could I come and see it tomorrow?", note: "“come-and” → “come‿n”." },
+      { sentence: "The heating stopped working last night.", note: "Stress: HEATing, STOPPED, LAST night." },
+      { sentence: "Would the afternoon be possible?", note: "Polite fall-rise on “possible”." },
+      { sentence: "It usually takes three months to settle in.", note: "“settle-in” links: settl‿in." },
+    ] },
+    { kind: "speakingRecord", question: "Talk for two minutes about moving somewhere new — a new city, school, job or flat. What was difficult in the first week? What helped you settle in? What would you tell someone who is about to move?", tipAz: "Keçmiş zamanla danış (I moved, I felt), sonra məsləhət ver (You should…). Tələsmə." },
+  ]),
+  block("ev5", 9, "playground", "B1", [
+    { kind: "crossword", items: [
+      { word: "commute", clue: "Your daily journey to work" },
+      { word: "crowded", clue: "Full of people" },
+      { word: "landlord", clue: "The person who rents you a flat" },
+      { word: "deposit", clue: "Money you pay before you move in" },
+      { word: "ferry", clue: "A boat that carries people across water" },
+      { word: "bargain", clue: "Something very cheap for what it is" },
+      { word: "explore", clue: "Walk around a place to learn about it" },
+      { word: "homesick", clue: "Sad because you're far from home" },
+      { word: "journey", clue: "Travelling from A to B" },
+      { word: "steep", clue: "A hill that is hard to walk up" },
+      { word: "rent", clue: "What you pay every month for a flat" },
+      { word: "view", clue: "What you can see from a window or hill" },
+    ] },
+    { kind: "wordsearch", title: "Find the new-city words", words: ["COMMUTE", "FERRY", "RENT", "FLAT", "VIEW", "STEEP", "METRO", "TICKET", "MAP", "CITY", "HOME", "BUS"] },
+    { kind: "memory", pairs: [
+      { term: "flat", az: "mənzil" }, { term: "rent", az: "kirayə haqqı" }, { term: "ferry", az: "bərə" }, { term: "view", az: "mənzərə" },
+      { term: "steep", az: "dik" }, { term: "journey", az: "səfər" }, { term: "landlord", az: "ev sahibi" }, { term: "bargain", az: "sərfəli alış" },
+    ] },
+    { kind: "wheel", title: "New city wheel", items: [
+      { term: "commute", az: "işə gedib-gəlmə", q: "Describe your daily commute in three sentences." },
+      { term: "neighbourhood", az: "məhəllə", q: "What do you like most about your neighbourhood?" },
+      { term: "homesick", az: "vətən həsrəti", q: "Have you ever felt homesick? When?" },
+      { term: "bargain", az: "sərfəli alış", q: "What's the best bargain you've ever found?" },
+      { term: "view", az: "mənzərə", q: "Where is the best view in your city?" },
+      { term: "get used to", az: "öyrəşmək", q: "What was hard to get used to when you started something new?" },
+      { term: "explore", az: "kəşf etmək", q: "Which city would you like to explore next?" },
+      { term: "landlord", az: "ev sahibi", q: "What makes a good landlord?" },
+    ] },
+  ]),
+  block("ev5", 10, "writing", "B1", [
+    { kind: "arrowcorrection", items: [
+      { wrong: "I have moved here last month.", correct: "I moved here last month.", why: "Bitmiş vaxt (last month) → Past simple." },
+      { wrong: "She lives here since 2022.", correct: "She has lived here since 2022.", why: "“since” → Present perfect." },
+      { wrong: "I'm getting used to live alone.", correct: "I'm getting used to living alone.", why: "“get used to” + -ing." },
+      { wrong: "The rent is more cheap here.", correct: "The rent is cheaper here.", why: "Qısa sifət: cheap → cheaper." },
+      { wrong: "How much costs the travel card?", correct: "How much does the travel card cost?", why: "Sual: How much does… cost?" },
+      { wrong: "If it will rain, we stay at home.", correct: "If it rains, we'll stay at home.", why: "if + present, will + feil." },
+      { wrong: "My landlord asked me a deposit.", correct: "My landlord asked me for a deposit.", why: "“ask someone for something”." },
+      { wrong: "We didn't met the neighbours yet.", correct: "We haven't met the neighbours yet.", why: "“yet” → Present perfect inkar." },
+    ] },
+    { kind: "homework", type: "essay", prompt: "Write an email (150–200 words) to a friend who is moving to your city next month. Describe your neighbourhood, explain how to get from the airport to the centre, recommend two places to explore at the weekend, and give three tips for settling in during the first week.", minSentences: 10 },
+  ]),
+  block("ev5", 11, "practice", "B1", [
+    { kind: "correctincorrect", items: [
+      { sentence: "I've lived in Istanbul for three weeks.", correct: true, why: "Present perfect + for — düzgündür." },
+      { sentence: "The metro is crowded in rush hour.", correct: true, why: "Düzgündür." },
+      { sentence: "I moved here since last month.", correct: false, why: "“since” ilə Past simple olmur: “I moved here last month.”" },
+      { sentence: "How much is the deposit?", correct: true, why: "Düzgündür." },
+      { sentence: "She is getting used to wake up early.", correct: false, why: "“getting used to waking up early”." },
+      { sentence: "If you take the ferry, you'll see the old city.", correct: true, why: "First conditional — düzgündür." },
+      { sentence: "The streets are more steep than in Baku.", correct: false, why: "“steeper than”." },
+      { sentence: "Have you ever explored the old town?", correct: true, why: "Düzgündür." },
+      { sentence: "We haven't found a flat yet.", correct: true, why: "Düzgündür." },
+      { sentence: "My landlord asked for me a deposit.", correct: false, why: "“asked me for a deposit”." },
+    ] },
+    { kind: "speedround", seconds: 45, items: [
+      { q: "I ___ here last month.", options: ["moved", "have moved", "move"], answer: 0, why: "" },
+      { q: "She's lived here ___ May.", options: ["for", "since", "ago"], answer: 1, why: "" },
+      { q: "Full of people:", options: ["crowded", "steep", "homesick"], answer: 0, why: "" },
+      { q: "How ___ is the rent?", options: ["many", "much", "far"], answer: 1, why: "" },
+      { q: "I'm getting used to ___ early.", options: ["wake up", "waking up", "woke up"], answer: 1, why: "" },
+      { q: "A boat across water:", options: ["ferry", "flat", "fare"], answer: 0, why: "" },
+      { q: "If it rains, we ___ stay in.", options: ["will", "would", "did"], answer: 0, why: "" },
+      { q: "Cheaper than usual:", options: ["bargain", "deposit", "rent"], answer: 0, why: "" },
+      { q: "Have you ___ been to Istanbul?", options: ["ever", "yet", "since"], answer: 0, why: "" },
+      { q: "Sad because you're far from home:", options: ["homesick", "confident", "welcoming"], answer: 0, why: "" },
+    ] },
+  ]),
+  block("ev5", 12, "homework", "B1", [
+    { kind: "homework", type: "essay", prompt: "Imagine it's your first week in a new city. Write a diary entry for each of three days (at least four sentences per day): what you did, what went wrong, what surprised you, and how you felt. Use at least eight words from this lesson.", minSentences: 12 },
+    { kind: "upload", instructions: "Upload a photo of a place you would show a newcomer to your city, with two or three sentences explaining why.", accept: ".pdf,.png,.jpg,.jpeg" },
   ]),
 ];
 
@@ -524,4 +752,4 @@ export const TENSE_CONTENT = [
   ],
 ];
 
-export const EVERYDAY_BUILT = { ev1: EV1, ev2: EV2, ev3: EV3, ev4: EV4 };
+export const EVERYDAY_BUILT = { ev1: EV1, ev2: EV2, ev3: EV3, ev4: EV4, ev5: EV5 };

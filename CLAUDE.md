@@ -114,9 +114,13 @@ seam so a real one can be dropped in later without touching any view:
   falling back to its type's identical 1–2 starter components. Everyday
   English is authored end to end and IT English L4 (the ITler — Morning
   class's current lesson) too; between them they use every component kind
-  but `h5pActivity` (needs the H5P server) and every kind's variants. Block
-  ids are stable (`<lesson>-<n>`, matching what `lessonBlocks` gives an
-  unbuilt block) so block URLs survive reloads. The Resources block embeds
+  but `h5pActivity` (needs the H5P server) and every kind's variants.
+  Everyday English L5 is deliberately long — 12 steps, a ~450-word passage,
+  components with many items — for seeing how layouts hold up. Authored
+  blocks are titled exactly like unbuilt ones (the plain block-type name,
+  no subtitle; `data.jsx`'s `authored`). Block ids are stable
+  (`<lesson>-<n>`, matching what `lessonBlocks` gives an unbuilt block) so
+  block URLs survive reloads. The Resources block embeds
   local files from `public/seed/` (a map SVG, a small PDF, an HTML slide
   page) rather than third-party URLs.
 - **Component bank persistence** — the saved-component library is the one
