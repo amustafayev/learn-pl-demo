@@ -101,8 +101,9 @@ seam so a real one can be dropped in later without touching any view:
   - `state.taughtLessons[]` (`taught_lessons`, append-only):
     `{ id, classId, courseId, lessonId, taughtAt }` — ISO timestamps only;
     "5 days ago" is formatting (`src/format.js`).
-  - Membership is `student.classId` alone. The roster and a student's
-    course are **derived** (`studentCourseId`), never stored a second time.
+  - Who's in a class lives in `memberships`, never on the student or the
+    class (see **Students, classes & access** below). The roster and a
+    student's course are derived (`classMembers`, `studentCourseId`).
   - `classCourseProgress(state, cls, courseId)` is the one read model:
     `{ next, last: { lesson, taughtAt }, taughtAt: {lessonId→iso},
     taughtCount, total, pct, allTaught }` — what
@@ -197,6 +198,154 @@ Views never import `src/db/mockDb.jsx` directly — always go through
 `useStore()`/`useNav()` from `store.jsx`. That's what keeps the swap
 one-file: nothing in `src/views/` or `src/components/` knows or cares that
 the "backend" is a `useReducer` today.
+
+## Students, classes & access
+
+How students relate to teachers, what a teacher may see, and what a student
+may open. The teacher side is built; the student app is next and must follow
+the same rules. The code is `src/db/mockDb.jsx` (model, rules, and the
+endpoint list above its class cases) plus the seeds in `src/data.jsx`.
+
+### Two products, one teacher-owned course
+
+| | **Class** (teacher-led) | **Course purchase** (self-paced) |
+|---|---|---|
+| Owner | the teacher who created the class and course (`teacherId`) | the teacher who created the course |
+| How a student gets in | class **link/code** → the student **requests** → the teacher **accepts**; or an **email invite** from the teacher → accepting admits directly; or the teacher adds one of their own students with the class's **+** | finds the course in the public catalog → **buys** it. No teacher step once paid |
+| What the student can open | only lessons the teacher has **released** to that class (`releasedLessonIds`); marking a lesson taught releases it | **every** lesson of the course |
+| Progress | per class: next up and lessons taught (see Class progress above) | per student (student app, later) |
+
+Payments aren't in the app yet. A buyer taps "Request to buy", pays the
+teacher directly (the course's `sale.paymentNote` explains how), and the
+teacher confirms it: **Mark paid & give access**. In-app checkout later
+only changes how a purchase becomes `paid`, nothing else.
+
+### What a teacher can see: the visibility rule
+
+A teacher sees a student **only through a relationship**: a class
+membership (any status) in one of their classes, or a purchase of one of
+their courses. There is no platform-wide student list or search. To add
+someone new, the teacher shares a class link or code, or types an exact
+email.
+
+- `teacherView(db)` enforces this. `StoreProvider` passes views **only**
+  the logged-in teacher's slice, the same thing a real API returns:
+  their courses and lessons, their classes, the memberships, purchases,
+  invites and blocks attached to those, and the students behind them.
+  **Views never see the unscoped db.** Don't bypass it; any new "list of
+  students" must start from the scoped `state`.
+- Relationship groups come from `teacherRoster(state)`: `active`,
+  `requests` (class joins plus purchase requests), `former` (removed or
+  left), `customers` (paid purchases) and `blocked`. For "my students",
+  meaning rosters, assigning, the dashboard and insights, use
+  `activeStudents(state)`, never `state.students`, which also holds
+  requesters, former students and customers.
+- **Former students** stay visible as read-only history: the class, the
+  dates, and the teacher's own notes. The teacher can add them back.
+  Nothing new about the student reaches the teacher after the end date.
+- **Blocking** a student declines their pending requests and hides any
+  future ones. It never removes something they bought.
+
+### Records (shaped like the backend tables they stand for)
+
+```
+courses       { id, teacherId, …, sale: { forSale, price, currency, description, paymentNote } }
+classes       { id, teacherId, name, scheduleDays, joinToken, joinOpen,
+                courses: [{ courseId, status, currentLessonId, releasedLessonIds[] }] }
+memberships   { id, classId, studentId, status: requested | active | declined | removed | left,
+                source: code | invite | teacher, requestedAt, decidedAt, endedAt, message? }
+purchases     { id, courseId, studentId, status: requested | paid | declined | refunded,
+                amount, currency, method: external | in_app, requestedAt, paidAt, confirmedBy, message? }
+invitations   { id, classId, email, name?, status: pending | accepted | revoked, createdAt, expiresAt }
+blocks        { teacherId, studentId, createdAt }
+taughtLessons { id, classId, courseId, lessonId, taughtAt }
+```
+
+- A student record holds only the student's own data (name, email,
+  level, goal). **Membership is never stored on the student.** Everything
+  relational lives in these tables, so one student can be in several
+  classes, including other teachers', and keep their history.
+- One membership row per (class, student). Re-adding someone reactivates
+  that row (`upsertMembership`) rather than creating a duplicate.
+- Times are ISO strings stamped by the reducer, standing in for the
+  server. Format them only at display time (`src/format.js`).
+
+### The access rule (the student app enforces this, like the server)
+
+> A student can open lesson L of course C **if they bought C** (a `paid`
+> purchase), **or** they're an **active** member of a class taking C
+> **and L has been released** to that class.
+
+It's written once, as `canOpenLesson(db, studentId, courseId, lessonId)`.
+Every student-side screen that shows or opens a lesson must go through it:
+the catalog, "My classes", "My courses" and the lesson player. Consequences:
+- Removed from a class: the class's lessons are gone, but a purchase stays.
+- A student can be in a class and also own the course: both kinds of
+  access, with separate progress.
+- A course taken off sale stops new purchases, but **existing buyers keep
+  access**. A refund ends access.
+
+### Actions (one per endpoint; the full list is in `mockDb.jsx`)
+
+- **Teacher:**
+  - `REGENERATE_JOIN_TOKEN` (the old link stops working) and
+    `SET_CLASS_JOINING` (the link on or off).
+  - `CREATE_INVITATION` / `REVOKE_INVITATION`.
+  - `DECIDE_MEMBERSHIP` (`active` | `declined`), `ADD_CLASS_MEMBER`,
+    `REMOVE_CLASS_MEMBER`, `BLOCK_STUDENT` / `UNBLOCK_STUDENT`.
+  - `SET_LESSON_RELEASED`, `UPDATE_COURSE_SALE`, `DECIDE_PURCHASE`
+    (`paid` | `declined`).
+- **Student**, already implemented in the reducer for the student app:
+  - `REQUEST_TO_JOIN { token, studentId, message }`. Rejected silently for
+    a closed class or a blocked student; a class link never admits
+    directly.
+  - `ACCEPT_INVITATION { invitationId, studentId }`. Admits directly;
+    expired or withdrawn invites do nothing.
+  - `REQUEST_PURCHASE { courseId, studentId, message }`. Only for a course
+    that's for sale; a paid or pending purchase already existing is a
+    no-op.
+
+### Where it shows up (teacher side)
+
+- **Class page:** one **Class members** panel in the right rail.
+  - Tabs **Students / Requests**, both always shown with counts. Requests
+    (Accept, Decline, Block) has an empty state, so it never disappears.
+  - The header holds **Invite** and **+**. The **+** only offers the
+    teacher's own students.
+  - **Invite** opens a dialog with the link and code, copy, New link,
+    Joining on/off, and email invites with Withdraw.
+  - Don't stack invite UI under the roster again: it got pushed off-screen
+    as the class grew.
+- **Sidebar:** the Students item shows the number of waiting requests
+  (class and purchase) from any page.
+- **Course page through a class:** a **Shared / Share** toggle per lesson.
+  `ClassLessonBar` shows "Students can see it" with Share or Hide.
+- **Plain course page:** a sales card with For sale or "Put on sale" and
+  **Sale settings** (price, currency, description, how to pay), plus
+  **Customers** (requests to confirm, then buyers).
+- **Students page:**
+  - **Active / Requests / Former / Customers** tabs (`?filter=`), with no
+    made-up metrics;
+  - a student's **Profile** tab covers classes (add, remove, history),
+    courses bought, contact details and block, next to **Lesson notes**.
+  - The old per-student analytics tabs (Overview, Words, Activity, AI
+    Insights, Learning path) are seed data. They're parked behind
+    `SHOW_STUDENT_ANALYTICS` in `Students.jsx`; don't show them until the
+    student app produces real data.
+
+### Student app: what's still to build
+
+- A `/join/:token` page (the class link is `JOIN_LINK_BASE + joinToken`):
+  sign up or log in, then `REQUEST_TO_JOIN`; it shows "waiting for your
+  teacher".
+- Accepting an email invite (`ACCEPT_INVITATION`).
+- The **catalog**: courses with `sale.forSale`, showing description and
+  price. "Request to buy" shows `paymentNote`, then `REQUEST_PURCHASE`.
+- "My classes" and "My courses", plus a lesson player that opens only what
+  `canOpenLesson` allows.
+- The student app needs its own scoped view, mirroring `teacherView`: a
+  student sees their own memberships and purchases, the courses and
+  classes behind them, and never other students.
 
 ## Color tokens
 

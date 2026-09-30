@@ -165,6 +165,9 @@ export function scheduleLabel(days) {
 // edits. `TEACHER` itself stays a static export for anything that only ever
 // needs the seed values, not the live edited ones.
 export const TEACHER = {
+  // The logged-in teacher. Courses and classes carry a teacherId; the store
+  // shows this teacher only their own (see teacherView in db/mockDb.jsx).
+  id: "t_maria",
   name: "Maria Carey", initials: "LQ", role: "Vetted teacher", since: "2024",
   email: "maria.carey@lucid.app", phone: "+1 415 555 0142",
   twoFactorEnabled: true,
@@ -203,10 +206,19 @@ const authored = (built) => ({
   parts: built.map((b) => b.type),
 });
 
+// Every course belongs to the teacher who made it (teacherId). `sale` is
+// the course sold on its own (self-paced) in the public catalog — separate
+// from teaching it to a class. See "Students, classes & access" in CLAUDE.md.
 export const SEED_COURSES = [
-  { id: "every", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, templateId: "general" },
-  { id: "it",    title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, templateId: "general" },
-  { id: "ielts", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  templateId: "ielts" },
+  { id: "every", teacherId: "t_maria", title: "Everyday English", level: "A2 → B1", hue: "amber",   students: 21, templateId: "general",
+    sale: { forSale: true, price: 29, currency: "AZN", description: "Five practical lessons for daily life — greetings, food, getting around, shopping.", paymentNote: "Pay by card transfer to 4169 **** **** 2210 (Maria C.) and send the receipt in the request." } },
+  { id: "it",    teacherId: "t_maria", title: "IT English",       level: "B1 → B2", hue: "indigo",  students: 14, templateId: "general",
+    sale: { forSale: false, price: 0, currency: "AZN", description: "", paymentNote: "" } },
+  { id: "ielts", teacherId: "t_maria", title: "IELTS Speaking",   level: "B2 → C1", hue: "emerald", students: 9,  templateId: "ielts",
+    sale: { forSale: true, price: 49, currency: "AZN", description: "All three IELTS speaking parts, with model answers.", paymentNote: "Bank transfer or cash at the next lesson — I confirm by hand." } },
+  // Another teacher's course — the teacher-scoped view never shows it.
+  { id: "biz",   teacherId: "t_kamal", title: "Business English", level: "B1 → B2", hue: "sky",     students: 4,  templateId: "general",
+    sale: { forSale: true, price: 39, currency: "AZN", description: "Meetings, emails and presentations.", paymentNote: "" } },
 ];
 
 // Lessons keyed by course — pure authored content. No `progress`/`locked`/
@@ -230,6 +242,9 @@ export const SEED_LESSONS = {
     { id: "ev4", n: 4, title: "Shopping & prices", ...authored(EVERYDAY_BUILT.ev4), active: 9 },
     { id: "ev5", n: 5, title: "My first week in a new city", ...authored(EVERYDAY_BUILT.ev5), active: 6 },
   ],
+  biz: [
+    { id: "bz1", n: 1, title: "Running a meeting", parts: ["reading", "vocabulary", "practice"], active: 3 },
+  ],
   ielts: [
     { id: "ie1", n: 1, title: "Part 1 — familiar topics",   parts: ["ieltsSpeaking1", "vocabulary", "grammar", "practice", "homework"],  active: 9 },
     { id: "ie2", n: 2, title: "Part 2 — the long turn",     parts: ["ieltsSpeaking2", "ieltsSpeaking3", "vocabulary", "practice", "homework"], active: 7 },
@@ -238,10 +253,11 @@ export const SEED_LESSONS = {
 
 /* ------------------------------- classes ------------------------------- */
 
-// Class is the top-level, durable thing: a group of students on a schedule.
-// Membership lives on the student (`student.classId`) — the roster is always
-// derived from that, never stored on the class as well, so there's one
-// source of truth (a real backend's `students.class_id` foreign key).
+// Class is the top-level, durable thing: a group of students on a schedule,
+// owned by one teacher (teacherId). Who's in it lives in SEED_MEMBERSHIPS
+// (a backend's `class_members`) — never on the class or the student — so a
+// student can be in several classes, even other teachers', and keep their
+// history. joinToken is the class link/code; joinOpen turns it off.
 export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // A class's `courses` is its assignment history (a backend's `class_courses`
@@ -257,21 +273,34 @@ export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // from that log, never stored here.
 export const SEED_CLASSES = [
   {
-    id: "cls_it_morning", name: "ITler — Morning", scheduleDays: [1, 3],
+    id: "cls_it_morning", teacherId: "t_maria", name: "ITler — Morning", scheduleDays: [1, 3],
+    joinToken: "M4R9QX", joinOpen: true,
     courses: [
-      { courseId: "every", currentLessonId: "ev5", status: "done" },
-      { courseId: "it", currentLessonId: "it4", status: "in-progress" },
+      { courseId: "every", currentLessonId: "ev5", status: "done", releasedLessonIds: ["ev1", "ev2", "ev3", "ev4", "ev5"] },
+      { courseId: "it", currentLessonId: "it4", status: "in-progress", releasedLessonIds: ["it1", "it2", "it3", "it4"] },
     ],
   },
   {
-    id: "cls_it_evening", name: "ITler — Evening", scheduleDays: [2, 4],
-    courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress" }],
+    id: "cls_it_evening", teacherId: "t_maria", name: "ITler — Evening", scheduleDays: [2, 4],
+    joinToken: "E7K2PB", joinOpen: true,
+    courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress", releasedLessonIds: ["it1"] }],
   },
   {
-    id: "cls_ielts_main", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5],
-    courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress" }],
+    id: "cls_ielts_main", teacherId: "t_maria", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5],
+    joinToken: "IE5T8W", joinOpen: true,
+    courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress", releasedLessonIds: ["ie1", "ie2"] }],
+  },
+  // Another teacher's class — never visible to this teacher.
+  {
+    id: "cls_kamal_biz", teacherId: "t_kamal", name: "Business English — Tuesdays", scheduleDays: [1],
+    joinToken: "KB3N6Y", joinOpen: true,
+    courses: [{ courseId: "biz", currentLessonId: "bz1", status: "in-progress", releasedLessonIds: ["bz1"] }],
   },
 ];
+
+// The public link a class's join code lives at. The student app's
+// /join/:token page (not built yet) turns a visit into a join request.
+export const JOIN_LINK_BASE = "lucid.app/join/";
 
 // A class's status on one of its courses, as a badge.
 export const CLASS_COURSE_STATUS = {
@@ -294,6 +323,56 @@ export const SEED_TAUGHT_LESSONS = [
   { id: "tl_seed_6", classId: "cls_it_morning", courseId: "it", lessonId: "it2", taughtAt: "2026-09-14T09:00:00.000Z" },
   { id: "tl_seed_7", classId: "cls_it_morning", courseId: "it", lessonId: "it3", taughtAt: "2026-09-24T09:00:00.000Z" },
   { id: "tl_seed_8", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", taughtAt: "2026-09-26T16:00:00.000Z" },
+];
+
+/* ------------------------- memberships, sales, invites ------------------------- */
+// How students relate to a teacher — the only way a teacher ever sees a
+// student. No relationship, no visibility (see teacherView in db/mockDb.jsx).
+
+// A student in a class (a backend's `class_members`). status:
+//   requested  asked to join with the class link/code — waits for the teacher
+//   active     in the class (accepted, invited, or added by the teacher)
+//   declined   request turned down
+//   removed    the teacher took them out  ┐ both read as "former" to the
+//   left       they left                  ┘ teacher (history only)
+// source: code (class link/code) | invite (email invite) | teacher (added directly)
+export const SEED_MEMBERSHIPS = [
+  { id: "mb_1", classId: "cls_it_morning", studentId: "s_rashad", status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-04-02T10:00:00.000Z", endedAt: null },
+  { id: "mb_2", classId: "cls_it_morning", studentId: "s_nigar",  status: "active", source: "code",    requestedAt: "2026-04-03T08:20:00.000Z", decidedAt: "2026-04-03T09:00:00.000Z", endedAt: null },
+  { id: "mb_3", classId: "cls_it_morning", studentId: "s_leyla",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-04-02T10:00:00.000Z", endedAt: null },
+  { id: "mb_4", classId: "cls_it_evening", studentId: "s_elvin",  status: "active", source: "invite",  requestedAt: null, decidedAt: "2026-08-30T17:00:00.000Z", endedAt: null },
+  { id: "mb_5", classId: "cls_it_evening", studentId: "s_kamran", status: "active", source: "code",    requestedAt: "2026-09-01T16:10:00.000Z", decidedAt: "2026-09-01T18:00:00.000Z", endedAt: null },
+  { id: "mb_6", classId: "cls_ielts_main", studentId: "s_aysel",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-07-20T12:00:00.000Z", endedAt: null },
+  // requests waiting for the teacher (came in with the class link/code)
+  { id: "mb_7", classId: "cls_it_evening", studentId: "s_farid", status: "requested", source: "code", requestedAt: "2026-09-29T18:40:00.000Z", decidedAt: null, endedAt: null,
+    message: "Hi! Elvin gave me the link — I work in QA and want to speak better in meetings." },
+  { id: "mb_8", classId: "cls_ielts_main", studentId: "s_lala", status: "requested", source: "code", requestedAt: "2026-09-30T07:15:00.000Z", decidedAt: null, endedAt: null,
+    message: "I'd like to prepare for IELTS in December." },
+  // former students — history only
+  { id: "mb_9", classId: "cls_it_morning", studentId: "s_lala",   status: "removed", source: "code", requestedAt: "2026-04-05T09:00:00.000Z", decidedAt: "2026-04-05T12:00:00.000Z", endedAt: "2026-06-28T12:00:00.000Z" },
+  { id: "mb_10", classId: "cls_it_morning", studentId: "s_orkhan", status: "left",   source: "code", requestedAt: "2026-04-04T09:00:00.000Z", decidedAt: "2026-04-04T11:00:00.000Z", endedAt: "2026-08-15T12:00:00.000Z" },
+  // another teacher's student
+  { id: "mb_11", classId: "cls_kamal_biz", studentId: "s_tural", status: "active", source: "code", requestedAt: "2026-09-10T09:00:00.000Z", decidedAt: "2026-09-10T10:00:00.000Z", endedAt: null },
+];
+
+// A course bought on its own, self-paced (a backend's `purchases`).
+// status: requested (asked to buy, paid outside the app — the teacher
+// confirms) | paid | declined | refunded. method: external | in_app.
+export const SEED_PURCHASES = [
+  { id: "pu_1", courseId: "every", studentId: "s_zeynab", status: "paid", amount: 29, currency: "AZN", method: "external",
+    requestedAt: "2026-09-11T15:00:00.000Z", paidAt: "2026-09-12T09:30:00.000Z", confirmedBy: "t_maria" },
+  { id: "pu_2", courseId: "ielts", studentId: "s_murad", status: "requested", amount: 49, currency: "AZN", method: "external",
+    requestedAt: "2026-09-29T20:05:00.000Z", paidAt: null, confirmedBy: null, message: "Sent 49 AZN by bank transfer tonight — receipt attached." },
+  { id: "pu_3", courseId: "biz", studentId: "s_tural", status: "paid", amount: 39, currency: "AZN", method: "external",
+    requestedAt: "2026-09-09T12:00:00.000Z", paidAt: "2026-09-09T13:00:00.000Z", confirmedBy: "t_kamal" },
+];
+
+// Email invites the teacher sent for a class (a backend's `invitations`).
+// Accepting one puts the student straight in the class — the teacher
+// already chose them, so there's no request to approve.
+export const SEED_INVITATIONS = [
+  { id: "inv_1", classId: "cls_it_evening", email: "nurlan.a@example.com", name: "Nurlan", status: "pending",
+    createdAt: "2026-09-28T10:00:00.000Z", expiresAt: "2026-10-12T10:00:00.000Z" },
 ];
 
 /* ------------------------------- reading library ------------------------------- */
@@ -474,7 +553,7 @@ const act = (type, detail, when) => ({ type, detail, when });
 
 export const SEED_STUDENTS = [
   {
-    id: "s_rashad", name: "Rashad Aliyev", classId: "cls_it_morning", level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
+    id: "s_rashad", name: "Rashad Aliyev", email: "rashad.aliyev@example.com", level: "B1+", goal: "Speak confidently in standups", streak: 12, streakFreeze: 1,
     xp: 3820, status: "in progress", last: "2h ago", step: 4, progress: 57, atRisk: false,
     placement: { level: "B1", when: "3 months ago", score: 62 },
     cefr: [{ m: "Apr", v: 1 }, { m: "May", v: 1.4 }, { m: "Jun", v: 1.7 }, { m: "Jul", v: 2.0 }],
@@ -524,7 +603,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 28", durationMin: 22, summary: "Covered present perfect vs past simple with standup vocabulary. High hesitation on present-perfect items (avg 9s, changed answer 3×). Replayed the standup audio twice around “already resolved.” Ended on a strong note — 9/10 on the retried gap-fill." },
   },
   {
-    id: "s_nigar", name: "Nigar Mammadova", classId: "cls_it_morning", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
+    id: "s_nigar", name: "Nigar Mammadova", email: "nigar.m@example.com", level: "B2", goal: "IELTS 7.0", streak: 30, streakFreeze: 2,
     xp: 9120, status: "in progress", last: "20m ago", step: 6, progress: 92, atRisk: false,
     placement: { level: "B2", when: "6 months ago", score: 78 },
     cefr: [{ m: "Apr", v: 2.4 }, { m: "May", v: 2.7 }, { m: "Jun", v: 3.0 }, { m: "Jul", v: 3.3 }],
@@ -557,7 +636,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_elvin", name: "Elvin Huseynov", classId: "cls_it_evening", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
+    id: "s_elvin", name: "Elvin Huseynov", email: "elvin.h@example.com", level: "B1", goal: "Understand English docs at work", streak: 3, streakFreeze: 0,
     xp: 1240, status: "in progress", last: "1d ago", step: 1, progress: 24, atRisk: false,
     placement: { level: "B1", when: "1 month ago", score: 54 },
     cefr: [{ m: "May", v: 1.0 }, { m: "Jun", v: 1.2 }, { m: "Jul", v: 1.3 }],
@@ -586,7 +665,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_leyla", name: "Leyla Qasimova (demo)", classId: "cls_it_morning", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
+    id: "s_leyla", name: "Leyla Qasimova (demo)", email: "leyla.demo@lucid.app", level: "B2", goal: "Teacher demo account", streak: 21, streakFreeze: 1,
     xp: 6400, status: "completed", last: "3h ago", step: 7, progress: 100, atRisk: false,
     placement: { level: "B2", when: "5 months ago", score: 81 },
     cefr: [{ m: "Apr", v: 2.6 }, { m: "May", v: 2.9 }, { m: "Jun", v: 3.2 }, { m: "Jul", v: 3.4 }],
@@ -610,7 +689,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: "Jun 25", durationMin: 20, summary: "Completed the lesson confidently — no hesitation flags, no replays needed." },
   },
   {
-    id: "s_kamran", name: "Kamran Safarov", classId: "cls_it_evening", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
+    id: "s_kamran", name: "Kamran Safarov", email: "kamran.s@example.com", level: "A2+", goal: "Start from the basics", streak: 0, streakFreeze: 0,
     xp: 120, status: "not started", last: "6d ago", step: -1, progress: 0, atRisk: true,
     riskReason: "No activity for 6 days · streak dropped to 0 · never finished placement follow-up",
     placement: { level: "A2", when: "1 week ago", score: 41 },
@@ -635,7 +714,7 @@ export const SEED_STUDENTS = [
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
   {
-    id: "s_aysel", name: "Aysel Rahimli", classId: "cls_ielts_main", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
+    id: "s_aysel", name: "Aysel Rahimli", email: "aysel.r@example.com", level: "B2", goal: "IELTS 6.5 for a master's", streak: 8, streakFreeze: 0,
     xp: 4550, status: "in progress", last: "5h ago", step: 5, progress: 71, atRisk: true,
     riskReason: "Effort high (11 sessions/wk) but grammar score flat 3 weeks — a human should look",
     placement: { level: "B2", when: "2 months ago", score: 69 },
@@ -671,6 +750,16 @@ export const SEED_STUDENTS = [
     },
     lastRecording: { date: null, durationMin: 0, summary: null },
   },
+  // Students who reached this teacher through a class link, a purchase, or
+  // who used to be in a class — no analytics, just what the teacher has.
+  { id: "s_farid", name: "Farid Mammadli", email: "farid.m@example.com", level: "B1", goal: "Speak up in QA meetings", notes: [] },
+  { id: "s_lala", name: "Lala Hasanova", email: "lala.h@example.com", level: "B2", goal: "IELTS 7.0 in December",
+    notes: [{ id: "n_lala_1", date: "Jun 20", covered: "Conditionals and polite requests; she wants more speaking time.", newWords: ["would you mind", "unless"], mistakes: [], next: "Speaking-heavy lessons", saved: true }] },
+  { id: "s_orkhan", name: "Orkhan Aliyev", email: "orkhan.a@example.com", level: "B1", goal: "", notes: [] },
+  { id: "s_zeynab", name: "Zeynab Guliyeva", email: "zeynab.g@example.com", level: "A2", goal: "Travel English", notes: [] },
+  { id: "s_murad", name: "Murad Karimov", email: "murad.k@example.com", level: "B2", goal: "IELTS 6.5", notes: [] },
+  // Another teacher's student — this teacher never sees them.
+  { id: "s_tural", name: "Tural Rzayev", email: "tural.r@example.com", level: "B1", goal: "Business meetings", notes: [] },
 ];
 
 /* class-level analytics (statistics tab) */

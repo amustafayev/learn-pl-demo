@@ -5,7 +5,7 @@ import {
   IconChevronLeft, IconChevronRight, IconUsersGroup, IconUser, IconNotebook,
 } from "@tabler/icons-react";
 import { Card, Button, Tag, Alert, Field, Select, StudentCheckList, Avatar } from "../design-system.jsx";
-import { useStore, lessonBlocks, activeClassCourse, classCourseProgress, markLessonTaught } from "../store.jsx";
+import { useStore, lessonBlocks, activeClassCourse, classCourseProgress, markLessonTaught, classMembers } from "../store.jsx";
 import { timeAgo } from "../format.js";
 import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
@@ -69,7 +69,7 @@ export default function LiveSession({ context, onEnd }) {
 // ad-hoc pick of course + hand-picked students.
 function Setup({ state, classId, setClassId, cls, course, lessons, lessonId, setLessonId, lesson, invited, setInvited, onStart, onCancel }) {
   const { toast } = useStore();
-  const roster = state.students.filter((s) => s.classId === classId);
+  const roster = classMembers(state, classId).map((m) => m.student);
 
   // default-select the whole roster whenever the class changes
   useEffect(() => { setInvited(roster.map((s) => s.id)); /* eslint-disable-next-line */ }, [classId]);

@@ -1,12 +1,13 @@
 import React, { useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool,
+  IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool, IconCopy, IconRefresh, IconMail, IconInbox,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, CountBadge, PRESS, PRESS_FLAT } from "../design-system.jsx";
-import { useStore, useNav, activeClassCourse, classCourseProgress } from "../store.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
+import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers, teacherRoster } from "../store.jsx";
+import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
-import { DAY_LABELS, CLASS_COURSE_STATUS, scheduleLabel } from "../data.jsx";
+import { DAY_LABELS, CLASS_COURSE_STATUS, JOIN_LINK_BASE, scheduleLabel } from "../data.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -90,7 +91,8 @@ function ClassesView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.classes.map((cls) => {
-          const roster = state.students.filter((s) => s.classId === cls.id);
+          const roster = classMembers(state, cls.id).map((m) => m.student);
+          const requests = classMembers(state, cls.id, "requested").length;
           const active = activeClassCourse(cls);
           const course = state.courses.find((c) => c.id === active?.courseId);
           const p = active ? classCourseProgress(state, cls, active.courseId) : null;
@@ -101,7 +103,7 @@ function ClassesView() {
               lessonLine={p?.next ? `Next up: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
               progressLabel={p ? `${p.taughtCount} of ${p.total} lessons taught` : undefined}
               roster={roster.map((s) => ({ id: s.id, name: s.name, color: avatarColorFor(s.id) }))}
-              studentCountLabel={roster.length ? `${roster.length}${roster.length > 5 ? "+" : ""} student${roster.length === 1 ? "" : "s"}` : "No students yet"}
+              studentCountLabel={`${roster.length ? `${roster.length} student${roster.length === 1 ? "" : "s"}` : "No students yet"}${requests ? ` · ${requests} request${requests === 1 ? "" : "s"}` : ""}`}
               progressPct={p ? p.pct : null} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
           );
         })}
@@ -135,6 +137,8 @@ function ClassDetailView({ classId }) {
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null); // student pending removal
+  const [panelTab, setPanelTab] = useState("students"); // "students" | "requests"
+  const [inviteOpen, setInviteOpen] = useState(false);
   // The confirm dialog keeps showing the student it was opened for while it
   // plays its exit animation, after confirmRemove is already cleared.
   const lastRemove = useRef(null);
@@ -144,12 +148,16 @@ function ClassDetailView({ classId }) {
   const cls = state.classes.find((c) => c.id === classId);
   if (!cls) return null;
 
-  const roster = state.students.filter((s) => s.classId === cls.id);
-  const others = state.students.filter((s) => s.classId !== cls.id);
+  // Active members; the "+" picker offers the teacher's other students
+  // (other classes, former students, course customers) — never anyone else.
+  const members = classMembers(state, cls.id);
+  const roster = members.map((m) => m.student);
+  const others = state.students.filter((s) => !roster.some((r) => r.id === s.id));
+  const requests = teacherRoster(state).requests.filter((r) => r.kind === "class" && r.cls.id === cls.id);
   const unassignedCourses = state.courses.filter((c) => !cls.courses.some((x) => x.courseId === c.id));
 
   function removeStudent(s) {
-    dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: null });
+    dispatch({ type: "REMOVE_CLASS_MEMBER", classId: cls.id, studentId: s.id });
     toast(`${s.name.split(" ")[0]} removed from ${cls.name}`);
     setConfirmRemove(null);
   }
@@ -242,61 +250,91 @@ function ClassDetailView({ classId }) {
           </div>
         </div>
 
-        {/* right rail — persistent Student panel, connected straight to Students */}
+        {/* right rail — one panel: the class's students and its requests as
+            two tabs (so requests always have a place, even when there are
+            none), with Invite and + in the header. Invite opens a dialog, so
+            a long roster never pushes it out of reach. */}
         <div>
           <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-base font-semibold text-neutral-950"><IconUsers size={18} stroke={1.75} /> Students <CountBadge>{roster.length}</CountBadge></div>
-              <Button variant="outline" size="sm" iconOnly icon={IconUserPlus} onClick={() => setEnrollOpen((v) => !v)}
-                title="Enroll a student" aria-label="Enroll a student" aria-expanded={enrollOpen} />
+            {/* wraps rather than clips: at lg the rail is only ~245px wide */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 text-base font-semibold text-neutral-950 whitespace-nowrap"><IconUsers size={18} stroke={1.75} /> Class members</div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}><IconMail size={15} stroke={1.75} /> Invite</Button>
+                <Button variant="outline" size="sm" iconOnly icon={IconUserPlus} onClick={() => { setPanelTab("students"); setEnrollOpen((v) => !v); }}
+                  title="Enroll a student" aria-label="Enroll a student" aria-expanded={enrollOpen} />
+              </div>
+            </div>
+            <div className="mb-1">
+              <PillTabs value={panelTab} onChange={setPanelTab} tabs={[
+                { id: "students", label: "Students", count: roster.length },
+                { id: "requests", label: "Requests", count: requests.length },
+              ]} />
             </div>
 
-            {enrollOpen && (
-              <div className="mb-3 rounded-xl border border-primary-200 bg-primary-50/30 p-3">
-                <div className="text-xs font-semibold text-neutral-600 mb-2">Pick a student to enroll</div>
-                {others.length ? (
-                  <div className="space-y-1.5">
-                    {others.map((s) => (
-                      <button key={s.id}
-                        onClick={() => { dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: cls.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
-                        className={`w-full inline-flex items-center gap-2 rounded-lg bg-surface border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
-                        <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
-                        <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
-                        <Tag color="neutral">{s.level}</Tag>
-                      </button>
-                    ))}
+            {panelTab === "students" ? (
+              <>
+              {enrollOpen && (
+                <div className="mb-3 rounded-xl border border-primary-200 bg-primary-50/30 p-3">
+                  <div className="text-xs font-semibold text-neutral-600 mb-2">Pick a student to enroll</div>
+                  {others.length ? (
+                    <div className="space-y-1.5">
+                      {others.map((s) => (
+                        <button key={s.id}
+                          onClick={() => { dispatch({ type: "ADD_CLASS_MEMBER", classId: cls.id, studentId: s.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
+                          className={`w-full inline-flex items-center gap-2 rounded-lg bg-surface border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
+                          <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
+                          <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
+                          <Tag color="neutral">{s.level}</Tag>
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="text-sm text-neutral-600">All your students are already in this class — use Invite to add new ones.</p>}
+                </div>
+              )}
+
+              <div className="divide-y divide-neutral-400">
+                {roster.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2 py-2.5">
+                    <button onClick={() => go({ tab: "students", studentId: s.id })} className={`flex items-center gap-2.5 min-w-0 flex-1 text-left ${PRESS_FLAT}`}>
+                      <Avatar name={s.name} color={avatarColorFor(s.id)} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate text-neutral-950">{s.name}</div>
+                        <div className="text-xs text-neutral-600">{s.level ? `${s.level} · ` : ""}joined {timeAgo(members.find((m) => m.studentId === s.id)?.decidedAt)}</div>
+                      </div>
+                    </button>
+                    {/* Always visible (no hover-only reveal — a tablet has no hover),
+                        quiet until pointed at, then the danger color. */}
+                    <button type="button" onClick={() => setConfirmRemove(s)}
+                      title={`Remove ${s.name.split(" ")[0]} from this class`} aria-label={`Remove ${s.name} from ${cls.name}`}
+                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-warning-50 hover:text-warning-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-200 ${PRESS_FLAT}`}>
+                      <IconUserMinus size={17} stroke={1.75} />
+                    </button>
                   </div>
-                ) : <p className="text-sm text-neutral-500">Every student is already enrolled in this class.</p>}
+                ))}
+                {!roster.length && <p className="py-4 text-sm text-neutral-600">No students yet — use Invite to share the class link.</p>}
+              </div>
+              </>
+            ) : (
+              <div className="divide-y divide-neutral-400">
+                {requests.map((r) => <RequestRow key={r.id} request={r} showClass={false} />)}
+                {!requests.length && (
+                  <div className="py-6 text-center">
+                    <IconInbox size={26} stroke={1.5} className="mx-auto mb-2 text-neutral-500" />
+                    <p className="text-sm text-neutral-700">No requests waiting.</p>
+                    <p className="text-sm text-neutral-600 mt-0.5">Students who open the class link show up here for you to accept.</p>
+                    <Button size="sm" variant="light" className="mt-3" onClick={() => setInviteOpen(true)}><IconMail size={15} stroke={1.75} /> Share the class link</Button>
+                  </div>
+                )}
               </div>
             )}
-
-            <div className="divide-y divide-neutral-400">
-              {roster.map((s) => (
-                <div key={s.id} className="flex items-center gap-2 py-2.5">
-                  <button onClick={() => go({ tab: "students", studentId: s.id })} className={`flex items-center gap-2.5 min-w-0 flex-1 text-left ${PRESS_FLAT}`}>
-                    <div className="relative shrink-0">
-                      <Avatar name={s.name} color={avatarColorFor(s.id)} size="sm" />
-                      {s.status !== "not started" && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-white" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate text-neutral-950">{s.name}</div>
-                      <div className="text-xs text-neutral-600">{s.progress}% · {s.status}</div>
-                    </div>
-                  </button>
-                  {/* Always visible (no hover-only reveal — a tablet has no hover),
-                      quiet until pointed at, then the danger color. */}
-                  <button type="button" onClick={() => setConfirmRemove(s)}
-                    title={`Remove ${s.name.split(" ")[0]} from this class`} aria-label={`Remove ${s.name} from ${cls.name}`}
-                    className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-warning-50 hover:text-warning-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-200 ${PRESS_FLAT}`}>
-                    <IconUserMinus size={17} stroke={1.75} />
-                  </button>
-                </div>
-              ))}
-              {!roster.length && <p className="py-4 text-sm text-neutral-600">No students enrolled yet.</p>}
-            </div>
           </Card>
         </div>
       </div>
+
+      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} icon={IconUserPlus} title="Invite students" sub={cls.name}>
+        <InviteStudentsPanel cls={cls} />
+      </Modal>
 
       {/* Cancel takes focus, so Enter on a stray keypress never removes. */}
       <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)}
@@ -318,11 +356,80 @@ function ClassDetailView({ classId }) {
             <ul className="space-y-2 text-sm text-neutral-700">
               <li className="flex gap-2"><IconX size={16} stroke={1.75} className="mt-0.5 shrink-0 text-warning-600" /> Leaves this class and its course — no more of its lessons or live sessions.</li>
               <li className="flex gap-2"><IconCheck size={16} stroke={1.75} className="mt-0.5 shrink-0 text-success-600" /> Their profile, progress and saved words stay. Nothing is deleted.</li>
-              <li className="flex gap-2"><IconCheck size={16} stroke={1.75} className="mt-0.5 shrink-0 text-success-600" /> You can re-enroll them here, or in another class, any time.</li>
+              <li className="flex gap-2"><IconCheck size={16} stroke={1.75} className="mt-0.5 shrink-0 text-success-600" /> They move to your Former students — you can add them back any time.</li>
             </ul>
           </div>
         )}
       </Modal>
     </Page>
+  );
+}
+
+// "Invite students" on a class: the class's join link/code (anyone with it
+// can *ask* to join — the teacher accepts each request, see RequestRow),
+// and email invites (the teacher picks the person, so accepting one admits
+// them straight away). The student side of both lives in the student app.
+function InviteStudentsPanel({ cls }) {
+  const { state, dispatch, toast } = useStore();
+  const [email, setEmail] = useState("");
+  const link = `${JOIN_LINK_BASE}${cls.joinToken}`;
+  const pending = state.invitations.filter((i) => i.classId === cls.id && i.status === "pending");
+  const copy = async (text, what) => {
+    try { await navigator.clipboard.writeText(text); toast(`${what} copied`); } catch { toast(`Couldn't copy — select it and copy by hand`); }
+  };
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const invite = () => {
+    if (!validEmail) return;
+    dispatch({ type: "CREATE_INVITATION", classId: cls.id, email });
+    toast(`Invite sent to ${email.trim()}`);
+    setEmail("");
+  };
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold text-neutral-950">Class link</div>
+        <label className="flex items-center gap-2 text-sm text-neutral-700" title="When off, the link stops taking requests">
+          Joining {cls.joinOpen ? "on" : "off"}
+          <Switch checked={cls.joinOpen} onChange={(v) => { dispatch({ type: "SET_CLASS_JOINING", classId: cls.id, joinOpen: v }); toast(v ? "The class link takes requests again" : "The class link is off — no new requests"); }} />
+        </label>
+      </div>
+
+      <div className={cls.joinOpen ? "" : "opacity-50"}>
+        <div className="text-sm text-neutral-600 mb-1.5">Share it in your group chat</div>
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 truncate rounded-lg bg-neutral-200 px-3 py-2 text-sm text-neutral-900" data-join-link>{link}</div>
+          <Button size="sm" variant="outline" iconOnly icon={IconCopy} onClick={() => copy(`https://${link}`, "Link")} disabled={!cls.joinOpen} title="Copy link" aria-label="Copy link" />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
+          Code <button type="button" onClick={() => copy(cls.joinToken, "Code")} disabled={!cls.joinOpen}
+            className="rounded-md border border-neutral-400 bg-surface px-2 py-0.5 font-semibold tracking-widest text-neutral-950 hover:border-primary-300" title="Copy code">{cls.joinToken}</button>
+          <button type="button" onClick={() => { dispatch({ type: "REGENERATE_JOIN_TOKEN", classId: cls.id }); toast("New link and code — the old ones no longer work"); }}
+            className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-600 hover:text-primary-700"><IconRefresh size={14} stroke={1.75} /> New link</button>
+        </div>
+        <p className="mt-2 text-xs text-neutral-600">{cls.joinOpen ? "Anyone with it can ask to join — you accept each request." : "Joining is off — the link doesn't take requests."}</p>
+      </div>
+
+      <div className="mt-4 border-t border-neutral-400 pt-4">
+        <div className="text-sm font-semibold text-neutral-950">Invite by email</div>
+        <div className="text-sm text-neutral-600 mb-1.5">They join straight away — no request to accept.</div>
+        <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); invite(); }}>
+          <TextField type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="student@example.com" className="!h-9" aria-label="Student email" />
+          <Button size="sm" type="submit" disabled={!validEmail}><IconMail size={15} stroke={1.75} /> Invite</Button>
+        </form>
+        {pending.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            {pending.map((i) => (
+              <div key={i.id} className="flex items-center gap-2 text-sm">
+                <IconMail size={15} stroke={1.75} className="shrink-0 text-neutral-600" />
+                <span className="min-w-0 flex-1 truncate text-neutral-900">{i.name ? `${i.name} · ` : ""}{i.email}</span>
+                <span className="shrink-0 text-xs text-neutral-600" title={`Expires ${shortDate(i.expiresAt)}`}>sent {timeAgo(i.createdAt)}</span>
+                <button type="button" onClick={() => { dispatch({ type: "REVOKE_INVITATION", invitationId: i.id }); toast(`Invite to ${i.email} withdrawn`); }}
+                  className="shrink-0 text-xs font-semibold text-neutral-600 hover:text-warning-600">Withdraw</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   IconUsers, IconChartBar, IconVocabulary,
 } from "@tabler/icons-react";
 import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
-import { useStore, useNav } from "../store.jsx";
+import { useStore, useNav, activeStudents } from "../store.jsx";
 import { WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
 import { COMPONENT_META } from "./parts.jsx";
 import { AddTextModal } from "../components/modals.jsx";
@@ -27,7 +27,7 @@ export default function Dashboard() {
   const { go } = useNav();
   const [modal, setModal] = useState(null);
 
-  const students = state.students;
+  const students = activeStudents(state);
   const active = students.filter((s) => s.status !== "not started").length;
   const atRisk = students.filter((s) => s.atRisk);
   // A course has no completion of its own (see Courses.jsx) — this is a
@@ -178,7 +178,7 @@ function AssignFromDashboardModal({ open, onClose }) {
   if (!student) {
     return (
       <Modal open onClose={close} title="Assign to a student" sub="Pick who you're assigning first">
-        <StudentCheckList students={state.students} isSelected={() => false} onToggle={(s) => setStudent(s)}
+        <StudentCheckList students={activeStudents(state)} isSelected={() => false} onToggle={(s) => setStudent(s)}
           metaFor={(s) => `${s.level} · ${s.status}`} />
       </Modal>
     );

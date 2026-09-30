@@ -75,7 +75,7 @@ export const partPath = (courseId, lessonId, partId, classId) => `/courses/${cou
 export const classesPath = () => "/classes";
 export const classDetailPath = (classId) => `/classes/${classId}`;
 export const studentsPath = (filter) => `/students${filter ? `?filter=${filter}` : ""}`;
-export const studentDetailPath = (studentId, filter) => `/students/${studentId}/overview${filter ? `?filter=${filter}` : ""}`;
+export const studentDetailPath = (studentId, filter) => `/students/${studentId}/profile${filter ? `?filter=${filter}` : ""}`;
 
 function buildPath(r) {
   switch (r.tab) {

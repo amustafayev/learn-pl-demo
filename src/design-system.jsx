@@ -997,6 +997,9 @@ export function SpeakButton({ text, className = "" }) {
 export function Switch({ checked, onChange, className = "" }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={!!checked}
       onClick={() => onChange?.(!checked)}
       className={`relative h-6 w-11 rounded-full ${PRESS_FLAT} ${checked ? "bg-primary-500" : "bg-neutral-300"} ${className}`}
     >

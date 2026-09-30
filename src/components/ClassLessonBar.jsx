@@ -1,5 +1,5 @@
 import React from "react";
-import { IconSchool, IconCircleCheck, IconBroadcast, IconArrowRight, IconFlag } from "@tabler/icons-react";
+import { IconSchool, IconCircleCheck, IconBroadcast, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Button, Tag } from "../design-system.jsx";
 import { useStore, useNav, classCourseProgress, markLessonTaught } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -44,6 +44,12 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
   }[kind];
 
   const markTaught = () => markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: p.lessons });
+  // Can the class's students open this lesson? (Marking it taught shares it.)
+  const shared = p.released.has(lesson.id);
+  const toggleShared = () => {
+    dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: lesson.id, released: !shared });
+    toast(!shared ? `Lesson ${lesson.n} shared with ${cls.name}` : `Lesson ${lesson.n} hidden from ${cls.name}'s students`);
+  };
 
   return (
     <div className={`flex flex-wrap items-center gap-3 rounded-[14px] border border-neutral-400 bg-surface p-4 ${className}`}>
@@ -54,10 +60,16 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-neutral-950">{cls.name}</span>
           <Tag color={style.tag}>{style.label}</Tag>
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${shared ? "text-success-600" : "text-neutral-600"}`}>
+            {shared ? <><IconEye size={14} stroke={1.75} /> Students can see it</> : <><IconEyeOff size={14} stroke={1.75} /> Hidden from students</>}
+          </span>
         </div>
         <div className="mt-0.5 text-sm text-neutral-600">{line}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="light" onClick={toggleShared}>
+          {shared ? <><IconEyeOff size={15} stroke={1.75} /> Hide from class</> : <><IconEye size={15} stroke={1.75} /> Share with class</>}
+        </Button>
         {kind === "done" ? null : (
           <>
             {kind !== "next" && p.next && (

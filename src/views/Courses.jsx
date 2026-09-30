@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
   IconEye, IconFilter, IconArrowsMaximize, IconArrowsMinimize,
-  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck, IconFlag, IconPlayerPlay,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck, IconFlag, IconPlayerPlay, IconEyeOff, IconShoppingBag,
 } from "@tabler/icons-react";
-import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge } from "../design-system.jsx";
+import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
+import { RequestRow } from "../components/StudentRequests.jsx";
 import {
   useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
-  uid, copyWithOwnH5P, discardH5PContent,
+  uid, copyWithOwnH5P, discardH5PContent, teacherRoster,
 } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar from "../components/ClassLessonBar.jsx";
@@ -188,6 +189,10 @@ export function CourseView() {
           <Button variant="primary" size="sm" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New lesson</Button>
         </div>} />
 
+      {/* The plain course page (no class) is the course as a product you
+          can also sell on its own. */}
+      {!cls && <CourseSalesCard course={course} />}
+
       {/* Only viewed through a class (?classId=) — a course has no progress
           of its own, so the plain course page shows none at all. */}
       {classCourse && (
@@ -299,6 +304,18 @@ export function CourseView() {
                           ? <span className="font-semibold text-primary-600">Next up{view.taughtAt ? ` · also taught ${timeAgo(view.taughtAt)}` : ""}</span>
                           : <span className="text-neutral-600">Not taught yet</span>}
                     </span>
+                  )}
+                  {classCourse && (
+                    // Whether the class's students can open this lesson.
+                    <button type="button" onClick={() => {
+                      const shared = !progress.released.has(l.id);
+                      dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: l.id, released: shared });
+                      toast(shared ? `Lesson ${l.n} shared with ${cls.name}` : `Lesson ${l.n} hidden from ${cls.name}'s students`);
+                    }} aria-pressed={progress.released.has(l.id)}
+                      title={progress.released.has(l.id) ? "The class's students can open this lesson — click to hide it" : "Hidden from the class's students — click to share it"}
+                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold shrink-0 ${progress.released.has(l.id) ? "text-success-600 hover:bg-success-50" : "text-neutral-600 hover:bg-neutral-200"}`}>
+                      {progress.released.has(l.id) ? <><IconEye size={14} stroke={1.75} /> Shared</> : <><IconEyeOff size={14} stroke={1.75} /> Share</>}
+                    </button>
                   )}
                   {classCourse && classCourse.status !== "done" && view.state !== "next" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
@@ -518,5 +535,103 @@ export function LessonBuilderView() {
       <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={route.courseId} lessonId={lesson.id}
         lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={lesson.teacherNotes} />
     </Page>
+  );
+}
+
+/* ----------------------------- selling a course ----------------------------- */
+
+// The course sold on its own, self-paced (see "Students, classes & access"
+// in CLAUDE.md): whether it's for sale, what it costs, and who bought it.
+// Separate from teaching it to a class — buyers get every lesson and go at
+// their own pace; nobody has to accept them.
+function CourseSalesCard({ course }) {
+  const { state } = useStore();
+  const [editing, setEditing] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const sale = course.sale || {};
+  const roster = teacherRoster(state);
+  const customers = roster.customers.filter((c) => c.course?.id === course.id);
+  const requests = roster.requests.filter((r) => r.kind === "purchase" && r.course?.id === course.id);
+  return (
+    <Card className="p-5 mb-6 flex flex-wrap items-center gap-4">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${sale.forSale ? "bg-success-50 text-success-600" : "bg-neutral-200 text-neutral-700"}`}><IconShoppingBag size={20} stroke={1.75} /></span>
+      <div className="min-w-[14rem] flex-1">
+        {sale.forSale ? (
+          <>
+            <div className="font-semibold text-neutral-950">For sale · {sale.price} {sale.currency}</div>
+            <div className="text-sm text-neutral-600">
+              {customers.length} customer{customers.length === 1 ? "" : "s"}
+              {requests.length ? <> · <b className="text-pending-600">{requests.length} to confirm</b></> : null}
+              {" "}· self-paced, every lesson
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="font-semibold text-neutral-950">Not for sale</div>
+            <div className="text-sm text-neutral-600">Sell it on its own — students buy it and take every lesson at their own pace.</div>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {(sale.forSale || customers.length > 0) && <Button size="sm" variant={requests.length ? "primary" : "outline"} onClick={() => setViewing(true)}>Customers{requests.length ? ` · ${requests.length}` : ""}</Button>}
+        <Button size="sm" variant={sale.forSale ? "light" : "primary"} onClick={() => setEditing(true)}>{sale.forSale ? "Sale settings" : "Put on sale"}</Button>
+      </div>
+      <SaleSettingsModal key={editing ? "open" : "closed"} open={editing} onClose={() => setEditing(false)} course={course} />
+      <Modal open={viewing} onClose={() => setViewing(false)} wide icon={IconShoppingBag} title="Customers" sub={course.title}>
+        {requests.length > 0 && (
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-neutral-950">Waiting for your confirmation</div>
+            <div className="divide-y divide-neutral-400">{requests.map((r) => <RequestRow key={r.id} request={r} />)}</div>
+          </div>
+        )}
+        <div className="text-sm font-semibold text-neutral-950 mb-1">Bought it</div>
+        {customers.length ? (
+          <div className="divide-y divide-neutral-400">
+            {customers.map(({ purchase: p, student: s }) => (
+              <div key={p.id} className="flex items-center gap-3 py-2.5 text-sm">
+                <span className="min-w-0 flex-1 truncate font-medium text-neutral-950">{s.name}</span>
+                <span className="text-neutral-600">{p.amount} {p.currency}</span>
+                <span className="w-28 text-right text-neutral-600" title={shortDate(p.paidAt)}>{timeAgo(p.paidAt)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-sm text-neutral-600">Nobody has bought it yet.</p>}
+      </Modal>
+    </Card>
+  );
+}
+
+const CURRENCIES = ["AZN", "USD", "EUR"];
+
+function SaleSettingsModal({ open, onClose, course }) {
+  const { dispatch, toast } = useStore();
+  const [draft, setDraft] = useState(() => ({ forSale: false, price: 0, currency: "AZN", description: "", paymentNote: "", ...(course.sale || {}) }));
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
+  const priceOk = !draft.forSale || Number(draft.price) > 0;
+  const save = () => {
+    dispatch({ type: "UPDATE_COURSE_SALE", courseId: course.id, sale: { ...draft, price: Number(draft.price) || 0 } });
+    toast(draft.forSale ? `${course.title} is for sale — ${Number(draft.price)} ${draft.currency}` : `${course.title} is no longer for sale — buyers keep their access`);
+    onClose();
+  };
+  return (
+    <Modal open={open} onClose={onClose} icon={IconShoppingBag} title="Sell this course" sub={course.title}
+      footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!priceOk}>Save</Button></>}>
+      <label className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-neutral-400 p-3">
+        <span>
+          <span className="block text-sm font-semibold text-neutral-950">For sale in the catalog</span>
+          <span className="block text-sm text-neutral-600">Students can find it and buy it for themselves.</span>
+        </span>
+        <Switch checked={draft.forSale} onChange={(v) => set({ forSale: v })} />
+      </label>
+      <div className={draft.forSale ? "" : "opacity-50 pointer-events-none"}>
+        <div className="grid grid-cols-[1fr_7rem] gap-3">
+          <Field label="Price"><TextField type="number" min="0" step="1" value={draft.price} onChange={(e) => set({ price: e.target.value })} state={priceOk ? "default" : "error"} /></Field>
+          <Field label="Currency"><Select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select></Field>
+        </div>
+        <Field label="Description (shown in the catalog)"><TextArea value={draft.description} onChange={(e) => set({ description: e.target.value })} className="!min-h-[72px]" placeholder="What students will learn" /></Field>
+        <Field label="How to pay (shown when a student asks to buy)"><TextArea value={draft.paymentNote} onChange={(e) => set({ paymentNote: e.target.value })} className="!min-h-[72px]" placeholder="e.g. card transfer to … — you'll confirm each purchase" /></Field>
+        <p className="text-sm text-neutral-600">No payments in the app yet: students pay you directly, and you confirm each purchase from Customers.</p>
+      </div>
+    </Modal>
   );
 }

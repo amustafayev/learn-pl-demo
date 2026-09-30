@@ -4,10 +4,10 @@ import {
   IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain, IconBroadcast,
   IconSettings2, IconHelpCircle, IconSun, IconMoon, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
-import { StoreProvider, useStore } from "./store.jsx";
+import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
-import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost } from "./design-system.jsx";
+import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
@@ -102,6 +102,11 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   // labeled at sm+).
   const showLabels = !collapsed;
   const labelCls = showLabels ? "hidden sm:inline" : "hidden";
+  // Waiting join/purchase requests, so the teacher sees them from any page.
+  // Carried inside the label (not NavItem's `count`) so it hides with the
+  // label in the icon-only rail instead of overflowing it.
+  const { state } = useStore();
+  const pending = { students: teacherRoster(state).requests.length };
   return (
     // A width transition, deliberately, despite the app's own "never
     // animate width" rule (see CLAUDE.md's Motion section): that rule is
@@ -133,7 +138,12 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
         {showLabels && <NavSectionLabel><span className="hidden sm:inline">Main Menu</span></NavSectionLabel>}
         {NAV.map((n) => (
-          <NavItem key={n.id} icon={n.icon} label={<span className={labelCls}>{n.label}</span>} collapsed={collapsed}
+          <NavItem key={n.id} icon={n.icon} collapsed={collapsed}
+            label={pending[n.id]
+              ? <span className={showLabels ? "hidden sm:flex items-center justify-between gap-2" : "hidden"} title={`${pending[n.id]} waiting for you`}>
+                  {n.label} <CountBadge active={pathname.startsWith(TAB_PATH[n.id])}>{pending[n.id]}</CountBadge>
+                </span>
+              : <span className={labelCls}>{n.label}</span>}
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
@@ -193,7 +203,7 @@ function TopBar({ pathname, onStartLive }) {
 // landing on just `/students/:studentId` picks the default one.
 function StudentOverviewRedirect() {
   const { studentId } = useParams();
-  return <Navigate to={`/students/${studentId}/overview`} replace />;
+  return <Navigate to={`/students/${studentId}/profile`} replace />;
 }
 
 function Content({ startLive }) {

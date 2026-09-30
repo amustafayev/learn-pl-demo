@@ -19,7 +19,7 @@ import {
 import { LEVELS } from "../ui.jsx";
 import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel, studentCourseId,
+  useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel, studentCourseId, activeStudents,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
@@ -454,7 +454,7 @@ export default function BlockStudio() {
   const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const block = lessonBlocks(lesson).find((p) => p.id === route.partId);
   const teachingClass = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
-  const enrolled = state.students.filter((s) => studentCourseId(state, s) === course?.id);
+  const enrolled = activeStudents(state).filter((s) => studentCourseId(state, s) === course?.id);
   // Group work picks from students actually assigned to THIS lesson, not
   // the whole course roster — group members should be the people doing
   // this lesson, which "enrolled but not assigned" students aren't (yet).

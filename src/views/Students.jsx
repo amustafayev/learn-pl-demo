@@ -1,82 +1,164 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  IconSend, IconDownload, IconFlame, IconBrain, IconAlertTriangle, IconCheck, IconX,
+  IconSend, IconDownload, IconFlame, IconBrain, IconAlertTriangle, IconCheck,
   IconCircleCheck, IconCircle, IconLock, IconNotebook, IconSparkles, IconArrowRight, IconClock, IconTrendingUp,
-  IconRefresh, IconSearch,
+  IconRefresh, IconSearch, IconUserMinus, IconBan, IconMail, IconPlus, IconSchool, IconShoppingBag,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
 import {
   Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Alert, StatCard,
-  Field, TextField, TextArea, Modal,
+  Field, TextField, TextArea, Modal, PillTabs, Select,
 } from "../design-system.jsx";
-import { useStore, useNav, buildRecapLesson, studentCourseId, activeClassCourse } from "../store.jsx";
-import { statusPill } from "../data.jsx";
+import { useStore, useNav, buildRecapLesson, studentCourseId, studentClasses, teacherRoster } from "../store.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
+import { RequestRow } from "../components/StudentRequests.jsx";
+import { timeAgo, shortDate } from "../format.js";
 import { WordStatusPill } from "./grammar.jsx";
 import StudentInsights from "./StudentInsights.jsx";
 
 const weakest = (c) => Object.entries(c).sort((a, b) => a[1] - b[1])[0];
 
+// The per-student analytics (Overview brief, Words, Activity, AI Insights,
+// Learning path) are seed data until the student app produces real
+// activity — parked, not deleted. Flip this once the student side exists.
+const SHOW_STUDENT_ANALYTICS = false;
+
+const monthYear = (iso) => (iso ? new Date(iso).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "");
+const SOURCE_LABEL = { code: "class link", invite: "email invite", teacher: "added by you" };
+
 /* ------------------------------- roster ------------------------------- */
 
-// Roster card follows the kit's "Student" list widget (course detail sheet):
-// title + count pill + a plain avatar/name/status list, not a data table.
-const presence = (last) => (/^\d+m ago$/.test(last) ? "online" : "offline");
+// Only students this teacher has a relationship with ever reach this page
+// (the store is already scoped — see teacherView in db/mockDb.jsx), split
+// by what that relationship is. See "Students, classes & access" in CLAUDE.md.
+const TABS = ["active", "requests", "former", "customers"];
 
 export function StudentsView() {
-  const { state } = useStore();
+  const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [q, setQ] = useState("");
-  const atRiskOnly = route.filter === "atRisk";
-  const list = state.students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) && (!atRiskOnly || s.atRisk));
-  const courseName = (id) => state.courses.find((c) => c.id === id)?.title || "—";
-  const className = (classId) => state.classes.find((c) => c.id === classId)?.name;
+  const roster = teacherRoster(state);
+  const tab = TABS.includes(route.filter) ? route.filter : "active";
+  const setTab = (t) => go({ filter: t === "active" ? undefined : t });
+  const needle = q.trim().toLowerCase();
+  const hit = (s) => !needle || s.name.toLowerCase().includes(needle) || (s.email || "").toLowerCase().includes(needle);
+
+  const lists = {
+    active: roster.active.filter(hit),
+    requests: roster.requests.filter((r) => hit(r.student)),
+    former: roster.former.filter((f) => hit(f.student)),
+    customers: roster.customers.filter((c) => hit(c.student)),
+  };
+  const blockedOnly = roster.blocked.filter(hit);
+  const empty = {
+    active: needle ? "No students match." : "No students yet — share a class link from a class page to invite them.",
+    requests: "No requests right now. Students who use a class link, or ask to buy a course, show up here.",
+    former: "No former students.",
+    customers: "Nobody has bought a course yet. Put a course on sale from its page.",
+  }[tab];
+  const openStudent = (s) => go({ studentId: s.id });
+
   return (
     <Page>
       <PageHeader kicker="Everyone you teach" title="Students"
         right={
-          <div className="flex items-center gap-3">
-            {atRiskOnly && (
-              <button onClick={() => go({ filter: undefined })}
-                className="text-xs bg-warning-50 text-warning-600 hover:bg-warning-100 rounded-lg px-2.5 py-1.5 inline-flex items-center gap-1 font-medium">
-                <IconAlertTriangle size={13} stroke={1.75} /> Needs attention only <IconX size={12} stroke={1.75} />
-              </button>
-            )}
-            <div className="relative hidden sm:block">
-              <IconSearch size={15} stroke={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-              <TextField value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-9 w-48 !h-10" />
-            </div>
+          <div className="relative hidden sm:block">
+            <IconSearch size={15} stroke={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600" />
+            <TextField value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or email…" className="pl-9 w-56 !h-10" />
           </div>
         } />
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center gap-2 p-4 border-b border-neutral-200">
-          <span className="font-semibold text-neutral-950">Student</span>
-          <span className="rounded-full bg-neutral-200 text-neutral-600 px-1.5 py-0.5 text-[11px] font-bold">{list.length}</span>
-        </div>
-        <div className="divide-y divide-neutral-200">
-          {list.map((s) => (
-            <div key={s.id} onClick={() => go({ studentId: s.id })}
-              className="flex items-center gap-3 p-4 hover:bg-neutral-50 cursor-pointer">
-              <Avatar name={s.name} status={presence(s.last)} />
+      <div className="mb-4">
+        <PillTabs value={tab} onChange={setTab} tabs={[
+          { id: "active", label: "Active", count: roster.active.length },
+          { id: "requests", label: "Requests", count: roster.requests.length },
+          { id: "former", label: "Former", count: roster.former.length + roster.blocked.length },
+          { id: "customers", label: "Customers", count: roster.customers.length },
+        ]} />
+      </div>
+
+      <Card className="px-4">
+        <div className="divide-y divide-neutral-400">
+          {tab === "active" && lists.active.map((s) => (
+            <button key={s.id} type="button" onClick={() => openStudent(s)} className="w-full flex items-center gap-3 py-3.5 text-left hover:bg-neutral-100 -mx-4 px-4">
+              <Avatar name={s.name} />
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-neutral-950 flex items-center gap-1.5 truncate">
-                  {s.name}
-                  {className(s.classId) && <Tag color="neutral">{className(s.classId)}</Tag>}
-                  {s.atRisk && <IconAlertTriangle size={13} stroke={1.75} className="text-warning-500 shrink-0" />}
+                <div className="flex flex-wrap items-center gap-1.5 font-medium text-neutral-950">
+                  <span className="truncate">{s.name}</span>
+                  {studentClasses(state, s.id).map((c) => <Tag key={c.id} color="neutral">{c.name}</Tag>)}
                 </div>
-                <div className="text-xs text-neutral-500 truncate">{courseName(studentCourseId(state, s))} · {s.goal}</div>
+                <div className="text-sm text-neutral-600 truncate">{s.email}</div>
               </div>
-              <span className="font-mono text-xs text-neutral-500 hidden sm:inline shrink-0">{s.level}</span>
-              <Tag color={statusPill(s.status)}>{s.status}</Tag>
+              {s.level && <span className="text-sm text-neutral-600 shrink-0">{s.level}</span>}
+            </button>
+          ))}
+
+          {tab === "requests" && lists.requests.map((r) => <RequestRow key={r.id} request={r} />)}
+
+          {tab === "former" && lists.former.map(({ student: s, ended, blocked }) => {
+            const last = [...ended].sort((a, b) => (a.endedAt < b.endedAt ? 1 : -1))[0];
+            const lastClass = state.classes.find((c) => c.id === last?.classId);
+            return (
+              <div key={s.id} className="flex flex-wrap items-center gap-3 py-3.5">
+                <button type="button" onClick={() => openStudent(s)} className="flex min-w-[12rem] flex-1 items-center gap-3 text-left">
+                  <Avatar name={s.name} color="neutral" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 font-medium text-neutral-950">{s.name}{blocked && <Tag color="warning">Blocked</Tag>}</div>
+                    <div className="text-sm text-neutral-600">
+                      {lastClass?.name} · {monthYear(last?.decidedAt)}–{monthYear(last?.endedAt)} · {last?.status === "left" ? "left" : "removed"}
+                    </div>
+                  </div>
+                </button>
+                {lastClass && !blocked && (
+                  <Button size="sm" variant="outline" onClick={() => { dispatch({ type: "ADD_CLASS_MEMBER", classId: lastClass.id, studentId: s.id }); toast(`${s.name.split(" ")[0]} is back in ${lastClass.name}`); }}>
+                    <IconPlus size={15} stroke={1.75} /> Add back to {lastClass.name}
+                  </Button>
+                )}
+                <BlockToggle student={s} blocked={blocked} />
+              </div>
+            );
+          })}
+          {tab === "former" && blockedOnly.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center gap-3 py-3.5">
+              <div className="flex min-w-[12rem] flex-1 items-center gap-3">
+                <Avatar name={s.name} color="neutral" />
+                <div><div className="flex items-center gap-1.5 font-medium text-neutral-950">{s.name}<Tag color="warning">Blocked</Tag></div>
+                  <div className="text-sm text-neutral-600">Blocked from sending you requests</div></div>
+              </div>
+              <BlockToggle student={s} blocked />
             </div>
           ))}
-          {!list.length && <p className="text-sm text-neutral-500 p-8 text-center">No students match.</p>}
+
+          {tab === "customers" && lists.customers.map(({ purchase: p, student: s, course }) => (
+            <button key={p.id} type="button" onClick={() => openStudent(s)} className="w-full flex items-center gap-3 py-3.5 text-left hover:bg-neutral-100 -mx-4 px-4">
+              <Avatar name={s.name} color="info" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-neutral-950 truncate">{s.name}</div>
+                <div className="text-sm text-neutral-600 truncate">Bought <b className="text-neutral-900">{course?.title}</b> · {p.amount} {p.currency} · <span title={shortDate(p.paidAt)}>{timeAgo(p.paidAt)}</span></div>
+              </div>
+              <Tag color="success">Self-paced</Tag>
+            </button>
+          ))}
+
+          {!(lists[tab].length || (tab === "former" && blockedOnly.length)) && <p className="py-10 text-center text-sm text-neutral-600">{empty}</p>}
         </div>
       </Card>
     </Page>
+  );
+}
+
+function BlockToggle({ student, blocked }) {
+  const { dispatch, toast } = useStore();
+  const first = student.name.split(" ")[0];
+  return blocked ? (
+    <Button size="sm" variant="light" onClick={() => { dispatch({ type: "UNBLOCK_STUDENT", studentId: student.id }); toast(`${first} can send you requests again`); }}>Unblock</Button>
+  ) : (
+    <button type="button" onClick={() => { dispatch({ type: "BLOCK_STUDENT", studentId: student.id }); toast(`${first} is blocked — they can't send you requests`); }}
+      className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-neutral-600 hover:bg-warning-50 hover:text-warning-600">
+      <IconBan size={15} stroke={1.75} /> Block
+    </button>
   );
 }
 
@@ -86,119 +168,178 @@ export function StudentsView() {
 // managed with router hooks directly rather than the shared useNav() shim —
 // same "decoupled sub-navigation" pattern as Library's own routes.
 export function StudentDetail() {
-  const { state, dispatch, toast } = useStore();
+  const { state } = useStore();
   const { route, go } = useNav();
-  const { section = "overview" } = useParams();
+  const { section = "profile" } = useParams();
   const navigate = useNavigate();
   const [assign, setAssign] = useState(false);
-  const [pickingClass, setPickingClass] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const s = state.students.find((x) => x.id === route.studentId);
   if (!s) return null;
 
-  const tabs = [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["notes", "Lesson notes"], ["path", "Learning path"]];
-  const cls = state.classes.find((c) => c.id === s.classId);
-  const course = state.courses.find((c) => c.id === studentCourseId(state, s));
-
-  function moveToClass(classId) {
-    dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId });
-    const target = state.classes.find((c) => c.id === classId);
-    toast(`Moved to ${target?.name}`);
-    setPickingClass(false);
-  }
-  function removeFromClass() {
-    dispatch({ type: "SET_STUDENT_CLASS", studentId: s.id, classId: null });
-    toast(`Removed from ${cls?.name}`);
-    setConfirmRemove(false);
-  }
+  const active = studentClasses(state, s.id);
+  const tabs = [["profile", "Profile"], ["notes", "Lesson notes"],
+    ...(SHOW_STUDENT_ANALYTICS ? [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["path", "Learning path"]] : [])];
+  const current = tabs.some(([id]) => id === section) ? section : "profile";
 
   return (
     <Page>
       <Breadcrumbs items={[{ label: "Students", onClick: () => go({ studentId: null }) }, { label: s.name }]} />
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div className="flex items-center gap-4">
           <Avatar name={s.name} size="lg" />
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-neutral-950 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-950 flex flex-wrap items-center gap-2">
               {s.name}
-              {cls && <Tag color="neutral">{cls.name}</Tag>}
-              {s.atRisk && <Tag color="warning"><IconAlertTriangle size={12} stroke={1.75} /> needs attention</Tag>}
+              {active.map((c) => <Tag key={c.id} color="neutral">{c.name}</Tag>)}
             </h1>
-            <div className="text-neutral-500 text-sm mt-0.5">{s.goal} · placed at {s.placement.level} ({s.placement.when})</div>
+            <div className="text-neutral-600 text-sm mt-0.5">{[s.email, s.level && `Level ${s.level}`].filter(Boolean).join(" · ")}</div>
           </div>
         </div>
-        <Button variant="primary" onClick={() => setAssign(true)}><IconSend size={15} stroke={1.75} /> Assign</Button>
+        {active.length > 0 && <Button variant="primary" onClick={() => setAssign(true)}><IconSend size={15} stroke={1.75} /> Assign</Button>}
       </div>
-
-      {/* Class + progress strip — a student's only "assignment" is which
-          class they're in; lesson access/sequencing follows the class. */}
-      <Card className="p-3.5 mb-5">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="sm:w-48 shrink-0">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Progress</span>
-              <span className="text-xs font-mono text-neutral-600">{s.progress}%</span>
-            </div>
-            <ProgressBar pct={s.progress} />
-          </div>
-          <div className="hidden sm:block w-px self-stretch bg-neutral-200" />
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            {cls ? (
-              <>
-                <span className="text-sm text-neutral-700"><b className="text-neutral-950">{cls.name}</b>{course ? ` · ${course.title}` : ""}</span>
-                <button onClick={() => setConfirmRemove(true)} title="Remove from class" className="text-neutral-400 hover:text-warning-500 p-0.5"><IconX size={13} stroke={1.75} /></button>
-              </>
-            ) : <span className="text-xs text-neutral-500">Not in a class yet.</span>}
-            <button onClick={() => setPickingClass(true)} className="ml-auto text-xs font-semibold text-primary-600 hover:text-primary-700">
-              {cls ? "Change class" : "Assign a class"}
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      <Modal open={pickingClass} onClose={() => setPickingClass(false)} title={cls ? "Change class" : "Assign a class"} sub={`Pick a class for ${s.name.split(" ")[0]}`}>
-        <div className="space-y-1.5 max-h-80 overflow-y-auto">
-          {state.classes.map((c) => {
-            const on = c.id === s.classId;
-            const courseTitle = state.courses.find((co) => co.id === activeClassCourse(c)?.courseId)?.title;
-            return (
-              <button key={c.id} onClick={() => moveToClass(c.id)} disabled={on}
-                className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${on ? "border-primary-300 bg-primary-50" : "border-neutral-200 hover:border-neutral-300"}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate text-neutral-950">{c.name}</div>
-                  <div className="text-xs text-neutral-500">{courseTitle || "No course assigned"}</div>
-                </div>
-                {on && <IconCheck size={15} stroke={1.75} className="text-primary-600 shrink-0" />}
-              </button>
-            );
-          })}
-          {!state.classes.length && <p className="text-sm text-neutral-500 p-2">No classes yet — create one in Classes first.</p>}
-        </div>
-      </Modal>
-
-      <Modal open={confirmRemove} onClose={() => setConfirmRemove(false)}
-        title="Remove from this class?"
-        sub={cls ? `${s.name} — ${cls.name}` : ""}
-        footer={<><Button variant="outline" onClick={() => setConfirmRemove(false)}>Cancel</Button><Button variant="primary" className="!bg-warning-600 hover:!bg-warning-700" onClick={removeFromClass}><IconX size={14} stroke={1.75} /> Remove</Button></>}>
-        <p className="text-sm text-neutral-600">They'll lose access to this class's course and lessons. You can re-assign them any time.</p>
-      </Modal>
 
       <div className="flex gap-1 mb-6 border-b border-neutral-200 overflow-x-auto">
         {tabs.map(([id, label]) => (
           <button key={id} onClick={() => navigate(`/students/${s.id}/${id}`)}
-            className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-px whitespace-nowrap transition-colors ${section === id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>{label}</button>
+            className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-px whitespace-nowrap transition-colors ${current === id ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-600 hover:text-neutral-800"}`}>{label}</button>
         ))}
       </div>
 
-      {section === "overview" && <Overview s={s} />}
-      {section === "words" && <Words s={s} />}
-      {section === "activity" && <Activity s={s} />}
-      {section === "insights" && <StudentInsights s={s} />}
-      {section === "notes" && <Notes s={s} />}
-      {section === "path" && <PathView s={s} />}
+      {current === "profile" && <Profile s={s} />}
+      {current === "notes" && <Notes s={s} />}
+      {current === "overview" && <Overview s={s} />}
+      {current === "words" && <Words s={s} />}
+      {current === "activity" && <Activity s={s} />}
+      {current === "insights" && <StudentInsights s={s} />}
+      {current === "path" && <PathView s={s} />}
 
       <StudentAssignModal open={assign} onClose={() => setAssign(false)} student={s} />
     </Page>
+  );
+}
+
+// What this teacher actually has for a student: their classes (with the
+// history and any pending request), what they bought, and how to reach
+// them. Nothing here is a made-up metric.
+function Profile({ s }) {
+  const { state, dispatch, toast } = useStore();
+  const [removing, setRemoving] = useState(null); // class pending removal
+  const lastRemoving = useRef(null);
+  if (removing) lastRemoving.current = removing;
+  const shownRemoving = removing || lastRemoving.current;
+  const [addTo, setAddTo] = useState("");
+  const first = s.name.split(" ")[0];
+  const memberships = state.memberships.filter((m) => m.studentId === s.id);
+  const classOf = (m) => state.classes.find((c) => c.id === m.classId);
+  const activeM = memberships.filter((m) => m.status === "active");
+  const endedM = memberships.filter((m) => m.status === "removed" || m.status === "left");
+  const requests = teacherRoster(state).requests.filter((r) => r.student.id === s.id);
+  const purchases = state.purchases.filter((p) => p.studentId === s.id && p.status !== "requested");
+  const addable = state.classes.filter((c) => !activeM.some((m) => m.classId === c.id));
+  const blocked = state.blocks.some((b) => b.studentId === s.id);
+
+  const remove = () => {
+    dispatch({ type: "REMOVE_CLASS_MEMBER", classId: removing.id, studentId: s.id });
+    toast(`${first} removed from ${removing.name}`);
+    setRemoving(null);
+  };
+  const add = () => {
+    const cls = state.classes.find((c) => c.id === addTo);
+    if (!cls) return;
+    dispatch({ type: "ADD_CLASS_MEMBER", classId: cls.id, studentId: s.id });
+    toast(`${first} added to ${cls.name}`);
+    setAddTo("");
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
+        {requests.length > 0 && (
+          <Card className="px-4">
+            <div className="pt-4 text-base font-semibold text-neutral-950">Waiting for you</div>
+            <div className="divide-y divide-neutral-400">{requests.map((r) => <RequestRow key={r.id} request={r} />)}</div>
+          </Card>
+        )}
+
+        <Card className="p-4">
+          <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconSchool size={18} stroke={1.75} /> Classes</div>
+          <div className="divide-y divide-neutral-400">
+            {activeM.map((m) => {
+              const cls = classOf(m);
+              return (
+                <div key={m.id} className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-neutral-950">{cls?.name}</div>
+                    <div className="text-sm text-neutral-600">Since {monthYear(m.decidedAt)} · via {SOURCE_LABEL[m.source] || m.source}</div>
+                  </div>
+                  <Tag color="success">Active</Tag>
+                  <button type="button" onClick={() => setRemoving(cls)} title={`Remove from ${cls?.name}`} aria-label={`Remove ${s.name} from ${cls?.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 hover:bg-warning-50 hover:text-warning-600"><IconUserMinus size={17} stroke={1.75} /></button>
+                </div>
+              );
+            })}
+            {endedM.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-neutral-700">{classOf(m)?.name}</div>
+                  <div className="text-sm text-neutral-600">{monthYear(m.decidedAt)}–{monthYear(m.endedAt)} · {m.status === "left" ? "left the class" : "removed"}</div>
+                </div>
+                <Tag color="neutral">Former</Tag>
+              </div>
+            ))}
+            {!activeM.length && !endedM.length && <p className="py-3 text-sm text-neutral-600">Not in any of your classes.</p>}
+          </div>
+          {addable.length > 0 && !blocked && (
+            <div className="mt-3 flex items-center gap-2 border-t border-neutral-400 pt-3">
+              <Select value={addTo} onChange={(e) => setAddTo(e.target.value)} className="!h-9" aria-label="Add to a class">
+                <option value="">Add to a class…</option>
+                {addable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+              <Button size="sm" onClick={add} disabled={!addTo}><IconPlus size={15} stroke={1.75} /> Add</Button>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconShoppingBag size={18} stroke={1.75} /> Courses bought</div>
+          {purchases.length ? (
+            <div className="divide-y divide-neutral-400">
+              {purchases.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-neutral-950">{state.courses.find((c) => c.id === p.courseId)?.title}</div>
+                    <div className="text-sm text-neutral-600">{p.amount} {p.currency} · {p.status === "paid" ? `paid ${timeAgo(p.paidAt)}` : p.status}{p.method === "external" ? " · outside the app" : ""}</div>
+                  </div>
+                  <Tag color={p.status === "paid" ? "success" : "neutral"}>{p.status === "paid" ? "Self-paced" : p.status}</Tag>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-neutral-600">No courses bought.</p>}
+        </Card>
+      </div>
+
+      <div className="space-y-4">
+        <Card className="p-4 space-y-2 text-sm">
+          <div className="text-base font-semibold text-neutral-950">Contact</div>
+          {s.email && <div className="flex items-center gap-2 text-neutral-800"><IconMail size={16} stroke={1.75} className="text-neutral-600" /> {s.email}</div>}
+          {s.level && <div className="text-neutral-700">Level <b className="text-neutral-950">{s.level}</b></div>}
+          {s.goal && <div className="text-neutral-700">Goal: {s.goal}</div>}
+        </Card>
+        <Card className="p-4 text-sm text-neutral-700 space-y-3">
+          <div>{blocked ? "Blocked — they can't send you requests." : "Block to stop this student sending you requests. They keep anything they've bought."}</div>
+          <BlockToggle student={s} blocked={blocked} />
+        </Card>
+      </div>
+
+      <Modal open={!!removing} onClose={() => setRemoving(null)} icon={IconUserMinus} iconTone="warning"
+        title={`Remove ${first} from this class?`} sub={shownRemoving?.name}
+        footer={<>
+          <Button variant="outline" autoFocus onClick={() => setRemoving(null)}>Cancel</Button>
+          <Button variant="danger" onClick={remove}><IconUserMinus size={16} stroke={1.75} /> Remove from class</Button>
+        </>}>
+        <p className="text-sm text-neutral-700">They lose this class's lessons and move to your Former students. Anything they bought stays theirs, and you can add them back any time.</p>
+      </Modal>
+    </div>
   );
 }
 
@@ -417,8 +558,8 @@ function Notes({ s }) {
           </Card>
         )}
 
-        {s.notes.length === 0 && !form && <Card className="p-8 text-center text-neutral-500 text-sm">No lesson notes yet. Capture one after your next live lesson.</Card>}
-        {s.notes.map((n) => (
+        {!(s.notes || []).length && !form && <Card className="p-8 text-center text-neutral-500 text-sm">No lesson notes yet. Capture one after your next live lesson.</Card>}
+        {(s.notes || []).map((n) => (
           <Card key={n.id} className="p-5">
             <div className="flex items-center justify-between mb-2"><div className="font-semibold text-sm text-neutral-950">{n.date}</div><Tag color="success"><IconCheck size={11} stroke={1.75} /> saved</Tag></div>
             <div className="text-sm text-neutral-700 mb-2">{n.covered}</div>

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker, LibraryPickList } from "../design-system.jsx";
-import { useStore, groupBankByParent, bankChildLabel } from "../store.jsx";
+import { useStore, groupBankByParent, bankChildLabel, activeStudents } from "../store.jsx";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
@@ -305,7 +305,7 @@ export function AssignModal({ open, onClose, what, kind, presetStudentId }) {
   return (
     <Modal open={open} onClose={onClose} title="Assign to students" sub={what}
       footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={assign}>Assign{sel.length ? ` (${sel.length})` : ""}</Button></>}>
-      <StudentCheckList students={state.students} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
+      <StudentCheckList students={activeStudents(state)} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
         metaFor={(s) => `${s.level} · ${s.status}`} />
     </Modal>
   );

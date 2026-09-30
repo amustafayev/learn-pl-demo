@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from "react";
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useState } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
-import { reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel, persistComponentBank } from "./db/mockDb.jsx";
+import {
+  reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
+  groupBankByParent, bankChildLabel, persistComponentBank, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
+} from "./db/mockDb.jsx";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
@@ -17,7 +20,10 @@ import { MOTION, cssMs } from "./motion.js";
 // Re-exported so every view that already does `import { lessonBlocks, ... }
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
-export { lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel, uid, h5pClient, saveMedia };
+export {
+  lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel,
+  classMembers, studentClasses, activeStudents, teacherRoster, uid, h5pClient, saveMedia,
+};
 
 // Deep copy of `value` whose H5P activities each get their own server-side
 // content (see db/h5pClient.js) — or null, after telling the teacher why, if
@@ -95,7 +101,11 @@ export function markLessonTaught(dispatch, toast, { cls, courseId, lesson, lesso
 }
 
 export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const [db, dispatch] = useReducer(reducer, undefined, createInitialState);
+  // Views get the logged-in teacher's slice of the data only — their own
+  // courses, classes and related students — exactly what a real API would
+  // return for them. Writes still go to the whole mock db (the "server").
+  const state = useMemo(() => teacherView(db), [db]);
 
   // A saved component is a teacher-owned template, not transient lesson
   // state. Keep just this library across reloads so it remains available

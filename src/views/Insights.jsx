@@ -8,7 +8,7 @@ import {
   ScatterChart, Scatter, ReferenceLine, Cell,
 } from "recharts";
 import { Page, PageHeader, Card, Tag, Alert, SectionLabel, StatCard, Avatar, Select } from "../design-system.jsx";
-import { useStore, useNav } from "../store.jsx";
+import { useStore, useNav, activeStudents } from "../store.jsx";
 import { CONCEPT_TRENDS, CONCEPT_WEEKS } from "../data.jsx";
 
 /* =========================================================================
@@ -80,7 +80,7 @@ export default function Insights() {
   const { go } = useNav();
   const [filter, setFilter] = useState("all");
 
-  const students = state.students;
+  const students = activeStudents(state);
   const filtered = filter === "all" ? students : students.filter((s) => s.id === filter);
 
   const forgetting = useMemo(() => forgettingList(filtered), [filtered]);
