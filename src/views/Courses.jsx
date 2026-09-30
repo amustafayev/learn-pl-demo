@@ -14,7 +14,6 @@ import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
-import { LessonNotesButton, LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
 
 // Deep-copy a saved bank block into a fresh lesson part — new ids all the way
@@ -414,7 +413,6 @@ export function LessonBuilderView() {
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [addOpen, setAddOpen] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
 
@@ -469,10 +467,7 @@ export function LessonBuilderView() {
       {cls && <ClassLessonBar cls={cls} course={course} lesson={lesson} className="mb-6" />}
 
       <PageHeader title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
-        right={<div className="flex gap-2">
-          <LessonNotesButton onOpen={() => setNotesOpen(true)} hasNotes={!!lesson.teacherNotes?.trim()} />
-          <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><IconPlus size={14} stroke={1.75} /> Add Step</Button>
-        </div>} />
+        right={<Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><IconPlus size={14} stroke={1.75} /> Add Step</Button>} />
 
       {/* Pathway Flow Layout */}
       <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Playground → Homework)</SectionLabel>
@@ -532,8 +527,6 @@ export function LessonBuilderView() {
 
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
         usedCounts={usedCounts} bank={compatibleBank} onPickBank={addFromBank} />
-      <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={route.courseId} lessonId={lesson.id}
-        lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={lesson.teacherNotes} />
     </Page>
   );
 }

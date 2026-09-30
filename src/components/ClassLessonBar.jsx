@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { IconSchool, IconCircleCheck, IconBroadcast, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Button, Tag } from "../design-system.jsx";
 import { useStore, useNav, classCourseProgress, markLessonTaught } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
+import { ClassNotesButton, ClassNotesPanel } from "./ClassNotes.jsx";
 
 // Shown on a lesson (and in Block Studio) opened from a class — the lesson
 // content is the same for every class, so this bar is what says where THIS
@@ -18,6 +19,7 @@ const STATE_STYLE = {
 export default function ClassLessonBar({ cls, course, lesson, className = "" }) {
   const { state, dispatch, toast } = useStore();
   const { go, startLive } = useNav();
+  const [notesOpen, setNotesOpen] = useState(false);
   const p = classCourseProgress(state, cls, course.id);
 
   if (!p) {
@@ -67,6 +69,8 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
         <div className="mt-0.5 text-sm text-neutral-600">{line}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {/* This class's own notes on this lesson — see ClassNotes.jsx. */}
+        <ClassNotesButton cls={cls} lesson={lesson} onOpen={() => setNotesOpen(true)} />
         <Button size="sm" variant="light" onClick={toggleShared}>
           {shared ? <><IconEyeOff size={15} stroke={1.75} /> Hide from class</> : <><IconEye size={15} stroke={1.75} /> Share with class</>}
         </Button>
@@ -91,6 +95,7 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
           </>
         )}
       </div>
+      <ClassNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} cls={cls} course={course} lesson={lesson} />
     </div>
   );
 }

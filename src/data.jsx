@@ -325,6 +325,26 @@ export const SEED_TAUGHT_LESSONS = [
   { id: "tl_seed_8", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", taughtAt: "2026-09-26T16:00:00.000Z" },
 ];
 
+// A class's own notes on its lessons (see "Class notes" in CLAUDE.md):
+// what to review, homework, who needs help. Private to the teacher until
+// sent (`sharedAt`); `done` is the teacher's own tick.
+export const SEED_CLASS_NOTES = [
+  { id: "cn_seed_1", classId: "cls_it_morning", courseId: "it", lessonId: "it2", text: "The role-play worked really well — reuse the same format in Lesson 5.",
+    done: true, sharedAt: null, createdAt: "2026-09-14T10:10:00.000Z", updatedAt: "2026-09-14T10:10:00.000Z" },
+  { id: "cn_seed_2", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Rashad still says “I have fixed it yesterday” — go over past simple vs present perfect again.",
+    done: false, sharedAt: null, createdAt: "2026-09-24T10:05:00.000Z", updatedAt: "2026-09-24T10:05:00.000Z" },
+  { id: "cn_seed_3", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Homework: write three standup updates using “so far” and “by Friday”.",
+    done: false, sharedAt: "2026-09-24T10:08:00.000Z", createdAt: "2026-09-24T10:07:00.000Z", updatedAt: "2026-09-24T10:07:00.000Z" },
+  { id: "cn_seed_4", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Print the bug-report template for everyone.",
+    done: true, sharedAt: null, createdAt: "2026-09-24T10:09:00.000Z", updatedAt: "2026-09-24T10:09:00.000Z" },
+  { id: "cn_seed_5", classId: "cls_it_morning", courseId: "it", lessonId: "it4", text: "Open with a 5-minute recap of last lesson's time markers (already, so far, yet).",
+    done: false, sharedAt: null, createdAt: "2026-09-25T08:30:00.000Z", updatedAt: "2026-09-25T08:30:00.000Z" },
+  { id: "cn_seed_6", classId: "cls_it_morning", courseId: "it", lessonId: "it4", text: "Pair Nigar with Leyla for the info-gap task.",
+    done: false, sharedAt: null, createdAt: "2026-09-25T08:32:00.000Z", updatedAt: "2026-09-25T08:32:00.000Z" },
+  { id: "cn_seed_7", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", text: "Part 2 answers ran short — practise speaking for the full two minutes.",
+    done: false, sharedAt: "2026-09-26T17:05:00.000Z", createdAt: "2026-09-26T17:00:00.000Z", updatedAt: "2026-09-26T17:00:00.000Z" },
+];
+
 /* ------------------------- memberships, sales, invites ------------------------- */
 // How students relate to a teacher — the only way a teacher ever sees a
 // student. No relationship, no visibility (see teacherView in db/mockDb.jsx).

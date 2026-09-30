@@ -1008,11 +1008,13 @@ export function Switch({ checked, onChange, className = "" }) {
   );
 }
 
-export function Checkbox({ checked, onChange, className = "" }) {
+export function Checkbox({ checked, onChange, className = "", ...rest }) {
   return (
     <button
+      type="button" role="checkbox" aria-checked={!!checked}
       onClick={() => onChange?.(!checked)}
       className={`flex h-5 w-5 items-center justify-center rounded-md border ${PRESS_FLAT} ${checked ? "border-primary-500 bg-primary-500" : "border-neutral-400 bg-surface"} ${className}`}
+      {...rest}
     >
       {checked && <IconCheck size={13} stroke={3} className="text-white" />}
     </button>

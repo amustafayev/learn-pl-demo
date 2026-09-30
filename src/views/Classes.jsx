@@ -6,6 +6,7 @@ import {
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
 import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers, teacherRoster } from "../store.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
+import { ClassNotesCard } from "../components/ClassNotes.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import { DAY_LABELS, CLASS_COURSE_STATUS, JOIN_LINK_BASE, scheduleLabel } from "../data.jsx";
 
@@ -248,6 +249,9 @@ function ClassDetailView({ classId }) {
               </Card>
             )}
           </div>
+
+          {/* The class's own notes on its lessons — to do, done, sent. */}
+          <div className="mt-6"><ClassNotesCard cls={cls} /></div>
         </div>
 
         {/* right rail — one panel: the class's students and its requests as

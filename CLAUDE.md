@@ -259,6 +259,7 @@ purchases     { id, courseId, studentId, status: requested | paid | declined | r
 invitations   { id, classId, email, name?, status: pending | accepted | revoked, createdAt, expiresAt }
 blocks        { teacherId, studentId, createdAt }
 taughtLessons { id, classId, courseId, lessonId, taughtAt }
+classNotes    { id, classId, courseId, lessonId, text, done, sharedAt, createdAt, updatedAt }
 ```
 
 - A student record holds only the student's own data (name, email,
@@ -284,6 +285,10 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
   access, with separate progress.
 - A course taken off sale stops new purchases, but **existing buyers keep
   access**. A refund ends access.
+- **Class notes** a teacher has sent (`sharedAt` set) reach the class's
+  **active** members, and only them: leaving or being removed from the class
+  takes the notes away with its lessons. Unsent notes never leave the
+  teacher. Written once as `notesSentToStudent(db, studentId)`.
 
 ### Actions (one per endpoint; the full list is in `mockDb.jsx`)
 
@@ -293,6 +298,9 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
   - `CREATE_INVITATION` / `REVOKE_INVITATION`.
   - `DECIDE_MEMBERSHIP` (`active` | `declined`), `ADD_CLASS_MEMBER`,
     `REMOVE_CLASS_MEMBER`, `BLOCK_STUDENT` / `UNBLOCK_STUDENT`.
+  - `ADD_CLASS_NOTE`, `UPDATE_CLASS_NOTE` (text, done), `SHARE_CLASS_NOTES`
+    (send or take back, several at once) and `REMOVE_CLASS_NOTE`. A note
+    can only be added for a course the class is taking.
   - `SET_LESSON_RELEASED`, `UPDATE_COURSE_SALE`, `DECIDE_PURCHASE`
     (`paid` | `declined`).
 - **Student**, already implemented in the reducer for the student app:
@@ -319,7 +327,20 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
 - **Sidebar:** the Students item shows the number of waiting requests
   (class and purchase) from any page.
 - **Course page through a class:** a **Shared / Share** toggle per lesson.
-  `ClassLessonBar` shows "Students can see it" with Share or Hide.
+  `ClassLessonBar` shows "Students can see it" with Share or Hide, and a
+  **Notes** button (count of open notes) for this class's notes on the lesson.
+- **Class notes** (`src/components/ClassNotes.jsx`) belong to the class,
+  never to the course's lesson: the course is the same for every class, so
+  it can't hold "what to review with *this* group". Each note is one short
+  line the teacher can tick off (`done`), edit in place, delete, and send
+  to the class (or take back). Three ways in, one set of pieces:
+  - the lesson opened from a class: ClassLessonBar's **Notes** drawer;
+  - a live lesson: the notebook in the live bar, and a "Class notes for
+    Lesson N" card on the end-of-lesson summary;
+  - the class page: a **Class notes** card under Courses, every note
+    grouped by lesson (latest first) with a To do / Done / Not sent yet /
+    All filter, and an add field whose lesson picker defaults to next up.
+  A plain lesson page (no `?classId=`) has no notes at all.
 - **Plain course page:** a sales card with For sale or "Put on sale" and
   **Sale settings** (price, currency, description, how to pay), plus
   **Customers** (requests to confirm, then buyers).

@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconMicrophone, IconMicrophoneOff, IconVideo, IconVideoOff, IconDeviceDesktop, IconShieldCheck, IconUsers, IconCopy, IconCheck, IconClock,
   IconHandStop, IconArrowRight, IconPhoneOff, IconCircleDot, IconActivity, IconSchool, IconSparkles, IconBroadcast, IconBell,
-  IconChevronLeft, IconChevronRight, IconUsersGroup, IconUser, IconNotebook,
+  IconChevronLeft, IconChevronRight, IconUsersGroup, IconUser, IconNotebook, IconNotes,
 } from "@tabler/icons-react";
 import { Card, Button, Tag, Alert, Field, Select, StudentCheckList, Avatar } from "../design-system.jsx";
-import { useStore, lessonBlocks, activeClassCourse, classCourseProgress, markLessonTaught, classMembers } from "../store.jsx";
+import { useStore, lessonBlocks, activeClassCourse, classCourseProgress, markLessonTaught, classMembers, classNotesFor } from "../store.jsx";
 import { timeAgo } from "../format.js";
 import { initials, blockMeta } from "../data.jsx";
 import { BlockStudentView } from "./parts.jsx";
-import { LessonNotesPanel } from "../components/LessonNotesPanel.jsx";
+import { ClassNotesPanel } from "../components/ClassNotes.jsx";
 
 // Block types the class does together (teacher leads, everyone on the same
 // page) vs. individually (each learner at their own pace) — the gamifications.
@@ -202,7 +202,8 @@ function LiveRoom({ cls, course, lesson, blocks, invitedIds, onEnd }) {
 
   const current = blocks[focus];
   const together = TOGETHER.has(current?.type);
-  const freshLesson = (state.lessons[course?.id] || []).find((l) => l.id === lesson?.id) || lesson;
+  // This class's open notes on the lesson being taught (see ClassNotes.jsx).
+  const openNotes = cls && lesson ? classNotesFor(state, cls.id, lesson.id).filter((n) => !n.done).length : 0;
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -292,10 +293,11 @@ function LiveRoom({ cls, course, lesson, blocks, invitedIds, onEnd }) {
           </Tag>
           {rec.voice && <Tag color="warning"><IconMicrophone size={11} stroke={1.75} /> {clock(elapsed)}</Tag>}
           {rec.screen && <Tag color="warning"><IconDeviceDesktop size={11} stroke={1.75} /> screen</Tag>}
-          {lesson && (
-            <button onClick={() => setNotesOpen(true)} title="Lesson notes" className="relative text-white/70 hover:text-white p-1.5">
+          {cls && lesson && (
+            <button onClick={() => setNotesOpen(true)} title={`Class notes${openNotes ? ` — ${openNotes} to do` : ""}`} aria-label="Class notes"
+              className="relative text-white/70 hover:text-white p-1.5">
               <IconNotebook size={17} stroke={1.75} />
-              {freshLesson?.teacherNotes?.trim() && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-pending-400" />}
+              {openNotes > 0 && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-pending-400" />}
             </button>
           )}
           <Button variant="danger" onClick={endLesson}><IconPhoneOff size={15} stroke={1.75} /> End lesson</Button>
@@ -303,7 +305,8 @@ function LiveRoom({ cls, course, lesson, blocks, invitedIds, onEnd }) {
       </div>
 
       {phase === "ended"
-        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} lesson={lesson} cls={cls} course={course} nextLesson={nextLesson} onEnd={onEnd} />
+        ? <Ended elapsed={elapsed} rec={rec} joined={joined} total={people.length} blocks={blocks} lesson={lesson} cls={cls} course={course} nextLesson={nextLesson}
+            openNotes={openNotes} onOpenNotes={() => setNotesOpen(true)} onEnd={onEnd} />
         : (
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
             {/* STAGE — the lesson content the teacher teaches from (what students see) */}
@@ -432,9 +435,8 @@ function LiveRoom({ cls, course, lesson, blocks, invitedIds, onEnd }) {
             </div>
           </div>
         )}
-      {lesson && (
-        <LessonNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} courseId={course.id} lessonId={lesson.id}
-          lessonLabel={`Lesson ${lesson.n}: ${lesson.title}`} notes={freshLesson?.teacherNotes} />
+      {cls && course && lesson && (
+        <ClassNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} cls={cls} course={course} lesson={lesson} />
       )}
     </div>
   );
@@ -478,7 +480,7 @@ function TaughtCard({ cls, course, lesson, nextLesson }) {
   );
 }
 
-function Ended({ elapsed, rec, joined, total, blocks, lesson, cls, course, nextLesson, onEnd }) {
+function Ended({ elapsed, rec, joined, total, blocks, lesson, cls, course, nextLesson, openNotes, onOpenNotes, onEnd }) {
   const { dispatch, toast } = useStore();
   const [drafted, setDrafted] = useState(false);
   const nBlocks = blocks.length || 1;
@@ -505,6 +507,19 @@ function Ended({ elapsed, rec, joined, total, blocks, lesson, cls, course, nextL
         <div className="flex items-center gap-2 text-success-600 mb-1"><IconCheck size={18} stroke={1.75} /> <span className="font-semibold">Lesson ended</span></div>
         <h1 className="text-2xl font-bold tracking-tight mb-6 text-neutral-950">Session summary</h1>
         {cls && course && lesson && <TaughtCard cls={cls} course={course} lesson={lesson} nextLesson={nextLesson} />}
+        {/* Right after teaching is when there's something to write down. */}
+        {cls && lesson && (
+          <Card className="p-4 mb-6 flex flex-wrap items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"><IconNotes size={20} stroke={1.75} /></span>
+            <div className="min-w-[12rem] flex-1">
+              <div className="font-semibold text-neutral-950">Class notes for Lesson {lesson.n}</div>
+              <div className="text-sm text-neutral-600">
+                {openNotes ? `${openNotes} to do. ` : ""}Jot down what to review or the homework — then send it to {cls.name}.
+              </div>
+            </div>
+            <Button variant="outline" onClick={onOpenNotes}><IconNotes size={16} stroke={1.75} /> Open notes</Button>
+          </Card>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[[clock(elapsed), "duration"], [`${joined.length}/${total}`, "attended"], [rec.voice ? clock(elapsed) : "—", "voice recorded"], [`${joined.filter((p) => p.presence === "done").length}`, "finished lesson"]].map(([v, l]) => (
             <Card key={l} className="p-4"><div className="tabular-nums text-2xl font-bold text-neutral-950">{v}</div><div className="text-xs text-neutral-600 mt-1">{l}</div></Card>
