@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
   groupBankByParent, bankChildLabel, persistComponentBank, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
-  classNotesFor, studentHistory, membershipPeriods,
+  classNotesFor, studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
 } from "./db/mockDb.jsx";
+import { openSyncChannel, sharedChanged } from "./db/mockSync.js";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
@@ -24,6 +25,7 @@ import { MOTION, cssMs } from "./motion.js";
 export {
   lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel,
   classMembers, studentClasses, activeStudents, teacherRoster, classNotesFor, studentHistory, membershipPeriods, uid, h5pClient, saveMedia,
+  studentView, signedOutView, canOpenLesson,
 };
 
 // Deep copy of `value` whose H5P activities each get their own server-side
@@ -107,19 +109,59 @@ export function markLessonTaught(dispatch, toast, { cls, courseId, lesson, lesso
   return next;
 }
 
-export function StoreProvider({ children }) {
+// Keeps this tab's mock db in step with the other open tabs (the teacher
+// app and the student app) — see db/mockSync.js. Returns whether this tab
+// has caught up yet: true once the first copy from another tab arrived, or
+// shortly after opening when no other tab answered (so it's the only one).
+// Until then the data is the seed, not what the others see — the student
+// app waits for this before announcing changes as new.
+const CATCH_UP_MS = 600;
+function useMockSync(db, dispatch) {
+  const latest = useRef(db);
+  const channel = useRef(null);
+  const shared = useRef(false); // changed or received anything yet?
+  const fromPeer = useRef(false); // the pending change came from another tab
+  const before = useRef(db);
+  const [caughtUp, setCaughtUp] = useState(false);
+  useEffect(() => {
+    channel.current = openSyncChannel({
+      current: () => (shared.current ? latest.current : null),
+      onRemote: (incoming) => { shared.current = true; fromPeer.current = true; dispatch({ type: "SYNC_STATE", db: incoming }); setCaughtUp(true); },
+    });
+    const timer = setTimeout(() => setCaughtUp(true), CATCH_UP_MS);
+    return () => { clearTimeout(timer); channel.current.close(); };
+  }, [dispatch]);
+  useEffect(() => {
+    latest.current = db;
+    const prev = before.current;
+    before.current = db;
+    if (prev === db || !sharedChanged(prev, db)) return; // e.g. only a toast
+    // Don't echo another tab's change straight back to it.
+    if (fromPeer.current) { fromPeer.current = false; return; }
+    shared.current = true;
+    channel.current?.publish(db);
+  }, [db]);
+  return caughtUp;
+}
+
+// `scope` is what the logged-in user's API would return — the teacher's
+// slice by default (teacherView); the student app passes its own. Writes
+// always go to the whole mock db (the "server").
+export function StoreProvider({ children, scope = teacherView, keepComponentBank = true }) {
   const [db, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const caughtUp = useMockSync(db, dispatch);
   // Views get the logged-in teacher's slice of the data only — their own
   // courses, classes and related students — exactly what a real API would
-  // return for them. Writes still go to the whole mock db (the "server").
-  const state = useMemo(() => teacherView(db), [db]);
+  // return for them.
+  const state = useMemo(() => scope(db), [db, scope]);
 
   // A saved component is a teacher-owned template, not transient lesson
   // state. Keep just this library across reloads so it remains available
-  // when the teacher starts a different lesson later.
+  // when the teacher starts a different lesson later. (The student app
+  // never writes it.)
   useEffect(() => {
-    persistComponentBank(state.componentBank);
-  }, [state.componentBank]);
+    if (keepComponentBank) persistComponentBank(state.componentBank);
+  }, [state.componentBank, keepComponentBank]);
 
   const toast = useCallback((text, tone) => {
     const id = uid("toast");
@@ -132,7 +174,7 @@ export function StoreProvider({ children }) {
     return id;
   }, []);
 
-  return <StoreCtx.Provider value={{ state, dispatch, toast, uid }}>{children}</StoreCtx.Provider>;
+  return <StoreCtx.Provider value={{ state, dispatch, toast, uid, caughtUp }}>{children}</StoreCtx.Provider>;
 }
 
 export function useStore() {

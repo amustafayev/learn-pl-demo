@@ -8,7 +8,7 @@ import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers,
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { ClassNotesCard } from "../components/ClassNotes.jsx";
 import { timeAgo, shortDate } from "../format.js";
-import { DAY_LABELS, CLASS_COURSE_STATUS, JOIN_LINK_BASE, scheduleLabel } from "../data.jsx";
+import { DAY_LABELS, CLASS_COURSE_STATUS, joinLink, scheduleLabel } from "../data.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -376,7 +376,7 @@ function ClassDetailView({ classId }) {
 function InviteStudentsPanel({ cls }) {
   const { state, dispatch, toast } = useStore();
   const [email, setEmail] = useState("");
-  const link = `${JOIN_LINK_BASE}${cls.joinToken}`;
+  const link = joinLink(cls.joinToken);
   const pending = state.invitations.filter((i) => i.classId === cls.id && i.status === "pending");
   const copy = async (text, what) => {
     try { await navigator.clipboard.writeText(text); toast(`${what} copied`); } catch { toast(`Couldn't copy — select it and copy by hand`); }
@@ -402,7 +402,7 @@ function InviteStudentsPanel({ cls }) {
         <div className="text-sm text-neutral-600 mb-1.5">Share it in your group chat</div>
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 truncate rounded-lg bg-neutral-200 px-3 py-2 text-sm text-neutral-900" data-join-link>{link}</div>
-          <Button size="sm" variant="outline" iconOnly icon={IconCopy} onClick={() => copy(`https://${link}`, "Link")} disabled={!cls.joinOpen} title="Copy link" aria-label="Copy link" />
+          <Button size="sm" variant="outline" iconOnly icon={IconCopy} onClick={() => copy(link, "Link")} disabled={!cls.joinOpen} title="Copy link" aria-label="Copy link" />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
           Code <button type="button" onClick={() => copy(cls.joinToken, "Code")} disabled={!cls.joinOpen}

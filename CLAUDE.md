@@ -26,6 +26,8 @@ your own version of it.
 | Seed fixtures + static UI config (labels, templates, icons) | `src/data.jsx` |
 | Authored lesson content (blocks → components for Everyday English + IT L4) | `src/seedLessons.js` (pulled into `SEED_LESSONS` by `data.jsx`); local files it embeds live in `public/seed/` |
 | React binding over the mock db (Context/Provider, `useStore()`/`useNav()`) | `src/store.jsx` — no persistence logic of its own |
+| Keeping the teacher and student apps' tabs in step (the mock server's push) | `src/db/mockSync.js`, wired in `StoreProvider` |
+| **The student app** — its own package, served at `/student/` | `student/` (see its `README.md`); shares `src/` through the `@app` alias |
 
 ## Routing
 
@@ -343,7 +345,9 @@ milestones, and `totals`.
     `absent`).
   - `ASSIGN_WORK { studentIds, item }` (one row per student) and
     `WITHDRAW_ASSIGNMENT` (open work only; the row stays as history).
-- **Student**, already implemented in the reducer for the student app:
+- **Student**, dispatched by the student app (`student/`):
+  - `REGISTER_STUDENT { name, email }` (sign up). One account per email;
+    no teacher sees it until the student joins a class or buys a course.
   - `REQUEST_TO_JOIN { token, studentId, message }`. Rejected silently for
     a closed class or a blocked student; a class link never admits
     directly.
@@ -433,23 +437,107 @@ picked at once.
     `SHOW_STUDENT_ANALYTICS` in `Students.jsx`; don't show them until the
     student app produces real data.
 
-### Student app: what's still to build
+### The student app (`student/`)
 
-- A `/join/:token` page (the class link is `JOIN_LINK_BASE + joinToken`):
-  sign up or log in, then `REQUEST_TO_JOIN`; it shows "waiting for your
-  teacher".
-- Accepting an email invite (`ACCEPT_INVITATION`).
-- The **catalog**: courses with `sale.forSale`, showing description and
-  price. "Request to buy" shows `paymentNote`, then `REQUEST_PURCHASE`.
-- "My classes" and "My courses", plus a lesson player that opens only what
-  `canOpenLesson` allows and sends `COMPLETE_LESSON` when a lesson is
-  finished.
-- "My work": the student's open assignments, played from their `content`
-  snapshot (or the library item in `source`). Finishing one sends
+Its own package, served at `/student/` on the same site. `vite.config.js`
+builds it as a second page (`student/index.html`), a dev-server fallback
+sends `/student/...` deep links to it, and `vercel.json` rewrites them.
+It has no design or data of its own:
+
+- **Same design, reused, not copied.** `@app/…` is `src/`: the tokens and
+  dark theme (`index.css`), the factory (`design-system.jsx`), the teacher
+  app's Auth sheet (`AuthShell`) for sign-in, `ClassCard` / `CourseCard`
+  for classes and courses, and `BlockStudentView` (`views/parts.jsx`), the
+  same renderer as Block Studio's "As student", inside the same
+  `HeaderCard` + `StepNav` + gray-well layout. New student-only UI lives
+  in `student/src/`. If a piece is useful to both apps, it goes into the
+  factory.
+- **Same data layer.** `StoreProvider` takes a `scope`: `teacherView` by
+  default, and `studentView(db, studentId)` in the student app (with
+  `signedOutView` before sign-in, which offers the demo accounts). A
+  student sees their own record, their memberships and those classes (a
+  class they asked to join, were invited to, or left shows its name only),
+  their purchases, invites to their email, the courses they can reach
+  (their classes', the ones they bought, the public catalog) with those
+  lessons, and only the notes sent to them. Never another student.
+- **Rules stay in the data layer.** Opening a lesson goes through
+  `canOpenLesson`, and sent notes through `notesSentToStudent`. The student
+  actions are `REGISTER_STUDENT` (sign up), `REQUEST_TO_JOIN`,
+  `ACCEPT_INVITATION`, `REQUEST_PURCHASE`, `COMPLETE_LESSON` and
   `COMPLETE_ASSIGNMENT`.
-- The student app needs its own scoped view, mirroring `teacherView`: a
-  student sees their own memberships and purchases, the courses and
-  classes behind them, and never other students.
+- **Screens:**
+  - **Sign in / sign up**, where a class link opened while signed out asks
+    you to sign in first.
+  - **Home:** invites to accept, requests waiting on the teacher, my
+    classes, the latest notes, and my courses.
+  - **Class:** each course with its lessons (open, or "Not shared yet") and
+    the class's notes.
+  - **Lesson:** the teacher's notes for it on top, then the steps. The last
+    step is **Finish lesson**.
+  - **Notes:** every note, newest first, grouped by when it was sent, with
+    a class filter.
+  - **Courses:** bought courses, plus the catalog with **Request to buy**
+    (showing the teacher's payment note).
+  - **Join a class:** a code, or `/join/CODE`.
+  - **My work:** open and done assignments. A block or task plays from
+    its `content` snapshot; a word set or reading opens the library item.
+    **Mark as done** sends `COMPLETE_ASSIGNMENT`. Withdrawn work is hidden
+    from the student.
+- **Two tabs, one mock db.** With the teacher app and the student app open
+  in the same browser, `src/db/mockSync.js` keeps their copies in step.
+  After a change a tab broadcasts its data (`BroadcastChannel`), and the
+  others take it (`SYNC_STATE`; toasts stay per tab). A tab that opens asks
+  first, so it starts where the others are. `StoreProvider`'s `caughtUp` is
+  true once that first copy arrived, and the student app only toasts
+  changes ("New note from…", "You're in…", "Lesson 5 is open…", "Payment
+  confirmed…") after it. Nothing is stored: close every tab and the seed
+  comes back. A real backend's push replaces this file. When testing in a
+  browser, use a fresh profile per run; leftover open tabs hand their data
+  to new ones.
+- **Per-viewer only, in browser storage:** who's signed in (per tab,
+  `sessionStorage`) and which notes they've seen (the "New" badges),
+  kept in `student/src/session.jsx`.
+- **Teacher side:** the Invite dialog's class link is `joinLink(token)`
+  (`data.jsx`), which opens `/student/join/CODE` on the same site.
+- **Status (2026-10-01).** UI only, on the mock db; no real backend.
+  - **Built and checked end to end,** with two tabs (teacher and student)
+    in light and dark mode and at phone width:
+    - sign in, or sign up, including from a class link;
+    - Home;
+    - class pages, where only shared lessons open;
+    - the lesson player, which records Finish lesson;
+    - the teacher's notes: inside their lesson, on the class page, and on
+      Notes, with "New" badges and a count;
+    - joining by code or link, then the teacher accepting;
+    - accepting an email invite;
+    - the catalog, Request to buy, and the teacher confirming;
+    - My work: assigned by the teacher, finished by the student.
+
+    Everything the teacher does (sends or unsends a note, shares a lesson,
+    accepts a request, confirms a payment, assigns work) reaches an open
+    student tab live, with a toast.
+  - **Not built yet:**
+    - declining an invite (only accepting exists);
+    - a student profile or settings page, and resetting a password;
+    - leaving a class from the student side;
+    - the student's own lesson history;
+    - showing a class member's own work (finished class lessons) to the
+      teacher, who only sees completions for bought courses;
+    - live sessions from the student's side (joining the teacher's live
+      lesson; the students in the live room are still simulated);
+    - notes for a lesson that isn't shared yet show once sent (they aren't
+      held back until the lesson is shared), which is still an open
+      product decision;
+    - a real push between devices: the sync is same-browser only.
+  - **Known rough edges:**
+    - a toast sits bottom-right for about 2.6s and can cover a short
+      page's bottom-right action (Mark as done, Finish lesson) until it
+      goes;
+    - a student's answers inside activities aren't saved anywhere; only
+      Finish lesson and Mark as done are recorded. Leaving the page clears
+      them, the same as the teacher's "As student" preview;
+    - the student app's sidebar has no collapse toggle (the teacher's
+      does).
 
 ## Color tokens
 
@@ -866,6 +954,7 @@ bundle Vite already warns about, and nothing here needs it.
 2. `npx oxlint <changed files>` — exit 0 (pre-existing "Fast refresh" warnings
    on files that export a helper alongside a component are fine to ignore).
 3. Start the dev server, screenshot the changed screen(s) in a real browser
+   (the student app too, at `/student/`, if the change touches shared code)
    **in both themes** (`localStorage.theme = "dark"`, then reload),
    check for zero `pageerror`/console errors — don't rely on the build passing
    alone; the dynamic-class-interpolation bug above passed the build fine and

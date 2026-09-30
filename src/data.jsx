@@ -178,6 +178,15 @@ export const TEACHER = {
   ],
 };
 
+// Every teacher's public profile — what a student sees next to a class or
+// a course (the student app shows classes and courses from any teacher).
+// The logged-in teacher's own name comes from `state.teacher`, so a rename in
+// Settings reaches students too.
+export const TEACHER_PROFILES = [
+  { id: "t_maria", name: TEACHER.name },
+  { id: "t_kamal", name: "Kamal Mammadov" },
+];
+
 /* ------------------------------- courses / lessons / parts ------------------------------- */
 
 let pid = 0;
@@ -298,9 +307,10 @@ export const SEED_CLASSES = [
   },
 ];
 
-// The public link a class's join code lives at. The student app's
-// /join/:token page (not built yet) turns a visit into a join request.
-export const JOIN_LINK_BASE = "lucid.app/join/";
+// The class link a teacher shares: it opens the student app's join page
+// (student/, served at /student/ on the same site) with the code filled in,
+// and a visit there turns into a join request.
+export const joinLink = (token) => `${typeof window === "undefined" ? "https://lucid.app" : window.location.origin}/student/join/${token}`;
 
 // A class's status on one of its courses, as a badge.
 export const CLASS_COURSE_STATUS = {

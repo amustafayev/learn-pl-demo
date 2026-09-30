@@ -15,7 +15,7 @@ import { useStore } from "../store.jsx";
    the same way the rest of this prototype has no login gate today.
    ========================================================================= */
 
-function AuthShell({ children }) {
+export function AuthShell({ children }) {
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 sm:p-8 font-sans">
       {/* No card: the kit sits the image panel and the form straight on the

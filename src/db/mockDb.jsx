@@ -1,7 +1,7 @@
 import {
   SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
   SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS, SEED_ASSIGNMENTS,
-  TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
+  TEACHER, TEACHER_PROFILES, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
 /* =========================================================================
@@ -358,6 +358,68 @@ export function notesSentToStudent(db, studentId) {
   return db.classNotes.filter((n) => n.sharedAt && classIds.has(n.classId)).sort((a, b) => (a.sharedAt < b.sharedAt ? 1 : -1));
 }
 
+/* ------------------------------- the student app -------------------------------
+   The student-side twin of teacherView: everything the logged-in student's
+   API would return, and nothing else. Their own record; their memberships
+   and those classes (a class they only asked to join, were invited to, or
+   left shows its name, never its content); their purchases and the invites
+   sent to their email; the courses they can reach (their classes' courses,
+   what they bought, the public catalog) with those courses' lessons; what
+   was taught to their classes; the work assigned to them; and only the
+   notes sent to them. No other student ever appears. See "The student app"
+   in CLAUDE.md. */
+export function studentView(db, studentId) {
+  const me = db.students.find((s) => s.id === studentId) || null;
+  if (!me) return signedOutView(db);
+  const memberships = db.memberships.filter((m) => m.studentId === studentId);
+  const active = new Set(memberships.filter((m) => m.status === "active").map((m) => m.classId));
+  const invitations = db.invitations.filter((i) => i.email === (me.email || "").toLowerCase());
+  const known = new Set([...memberships.map((m) => m.classId), ...invitations.filter((i) => i.status === "pending").map((i) => i.classId)]);
+  const classes = db.classes.filter((c) => known.has(c.id)).map((c) => (active.has(c.id) ? c
+    : { id: c.id, teacherId: c.teacherId, name: c.name, scheduleDays: c.scheduleDays, courses: [], ...(memberships.some((m) => m.classId === c.id) ? { joinToken: c.joinToken } : {}) }));
+  const purchases = db.purchases.filter((p) => p.studentId === studentId);
+  const courseIds = new Set([
+    ...db.classes.filter((c) => active.has(c.id)).flatMap((c) => c.courses.map((x) => x.courseId)),
+    ...purchases.map((p) => p.courseId),
+    ...db.courses.filter((c) => c.sale?.forSale).map((c) => c.id),
+  ]);
+  return {
+    me,
+    students: [me],
+    teachers: db.teacherProfiles.map((t) => (t.id === db.teacher.id ? { ...t, name: db.teacher.name } : t)),
+    memberships,
+    classes,
+    purchases,
+    invitations,
+    courses: db.courses.filter((c) => courseIds.has(c.id)),
+    lessons: Object.fromEntries(Object.entries(db.lessons).filter(([courseId]) => courseIds.has(courseId))),
+    taughtLessons: db.taughtLessons.filter((t) => active.has(t.classId)),
+    classNotes: notesSentToStudent(db, studentId),
+    lessonCompletions: db.lessonCompletions.filter((c) => c.studentId === studentId),
+    // Work handed to them — not what a teacher took back.
+    assignments: db.assignments.filter((a) => a.studentId === studentId && a.status !== "withdrawn"),
+    texts: db.texts,
+    wordSets: db.wordSets,
+    toasts: db.toasts,
+  };
+}
+
+// Before anyone signs in: the demo accounts the sign-in page offers (a
+// stand-in for a real login), each with a hint of what's waiting for them.
+export function signedOutView(db) {
+  const hint = (s) => {
+    const mine = db.memberships.filter((m) => m.studentId === s.id);
+    const inClass = mine.filter((m) => m.status === "active").map((m) => db.classes.find((c) => c.id === m.classId)?.name).filter(Boolean);
+    if (inClass.length) return `In ${inClass.join(", ")}`;
+    const asked = mine.find((m) => m.status === "requested");
+    if (asked) return `Asked to join ${db.classes.find((c) => c.id === asked.classId)?.name || "a class"}`;
+    const bought = db.purchases.find((p) => p.studentId === s.id && p.status === "paid");
+    if (bought) return `Bought ${db.courses.find((c) => c.id === bought.courseId)?.title || "a course"}`;
+    return "No class yet";
+  };
+  return { me: null, accounts: db.students.map((s) => ({ id: s.id, name: s.name, email: s.email, hint: hint(s) })), toasts: db.toasts };
+}
+
 // Group bank items (saved Blocks or saved Components) by the course/parent
 // they were saved from — every "reuse a saved thing" picker (My Blocks, the
 // Add-block dialog, the Component Library) organizes its list the same way,
@@ -400,6 +462,7 @@ export function createInitialState() {
     blockBank: clone(SEED_BLOCK_BANK),
     componentBank: savedComponentBank(),
     teacher: clone(TEACHER),
+    teacherProfiles: clone(TEACHER_PROFILES),
     toasts: [],
   };
 }
@@ -635,7 +698,8 @@ export function reducer(state, action) {
        Selling a course (self-paced)
          UPDATE_COURSE_SALE       PATCH  /courses/:courseId                          { sale }
          DECIDE_PURCHASE          PATCH  /purchases/:purchaseId                      { status: paid | declined }
-       Student side (dispatched by the student app — not built yet)
+       Student side (dispatched by the student app, student/)
+         REGISTER_STUDENT         POST   /students                                   { name, email }  (sign up)
          REQUEST_TO_JOIN          POST   /join                                       { token, message? }
          ACCEPT_INVITATION        POST   /invitations/:invitationId/accept
          REQUEST_PURCHASE         POST   /courses/:courseId/purchases                { message? }
@@ -844,7 +908,16 @@ export function reducer(state, action) {
         ? { ...p, status, paidAt: status === "paid" ? nowIso() : null, confirmedBy: status === "paid" ? state.teacher.id : null } : p)) };
     }
 
-    /* student side — for the student app (not built yet) */
+    /* student side — dispatched by the student app (student/) */
+    // Sign up: a new student account, nothing else. No teacher sees it until
+    // the student asks to join a class or buys a course (the visibility
+    // rule). One account per email.
+    case "REGISTER_STUDENT": {
+      const name = (action.name || "").trim();
+      const email = (action.email || "").trim().toLowerCase();
+      if (!name || !email || state.students.some((s) => (s.email || "").toLowerCase() === email)) return state;
+      return { ...state, students: [...state.students, { id: uid("s"), name, email, level: "", goal: "", notes: [], createdAt: nowIso() }] };
+    }
     case "REQUEST_TO_JOIN": {
       const { token, studentId, message } = action;
       const cls = state.classes.find((c) => c.joinToken === token);
@@ -903,6 +976,11 @@ export function reducer(state, action) {
       return { ...state, teacher: { ...state.teacher, ...action.patch } };
     case "SET_TEACHER_2FA":
       return { ...state, teacher: { ...state.teacher, twoFactorEnabled: action.enabled } };
+    // Another open tab (the teacher app or the student app) changed the data:
+    // take its copy, the way a client applies a server push (see
+    // db/mockSync.js). Toasts are this tab's own and stay.
+    case "SYNC_STATE":
+      return { ...state, ...action.db, toasts: state.toasts };
     case "PUSH_TOAST":
       return { ...state, toasts: [...state.toasts, { id: action.id, text: action.text, tone: action.tone || "ok" }] };
     case "DISMISS_TOAST":

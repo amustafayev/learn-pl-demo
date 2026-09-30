@@ -903,9 +903,11 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
       <div className="p-5">
         <div className="text-sm text-neutral-700 min-h-[1.25rem] truncate">{lessonLine || ""}</div>
         <div className="mt-2.5 flex items-center gap-2">
-          <div className="flex -space-x-2 overflow-hidden">
-            {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={s.color} size="xs" />)}
-          </div>
+          {roster.length > 0 && (
+            <div className="flex -space-x-2 overflow-hidden">
+              {roster.slice(0, 5).map((s) => <Avatar key={s.id} name={s.name} color={s.color} size="xs" />)}
+            </div>
+          )}
           <span className="text-sm text-neutral-800">{studentCountLabel}</span>
         </div>
         {progressPct != null && (
