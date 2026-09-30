@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker, LibraryPickList } from "../design-system.jsx";
-import { useStore, groupBankByParent, bankChildLabel, activeStudents } from "../store.jsx";
-import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS } from "../data.jsx";
+import { useStore, groupBankByParent, bankChildLabel, activeStudents, assignWork } from "../store.jsx";
+import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
 // legacy hue name (kept so existing seed courses/CourseCard tone mapping —
@@ -291,19 +291,20 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, b
 }
 
 /* Assign content to one or more students */
-export function AssignModal({ open, onClose, what, kind, presetStudentId }) {
+// Assign one library item (a reading, a word set) to several students at
+// once — one `assignments` row each (ASSIGN_WORK). `item` is the same shape
+// the student page's Assign dialog sends: { kind, title, source }.
+export function AssignModal({ open, onClose, item, presetStudentId }) {
   const { state, dispatch, toast } = useStore();
   const [sel, setSel] = useState(presetStudentId ? [presetStudentId] : []);
   React.useEffect(() => { if (open) setSel(presetStudentId ? [presetStudentId] : []); }, [open, presetStudentId]);
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  function assign() {
+  async function assign() {
     if (!sel.length) return toast("Pick at least one student", "err");
-    dispatch({ type: "ASSIGN", studentIds: sel, what, kind });
-    toast(`Assigned “${what}” to ${sel.length} student${sel.length > 1 ? "s" : ""}`);
-    onClose();
+    if (await assignWork(dispatch, toast, sel, item, `${sel.length} student${sel.length > 1 ? "s" : ""}`)) onClose();
   }
   return (
-    <Modal open={open} onClose={onClose} title="Assign to students" sub={what}
+    <Modal open={open} onClose={onClose} title="Assign to students" sub={`${ASSIGNMENT_KIND_LABEL[item.kind] || "Item"}: ${item.title}`}
       footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={assign}>Assign{sel.length ? ` (${sel.length})` : ""}</Button></>}>
       <StudentCheckList students={activeStudents(state)} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
         metaFor={(s) => `${s.level} · ${s.status}`} />

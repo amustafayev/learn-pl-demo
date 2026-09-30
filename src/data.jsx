@@ -909,6 +909,29 @@ export const SEED_BLOCK_BANK = [
   },
 ];
 
+// Work a teacher handed to one student (a backend's `assignments`): one row
+// per student, written by ASSIGN_WORK. kind: block (a saved block) | task (a
+// one-off component built in the Assign dialog) | wordSet | reading. A block
+// or task carries a snapshot of its content — the student keeps exactly what
+// they were given even if the saved original is edited or deleted later — a
+// word set or reading points at the library item (`source`).
+// status: assigned → done (the student app, COMPLETE_ASSIGNMENT) | withdrawn.
+const bankContent = (id) => JSON.parse(JSON.stringify(SEED_BLOCK_BANK.find((b) => b.id === id).content));
+export const SEED_ASSIGNMENTS = [
+  { id: "as_seed_1", teacherId: "t_maria", studentId: "s_rashad", kind: "block", title: "Tense timeline pack", blockType: "grammar", componentKind: null,
+    source: { bankItemId: "bb1", from: "IT English · Lesson 4" }, content: bankContent("bb1"),
+    assignedAt: "2026-09-25T10:20:00.000Z", status: "assigned", completedAt: null, withdrawnAt: null },
+  { id: "as_seed_2", teacherId: "t_maria", studentId: "s_rashad", kind: "wordSet", title: "IT essentials", blockType: null, componentKind: null,
+    source: { wordSetId: "ws_it" }, content: null,
+    assignedAt: "2026-09-15T09:30:00.000Z", status: "done", completedAt: "2026-09-17T19:05:00.000Z", withdrawnAt: null },
+  { id: "as_seed_3", teacherId: "t_maria", studentId: "s_nigar", kind: "block", title: "IT starter words", blockType: "vocabulary", componentKind: null,
+    source: { bankItemId: "bb2", from: "IT English · Lesson 1" }, content: bankContent("bb2"),
+    assignedAt: "2026-09-08T11:00:00.000Z", status: "done", completedAt: "2026-09-10T18:30:00.000Z", withdrawnAt: null },
+];
+
+// How each kind of assignment is named in the UI.
+export const ASSIGNMENT_KIND_LABEL = { block: "Block", task: "Task", wordSet: "Word set", reading: "Reading" };
+
 // Reusable individual component bank (saved by teachers for cross-lesson reuse)
 export const SEED_COMPONENT_BANK = [
   {

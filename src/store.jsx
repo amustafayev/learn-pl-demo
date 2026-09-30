@@ -63,12 +63,18 @@ export async function saveComponentToBank(dispatch, toast, component, title, fro
   toast(`Saved “${title}” to Component Library`);
 }
 
-// One student, one thing assigned — wraps the generic ASSIGN action so every
-// "assign this to a student" surface (student page, saved blocks, word
-// sets, a freshly created component) confirms with the same toast wording.
-export function assignToStudent(dispatch, toast, studentId, what, kind) {
-  dispatch({ type: "ASSIGN", studentIds: [studentId], what, kind });
-  toast(`Assigned “${what}”`);
+// Hand one thing to one or more students (ASSIGN_WORK) — the student page's
+// Assign dialog and the Library's Assign button confirm the same way. A
+// block or task is snapshotted first with its own H5P content, like saving
+// to My Blocks, so the student keeps exactly what they were given.
+// `item` = { kind, title, blockType?, componentKind?, source?, content? }.
+// Resolves false if the H5P copy failed (the teacher was already told).
+export async function assignWork(dispatch, toast, studentIds, item, toWhom) {
+  const content = item.content ? await copyWithOwnH5P(toast, item.content) : null;
+  if (item.content && !content) return false;
+  dispatch({ type: "ASSIGN_WORK", studentIds, item: { ...item, content } });
+  toast(`Assigned “${item.title}” to ${toWhom}`);
+  return true;
 }
 
 // "Build a recap lesson" — assembles a brand-new lesson entirely from

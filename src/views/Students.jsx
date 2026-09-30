@@ -4,7 +4,7 @@ import {
   IconSend, IconDownload, IconFlame, IconBrain, IconAlertTriangle, IconCheck,
   IconCircleCheck, IconCircle, IconLock, IconNotebook, IconSparkles, IconArrowRight, IconClock, IconTrendingUp,
   IconRefresh, IconSearch, IconUserMinus, IconBan, IconMail, IconPlus, IconSchool, IconShoppingBag,
-  IconChalkboard, IconDeviceLaptop, IconDoorEnter, IconDoorExit, IconCalendarX, IconBook, IconFilter,
+  IconChalkboard, IconDeviceLaptop, IconDoorEnter, IconDoorExit, IconCalendarX, IconBook, IconFilter, IconClipboardList,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -14,7 +14,7 @@ import {
   Field, TextField, TextArea, Modal, PillTabs, Select, MenuButton,
 } from "../design-system.jsx";
 import { useStore, useNav, buildRecapLesson, studentCourseId, studentClasses, teacherRoster, studentHistory } from "../store.jsx";
-import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
+import { StudentAssignModal, assignmentLook } from "../components/StudentAssignModal.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import { WordStatusPill } from "./grammar.jsx";
@@ -206,7 +206,7 @@ export function StudentDetail() {
         ))}
       </div>
 
-      {current === "profile" && <Profile s={s} onSeeHistory={() => navigate(`/students/${s.id}/history`)} />}
+      {current === "profile" && <Profile s={s} onSeeHistory={() => navigate(`/students/${s.id}/history`)} onAssign={active.length ? () => setAssign(true) : null} />}
       {current === "history" && <History s={s} />}
       {current === "notes" && <Notes s={s} />}
       {current === "overview" && <Overview s={s} />}
@@ -225,7 +225,7 @@ export function StudentDetail() {
 // is on now, the lessons they had in it — the lessons themselves, what they
 // bought and how far they are in it, and how to reach them. Nothing here is
 // a made-up metric.
-function Profile({ s, onSeeHistory }) {
+function Profile({ s, onSeeHistory, onAssign }) {
   const { state, dispatch, toast } = useStore();
   const { go } = useNav();
   const [removing, setRemoving] = useState(null); // class pending removal
@@ -239,6 +239,12 @@ function Profile({ s, onSeeHistory }) {
   const addable = state.classes.filter((c) => !h.classes.some((x) => x.active && x.cls.id === c.id));
   const blocked = state.blocks.some((b) => b.studentId === s.id);
   const recent = h.lessons.slice(0, 5);
+  // Open work first, then what's done; withdrawn work lives in the history.
+  const work = [...h.assignments.filter((a) => a.status === "assigned"), ...h.assignments.filter((a) => a.status === "done")];
+  const withdraw = (a) => {
+    dispatch({ type: "WITHDRAW_ASSIGNMENT", assignmentId: a.id });
+    toast(`Took back “${a.title}” from ${first}`);
+  };
 
   const remove = () => {
     dispatch({ type: "REMOVE_CLASS_MEMBER", classId: removing.id, studentId: s.id });
@@ -255,10 +261,11 @@ function Profile({ s, onSeeHistory }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={IconSchool} label="Classes now" value={h.classes.filter((c) => c.active).length} />
         <StatCard icon={IconBook} label="Lessons taken" value={h.totals.taken} />
         <StatCard icon={IconCalendarX} label="Lessons missed" value={h.totals.missed} />
+        <StatCard icon={IconClipboardList} label="Work to do" value={h.totals.toDo} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -310,6 +317,27 @@ function Profile({ s, onSeeHistory }) {
                 </Select>
                 <Button size="sm" onClick={add} disabled={!addTo}><IconPlus size={15} stroke={1.75} /> Add</Button>
               </div>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="text-base font-semibold text-neutral-950 flex items-center gap-2"><IconClipboardList size={18} stroke={1.75} /> Assigned work</div>
+              {onAssign && <Button size="sm" variant="outline" onClick={onAssign}><IconSend size={15} stroke={1.75} /> Assign</Button>}
+            </div>
+            {work.length ? (
+              <div className="divide-y divide-neutral-400">
+                {work.slice(0, 6).map((a) => <AssignmentRow key={a.id} a={a} onWithdraw={() => withdraw(a)} />)}
+              </div>
+            ) : (
+              <p className="py-2 text-sm text-neutral-600">
+                {onAssign ? `Nothing assigned yet. Give ${first} a saved block, a word set or a quick task.` : `Add ${first} to a class to assign work.`}
+              </p>
+            )}
+            {work.length > 6 && (
+              <button type="button" onClick={onSeeHistory} className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+                {work.length - 6} more in the full history <IconArrowRight size={14} stroke={1.75} />
+              </button>
             )}
           </Card>
 
@@ -432,13 +460,44 @@ function LessonRow({ item, when = "date", action }) {
   );
 }
 
-// A joined / left / bought moment between the lessons, so the history reads
-// as one story: when they came, what they had, when they went.
+// One piece of assigned work: what it is, where it came from, and whether
+// the student has done it. Open work can be taken back.
+function AssignmentRow({ a, onWithdraw }) {
+  const look = assignmentLook(a);
+  const Icon = look.icon;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3">
+      {/* block-type icons are lucide, component icons tabler — size only */}
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${look.tone}`}><Icon size={17} /></span>
+      <div className="min-w-[10rem] flex-1">
+        <div className="font-medium text-neutral-950 break-words">{a.title}</div>
+        <div className="text-sm text-neutral-600">
+          {look.label}{a.source?.from ? ` · from ${a.source.from}` : ""} · assigned <span title={shortDate(a.assignedAt)}>{timeAgo(a.assignedAt)}</span>
+        </div>
+      </div>
+      <div className="ml-12 flex flex-wrap items-center gap-x-2 gap-y-1 sm:ml-0">
+        {a.status === "done"
+          ? <Tag color="success"><IconCheck size={11} stroke={2} /> Done {timeAgo(a.completedAt)}</Tag>
+          : <Tag color="pending">To do</Tag>}
+        {a.status === "assigned" && onWithdraw && (
+          <button type="button" onClick={onWithdraw} aria-label={`Withdraw ${a.title}`}
+            className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-500 hover:bg-warning-50 hover:text-warning-600">Withdraw</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// A joined / left / bought / assigned moment between the lessons, so the
+// history reads as one story: when they came, what they had, when they went.
 function MilestoneRow({ item }) {
+  const a = item.assignment;
   const text = item.kind === "bought" ? <>Bought <b className="text-neutral-800">{item.course?.title}</b> · {item.purchase.amount} {item.purchase.currency}</>
     : item.kind === "joined" ? <>{item.again ? "Back in" : "Joined"} <b className="text-neutral-800">{item.cls.name}</b></>
+    : item.kind === "assigned" ? <>Assigned <b className="text-neutral-800">{a.title}</b> · {assignmentLook(a).label}{a.status === "withdrawn" ? " · taken back" : ""}</>
+    : item.kind === "finished" ? <>Finished <b className="text-neutral-800">{a.title}</b></>
     : <>{item.reason === "left" ? "Left" : "Removed from"} <b className="text-neutral-800">{item.cls.name}</b></>;
-  const Icon = item.kind === "bought" ? IconShoppingBag : item.kind === "joined" ? IconDoorEnter : IconDoorExit;
+  const Icon = { bought: IconShoppingBag, joined: IconDoorEnter, assigned: IconSend, finished: IconCircleCheck }[item.kind] || IconDoorExit;
   return (
     <div className="flex items-center gap-3 py-2.5 text-sm text-neutral-600">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center"><Icon size={16} stroke={1.75} /></span>
@@ -461,11 +520,13 @@ function History({ s }) {
     ...h.classes.map((c) => ({ id: `class:${c.cls.id}`, label: c.cls.name, count: c.lessons.length })),
     ...h.purchases.map((p) => ({ id: `course:${p.course?.id}`, label: `${p.course?.title} · self-paced`, count: p.lessons.length })),
     { id: "missed", label: "Missed lessons", count: h.totals.missed },
+    ...(h.assignments.length ? [{ id: "work", label: "Assigned work", count: h.assignments.length }] : []),
   ];
   const picked = options.find((o) => o.id === show) || options[0];
   const [kind, id] = picked.id.split(":");
   const items = h.timeline.filter((x) => kind === "all"
     || (kind === "missed" && x.absent)
+    || (kind === "work" && (x.kind === "assigned" || x.kind === "finished"))
     || (kind === "class" && x.cls?.id === id && x.kind !== "self-paced")
     || (kind === "course" && (x.kind === "self-paced" || x.kind === "bought") && x.course?.id === id));
   const months = [];
@@ -510,6 +571,7 @@ function History({ s }) {
         {!months.length && (
           <Card className="p-8 text-center text-sm text-neutral-600">
             {kind === "missed" ? `${first} hasn't missed a lesson.`
+              : kind === "work" ? `Nothing assigned to ${first} yet.`
               : h.classes.length || h.purchases.length ? "No lessons yet. Lessons you mark as taught in their class, and lessons they finish on a course they bought, show up here."
               : `${first} isn't in a class or on a course of yours.`}
           </Card>

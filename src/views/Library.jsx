@@ -158,7 +158,7 @@ function ReaderPanel({ textId, back }) {
           </Card>
         </div>
       </div>
-      <AssignModal open={assign} onClose={() => setAssign(false)} what={`Reading: ${text.title}`} kind="reading" />
+      <AssignModal open={assign} onClose={() => setAssign(false)} item={{ kind: "reading", title: text.title, source: { textId: text.id } }} />
     </Page>
   );
 }
@@ -215,7 +215,7 @@ function WordSetPanel({ setId, back }) {
       <PageHeader title={ws.title} sub={`${ws.category} · ${ws.level} · ${ws.words.length} words`}
         right={<Button variant="primary" size="sm" onClick={() => setAssign(true)}><IconSend size={14} stroke={1.75} /> Assign set</Button>} />
       <ComponentStudent component={{ id: ws.id, kind: "wordlist", items: ws.words }} />
-      <AssignModal open={assign} onClose={() => setAssign(false)} what={`Word set: ${ws.title}`} kind="vocabulary" />
+      <AssignModal open={assign} onClose={() => setAssign(false)} item={{ kind: "wordSet", title: ws.title, source: { wordSetId: ws.id } }} />
     </Page>
   );
 }

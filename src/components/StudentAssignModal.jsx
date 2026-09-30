@@ -1,121 +1,120 @@
 import React, { useState } from "react";
-import { Plus, Send } from "lucide-react";
-import { Modal, Btn, Card } from "../ui.jsx";
-import { useStore, groupBankByParent, bankChildLabel, assignToStudent } from "../store.jsx";
+import { IconSend, IconArrowLeft } from "@tabler/icons-react";
+import { Modal, Button, Card, PillTabs, LibraryPickList } from "../design-system.jsx";
+import { useStore, groupBankByParent, bankChildLabel, assignWork } from "../store.jsx";
 import { blockMeta } from "../data.jsx";
-import { ComponentKindPicker, ComponentStudent, COMPONENT_META, COMPONENT_CATEGORIES, defaultComponent } from "../views/parts.jsx";
+import { timeAgo } from "../format.js";
+import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent } from "../views/parts.jsx";
 
 /* =========================================================================
-   Everything a teacher can hand to ONE student, in one place: (un)assign a
-   lesson from their course, drop in a saved block from My Blocks, assign a
-   word set, or build a quick one-off task from any component kind — picked,
-   previewed and assigned without leaving this dialog ("in-place creation").
+   Everything a teacher can hand to ONE student, in one place: a saved block
+   from My Blocks, a word set, or a quick one-off task built from any
+   component kind — picked, previewed and assigned without leaving this
+   dialog ("in-place creation"). Each becomes an `assignments` row
+   (ASSIGN_WORK); the student page lists them.
    ========================================================================= */
 
-const TABS = [
-  { id: "blocks", label: "My Blocks" },
-  { id: "words", label: "Word sets" },
-  { id: "new", label: "New task" },
-];
+const TABS = ["blocks", "words", "new"];
+
+// How an assignment reads in a list — its icon, tone and type label. Shared
+// by this dialog and the student page.
+export function assignmentLook(a) {
+  if (a.kind === "task") {
+    const m = COMPONENT_META[a.componentKind] || blockMeta("practice");
+    return { icon: m.icon, tone: m.tone, label: "Custom task" };
+  }
+  if (a.kind === "wordSet") return { ...blockMeta("vocabulary"), label: "Word set" };
+  if (a.kind === "reading") return { ...blockMeta("reading"), label: "Reading" };
+  const b = blockMeta(a.blockType);
+  return { icon: b.icon, tone: b.tone, label: `${b.label} block` };
+}
 
 export function StudentAssignModal({ open, onClose, student }) {
   const { state, dispatch, toast } = useStore();
   const [tab, setTab] = useState("blocks");
   const [preview, setPreview] = useState(null); // { kind, component }
+  const [busy, setBusy] = useState(false);
 
   const close = () => { setPreview(null); setTab("blocks"); onClose(); };
   if (!student) return null;
+  const first = student.name.split(" ")[0];
 
-  function assignBlock(item) {
-    // categorize by the block's own type (reading, vocabulary, grammar, …) —
-    // the same category names used throughout the lesson component list.
-    assignToStudent(dispatch, toast, student.id, `${item.title} (saved block)`, item.type);
-    close();
+  // What this student already has, so the lists can say so (assigning twice
+  // is allowed — a second go at the same word set is a normal thing to do).
+  const given = state.assignments.filter((a) => a.studentId === student.id && a.status !== "withdrawn");
+  const givenNote = (a) => (a ? ` · ${a.status === "done" ? "done" : "assigned"} ${timeAgo(a.status === "done" ? a.completedAt : a.assignedAt)}` : "");
+
+  async function give(item) {
+    if (busy) return;
+    setBusy(true);
+    const ok = await assignWork(dispatch, toast, [student.id], item, first);
+    setBusy(false);
+    if (ok) close();
   }
-  function assignWordSet(ws) {
-    assignToStudent(dispatch, toast, student.id, `Word set: ${ws.title}`, "vocabulary");
-    close();
-  }
-  function assignNew() {
-    if (!preview) return;
-    const category = COMPONENT_CATEGORIES.find((c) => c.kinds.includes(preview.kind))?.id || "component";
-    assignToStudent(dispatch, toast, student.id, `${COMPONENT_META[preview.kind].label} (custom task)`, category);
-    close();
-  }
+  const assignBlock = (id) => {
+    const b = state.blockBank.find((x) => x.id === id);
+    if (b) give({ kind: "block", title: b.title, blockType: b.type, source: { bankItemId: b.id, from: b.from }, content: b.content || { components: [] } });
+  };
+  const assignWordSet = (id) => {
+    const ws = state.wordSets.find((x) => x.id === id);
+    if (ws) give({ kind: "wordSet", title: ws.title, source: { wordSetId: ws.id } });
+  };
+  const assignNew = () => preview && give({ kind: "task", title: COMPONENT_META[preview.kind].label, componentKind: preview.kind, content: preview.component });
+
+  const blockGroups = groupBankByParent(state.blockBank).map(({ parent, items }) => ({
+    id: parent, label: parent,
+    items: items.map((item) => {
+      const BT = blockMeta(item.type);
+      const child = bankChildLabel(item);
+      return { id: item.id, icon: BT.icon, tone: BT.tone, label: item.title,
+        description: `${BT.label}${child ? ` · ${child}` : ""}${givenNote(given.find((a) => a.source?.bankItemId === item.id))}` };
+    }),
+  }));
+  const vocab = blockMeta("vocabulary");
+  const wordGroups = [...new Set(state.wordSets.map((ws) => ws.category))].map((cat) => ({
+    id: cat, label: cat,
+    items: state.wordSets.filter((ws) => ws.category === cat).map((ws) => ({
+      id: ws.id, icon: vocab.icon, tone: vocab.tone, label: ws.title,
+      description: `${ws.level} · ${ws.words.length} words${givenNote(given.find((a) => a.source?.wordSetId === ws.id))}`,
+    })),
+  }));
 
   return (
-    <Modal open={open} onClose={close} wide title={`Assign to ${student.name.split(" ")[0]}`}
-      sub="Lessons, saved blocks, word sets — or build a quick task on the spot">
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-4">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => { setTab(t.id); setPreview(null); }}
-            className={`flex-1 text-xs font-semibold rounded-lg px-2 py-1.5 transition-colors ${tab === t.id ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"}`}>
-            {t.label}
-          </button>
-        ))}
+    <Modal open={open} onClose={close} icon={IconSend} size="lg" title={`Assign to ${first}`}
+      sub="A saved block, a word set, or a quick task you build here"
+      footer={tab === "new" && preview ? <>
+        <Button variant="outline" onClick={() => setPreview(null)}><IconArrowLeft size={15} stroke={1.75} /> Pick a different kind</Button>
+        <Button onClick={assignNew} disabled={busy}><IconSend size={15} stroke={1.75} /> Assign this task</Button>
+      </> : undefined}>
+      <div className="mb-4">
+        <PillTabs value={tab} onChange={(t) => { if (TABS.includes(t)) { setTab(t); setPreview(null); } }} tabs={[
+          { id: "blocks", label: "My Blocks", count: state.blockBank.length },
+          { id: "words", label: "Word sets", count: state.wordSets.length },
+          { id: "new", label: "New task" },
+        ]} />
       </div>
 
-      {tab === "blocks" && (
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-0.5">
-          {groupBankByParent(state.blockBank).map(({ parent, items }) => (
-            <div key={parent}>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-500/80 mb-1.5 px-0.5">{parent}</div>
-              <div className="space-y-1.5">
-                {items.map((item) => {
-                  const BT = blockMeta(item.type); const I = BT.icon;
-                  const child = bankChildLabel(item);
-                  return (
-                    <button key={item.id} onClick={() => assignBlock(item)}
-                      className="w-full flex items-center gap-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-2.5 text-left transition-colors">
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BT.tone}`}><I size={15} /></span>
-                      <span className="min-w-0 flex-1">
-                        <span className="text-sm font-medium block truncate">{item.title}</span>
-                        <span className="text-[11px] text-slate-400 block truncate">{BT.label}{child ? ` · ${child}` : ""}</span>
-                      </span>
-                      <Plus size={14} className="text-indigo-600 shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-          {!state.blockBank.length && <p className="text-sm text-slate-400 p-2">Nothing saved in My Blocks yet — save a block from any lesson first.</p>}
-        </div>
-      )}
+      {tab === "blocks" && (state.blockBank.length
+        ? <LibraryPickList groups={blockGroups} onPick={assignBlock} />
+        : <p className="p-2 text-sm text-neutral-600">Nothing saved in My Blocks yet — save a block from any lesson first.</p>)}
 
-      {tab === "words" && (
-        <div className="space-y-1.5 max-h-80 overflow-y-auto">
-          {state.wordSets.map((ws) => (
-            <button key={ws.id} onClick={() => assignWordSet(ws)}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 p-2.5 text-left transition-colors">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{ws.title}</div>
-                <div className="text-xs text-slate-400">{ws.category} · {ws.level} · {ws.words.length} words</div>
-              </div>
-              <Plus size={14} className="text-indigo-600 shrink-0" />
-            </button>
-          ))}
-          {!state.wordSets.length && <p className="text-sm text-slate-400 p-2">No word sets in the library yet.</p>}
-        </div>
-      )}
+      {tab === "words" && (state.wordSets.length
+        ? <LibraryPickList groups={wordGroups} onPick={assignWordSet} />
+        : <p className="p-2 text-sm text-neutral-600">No word sets in the library yet.</p>)}
 
-      {tab === "new" && (
-        preview ? (
-          <div>
-            <button onClick={() => setPreview(null)} className="text-xs text-slate-400 hover:text-indigo-600 mb-3">← Pick a different kind</button>
-            <div className="text-xs font-mono uppercase tracking-wide text-slate-400 mb-2">{COMPONENT_META[preview.kind].label} · preview — this is exactly what {student.name.split(" ")[0]} will see</div>
-            <Card className="p-4 mb-4">
-              <ComponentStudent component={preview.component} />
-            </Card>
-            <Btn onClick={assignNew}><Send size={14} /> Assign this task</Btn>
+      {tab === "new" && (preview ? (
+        <div>
+          <div className="mb-2 text-sm text-neutral-600">
+            <b className="text-neutral-950">{COMPONENT_META[preview.kind].label}</b> — exactly what {first} will see
           </div>
-        ) : (
-          <div className="max-h-80 overflow-y-auto pr-0.5">
-            <p className="text-xs text-slate-400 mb-3">Pick a kind — it fills with sensible starter content instantly, ready to assign as a one-off task.</p>
-            <ComponentKindPicker kinds={Object.keys(COMPONENT_META)} onPick={(kind) => setPreview({ kind, component: defaultComponent(kind, state.texts) })} />
-          </div>
-        )
-      )}
+          <Card className="p-4"><ComponentStudent component={preview.component} /></Card>
+        </div>
+      ) : (
+        <div className="max-h-80 overflow-y-auto pr-0.5">
+          <p className="mb-3 text-sm text-neutral-600">Pick a kind — it fills with starter content you can assign as a one-off task.</p>
+          <ComponentKindPicker kinds={Object.keys(COMPONENT_META)} onPick={(kind) => setPreview({ kind, component: defaultComponent(kind, state.texts) })} />
+        </div>
+      ))}
     </Modal>
   );
 }

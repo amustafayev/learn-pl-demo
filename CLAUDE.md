@@ -265,6 +265,9 @@ taughtLessons { id, classId, courseId, lessonId, taughtAt }
 classNotes    { id, classId, courseId, lessonId, text, done, sharedAt, createdAt, updatedAt }
 attendance    { taughtLessonId, studentId, status: present | absent, markedAt }
 lessonCompletions { id, studentId, courseId, lessonId, completedAt }
+assignments   { id, teacherId, studentId, kind: block | task | wordSet | reading, title,
+                blockType?, componentKind?, source: { bankItemId?, from?, wordSetId?, textId? },
+                content?, assignedAt, status: assigned | done | withdrawn, completedAt?, withdrawnAt? }
 ```
 
 - A student record holds only the student's own data (name, email,
@@ -338,6 +341,8 @@ milestones, and `totals`.
     (`paid` | `declined`).
   - `SET_ATTENDANCE { taughtLessonId, studentId, status }` (`present` |
     `absent`).
+  - `ASSIGN_WORK { studentIds, item }` (one row per student) and
+    `WITHDRAW_ASSIGNMENT` (open work only; the row stays as history).
 - **Student**, already implemented in the reducer for the student app:
   - `REQUEST_TO_JOIN { token, studentId, message }`. Rejected silently for
     a closed class or a blocked student; a class link never admits
@@ -349,6 +354,33 @@ milestones, and `totals`.
     no-op.
   - `COMPLETE_LESSON { studentId, courseId, lessonId }`. Only a lesson they
     can open; finishing it again is a no-op.
+  - `COMPLETE_ASSIGNMENT { assignmentId, studentId }`. Only their own open
+    work.
+
+### Assigned work
+
+Work a teacher hands to one student outside the class's lessons: a saved
+block, a one-off task built in the Assign dialog, a word set or a reading.
+Each is an `assignments` row, one per student, even when several were
+picked at once.
+- **Who can get it:** students in one of the teacher's classes right now.
+  `ASSIGN_WORK` drops anyone else: former students, course-only
+  customers, and other teachers' students.
+- **A block or task is a snapshot.** `content` is copied per student at
+  assign time, H5P included (`assignWork` in `store.jsx` makes the H5P
+  copies first, like saving to My Blocks). Editing or deleting the saved
+  original later never changes what the student was given. A block's
+  content is `{ components }`; a task's is one component. A word set or
+  reading only points at the library item (`source`).
+- **Status:** `assigned`, then `done` (the student app) or `withdrawn`
+  (the teacher, open work only). Rows are never deleted, so the history
+  can say "taken back".
+- Every assign surface goes through `assignWork(dispatch, toast,
+  studentIds, item, toWhom)`: the student page's dialog
+  (`StudentAssignModal`, also opened from the Dashboard) and the
+  Library's Assign button (`AssignModal`, several students at once). Show
+  an assignment with `assignmentLook(a)`, which gives its icon, tone and
+  type label.
 
 ### Where it shows up (teacher side)
 
@@ -385,14 +417,16 @@ milestones, and `totals`.
   - **Active / Requests / Former / Customers** tabs (`?filter=`), with no
     made-up metrics;
   - a student's **Profile** tab: counts (classes now, lessons taken,
-    missed); classes with every stint, what the class is on now and the
-    lessons they had in it (add, remove); the last 5 lessons; courses
-    bought with how far they are; contact details and block;
+    missed, work to do); classes with every stint, what the class is on
+    now and the lessons they had in it (add, remove); **Assigned work**
+    (To do / Done, Withdraw, and Assign, which opens the Assign dialog);
+    the last 5 lessons; courses bought with how far they are; contact
+    details and block;
   - **Lesson history** (`/students/:id/history`): everything by month,
-    lessons plus joined, left and bought milestones. It has a filter (a
-    class, a bought course, missed only) and **Mark missed / Mark
-    attended** on class lessons. A lesson opens through its class
-    (`?classId=`);
+    lessons plus joined, left, bought, assigned and finished milestones.
+    It has a filter (a class, a bought course, missed only, assigned
+    work) and **Mark missed / Mark attended** on class lessons. A lesson
+    opens through its class (`?classId=`);
   - then **Lesson notes**.
   - The old per-student analytics tabs (Overview, Words, Activity, AI
     Insights, Learning path) are seed data. They're parked behind
@@ -410,6 +444,9 @@ milestones, and `totals`.
 - "My classes" and "My courses", plus a lesson player that opens only what
   `canOpenLesson` allows and sends `COMPLETE_LESSON` when a lesson is
   finished.
+- "My work": the student's open assignments, played from their `content`
+  snapshot (or the library item in `source`). Finishing one sends
+  `COMPLETE_ASSIGNMENT`.
 - The student app needs its own scoped view, mirroring `teacherView`: a
   student sees their own memberships and purchases, the courses and
   classes behind them, and never other students.
@@ -520,7 +557,7 @@ sets the attribute before first paint so a dark reload never flashes white.
 
 **Known gaps (dark mode inherits the migration status below):** anything
 still on raw `slate`/`indigo` classes doesn't flip — `playground.jsx`,
-`StudentAssignModal.jsx`, `ui.jsx`'s legacy primitives, and the grammar
+`ui.jsx`'s legacy primitives, and the grammar
 visuals in `grammar.jsx`. Those were deliberately left on light surfaces so
 they stay readable (a dark surface under unflipped dark slate text would not
 be); they read as light islands in dark mode until migrated.
@@ -673,7 +710,8 @@ now in the factory), `Dashboard.jsx`, `Courses.jsx`, `Classes.jsx`,
 `Students.jsx`, `Library.jsx`, `LevelTests.jsx`, `Insights.jsx`,
 `StudentInsights.jsx`, `LiveSession.jsx`, `src/components/modals.jsx`
 (`NewCourseModal`, `NewLessonModal`, `AddBlockModal`, `AssignModal`,
-`AddTextModal`), `Auth.jsx` (`LoginPage`, `SignupPage`), `Settings.jsx`.
+`AddTextModal`), `Auth.jsx` (`LoginPage`, `SignupPage`), `Settings.jsx`,
+`src/components/StudentAssignModal.jsx`.
 `data.jsx`'s `statusPill`/`WORD_STATUS` return factory color tokens now, not
 class strings.
 
@@ -713,7 +751,6 @@ class strings.
   + the old `Pill`.
 
 **Not yet migrated at all — still on the old `ui.jsx` look:**
-- `src/components/StudentAssignModal.jsx`
 - `src/views/playground.jsx`
 
 **Dead code, not a migration target:** `src/views/Statistics.jsx` is fully on

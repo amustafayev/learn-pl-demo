@@ -1,6 +1,6 @@
 import {
   SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
-  SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS,
+  SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS, SEED_ASSIGNMENTS,
   TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
@@ -172,6 +172,7 @@ export function teacherView(db) {
     classNotes: db.classNotes.filter((n) => classIds.has(n.classId)),
     attendance: db.attendance.filter((a) => taughtIds.has(a.taughtLessonId) && related.has(a.studentId)),
     lessonCompletions: db.lessonCompletions.filter((c) => bought.has(`${c.studentId}:${c.courseId}`)),
+    assignments: db.assignments.filter((a) => a.teacherId === me && related.has(a.studentId)),
     students: db.students.filter((s) => related.has(s.id)),
   };
 }
@@ -260,9 +261,11 @@ const newestFirst = (a, b) => (a.at < b.at ? 1 : -1);
 //                kind "class"      taught to their class during one of
 //                                  their stints (absent: marked missed)
 //                kind "self-paced" finished on their own (a bought course)
+//   assignments work handed to them, newest first (withdrawn included, as
+//              history — filter on `status` to hide it)
 //   timeline   lessons plus the milestones between them (joined / left a
-//              class, bought a course), newest first
-//   totals     { taken, inClass, selfPaced, missed, lastAt }
+//              class, bought a course, work assigned / finished), newest first
+//   totals     { taken, inClass, selfPaced, missed, lastAt, toDo }
 // A lesson taught before they joined, between stints, or after they left
 // is never theirs — nothing new about a former student reaches the teacher.
 export function studentHistory(state, studentId) {
@@ -303,19 +306,25 @@ export function studentHistory(state, studentId) {
     });
 
   const lessons = [...classes.flatMap((c) => c.lessons), ...purchases.flatMap((p) => p.lessons)].sort(newestFirst);
+  const assignments = (state.assignments || []).filter((a) => a.studentId === studentId).sort((a, b) => (a.assignedAt < b.assignedAt ? 1 : -1));
   const milestones = [
     ...classes.flatMap(({ cls, periods, membership }) => periods.flatMap((p, i) => [
       { kind: "joined", id: `${membership.id}:${i}:in`, at: p.startedAt, cls, again: i > 0 },
       ...(p.endedAt ? [{ kind: "ended", id: `${membership.id}:${i}:out`, at: p.endedAt, cls, reason: p.endReason }] : []),
     ])),
     ...purchases.filter((x) => x.purchase.paidAt).map((x) => ({ kind: "bought", id: `${x.purchase.id}:paid`, at: x.purchase.paidAt, course: x.course, purchase: x.purchase })),
+    ...assignments.flatMap((a) => [
+      { kind: "assigned", id: `${a.id}:in`, at: a.assignedAt, assignment: a },
+      ...(a.completedAt ? [{ kind: "finished", id: `${a.id}:done`, at: a.completedAt, assignment: a }] : []),
+    ]),
   ];
   const inClass = classes.reduce((n, c) => n + c.attended, 0);
   const selfPaced = purchases.reduce((n, p) => n + p.lessons.length, 0);
   return {
-    classes, purchases, lessons,
+    classes, purchases, lessons, assignments,
     timeline: [...lessons, ...milestones].sort(newestFirst),
-    totals: { taken: inClass + selfPaced, inClass, selfPaced, missed: classes.reduce((n, c) => n + c.missed, 0), lastAt: lessons.find((l) => !l.absent)?.at || null },
+    totals: { taken: inClass + selfPaced, inClass, selfPaced, missed: classes.reduce((n, c) => n + c.missed, 0), lastAt: lessons.find((l) => !l.absent)?.at || null,
+      toDo: assignments.filter((a) => a.status === "assigned").length },
   };
 }
 
@@ -384,6 +393,7 @@ export function createInitialState() {
     invitations: clone(SEED_INVITATIONS),
     attendance: clone(SEED_ATTENDANCE),
     lessonCompletions: clone(SEED_LESSON_COMPLETIONS),
+    assignments: clone(SEED_ASSIGNMENTS),
     blocks: [],
     texts: clone(SEED_TEXTS),
     wordSets: clone(SEED_WORDSETS),
@@ -400,6 +410,7 @@ const pauseActive = (courses, exceptCourseId) =>
   courses.map((x) => (x.status === "in-progress" && x.courseId !== exceptCourseId ? { ...x, status: "paused" } : x));
 
 const nowIso = () => new Date().toISOString();
+const ASSIGNMENT_KINDS = new Set(["block", "task", "wordSet", "reading"]);
 const withItem = (list, item) => ((list || []).includes(item) ? list || [] : [...(list || []), item]);
 const isBlocked = (state, teacherId, studentId) => state.blocks.some((b) => b.teacherId === teacherId && b.studentId === studentId);
 // A short, unambiguous class code (no 0/O, 1/I/L) — what goes in the join link.
@@ -495,18 +506,28 @@ export function reducer(state, action) {
       const { text } = action;
       return { ...state, texts: [{ ...text, id: uid("t") }, ...state.texts] };
     }
-    case "ASSIGN": {
-      // attach an assignment + activity entry to each target student
-      const { studentIds, what, kind } = action;
-      const set = new Set(studentIds);
-      const students = state.students.map((s) => {
-        if (!set.has(s.id)) return s;
-        const assignment = { id: uid("as"), what, kind, when: "just now", status: "assigned" };
-        const activity = [{ type: kind === "reading" ? "reading" : kind === "vocabulary" ? "word" : "lesson", detail: `Assigned: ${what}`, when: "just now" }, ...(s.activity || [])];
-        return { ...s, assignments: [assignment, ...(s.assignments || [])], activity };
-      });
-      return { ...state, students };
+    // Hand work to one or more students — one `assignments` row each. Only
+    // students in one of the teacher's classes right now; a block or task
+    // keeps its own snapshot (`content`), copied per student.
+    case "ASSIGN_WORK": {
+      const { studentIds, item } = action;
+      if (!item?.title || !ASSIGNMENT_KINDS.has(item.kind)) return state;
+      const me = state.teacher.id;
+      const mine = new Set(state.classes.filter((c) => c.teacherId === me).map((c) => c.id));
+      const allowed = new Set(state.memberships.filter((m) => mine.has(m.classId) && m.status === "active").map((m) => m.studentId));
+      const at = nowIso();
+      const rows = [...new Set(studentIds || [])].filter((id) => allowed.has(id)).map((studentId) => ({
+        id: uid("as"), teacherId: me, studentId, kind: item.kind, title: item.title,
+        blockType: item.blockType || null, componentKind: item.componentKind || null,
+        source: { ...(item.source || {}) }, content: item.content ? clone(item.content) : null,
+        assignedAt: at, status: "assigned", completedAt: null, withdrawnAt: null,
+      }));
+      return rows.length ? { ...state, assignments: [...state.assignments, ...rows] } : state;
     }
+    // Take back work the student hasn't done yet. The row stays, as history.
+    case "WITHDRAW_ASSIGNMENT":
+      return { ...state, assignments: state.assignments.map((a) => (a.id === action.assignmentId && a.status === "assigned" && a.teacherId === state.teacher.id
+        ? { ...a, status: "withdrawn", withdrawnAt: nowIso() } : a)) };
     case "SET_WORD_STATUS": {
       const { studentId, term, status } = action;
       const students = state.students.map((s) => {
@@ -598,6 +619,9 @@ export function reducer(state, action) {
          UPDATE_CLASS_NOTE        PATCH  /class-notes/:noteId                        { text?, done? }
          SHARE_CLASS_NOTES        POST   /classes/:classId/notes/share               { noteIds, shared }
          REMOVE_CLASS_NOTE        DELETE /class-notes/:noteId
+       Assigning work to students
+         ASSIGN_WORK              POST   /assignments                                { studentIds, kind, title, blockType?, componentKind?, source, content? }
+         WITHDRAW_ASSIGNMENT      PATCH  /assignments/:assignmentId                  { status: withdrawn }
        Joining a class
          REGENERATE_JOIN_TOKEN    POST   /classes/:classId/join-token                (old link stops working)
          SET_CLASS_JOINING        PATCH  /classes/:classId                           { joinOpen }
@@ -616,6 +640,7 @@ export function reducer(state, action) {
          ACCEPT_INVITATION        POST   /invitations/:invitationId/accept
          REQUEST_PURCHASE         POST   /courses/:courseId/purchases                { message? }
          COMPLETE_LESSON          POST   /me/courses/:courseId/lessons/:lessonId/completion
+         COMPLETE_ASSIGNMENT      POST   /me/assignments/:assignmentId/complete
        Reads (selectors below the reducer's inputs, same shapes)
          classCourseProgress      GET    /classes/:classId/courses/:courseId
          teacherRoster            GET    /students  (grouped)
@@ -859,6 +884,12 @@ export function reducer(state, action) {
       if (!canOpenLesson(state, studentId, courseId, lessonId)) return state;
       if (state.lessonCompletions.some((c) => c.studentId === studentId && c.lessonId === lessonId && c.courseId === courseId)) return state;
       return { ...state, lessonCompletions: [...state.lessonCompletions, { id: uid("lc"), studentId, courseId, lessonId, completedAt: nowIso() }] };
+    }
+    // A student finished work assigned to them (their own, still open).
+    case "COMPLETE_ASSIGNMENT": {
+      const { assignmentId, studentId } = action;
+      return { ...state, assignments: state.assignments.map((a) => (a.id === assignmentId && a.studentId === studentId && a.status === "assigned"
+        ? { ...a, status: "done", completedAt: nowIso() } : a)) };
     }
     case "SET_RECORDING_SUMMARY": {
       // written when a teacher ends a recorded live lesson and drafts notes —
