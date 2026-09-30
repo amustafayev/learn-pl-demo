@@ -119,7 +119,9 @@ seam so a real one can be dropped in later without touching any view:
     position on it. Ending a live lesson marks its lesson taught.
   - Student-level progress (`student.progress`/`step`) is still seed data
     and doesn't follow the class — deliberately out of scope until the
-    student view exists.
+    student view exists. What a student *had* (lessons taught to them,
+    missed, finished on their own) is real, though: see **Lesson history**
+    under Students, classes & access.
 - **`src/db/h5pClient.js`** — the one real backend today: the H5P server in
   `server/`, built on `createApiClient("/h5p")` (below). It also owns the
   rule that a lesson component's H5P content follows that component:
@@ -253,13 +255,16 @@ courses       { id, teacherId, …, sale: { forSale, price, currency, descriptio
 classes       { id, teacherId, name, scheduleDays, joinToken, joinOpen,
                 courses: [{ courseId, status, currentLessonId, releasedLessonIds[] }] }
 memberships   { id, classId, studentId, status: requested | active | declined | removed | left,
-                source: code | invite | teacher, requestedAt, decidedAt, endedAt, message? }
+                source: code | invite | teacher, requestedAt, decidedAt, endedAt, message?,
+                periods: [{ startedAt, endedAt, endReason: removed | left | null }] }
 purchases     { id, courseId, studentId, status: requested | paid | declined | refunded,
                 amount, currency, method: external | in_app, requestedAt, paidAt, confirmedBy, message? }
 invitations   { id, classId, email, name?, status: pending | accepted | revoked, createdAt, expiresAt }
 blocks        { teacherId, studentId, createdAt }
 taughtLessons { id, classId, courseId, lessonId, taughtAt }
 classNotes    { id, classId, courseId, lessonId, text, done, sharedAt, createdAt, updatedAt }
+attendance    { taughtLessonId, studentId, status: present | absent, markedAt }
+lessonCompletions { id, studentId, courseId, lessonId, completedAt }
 ```
 
 - A student record holds only the student's own data (name, email,
@@ -267,7 +272,13 @@ classNotes    { id, classId, courseId, lessonId, text, done, sharedAt, createdAt
   relational lives in these tables, so one student can be in several
   classes, including other teachers', and keep their history.
 - One membership row per (class, student). Re-adding someone reactivates
-  that row (`upsertMembership`) rather than creating a duplicate.
+  that row (`upsertMembership`) rather than creating a duplicate, and a
+  former member asking to rejoin by link reuses it too. `periods` holds
+  every stint (a backend's `class_member_periods`): reactivating opens a
+  new period and removing closes the open one, so an earlier stint keeps
+  its dates. **Never overwrite a period.** `decidedAt`/`endedAt` are the
+  latest stint's, for display. Read periods with `membershipPeriods(m)`,
+  which also covers a row written before periods existed.
 - Times are ISO strings stamped by the reducer, standing in for the
   server. Format them only at display time (`src/format.js`).
 
@@ -290,6 +301,28 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
   takes the notes away with its lessons. Unsent notes never leave the
   teacher. Written once as `notesSentToStudent(db, studentId)`.
 
+### Lesson history: what counts as a student's lesson
+
+`studentHistory(state, studentId)` is the one read model, what
+`GET /students/:studentId/history` returns: `classes` (each stint, what the
+class is on now, the lessons they had in it), `purchases` (with lessons
+finished), `lessons`, a `timeline` that adds joined, left and bought
+milestones, and `totals`.
+- **A class lesson is theirs** if it was taught (`taughtLessons`) while
+  they were in the class, inside one of their `periods`. That excludes
+  lessons from before they joined, between stints, and after they left.
+  Nothing new about a former student reaches the teacher.
+- **Attendance marks the exceptions.** Someone in the class at the time
+  counts as having had the lesson unless an `attendance` row says
+  `absent`. `SET_ATTENDANCE` only accepts a student who was in the class
+  at that moment, one row per (taught lesson, student). "Lessons taken"
+  never counts a missed one.
+- **Self-paced lessons** are `lessonCompletions`, written by the student
+  app (`COMPLETE_LESSON`, only for a lesson `canOpenLesson` allows, once
+  each). `teacherView` passes them to the teacher only for a course the
+  student bought from them (paid or refunded). A class member's own work
+  in the app isn't shown to the teacher yet.
+
 ### Actions (one per endpoint; the full list is in `mockDb.jsx`)
 
 - **Teacher:**
@@ -303,6 +336,8 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
     can only be added for a course the class is taking.
   - `SET_LESSON_RELEASED`, `UPDATE_COURSE_SALE`, `DECIDE_PURCHASE`
     (`paid` | `declined`).
+  - `SET_ATTENDANCE { taughtLessonId, studentId, status }` (`present` |
+    `absent`).
 - **Student**, already implemented in the reducer for the student app:
   - `REQUEST_TO_JOIN { token, studentId, message }`. Rejected silently for
     a closed class or a blocked student; a class link never admits
@@ -312,6 +347,8 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
   - `REQUEST_PURCHASE { courseId, studentId, message }`. Only for a course
     that's for sale; a paid or pending purchase already existing is a
     no-op.
+  - `COMPLETE_LESSON { studentId, courseId, lessonId }`. Only a lesson they
+    can open; finishing it again is a no-op.
 
 ### Where it shows up (teacher side)
 
@@ -347,8 +384,16 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
 - **Students page:**
   - **Active / Requests / Former / Customers** tabs (`?filter=`), with no
     made-up metrics;
-  - a student's **Profile** tab covers classes (add, remove, history),
-    courses bought, contact details and block, next to **Lesson notes**.
+  - a student's **Profile** tab: counts (classes now, lessons taken,
+    missed); classes with every stint, what the class is on now and the
+    lessons they had in it (add, remove); the last 5 lessons; courses
+    bought with how far they are; contact details and block;
+  - **Lesson history** (`/students/:id/history`): everything by month,
+    lessons plus joined, left and bought milestones. It has a filter (a
+    class, a bought course, missed only) and **Mark missed / Mark
+    attended** on class lessons. A lesson opens through its class
+    (`?classId=`);
+  - then **Lesson notes**.
   - The old per-student analytics tabs (Overview, Words, Activity, AI
     Insights, Learning path) are seed data. They're parked behind
     `SHOW_STUDENT_ANALYTICS` in `Students.jsx`; don't show them until the
@@ -363,7 +408,8 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
 - The **catalog**: courses with `sale.forSale`, showing description and
   price. "Request to buy" shows `paymentNote`, then `REQUEST_PURCHASE`.
 - "My classes" and "My courses", plus a lesson player that opens only what
-  `canOpenLesson` allows.
+  `canOpenLesson` allows and sends `COMPLETE_LESSON` when a lesson is
+  finished.
 - The student app needs its own scoped view, mirroring `teacherView`: a
   student sees their own memberships and purchases, the courses and
   classes behind them, and never other students.

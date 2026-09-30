@@ -1,6 +1,6 @@
 import {
   SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
-  SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS,
+  SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS,
   TEACHER, BLOCK_TYPES, LESSON_TEMPLATES,
 } from "../data.jsx";
 
@@ -154,6 +154,11 @@ export function teacherView(db) {
   const memberships = db.memberships.filter((m) => classIds.has(m.classId) && !(m.status === "requested" && blocked.has(m.studentId)));
   const purchases = db.purchases.filter((p) => courseIds.has(p.courseId) && !(p.status === "requested" && blocked.has(p.studentId)));
   const related = new Set([...memberships.map((m) => m.studentId), ...purchases.map((p) => p.studentId)]);
+  const taughtLessons = db.taughtLessons.filter((t) => classIds.has(t.classId));
+  const taughtIds = new Set(taughtLessons.map((t) => t.id));
+  // Self-paced work reaches the teacher only for a course the student
+  // bought from them (paid, or refunded — history of what they had).
+  const bought = new Set(purchases.filter((p) => p.status === "paid" || p.status === "refunded").map((p) => `${p.studentId}:${p.courseId}`));
   return {
     ...db,
     courses,
@@ -163,8 +168,10 @@ export function teacherView(db) {
     purchases,
     invitations: db.invitations.filter((i) => classIds.has(i.classId)),
     blocks,
-    taughtLessons: db.taughtLessons.filter((t) => classIds.has(t.classId)),
+    taughtLessons,
     classNotes: db.classNotes.filter((n) => classIds.has(n.classId)),
+    attendance: db.attendance.filter((a) => taughtIds.has(a.taughtLessonId) && related.has(a.studentId)),
+    lessonCompletions: db.lessonCompletions.filter((c) => bought.has(`${c.studentId}:${c.courseId}`)),
     students: db.students.filter((s) => related.has(s.id)),
   };
 }
@@ -205,7 +212,9 @@ const ENDED = new Set(["removed", "left"]);
 export function teacherRoster(state) {
   const byId = (id) => state.students.find((s) => s.id === id);
   const blocked = new Set(state.blocks.map((b) => b.studentId));
-  const wasMember = (studentId) => state.memberships.some((m) => m.studentId === studentId && (ENDED.has(m.status) || m.status === "active"));
+  // Any stint in one of the teacher's classes — even on a row that's back to
+  // "requested" because they asked to rejoin.
+  const wasMember = (studentId) => state.memberships.some((m) => m.studentId === studentId && membershipPeriods(m).length > 0);
   const active = activeStudents(state);
   const activeIds = new Set(active.map((s) => s.id));
   const requests = [
@@ -229,6 +238,85 @@ export function teacherRoster(state) {
   const formerIds = new Set(former.map((f) => f.student.id));
   const blockedOnly = [...blocked].filter((id) => !formerIds.has(id)).map(byId).filter(Boolean);
   return { active, requests, former, customers, blocked: blockedOnly };
+}
+
+// Every stint a student was actually in a class — { startedAt, endedAt,
+// endReason }. Rows written before periods existed fall back to their
+// latest dates, so an old membership still reads as one stint.
+export function membershipPeriods(m) {
+  if (m.periods?.length) return m.periods;
+  if (!m.decidedAt || !(m.status === "active" || ENDED.has(m.status))) return [];
+  return [{ startedAt: m.decidedAt, endedAt: m.endedAt || null, endReason: ENDED.has(m.status) ? m.status : null }];
+}
+const inPeriods = (periods, at) => periods.some((p) => p.startedAt <= at && (!p.endedAt || at <= p.endedAt));
+const newestFirst = (a, b) => (a.at < b.at ? 1 : -1);
+
+// One student's history with this teacher — what
+// GET /students/:studentId/history returns (already teacher-scoped):
+//   classes    every class they've been in: its stints, what it's on now
+//              (active only), and the lessons taught while they were in it
+//   purchases  courses they bought, with the lessons they finished
+//   lessons    both kinds of lesson, newest first:
+//                kind "class"      taught to their class during one of
+//                                  their stints (absent: marked missed)
+//                kind "self-paced" finished on their own (a bought course)
+//   timeline   lessons plus the milestones between them (joined / left a
+//              class, bought a course), newest first
+//   totals     { taken, inClass, selfPaced, missed, lastAt }
+// A lesson taught before they joined, between stints, or after they left
+// is never theirs — nothing new about a former student reaches the teacher.
+export function studentHistory(state, studentId) {
+  const courseOf = (id) => state.courses.find((c) => c.id === id) || null;
+  const lessonOf = (courseId, lessonId) => (state.lessons[courseId] || []).find((l) => l.id === lessonId) || null;
+  const absent = new Set((state.attendance || []).filter((a) => a.studentId === studentId && a.status === "absent").map((a) => a.taughtLessonId));
+
+  const classes = state.memberships
+    .filter((m) => m.studentId === studentId)
+    .map((m) => ({ m, cls: state.classes.find((c) => c.id === m.classId), periods: membershipPeriods(m) }))
+    .filter((x) => x.cls && x.periods.length)
+    .map(({ m, cls, periods }) => {
+      const lessons = state.taughtLessons
+        .filter((t) => t.classId === cls.id && inPeriods(periods, t.taughtAt))
+        .map((t) => ({ kind: "class", id: t.id, at: t.taughtAt, taughtLesson: t, cls, course: courseOf(t.courseId), lesson: lessonOf(t.courseId, t.lessonId), absent: absent.has(t.id) }))
+        .sort(newestFirst);
+      const active = m.status === "active";
+      const onNow = active ? activeClassCourse(cls) : null;
+      return {
+        membership: m, cls, active, periods, lessons,
+        attended: lessons.filter((l) => !l.absent).length,
+        missed: lessons.filter((l) => l.absent).length,
+        now: onNow ? { course: courseOf(onNow.courseId), progress: classCourseProgress(state, cls, onNow.courseId) } : null,
+      };
+    })
+    .sort((a, b) => (a.active !== b.active ? (a.active ? -1 : 1) : a.periods.at(-1).startedAt < b.periods.at(-1).startedAt ? 1 : -1));
+
+  const purchases = state.purchases
+    .filter((p) => p.studentId === studentId && (p.status === "paid" || p.status === "refunded"))
+    .map((p) => {
+      const course = courseOf(p.courseId);
+      const lessons = (state.lessonCompletions || [])
+        .filter((c) => c.studentId === studentId && c.courseId === p.courseId)
+        .map((c) => ({ kind: "self-paced", id: c.id, at: c.completedAt, course, lesson: lessonOf(c.courseId, c.lessonId) }))
+        .sort(newestFirst);
+      const total = (state.lessons[p.courseId] || []).length;
+      return { purchase: p, course, lessons, completed: new Set(lessons.map((l) => l.lesson?.id)).size, total, lastAt: lessons[0]?.at || null };
+    });
+
+  const lessons = [...classes.flatMap((c) => c.lessons), ...purchases.flatMap((p) => p.lessons)].sort(newestFirst);
+  const milestones = [
+    ...classes.flatMap(({ cls, periods, membership }) => periods.flatMap((p, i) => [
+      { kind: "joined", id: `${membership.id}:${i}:in`, at: p.startedAt, cls, again: i > 0 },
+      ...(p.endedAt ? [{ kind: "ended", id: `${membership.id}:${i}:out`, at: p.endedAt, cls, reason: p.endReason }] : []),
+    ])),
+    ...purchases.filter((x) => x.purchase.paidAt).map((x) => ({ kind: "bought", id: `${x.purchase.id}:paid`, at: x.purchase.paidAt, course: x.course, purchase: x.purchase })),
+  ];
+  const inClass = classes.reduce((n, c) => n + c.attended, 0);
+  const selfPaced = purchases.reduce((n, p) => n + p.lessons.length, 0);
+  return {
+    classes, purchases, lessons,
+    timeline: [...lessons, ...milestones].sort(newestFirst),
+    totals: { taken: inClass + selfPaced, inClass, selfPaced, missed: classes.reduce((n, c) => n + c.missed, 0), lastAt: lessons.find((l) => !l.absent)?.at || null },
+  };
 }
 
 // THE access rule the student app (and a real backend) enforces — a student
@@ -294,6 +382,8 @@ export function createInitialState() {
     memberships: clone(SEED_MEMBERSHIPS),
     purchases: clone(SEED_PURCHASES),
     invitations: clone(SEED_INVITATIONS),
+    attendance: clone(SEED_ATTENDANCE),
+    lessonCompletions: clone(SEED_LESSON_COMPLETIONS),
     blocks: [],
     texts: clone(SEED_TEXTS),
     wordSets: clone(SEED_WORDSETS),
@@ -323,13 +413,17 @@ function joinToken() {
 const mapClassCourse = (classes, classId, courseId, fn) =>
   classes.map((c) => (c.id !== classId ? c : { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? fn(x) : x)) }));
 // Make (classId, studentId) an active membership — reactivating an ended or
-// declined record rather than duplicating it, so history stays one row.
+// declined record rather than duplicating it, so history stays one row. A
+// reactivation opens a new period; the earlier stints keep their dates.
+const openPeriod = (m, at) => [...membershipPeriods(m), { startedAt: at, endedAt: null, endReason: null }];
+const closePeriod = (m, at, endReason) => membershipPeriods(m).map((p) => (p.endedAt ? p : { ...p, endedAt: at, endReason }));
 function upsertMembership(memberships, classId, studentId, source) {
   const at = nowIso();
   const existing = memberships.find((m) => m.classId === classId && m.studentId === studentId);
-  if (!existing) return [...memberships, { id: uid("mb"), classId, studentId, status: "active", source, requestedAt: null, decidedAt: at, endedAt: null }];
+  if (!existing) return [...memberships, { id: uid("mb"), classId, studentId, status: "active", source, requestedAt: null, decidedAt: at, endedAt: null,
+    periods: [{ startedAt: at, endedAt: null, endReason: null }] }];
   if (existing.status === "active") return memberships;
-  return memberships.map((m) => (m === existing ? { ...m, status: "active", source, decidedAt: at, endedAt: null } : m));
+  return memberships.map((m) => (m === existing ? { ...m, status: "active", source, decidedAt: at, endedAt: null, periods: openPeriod(m, at) } : m));
 }
 
 export function reducer(state, action) {
@@ -498,6 +592,7 @@ export function reducer(state, action) {
          SET_CLASS_CURRENT_LESSON PATCH  /classes/:classId/courses/:courseId         { currentLessonId }
          MARK_LESSON_TAUGHT       POST   /classes/:classId/courses/:courseId/taught-lessons  { lessonId }  (also releases it)
          SET_LESSON_RELEASED      PUT    /classes/:classId/courses/:courseId/released/:lessonId  { released }
+         SET_ATTENDANCE           PUT    /taught-lessons/:taughtLessonId/attendance/:studentId  { status: present | absent }
        Class notes (private to the teacher until sent)
          ADD_CLASS_NOTE           POST   /classes/:classId/notes                     { courseId, lessonId, text }
          UPDATE_CLASS_NOTE        PATCH  /class-notes/:noteId                        { text?, done? }
@@ -520,6 +615,11 @@ export function reducer(state, action) {
          REQUEST_TO_JOIN          POST   /join                                       { token, message? }
          ACCEPT_INVITATION        POST   /invitations/:invitationId/accept
          REQUEST_PURCHASE         POST   /courses/:courseId/purchases                { message? }
+         COMPLETE_LESSON          POST   /me/courses/:courseId/lessons/:lessonId/completion
+       Reads (selectors below the reducer's inputs, same shapes)
+         classCourseProgress      GET    /classes/:classId/courses/:courseId
+         teacherRoster            GET    /students  (grouped)
+         studentHistory           GET    /students/:studentId/history
 
        Server-side rules mirrored here: at most one "in-progress" course per
        class (activating one pauses the other); teaching a lesson logs it,
@@ -527,7 +627,10 @@ export function reducer(state, action) {
        link only ever creates a *request* (the teacher accepts), while an
        email invite, chosen by the teacher, admits directly; a blocked
        student can't request again; a closed class takes no requests; a
-       note belongs to a class taking the course, never to the course. */
+       note belongs to a class taking the course, never to the course;
+       re-adding a former member opens a new membership period (old stints
+       keep their dates); only a student who was in the class when a lesson
+       was taught can be marked absent from it. */
     case "ADD_CLASS": {
       const { courseId, name, scheduleDays } = action;
       const cls = { id: uid("cls"), teacherId: state.teacher.id, name, scheduleDays: scheduleDays || [],
@@ -598,6 +701,19 @@ export function reducer(state, action) {
       })) };
     }
 
+    // Mark a student present or absent for one taught lesson. Only someone
+    // who was in the class when it was taught can be marked.
+    case "SET_ATTENDANCE": {
+      const { taughtLessonId, studentId, status } = action;
+      if (status !== "present" && status !== "absent") return state;
+      const t = state.taughtLessons.find((x) => x.id === taughtLessonId);
+      const m = t && state.memberships.find((x) => x.classId === t.classId && x.studentId === studentId);
+      if (!m || !inPeriods(membershipPeriods(m), t.taughtAt)) return state;
+      const row = { taughtLessonId, studentId, status, markedAt: nowIso() };
+      const rest = state.attendance.filter((a) => !(a.taughtLessonId === taughtLessonId && a.studentId === studentId));
+      return { ...state, attendance: [...rest, row] };
+    }
+
     /* class notes */
     // A note on one lesson, owned by the class — only for a course the
     // class is actually taking, so notes never end up on the course itself.
@@ -656,7 +772,9 @@ export function reducer(state, action) {
     case "DECIDE_MEMBERSHIP": {
       const { membershipId, status } = action;
       if (status !== "active" && status !== "declined") return state;
-      return { ...state, memberships: state.memberships.map((m) => (m.id === membershipId && m.status === "requested" ? { ...m, status, decidedAt: nowIso() } : m)) };
+      const at = nowIso();
+      return { ...state, memberships: state.memberships.map((m) => (m.id === membershipId && m.status === "requested"
+        ? { ...m, status, decidedAt: at, ...(status === "active" ? { periods: openPeriod(m, at) } : {}) } : m)) };
     }
     // The teacher puts one of their own students into a class directly (the
     // "+" on a class). Re-adding a former member reactivates their record.
@@ -667,8 +785,9 @@ export function reducer(state, action) {
     // Out of the class: history stays (they read as a former student).
     case "REMOVE_CLASS_MEMBER": {
       const { classId, studentId } = action;
+      const at = nowIso();
       return { ...state, memberships: state.memberships.map((m) => (m.classId === classId && m.studentId === studentId && m.status === "active"
-        ? { ...m, status: "removed", endedAt: nowIso() } : m)) };
+        ? { ...m, status: "removed", endedAt: at, periods: closePeriod(m, at, "removed") } : m)) };
     }
     // No more requests from this student; any pending ones are declined.
     case "BLOCK_STUDENT": {
@@ -705,11 +824,15 @@ export function reducer(state, action) {
       const { token, studentId, message } = action;
       const cls = state.classes.find((c) => c.joinToken === token);
       if (!cls || !cls.joinOpen || isBlocked(state, cls.teacherId, studentId)) return state;
-      const existing = state.memberships.find((m) => m.classId === cls.id && m.studentId === studentId && (m.status === "active" || m.status === "requested"));
+      // One row per (class, student): a former or declined member asking
+      // again reuses theirs, so earlier stints stay attached to it.
+      const existing = state.memberships.find((m) => m.classId === cls.id && m.studentId === studentId);
       if (existing?.status === "active") return state;
-      if (existing) return { ...state, memberships: state.memberships.map((m) => (m === existing ? { ...m, message: message || m.message } : m)) };
+      if (existing?.status === "requested") return { ...state, memberships: state.memberships.map((m) => (m === existing ? { ...m, message: message || m.message } : m)) };
+      if (existing) return { ...state, memberships: state.memberships.map((m) => (m === existing
+        ? { ...m, status: "requested", source: "code", requestedAt: nowIso(), message: message || "" } : m)) };
       return { ...state, memberships: [...state.memberships, { id: uid("mb"), classId: cls.id, studentId, status: "requested", source: "code",
-        requestedAt: nowIso(), decidedAt: null, endedAt: null, message: message || "" }] };
+        requestedAt: nowIso(), decidedAt: null, endedAt: null, periods: [], message: message || "" }] };
     }
     case "ACCEPT_INVITATION": {
       const { invitationId, studentId } = action;
@@ -728,6 +851,14 @@ export function reducer(state, action) {
       if (state.purchases.some((p) => p.courseId === courseId && p.studentId === studentId && (p.status === "paid" || p.status === "requested"))) return state;
       return { ...state, purchases: [...state.purchases, { id: uid("pu"), courseId, studentId, status: "requested", amount: course.sale.price,
         currency: course.sale.currency, method: "external", requestedAt: nowIso(), paidAt: null, confirmedBy: null, message: message || "" }] };
+    }
+    // A student finished a lesson in the student app. Only a lesson they can
+    // open (canOpenLesson); finishing it again is a no-op.
+    case "COMPLETE_LESSON": {
+      const { studentId, courseId, lessonId } = action;
+      if (!canOpenLesson(state, studentId, courseId, lessonId)) return state;
+      if (state.lessonCompletions.some((c) => c.studentId === studentId && c.lessonId === lessonId && c.courseId === courseId)) return state;
+      return { ...state, lessonCompletions: [...state.lessonCompletions, { id: uid("lc"), studentId, courseId, lessonId, completedAt: nowIso() }] };
     }
     case "SET_RECORDING_SUMMARY": {
       // written when a teacher ends a recorded live lesson and drafts notes —

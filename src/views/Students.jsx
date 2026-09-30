@@ -4,15 +4,16 @@ import {
   IconSend, IconDownload, IconFlame, IconBrain, IconAlertTriangle, IconCheck,
   IconCircleCheck, IconCircle, IconLock, IconNotebook, IconSparkles, IconArrowRight, IconClock, IconTrendingUp,
   IconRefresh, IconSearch, IconUserMinus, IconBan, IconMail, IconPlus, IconSchool, IconShoppingBag,
+  IconChalkboard, IconDeviceLaptop, IconDoorEnter, IconDoorExit, IconCalendarX, IconBook, IconFilter,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
 import {
   Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Alert, StatCard,
-  Field, TextField, TextArea, Modal, PillTabs, Select,
+  Field, TextField, TextArea, Modal, PillTabs, Select, MenuButton,
 } from "../design-system.jsx";
-import { useStore, useNav, buildRecapLesson, studentCourseId, studentClasses, teacherRoster } from "../store.jsx";
+import { useStore, useNav, buildRecapLesson, studentCourseId, studentClasses, teacherRoster, studentHistory } from "../store.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -177,7 +178,7 @@ export function StudentDetail() {
   if (!s) return null;
 
   const active = studentClasses(state, s.id);
-  const tabs = [["profile", "Profile"], ["notes", "Lesson notes"],
+  const tabs = [["profile", "Profile"], ["history", "Lesson history"], ["notes", "Lesson notes"],
     ...(SHOW_STUDENT_ANALYTICS ? [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["path", "Learning path"]] : [])];
   const current = tabs.some(([id]) => id === section) ? section : "profile";
 
@@ -205,7 +206,8 @@ export function StudentDetail() {
         ))}
       </div>
 
-      {current === "profile" && <Profile s={s} />}
+      {current === "profile" && <Profile s={s} onSeeHistory={() => navigate(`/students/${s.id}/history`)} />}
+      {current === "history" && <History s={s} />}
       {current === "notes" && <Notes s={s} />}
       {current === "overview" && <Overview s={s} />}
       {current === "words" && <Words s={s} />}
@@ -218,25 +220,25 @@ export function StudentDetail() {
   );
 }
 
-// What this teacher actually has for a student: their classes (with the
-// history and any pending request), what they bought, and how to reach
-// them. Nothing here is a made-up metric.
-function Profile({ s }) {
+// What this teacher actually has for a student, all from studentHistory
+// (GET /students/:id/history): their classes — every stint, what the class
+// is on now, the lessons they had in it — the lessons themselves, what they
+// bought and how far they are in it, and how to reach them. Nothing here is
+// a made-up metric.
+function Profile({ s, onSeeHistory }) {
   const { state, dispatch, toast } = useStore();
+  const { go } = useNav();
   const [removing, setRemoving] = useState(null); // class pending removal
   const lastRemoving = useRef(null);
   if (removing) lastRemoving.current = removing;
   const shownRemoving = removing || lastRemoving.current;
   const [addTo, setAddTo] = useState("");
   const first = s.name.split(" ")[0];
-  const memberships = state.memberships.filter((m) => m.studentId === s.id);
-  const classOf = (m) => state.classes.find((c) => c.id === m.classId);
-  const activeM = memberships.filter((m) => m.status === "active");
-  const endedM = memberships.filter((m) => m.status === "removed" || m.status === "left");
+  const h = studentHistory(state, s.id);
   const requests = teacherRoster(state).requests.filter((r) => r.student.id === s.id);
-  const purchases = state.purchases.filter((p) => p.studentId === s.id && p.status !== "requested");
-  const addable = state.classes.filter((c) => !activeM.some((m) => m.classId === c.id));
+  const addable = state.classes.filter((c) => !h.classes.some((x) => x.active && x.cls.id === c.id));
   const blocked = state.blocks.some((b) => b.studentId === s.id);
+  const recent = h.lessons.slice(0, 5);
 
   const remove = () => {
     dispatch({ type: "REMOVE_CLASS_MEMBER", classId: removing.id, studentId: s.id });
@@ -252,83 +254,124 @@ function Profile({ s }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        {requests.length > 0 && (
-          <Card className="px-4">
-            <div className="pt-4 text-base font-semibold text-neutral-950">Waiting for you</div>
-            <div className="divide-y divide-neutral-400">{requests.map((r) => <RequestRow key={r.id} request={r} />)}</div>
-          </Card>
-        )}
-
-        <Card className="p-4">
-          <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconSchool size={18} stroke={1.75} /> Classes</div>
-          <div className="divide-y divide-neutral-400">
-            {activeM.map((m) => {
-              const cls = classOf(m);
-              return (
-                <div key={m.id} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-neutral-950">{cls?.name}</div>
-                    <div className="text-sm text-neutral-600">Since {monthYear(m.decidedAt)} · via {SOURCE_LABEL[m.source] || m.source}</div>
-                  </div>
-                  <Tag color="success">Active</Tag>
-                  <button type="button" onClick={() => setRemoving(cls)} title={`Remove from ${cls?.name}`} aria-label={`Remove ${s.name} from ${cls?.name}`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 hover:bg-warning-50 hover:text-warning-600"><IconUserMinus size={17} stroke={1.75} /></button>
-                </div>
-              );
-            })}
-            {endedM.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-neutral-700">{classOf(m)?.name}</div>
-                  <div className="text-sm text-neutral-600">{monthYear(m.decidedAt)}–{monthYear(m.endedAt)} · {m.status === "left" ? "left the class" : "removed"}</div>
-                </div>
-                <Tag color="neutral">Former</Tag>
-              </div>
-            ))}
-            {!activeM.length && !endedM.length && <p className="py-3 text-sm text-neutral-600">Not in any of your classes.</p>}
-          </div>
-          {addable.length > 0 && !blocked && (
-            <div className="mt-3 flex items-center gap-2 border-t border-neutral-400 pt-3">
-              <Select value={addTo} onChange={(e) => setAddTo(e.target.value)} className="!h-9" aria-label="Add to a class">
-                <option value="">Add to a class…</option>
-                {addable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-              <Button size="sm" onClick={add} disabled={!addTo}><IconPlus size={15} stroke={1.75} /> Add</Button>
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconShoppingBag size={18} stroke={1.75} /> Courses bought</div>
-          {purchases.length ? (
-            <div className="divide-y divide-neutral-400">
-              {purchases.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-neutral-950">{state.courses.find((c) => c.id === p.courseId)?.title}</div>
-                    <div className="text-sm text-neutral-600">{p.amount} {p.currency} · {p.status === "paid" ? `paid ${timeAgo(p.paidAt)}` : p.status}{p.method === "external" ? " · outside the app" : ""}</div>
-                  </div>
-                  <Tag color={p.status === "paid" ? "success" : "neutral"}>{p.status === "paid" ? "Self-paced" : p.status}</Tag>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-sm text-neutral-600">No courses bought.</p>}
-        </Card>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard icon={IconSchool} label="Classes now" value={h.classes.filter((c) => c.active).length} />
+        <StatCard icon={IconBook} label="Lessons taken" value={h.totals.taken} />
+        <StatCard icon={IconCalendarX} label="Lessons missed" value={h.totals.missed} />
       </div>
 
-      <div className="space-y-4">
-        <Card className="p-4 space-y-2 text-sm">
-          <div className="text-base font-semibold text-neutral-950">Contact</div>
-          {s.email && <div className="flex items-center gap-2 text-neutral-800"><IconMail size={16} stroke={1.75} className="text-neutral-600" /> {s.email}</div>}
-          {s.level && <div className="text-neutral-700">Level <b className="text-neutral-950">{s.level}</b></div>}
-          {s.goal && <div className="text-neutral-700">Goal: {s.goal}</div>}
-        </Card>
-        <Card className="p-4 text-sm text-neutral-700 space-y-3">
-          <div>{blocked ? "Blocked — they can't send you requests." : "Block to stop this student sending you requests. They keep anything they've bought."}</div>
-          <BlockToggle student={s} blocked={blocked} />
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {requests.length > 0 && (
+            <Card className="px-4">
+              <div className="pt-4 text-base font-semibold text-neutral-950">Waiting for you</div>
+              <div className="divide-y divide-neutral-400">{requests.map((r) => <RequestRow key={r.id} request={r} />)}</div>
+            </Card>
+          )}
+
+          <Card className="p-4">
+            <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconSchool size={18} stroke={1.75} /> Classes</div>
+            <div className="divide-y divide-neutral-400">
+              {h.classes.map((c) => (
+                <div key={c.membership.id} className="flex items-start gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <button type="button" onClick={() => go({ tab: "classes", classId: c.cls.id })}
+                      className={`font-medium hover:text-primary-600 ${c.active ? "text-neutral-950" : "text-neutral-700"}`}>{c.cls.name}</button>
+                    <div className="text-sm text-neutral-600">
+                      {stints(c.periods)}{c.active && c.membership.source ? ` · via ${SOURCE_LABEL[c.membership.source] || c.membership.source}` : ""}
+                    </div>
+                    {c.now && (
+                      <div className="mt-1 text-sm text-neutral-700">
+                        Now on <b className="text-neutral-950">{c.now.course?.title}</b>
+                        {c.now.progress.next ? ` · Lesson ${c.now.progress.next.n} next` : ""} · {c.now.progress.taughtCount} of {c.now.progress.total} taught
+                      </div>
+                    )}
+                    <div className="mt-1 text-sm text-neutral-600">
+                      {c.lessons.length
+                        ? <>{plural(c.attended, "lesson")} with you{c.missed ? <> · <span className="text-warning-600">{c.missed} missed</span></> : ""}</>
+                        : c.active ? "No lessons taught since they joined." : "No lessons taught while they were in it."}
+                    </div>
+                  </div>
+                  <Tag color={c.active ? "success" : "neutral"}>{c.active ? "Active" : "Former"}</Tag>
+                  {c.active && (
+                    <button type="button" onClick={() => setRemoving(c.cls)} title={`Remove from ${c.cls.name}`} aria-label={`Remove ${s.name} from ${c.cls.name}`}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-warning-50 hover:text-warning-600"><IconUserMinus size={17} stroke={1.75} /></button>
+                  )}
+                </div>
+              ))}
+              {!h.classes.length && <p className="py-3 text-sm text-neutral-600">Not in any of your classes.</p>}
+            </div>
+            {addable.length > 0 && !blocked && (
+              <div className="mt-3 flex items-center gap-2 border-t border-neutral-400 pt-3">
+                <Select value={addTo} onChange={(e) => setAddTo(e.target.value)} className="!h-9" aria-label="Add to a class">
+                  <option value="">Add to a class…</option>
+                  {addable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </Select>
+                <Button size="sm" onClick={add} disabled={!addTo}><IconPlus size={15} stroke={1.75} /> Add</Button>
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="text-base font-semibold text-neutral-950 flex items-center gap-2"><IconBook size={18} stroke={1.75} /> Recent lessons</div>
+              {h.timeline.length > 0 && (
+                <button type="button" onClick={onSeeHistory} className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+                  Full history <IconArrowRight size={14} stroke={1.75} />
+                </button>
+              )}
+            </div>
+            {recent.length ? (
+              <div className="divide-y divide-neutral-400">
+                {recent.map((l) => <LessonRow key={l.id} item={l} when="ago" />)}
+              </div>
+            ) : (
+              <p className="py-2 text-sm text-neutral-600">
+                No lessons yet. {h.classes.some((c) => c.active) ? "Lessons you mark as taught in their class show up here." : ""}
+              </p>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-base font-semibold text-neutral-950 mb-2 flex items-center gap-2"><IconShoppingBag size={18} stroke={1.75} /> Courses bought</div>
+            {h.purchases.length ? (
+              <div className="divide-y divide-neutral-400">
+                {h.purchases.map(({ purchase: p, course, completed, total, lastAt }) => (
+                  <div key={p.id} className="py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-neutral-950">{course?.title}</div>
+                        <div className="text-sm text-neutral-600">{p.amount} {p.currency} · {p.status === "paid" ? `paid ${timeAgo(p.paidAt)}` : p.status}{p.method === "external" ? " · outside the app" : ""}</div>
+                      </div>
+                      <Tag color={p.status === "paid" ? "success" : "neutral"}>{p.status === "paid" ? "Self-paced" : p.status}</Tag>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <div className="flex-1"><ProgressBar pct={total ? (completed / total) * 100 : 0} tone="success" /></div>
+                      <span className="shrink-0 text-sm text-neutral-600">
+                        {completed} of {total} lessons done{lastAt ? <> · last <span title={shortDate(lastAt)}>{timeAgo(lastAt)}</span></> : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-neutral-600">No courses bought.</p>}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card className="p-4 space-y-2 text-sm">
+            <div className="text-base font-semibold text-neutral-950">Contact</div>
+            {s.email && <div className="flex items-center gap-2 text-neutral-800"><IconMail size={16} stroke={1.75} className="text-neutral-600" /> {s.email}</div>}
+            {s.level && <div className="text-neutral-700">Level <b className="text-neutral-950">{s.level}</b></div>}
+            {s.goal && <div className="text-neutral-700">Goal: {s.goal}</div>}
+            {h.totals.lastAt && <div className="text-neutral-700">Last lesson: <span title={shortDate(h.totals.lastAt)}>{timeAgo(h.totals.lastAt)}</span></div>}
+          </Card>
+          <Card className="p-4 text-sm text-neutral-700 space-y-3">
+            <div>{blocked ? "Blocked — they can't send you requests." : "Block to stop this student sending you requests. They keep anything they've bought."}</div>
+            <BlockToggle student={s} blocked={blocked} />
+          </Card>
+        </div>
       </div>
 
       <Modal open={!!removing} onClose={() => setRemoving(null)} icon={IconUserMinus} iconTone="warning"
@@ -337,8 +380,147 @@ function Profile({ s }) {
           <Button variant="outline" autoFocus onClick={() => setRemoving(null)}>Cancel</Button>
           <Button variant="danger" onClick={remove}><IconUserMinus size={16} stroke={1.75} /> Remove from class</Button>
         </>}>
-        <p className="text-sm text-neutral-700">They lose this class's lessons and move to your Former students. Anything they bought stays theirs, and you can add them back any time.</p>
+        <p className="text-sm text-neutral-700">They lose this class's lessons and move to your Former students. Anything they bought stays theirs, their lesson history stays here, and you can add them back any time.</p>
       </Modal>
+    </div>
+  );
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const monthLong = (iso) => new Date(iso).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+// "Since Apr 2026", "Apr 2026–Jul 2026 (left) · back since Aug 2026".
+function stints(periods) {
+  const text = periods.map((p, i) => (p.endedAt
+    ? `${monthYear(p.startedAt)}–${monthYear(p.endedAt)}${p.endReason ? ` (${p.endReason})` : ""}`
+    : `${i > 0 ? "back since" : "since"} ${monthYear(p.startedAt)}`)).join(" · ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// One lesson in a student's history: taught to their class, or finished on
+// their own. Opens the lesson — through the class when it came from one, so
+// the page shows where that class stands. `when`: "ago" or "date".
+function LessonRow({ item, when = "date", action }) {
+  const { go } = useNav();
+  const self = item.kind === "self-paced";
+  const Icon = self ? IconDeviceLaptop : IconChalkboard;
+  const open = () => item.course && item.lesson && go({ tab: "courses", courseId: item.course.id, lessonId: item.lesson.id, classId: self ? undefined : item.cls.id });
+  return (
+    // wraps: on a phone the tag/date/action drop under the title instead of
+    // squeezing it
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.absent ? "bg-warning-50 text-warning-600" : "bg-neutral-200 text-neutral-700"}`}>
+        <Icon size={17} stroke={1.75} />
+      </span>
+      <div className="min-w-[10rem] flex-1">
+        <button type="button" onClick={open} className={`text-left font-medium break-words hover:text-primary-600 ${item.absent ? "text-neutral-600" : "text-neutral-950"}`}>
+          {item.lesson ? `Lesson ${item.lesson.n} · ${item.lesson.title}` : "A lesson that was since deleted"}
+        </button>
+        <div className="text-sm text-neutral-600 truncate">
+          {item.course?.title} · {self ? "on their own" : item.cls.name}
+          {when === "ago" && <> · <span title={shortDate(item.at)}>{timeAgo(item.at)}</span></>}
+        </div>
+      </div>
+      {(item.absent || when === "date" || action) && (
+        <div className="ml-12 flex flex-wrap items-center gap-x-2 gap-y-1 sm:ml-0">
+          {item.absent && <Tag color="warning">Missed</Tag>}
+          {when === "date" && <span className="shrink-0 text-sm text-neutral-600 sm:w-24 sm:text-right">{shortDate(item.at)}</span>}
+          {action}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A joined / left / bought moment between the lessons, so the history reads
+// as one story: when they came, what they had, when they went.
+function MilestoneRow({ item }) {
+  const text = item.kind === "bought" ? <>Bought <b className="text-neutral-800">{item.course?.title}</b> · {item.purchase.amount} {item.purchase.currency}</>
+    : item.kind === "joined" ? <>{item.again ? "Back in" : "Joined"} <b className="text-neutral-800">{item.cls.name}</b></>
+    : <>{item.reason === "left" ? "Left" : "Removed from"} <b className="text-neutral-800">{item.cls.name}</b></>;
+  const Icon = item.kind === "bought" ? IconShoppingBag : item.kind === "joined" ? IconDoorEnter : IconDoorExit;
+  return (
+    <div className="flex items-center gap-3 py-2.5 text-sm text-neutral-600">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center"><Icon size={16} stroke={1.75} /></span>
+      <div className="min-w-0 flex-1">{text}</div>
+      <span className="hidden sm:block shrink-0 w-24 text-right">{shortDate(item.at)}</span>
+    </div>
+  );
+}
+
+// Everything a student has had with this teacher, newest first, by month:
+// lessons taught to their class (mark one missed here), lessons finished on
+// their own, and the joined/left/bought moments between them.
+function History({ s }) {
+  const { state, dispatch, toast } = useStore();
+  const [show, setShow] = useState("all");
+  const h = studentHistory(state, s.id);
+  const first = s.name.split(" ")[0];
+  const options = [
+    { id: "all", label: "Everything" },
+    ...h.classes.map((c) => ({ id: `class:${c.cls.id}`, label: c.cls.name, count: c.lessons.length })),
+    ...h.purchases.map((p) => ({ id: `course:${p.course?.id}`, label: `${p.course?.title} · self-paced`, count: p.lessons.length })),
+    { id: "missed", label: "Missed lessons", count: h.totals.missed },
+  ];
+  const picked = options.find((o) => o.id === show) || options[0];
+  const [kind, id] = picked.id.split(":");
+  const items = h.timeline.filter((x) => kind === "all"
+    || (kind === "missed" && x.absent)
+    || (kind === "class" && x.cls?.id === id && x.kind !== "self-paced")
+    || (kind === "course" && (x.kind === "self-paced" || x.kind === "bought") && x.course?.id === id));
+  const months = [];
+  for (const x of items) {
+    const m = monthLong(x.at);
+    if (months.at(-1)?.month !== m) months.push({ month: m, items: [] });
+    months.at(-1).items.push(x);
+  }
+  const mark = (item, status) => {
+    dispatch({ type: "SET_ATTENDANCE", taughtLessonId: item.taughtLesson.id, studentId: s.id, status });
+    toast(status === "absent" ? `Marked ${first} as missing Lesson ${item.lesson?.n}` : `Marked ${first} as at Lesson ${item.lesson?.n}`);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-neutral-600">
+            {plural(h.totals.taken, "lesson")} taken{h.totals.inClass && h.totals.selfPaced ? ` — ${h.totals.inClass} in class, ${h.totals.selfPaced} on their own` : ""}
+            {h.totals.missed ? ` · ${h.totals.missed} missed` : ""}
+          </div>
+          {options.length > 2 && (
+            <MenuButton icon={IconFilter} size="sm" label={picked.label} value={picked.id} options={options} onChange={setShow} active={picked.id !== "all"} />
+          )}
+        </div>
+
+        {months.map((g) => (
+          <Card key={g.month} className="px-4 pt-3 pb-1">
+            <div className="text-sm font-semibold text-neutral-950">{g.month}</div>
+            <div className="divide-y divide-neutral-400">
+              {g.items.map((x) => (x.kind === "class" || x.kind === "self-paced"
+                ? <LessonRow key={x.id} item={x} action={x.kind === "class" && (
+                    <button type="button" onClick={() => mark(x, x.absent ? "present" : "absent")} aria-pressed={x.absent}
+                      className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900">
+                      {x.absent ? "Mark attended" : "Mark missed"}
+                    </button>
+                  )} />
+                : <MilestoneRow key={x.id} item={x} />))}
+            </div>
+          </Card>
+        ))}
+        {!months.length && (
+          <Card className="p-8 text-center text-sm text-neutral-600">
+            {kind === "missed" ? `${first} hasn't missed a lesson.`
+              : h.classes.length || h.purchases.length ? "No lessons yet. Lessons you mark as taught in their class, and lessons they finish on a course they bought, show up here."
+              : `${first} isn't in a class or on a course of yours.`}
+          </Card>
+        )}
+      </div>
+
+      <div>
+        <Alert icon={IconBook} tone="info" title="What counts as their lesson">
+          A lesson you teach a class counts for everyone in it at the time — not for someone who joined later, was away between stints, or had left. Mark anyone who wasn't there as missed. Lessons on a course they bought are the ones they finished themselves.
+        </Alert>
+      </div>
     </div>
   );
 }

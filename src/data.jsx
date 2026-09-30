@@ -345,6 +345,24 @@ export const SEED_CLASS_NOTES = [
     done: false, sharedAt: "2026-09-26T17:05:00.000Z", createdAt: "2026-09-26T17:00:00.000Z", updatedAt: "2026-09-26T17:00:00.000Z" },
 ];
 
+// Who missed a taught lesson (a backend's `attendance`): one row per
+// (taught lesson, student), written by SET_ATTENDANCE. A student who was in
+// the class when the lesson was taught counts as having had it unless a row
+// says "absent" — teachers mark the exceptions, not the whole roster.
+export const SEED_ATTENDANCE = [
+  { taughtLessonId: "tl_seed_3", studentId: "s_nigar",  status: "absent", markedAt: "2026-07-20T11:00:00.000Z" },
+  { taughtLessonId: "tl_seed_6", studentId: "s_rashad", status: "absent", markedAt: "2026-09-14T11:00:00.000Z" },
+];
+
+// Lessons a student finished on their own in the student app (a backend's
+// `lesson_completions`), written by COMPLETE_LESSON. The teacher sees these
+// only for a course the student bought from them — the self-paced product.
+export const SEED_LESSON_COMPLETIONS = [
+  { id: "lc_seed_1", studentId: "s_zeynab", courseId: "every", lessonId: "ev1", completedAt: "2026-09-13T19:20:00.000Z" },
+  { id: "lc_seed_2", studentId: "s_zeynab", courseId: "every", lessonId: "ev2", completedAt: "2026-09-17T20:05:00.000Z" },
+  { id: "lc_seed_3", studentId: "s_zeynab", courseId: "every", lessonId: "ev3", completedAt: "2026-09-26T18:40:00.000Z" },
+];
+
 /* ------------------------- memberships, sales, invites ------------------------- */
 // How students relate to a teacher — the only way a teacher ever sees a
 // student. No relationship, no visibility (see teacherView in db/mockDb.jsx).
@@ -356,23 +374,42 @@ export const SEED_CLASS_NOTES = [
 //   removed    the teacher took them out  ┐ both read as "former" to the
 //   left       they left                  ┘ teacher (history only)
 // source: code (class link/code) | invite (email invite) | teacher (added directly)
+// periods: every stint the student was actually in the class (a backend's
+//   `class_member_periods`) — { startedAt, endedAt, endReason: removed | left }.
+//   Re-adding someone opens a new period on the same row instead of
+//   overwriting the old dates, so what they took in an earlier stint stays
+//   theirs. decidedAt/endedAt are the latest stint's, kept for display.
 export const SEED_MEMBERSHIPS = [
-  { id: "mb_1", classId: "cls_it_morning", studentId: "s_rashad", status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-04-02T10:00:00.000Z", endedAt: null },
-  { id: "mb_2", classId: "cls_it_morning", studentId: "s_nigar",  status: "active", source: "code",    requestedAt: "2026-04-03T08:20:00.000Z", decidedAt: "2026-04-03T09:00:00.000Z", endedAt: null },
-  { id: "mb_3", classId: "cls_it_morning", studentId: "s_leyla",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-04-02T10:00:00.000Z", endedAt: null },
-  { id: "mb_4", classId: "cls_it_evening", studentId: "s_elvin",  status: "active", source: "invite",  requestedAt: null, decidedAt: "2026-08-30T17:00:00.000Z", endedAt: null },
-  { id: "mb_5", classId: "cls_it_evening", studentId: "s_kamran", status: "active", source: "code",    requestedAt: "2026-09-01T16:10:00.000Z", decidedAt: "2026-09-01T18:00:00.000Z", endedAt: null },
-  { id: "mb_6", classId: "cls_ielts_main", studentId: "s_aysel",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-07-20T12:00:00.000Z", endedAt: null },
+  { id: "mb_1", classId: "cls_it_morning", studentId: "s_rashad", status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-04-02T10:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-04-02T10:00:00.000Z", endedAt: null, endReason: null }] },
+  { id: "mb_2", classId: "cls_it_morning", studentId: "s_nigar",  status: "active", source: "code",    requestedAt: "2026-04-03T08:20:00.000Z", decidedAt: "2026-04-03T09:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-04-03T09:00:00.000Z", endedAt: null, endReason: null }] },
+  // Leyla took a break over the summer and was added back: two periods, so
+  // the lessons taught while she was away (ev3–ev5) aren't counted as hers.
+  { id: "mb_3", classId: "cls_it_morning", studentId: "s_leyla",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-08-25T10:00:00.000Z", endedAt: null,
+    periods: [
+      { startedAt: "2026-04-02T10:00:00.000Z", endedAt: "2026-07-15T12:00:00.000Z", endReason: "left" },
+      { startedAt: "2026-08-25T10:00:00.000Z", endedAt: null, endReason: null },
+    ] },
+  { id: "mb_4", classId: "cls_it_evening", studentId: "s_elvin",  status: "active", source: "invite",  requestedAt: null, decidedAt: "2026-08-30T17:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-08-30T17:00:00.000Z", endedAt: null, endReason: null }] },
+  { id: "mb_5", classId: "cls_it_evening", studentId: "s_kamran", status: "active", source: "code",    requestedAt: "2026-09-01T16:10:00.000Z", decidedAt: "2026-09-01T18:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-09-01T18:00:00.000Z", endedAt: null, endReason: null }] },
+  { id: "mb_6", classId: "cls_ielts_main", studentId: "s_aysel",  status: "active", source: "teacher", requestedAt: null, decidedAt: "2026-07-20T12:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-07-20T12:00:00.000Z", endedAt: null, endReason: null }] },
   // requests waiting for the teacher (came in with the class link/code)
   { id: "mb_7", classId: "cls_it_evening", studentId: "s_farid", status: "requested", source: "code", requestedAt: "2026-09-29T18:40:00.000Z", decidedAt: null, endedAt: null,
     message: "Hi! Elvin gave me the link — I work in QA and want to speak better in meetings." },
   { id: "mb_8", classId: "cls_ielts_main", studentId: "s_lala", status: "requested", source: "code", requestedAt: "2026-09-30T07:15:00.000Z", decidedAt: null, endedAt: null,
     message: "I'd like to prepare for IELTS in December." },
   // former students — history only
-  { id: "mb_9", classId: "cls_it_morning", studentId: "s_lala",   status: "removed", source: "code", requestedAt: "2026-04-05T09:00:00.000Z", decidedAt: "2026-04-05T12:00:00.000Z", endedAt: "2026-06-28T12:00:00.000Z" },
-  { id: "mb_10", classId: "cls_it_morning", studentId: "s_orkhan", status: "left",   source: "code", requestedAt: "2026-04-04T09:00:00.000Z", decidedAt: "2026-04-04T11:00:00.000Z", endedAt: "2026-08-15T12:00:00.000Z" },
+  { id: "mb_9", classId: "cls_it_morning", studentId: "s_lala",   status: "removed", source: "code", requestedAt: "2026-04-05T09:00:00.000Z", decidedAt: "2026-04-05T12:00:00.000Z", endedAt: "2026-06-28T12:00:00.000Z",
+    periods: [{ startedAt: "2026-04-05T12:00:00.000Z", endedAt: "2026-06-28T12:00:00.000Z", endReason: "removed" }] },
+  { id: "mb_10", classId: "cls_it_morning", studentId: "s_orkhan", status: "left",   source: "code", requestedAt: "2026-04-04T09:00:00.000Z", decidedAt: "2026-04-04T11:00:00.000Z", endedAt: "2026-08-15T12:00:00.000Z",
+    periods: [{ startedAt: "2026-04-04T11:00:00.000Z", endedAt: "2026-08-15T12:00:00.000Z", endReason: "left" }] },
   // another teacher's student
-  { id: "mb_11", classId: "cls_kamal_biz", studentId: "s_tural", status: "active", source: "code", requestedAt: "2026-09-10T09:00:00.000Z", decidedAt: "2026-09-10T10:00:00.000Z", endedAt: null },
+  { id: "mb_11", classId: "cls_kamal_biz", studentId: "s_tural", status: "active", source: "code", requestedAt: "2026-09-10T09:00:00.000Z", decidedAt: "2026-09-10T10:00:00.000Z", endedAt: null,
+    periods: [{ startedAt: "2026-09-10T10:00:00.000Z", endedAt: null, endReason: null }] },
 ];
 
 // A course bought on its own, self-paced (a backend's `purchases`).
