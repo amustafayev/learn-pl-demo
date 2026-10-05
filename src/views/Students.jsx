@@ -13,7 +13,7 @@ import {
   Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Alert, StatCard,
   Field, TextField, TextArea, Modal, PillTabs, Select, MenuButton,
 } from "../design-system.jsx";
-import { useStore, useNav, buildRecapLesson, studentCourseId, studentClasses, teacherRoster, studentHistory } from "../store.jsx";
+import { useStore, useNav, studentCourseId, studentClasses, teacherRoster, studentHistory } from "../store.jsx";
 import { StudentAssignModal, assignmentLook } from "../components/StudentAssignModal.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -588,11 +588,10 @@ function History({ s }) {
 }
 
 function Overview({ s }) {
-  const { state, dispatch, toast } = useStore();
+  const { state } = useStore();
   const [concept, score] = weakest(s.concepts);
   const radar = Object.entries(s.concepts).map(([k, v]) => ({ concept: k.length > 10 ? k.split(" ")[0] : k, mastery: v }));
   const courseId = studentCourseId(state, s);
-  const course = state.courses.find((c) => c.id === courseId);
   const lessons = state.lessons[courseId] || [];
   const recapLessons = (s.extraLessons || []).map((lid) => lessons.find((l) => l.id === lid)).filter(Boolean);
   return (
@@ -605,13 +604,7 @@ function Overview({ s }) {
         {s.atRisk && <Alert icon={IconAlertTriangle} tone="warning" title="Why this student is flagged">{s.riskReason}</Alert>}
 
         <div>
-          <SectionLabel right={course && (
-            <button
-              onClick={() => buildRecapLesson(dispatch, toast, s, course, state.blockBank, concept)}
-              className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 font-medium">
-              <IconRefresh size={12} stroke={1.75} /> Build recap lesson from My Blocks
-            </button>
-          )}>Focus next · 2–3 concrete actions</SectionLabel>
+          <SectionLabel>Focus next · 2–3 concrete actions</SectionLabel>
           <Card className="p-4 space-y-2.5">
             {[`Review ${concept.toLowerCase()} with the visual timeline`, `Resurface ${s.words.filter((w) => w.status === "weak").length || 3} weak words in spaced repetition`, "Add one scenario task (work email) to build listening"].map((a, i) => (
               <div key={i} className="flex items-center gap-2.5 text-sm text-neutral-800"><span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[11px] font-bold shrink-0">{i + 1}</span>{a}</div>

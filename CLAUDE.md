@@ -372,7 +372,7 @@ picked at once.
   customers, and other teachers' students.
 - **A block or task is a snapshot.** `content` is copied per student at
   assign time, H5P included (`assignWork` in `store.jsx` makes the H5P
-  copies first, like saving to My Blocks). Editing or deleting the saved
+  copies first, like saving to the Component Library). Editing or deleting the saved
   original later never changes what the student was given. A block's
   content is `{ components }`; a task's is one component. A word set or
   reading only points at the library item (`source`).
@@ -769,8 +769,7 @@ thing reuses it too, instead of every page growing its own copy.
   catalog of icon+label options grouped into named sections, each with an
   optional used-count badge — "Add a block", "pick a component"),
   `LibraryPickList` (the denser, single-column "insert a saved item, grouped
-  by where it was saved from" list — "From My Blocks", "Insert from My
-  Component Library"), `RailItem` (a compact, selectable row for a
+  by where it was saved from" list — "Insert from My Component Library"), `RailItem` (a compact, selectable row for a
   builder's object rail — the draw.io/PowerPoint "every item shown small,
   one focused in a canvas" pattern used by Block Studio's component list;
   drag-to-reorder wiring is the caller's, attached via `...rest`)

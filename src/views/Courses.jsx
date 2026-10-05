@@ -7,23 +7,14 @@ import {
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import {
-  useStore, useNav, lessonBlocks, saveBlockToBank, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
-  uid, copyWithOwnH5P, discardH5PContent, teacherRoster,
+  useStore, useNav, lessonBlocks, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
+  uid, discardH5PContent, teacherRoster,
 } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
-
-// Deep-copy a saved bank block into a fresh lesson part — new ids all the way
-// down, and its own copy of any H5P content. Null if that copy failed.
-async function partFromBank(toast, item) {
-  const content = await copyWithOwnH5P(toast, item.content || { components: [] });
-  if (!content) return null;
-  content.components = (content.components || []).map((c) => ({ ...c, id: uid("c") }));
-  return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
-}
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -351,11 +342,6 @@ export function CourseView() {
                               {b.components.length} component{b.components.length === 1 ? "" : "s"}
                             </span>
                           </button>
-                          <button title="Save block to My Blocks"
-                            onClick={() => saveBlockToBank(dispatch, toast, b, `${course.title} · Lesson ${l.n}`)}
-                            className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-primary-600 p-1 transition-opacity shrink-0">
-                            <IconBookmarkPlus size={13} stroke={1.75} />
-                          </button>
                         </div>
 
                         {bOpen && (
@@ -429,7 +415,6 @@ export function LessonBuilderView() {
 
   const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
   const usedCounts = blocks.reduce((acc, b) => ({ ...acc, [b.type]: (acc[b.type] || 0) + 1 }), {});
-  const compatibleBank = state.blockBank.filter((b) => availableTypes.includes(b.type));
 
   function addBlock(type) {
     const BT = BLOCK_TYPES[type];
@@ -437,20 +422,10 @@ export function LessonBuilderView() {
       part: { id: uid("p"), type, title: BT.label, meta: "—" } });
     toast(`Added ${BT.label} step`);
   }
-  async function addFromBank(item) {
-    const part = await partFromBank(toast, item);
-    if (!part) return;
-    dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId, part });
-    toast(`“${item.title}” inserted from My Blocks`);
-  }
   function saveTitle(b) {
     dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, patch: { title: draft } });
     setEditing(null);
   }
-  function saveToBank(b) {
-    saveBlockToBank(dispatch, toast, b, `${course.title} · Lesson ${lesson.n}`);
-  }
-
   return (
     <Page>
       <Breadcrumbs items={cls ? [
@@ -506,7 +481,6 @@ export function LessonBuilderView() {
                     <IconEye size={14} stroke={1.75} /> Open Step
                   </Button>
                   <div className="flex items-center gap-1 text-neutral-400">
-                    <button title="Save to My Blocks" onClick={() => saveToBank(b)} className="hover:text-primary-600 p-1.5 rounded hover:bg-neutral-100"><IconBookmarkPlus size={14} stroke={1.75} /></button>
                     <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
                     <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
                     <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
@@ -526,7 +500,7 @@ export function LessonBuilderView() {
       </div>
 
       <AddBlockModal open={addOpen} onClose={() => setAddOpen(false)} onPick={addBlock} types={availableTypes}
-        usedCounts={usedCounts} bank={compatibleBank} onPickBank={addFromBank} />
+        usedCounts={usedCounts} />
     </Page>
   );
 }

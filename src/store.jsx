@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BLOCK_TYPES, LESSON_TEMPLATES } from "./data.jsx";
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
   groupBankByParent, bankChildLabel, persistComponentBank, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
@@ -46,18 +45,7 @@ export function discardH5PContent(toast, value) {
   deleteH5PContentIn(value).catch((err) => toast(`Couldn't delete the H5P content on the server: ${err.message}`, "err"));
 }
 
-// One place to save a Block (with all its Components) into the teacher's
-// reusable bank and confirm it via toast — used by both the lesson builder
-// and Block Studio so the message and payload never drift apart.
-export async function saveBlockToBank(dispatch, toast, block, from) {
-  const snapshot = await copyWithOwnH5P(toast, block);
-  if (!snapshot) return;
-  dispatch({ type: "SAVE_BLOCK_TO_BANK", block: snapshot, from });
-  toast(`“${block.title || BLOCK_TYPES[block.type]?.label || block.type}” saved to My Blocks`);
-}
-
-// Same idea, one level down — save a single Component into the Component
-// Library. Shared by Block Studio's editor and the course tree's leaf rows.
+// Save a single Component into the Component Library. Shared by Block Studio's editor and the course tree's leaf rows.
 export async function saveComponentToBank(dispatch, toast, component, title, from) {
   const snapshot = await copyWithOwnH5P(toast, component);
   if (!snapshot) return;
@@ -77,22 +65,6 @@ export async function assignWork(dispatch, toast, studentIds, item, toWhom) {
   dispatch({ type: "ASSIGN_WORK", studentIds, item: { ...item, content } });
   toast(`Assigned “${item.title}” to ${toWhom}`);
   return true;
-}
-
-// "Build a recap lesson" — assembles a brand-new lesson entirely from
-// blocks already saved in My Blocks (deep-copied, so editing the recap never
-// touches the originals) and assigns it straight to the student. The guard
-// (nothing compatible saved yet) lives here so every call site gets the
-// same message instead of a silently empty lesson.
-export async function buildRecapLesson(dispatch, toast, student, course, blockBank, focusLabel) {
-  const templateTypes = LESSON_TEMPLATES[course?.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
-  const compatible = blockBank.filter((b) => templateTypes.includes(b.type));
-  if (!compatible.length) { toast("Save some blocks to My Blocks first — nothing compatible with this course yet", "err"); return; }
-  const copies = await copyWithOwnH5P(toast, compatible.map((b) => b.content || { components: [] }));
-  if (!copies) return;
-  const contents = Object.fromEntries(compatible.map((b, i) => [b.id, copies[i]]));
-  dispatch({ type: "BUILD_RECAP_LESSON", studentId: student.id, focusLabel, contents });
-  toast(`Recap lesson built from ${compatible.length} saved block${compatible.length === 1 ? "" : "s"} and assigned to ${student.name.split(" ")[0]}`);
 }
 
 const StoreCtx = createContext(null);

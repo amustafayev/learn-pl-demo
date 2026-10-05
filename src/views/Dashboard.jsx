@@ -5,7 +5,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
 import { useStore, useNav, activeStudents } from "../store.jsx";
-import { WORD_OF_DAY, BLOCK_TYPES } from "../data.jsx";
+import { WORD_OF_DAY } from "../data.jsx";
 import { COMPONENT_META } from "./parts.jsx";
 import { AddTextModal } from "../components/modals.jsx";
 import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
@@ -36,18 +36,9 @@ export default function Dashboard() {
   const avg = students.length ? Math.round(students.reduce((a, s) => a + s.progress, 0) / students.length) : 0;
   // three students to brief before their next session (most recently active, not-at-risk first)
   const briefs = students.filter((s) => s.status === "in progress").slice(0, 3);
-  // most recently saved Blocks/Components, interleaved — both banks are
-  // unshifted-to on save, so index 0 of each is that bank's latest item.
-  const recentSaves = useMemo(() => {
-    const blocks = (state.blockBank || []).slice(0, 3).map((b) => ({ ...b, saveKind: "block" }));
-    const components = (state.componentBank || []).slice(0, 3).map((c) => ({ ...c, saveKind: "component" }));
-    const merged = [];
-    for (let i = 0; i < 3; i++) {
-      if (blocks[i]) merged.push(blocks[i]);
-      if (components[i]) merged.push(components[i]);
-    }
-    return merged.slice(0, 4);
-  }, [state.blockBank, state.componentBank]);
+  // most recently saved Components — the bank is unshifted-to on save, so
+  // index 0 is the latest.
+  const recentSaves = useMemo(() => (state.componentBank || []).slice(0, 4), [state.componentBank]);
 
   return (
     <Page>
@@ -140,8 +131,7 @@ export default function Dashboard() {
             </SectionLabel>
             <Card className="p-2 divide-y divide-neutral-200">
               {recentSaves.length ? recentSaves.map((item) => {
-                const isBlock = item.saveKind === "block";
-                const meta = isBlock ? BLOCK_TYPES[item.type] : COMPONENT_META[item.kind];
+                const meta = COMPONENT_META[item.kind];
                 const I = meta?.icon || IconBookmark;
                 return (
                   <div key={item.id} className="flex items-center gap-3 px-3 py-2.5">

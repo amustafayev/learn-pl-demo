@@ -2,29 +2,23 @@ import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconWand,
-  IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBoxMultiple, IconBuildingStore,
+  IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBuildingStore,
   IconCode, IconCoffee, IconBriefcase, IconPlane, IconCertificate, IconStethoscope, IconBook, IconFileText, IconLanguage,
 } from "@tabler/icons-react";
 import {
-  Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
+  Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon, SearchField, Select,
 } from "../design-system.jsx";
-import { useStore, groupBankByParent, bankChildLabel, discardH5PContent } from "../store.jsx";
-import { BLOCK_TYPES } from "../data.jsx";
+import { useStore, discardH5PContent } from "../store.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
-import { COMPONENT_META, ComponentStudent } from "./parts.jsx";
-
-// A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
-// map it onto the design-system's own tone vocabulary, same as Courses.jsx.
-const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
-const TONE_DOT = { primary: "bg-primary-500", success: "bg-success-500", pending: "bg-pending-500", warning: "bg-warning-500", info: "bg-info-500" };
+import { COMPONENT_META, COMPONENT_CATEGORIES, ComponentStudent } from "./parts.jsx";
 
 // Library owns its own nested routing (reading/words/playground/bank/
 // marketplace, plus a reader/word-set drill-down) directly with react-router
 // hooks — this is page-internal navigation, not a cross-page resource, so it
 // doesn't need to go through the shared useNav() shim the other pages use.
-const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "My Blocks"], ["marketplace", "Marketplace"]];
+const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "Components"], ["marketplace", "Marketplace"]];
 
 export default function Library() {
   const navigate = useNavigate();
@@ -36,7 +30,7 @@ export default function Library() {
       <Route path="words" element={<LibraryHome tab="words"><WordSetsList open={(id) => navigate(`/library/words/${id}`)} /></LibraryHome>} />
       <Route path="words/:setId" element={<WordSetPanelRoute />} />
       <Route path="playground" element={<LibraryHome tab="playground"><Playground /></LibraryHome>} />
-      <Route path="bank" element={<LibraryHome tab="bank"><MyBlocks /></LibraryHome>} />
+      <Route path="bank" element={<LibraryHome tab="bank"><MyComponents /></LibraryHome>} />
       <Route path="marketplace" element={
         <LibraryHome tab="marketplace">
           <ComingSoon icon={IconBuildingStore} title="Teacher marketplace — coming soon"
@@ -255,110 +249,138 @@ function OwnTextModal({ open, onClose }) {
   );
 }
 
-/* ------------------------------- my blocks (bank) ------------------------------- */
+/* --------------------------- component library (bank) --------------------------- */
 
-// The teacher's saved, reusable blocks. Save from any lesson (bookmark icon in
-// the builder / tree / studio); insert from "Add block → From My Blocks".
-// A collapsible "folder" for one parent (course, or "Playground") in the
-// bank — used for both saved Blocks and saved Components so both read as
-// organized groups instead of one flat pile that only grows over time.
-function BankGroup({ parent, count, hue, children }) {
+// A collapsible group for one category of saved components.
+function BankGroup({ label, icon: Icon, count, shown, onShowAll, children }) {
   const [open, setOpen] = useState(true);
-  const tone = HUE_TO_TONE[hue];
   return (
     <div className="mb-6 last:mb-0">
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 mb-3 group">
         {open ? <IconChevronDown size={14} stroke={1.75} className="text-neutral-300 shrink-0" /> : <IconChevronRight size={14} stroke={1.75} className="text-neutral-300 shrink-0" />}
-        {tone ? <span className={`w-2 h-2 rounded-full shrink-0 ${TONE_DOT[tone]}`} /> : <IconBoxMultiple size={12} stroke={1.75} className="text-neutral-400 shrink-0" />}
-        <h3 className="text-sm font-bold text-neutral-700 group-hover:text-primary-600 transition-colors">{parent}</h3>
+        {Icon && <Icon size={14} stroke={1.75} className="text-neutral-600 shrink-0" />}
+        <h3 className="text-sm font-bold text-neutral-700 group-hover:text-primary-600 transition-colors">{label}</h3>
         <Tag color="neutral">{count}</Tag>
         <div className="flex-1 h-px bg-neutral-200" />
       </button>
       {open && children}
+      {open && onShowAll && count > shown && (
+        <div className="mt-3"><Button variant="light" size="sm" onClick={onShowAll}>Show all {count}</Button></div>
+      )}
     </div>
   );
 }
 
-function MyBlocks() {
+// How many cards a category shows in the overview, and how many more each
+// "Show more" reveals once a single category is open — a bank can hold
+// hundreds of items, so nothing renders unbounded.
+const PREVIEW_COUNT = 6;
+const PAGE_SIZE = 24;
+
+// Search + category/course filters + categorized, paged grid, shared by the
+// saved Blocks and saved Components lists. `categories` is [{id, label, icon}]
+// in display order; `categoryOf(item)` returns one of those ids.
+function BankBrowser({ items, categories, categoryOf, searchText, courseOf, noun, empty, renderCard }) {
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState("all");
+  const [course, setCourse] = useState("all");
+  const [limit, setLimit] = useState(PAGE_SIZE);
+
+  const q = query.trim().toLowerCase();
+  const courses = [...new Set(items.map(courseOf))].sort();
+  const matches = items.filter((it) =>
+    (course === "all" || courseOf(it) === course) && (!q || searchText(it).toLowerCase().includes(q)));
+  const counts = new Map();
+  for (const it of matches) counts.set(categoryOf(it), (counts.get(categoryOf(it)) || 0) + 1);
+  const groups = categories
+    .map((c) => ({ ...c, items: matches.filter((it) => categoryOf(it) === c.id) }))
+    .filter((g) => g.items.length && (cat === "all" || g.id === cat));
+  const reset = (fn) => (e) => { fn(e.target.value); setLimit(PAGE_SIZE); };
+
+  if (!items.length) return empty;
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <SearchField className="flex-1" placeholder={`Search ${noun} by name, course or component`} value={query} onChange={reset(setQuery)} />
+        <Select className="sm:w-52" value={cat} onChange={reset(setCat)} aria-label="Category">
+          <option value="all">All categories ({matches.length})</option>
+          {categories.filter((c) => counts.get(c.id)).map((c) => <option key={c.id} value={c.id}>{c.label} ({counts.get(c.id)})</option>)}
+        </Select>
+        {courses.length > 1 && (
+          <Select className="sm:w-52" value={course} onChange={reset(setCourse)} aria-label="Course">
+            <option value="all">All courses</option>
+            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+        )}
+      </div>
+      {groups.length ? groups.map((g) => {
+        const single = cat !== "all";
+        const shown = single ? limit : PREVIEW_COUNT;
+        return (
+          <BankGroup key={g.id} label={g.label} icon={g.icon} count={g.items.length} shown={shown}
+            onShowAll={single ? () => setLimit((n) => n + PAGE_SIZE) : () => { setCat(g.id); setLimit(PAGE_SIZE); }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{g.items.slice(0, shown).map(renderCard)}</div>
+          </BankGroup>
+        );
+      }) : (
+        <Card className="p-8 text-center text-sm text-neutral-500">No {noun} match your search.</Card>
+      )}
+    </>
+  );
+}
+
+const COMPONENT_BANK_CATEGORIES = [
+  ...COMPONENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  { id: "other", label: "Other" },
+];
+const componentCategoryOf = (item) => COMPONENT_CATEGORIES.find((c) => c.kinds.includes(item.kind))?.id || "other";
+const parentOf = (item) => (item.from || "Other").split(" · ")[0] || "Other";
+
+function MyComponents() {
   const { state, dispatch, toast } = useStore();
-  const blockGroups = groupBankByParent(state.blockBank);
-  const componentGroups = groupBankByParent(state.componentBank || []);
-  const hueFor = (parent) => state.courses.find((c) => c.title === parent)?.hue;
+  const [open, setOpen] = useState(null); // the saved component being previewed
+  const components = state.componentBank || [];
+
+  const componentCard = (item) => {
+    const M = COMPONENT_META[item.kind] || { label: item.kind, icon: IconStack2, tone: "bg-neutral-100 text-neutral-600" };
+    const I = M.icon;
+    return (
+      <Card key={item.id} className="p-5 cursor-pointer hover:border-primary-500 transition-colors" role="button" tabIndex={0}
+        onClick={() => setOpen(item)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(item); } }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${M.tone}`}><I size={16} /></span>
+          <div className="flex items-center gap-1.5">
+            {item.data?.level && <Tag color="neutral">{item.data.level}</Tag>}
+            <button title="Delete from Component Library"
+              onClick={(e) => { e.stopPropagation(); discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
+              className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
+          </div>
+        </div>
+        <div className="font-bold mb-0.5 text-neutral-950">{item.title}</div>
+        <div className="text-xs text-neutral-500">{M.label}{item.from ? ` · ${item.from}` : ""}</div>
+      </Card>
+    );
+  };
 
   return (
     <>
-      <SectionLabel>Saved blocks · grouped by the course they came from</SectionLabel>
-      {blockGroups.length ? blockGroups.map(({ parent, items }) => (
-        <BankGroup key={parent} parent={parent} count={items.length} hue={hueFor(parent)}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((item) => {
-              const BT = BLOCK_TYPES[item.type] || {}; const I = BT.icon || IconBookmark;
-              const comps = item.content?.components || [];
-              const child = bankChildLabel(item);
-              return (
-                <Card key={item.id} className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${BT.tone || "bg-neutral-100 text-neutral-500"}`}><I size={16} /></span>
-                    <button title="Delete from My Blocks"
-                      onClick={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from My Blocks`); }}
-                      className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
-                  </div>
-                  <div className="font-bold mb-0.5 text-neutral-950">{item.title}</div>
-                  <div className="text-xs text-neutral-500 mb-3">{BT.label || item.type} block{child ? ` · ${child}` : ""}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {comps.map((c, i) => (
-                      <Tag key={i} color="neutral">{COMPONENT_META[c.kind]?.label || c.kind}</Tag>
-                    ))}
-                    {!comps.length && <span className="text-xs text-neutral-500">empty block</span>}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </BankGroup>
-      )) : (
-        <Card className="p-8 text-center text-sm text-neutral-500 mb-8">
-          Nothing saved yet — in any lesson, hit the <IconBookmark size={13} stroke={1.75} className="inline mx-0.5" /> bookmark on a block to keep it here for reuse.
-        </Card>
-      )}
-
-      <div className="mt-8">
-        <SectionLabel>Saved components · grouped by the course they came from</SectionLabel>
-        {componentGroups.length ? componentGroups.map(({ parent, items }) => (
-          <BankGroup key={parent} parent={parent} count={items.length} hue={hueFor(parent)}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {items.map((item) => {
-                const M = COMPONENT_META[item.kind] || { label: item.kind, icon: IconStack2, tone: "bg-neutral-100 text-neutral-600" };
-                const I = M.icon;
-                const child = bankChildLabel(item);
-                return (
-                  <Card key={item.id} className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${M.tone}`}><I size={16} /></span>
-                      <div className="flex items-center gap-1.5">
-                        {item.data?.level && <Tag color="neutral">{item.data.level}</Tag>}
-                        <button title="Delete from Component Library"
-                          onClick={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
-                          className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
-                      </div>
-                    </div>
-                    <div className="font-bold mb-0.5 text-neutral-950">{item.title}</div>
-                    <div className="text-xs text-neutral-500">{M.label}{child ? ` · ${child}` : ""}</div>
-                  </Card>
-                );
-              })}
-            </div>
-          </BankGroup>
-        )) : (
+      <BankBrowser
+        items={components} categories={COMPONENT_BANK_CATEGORIES} categoryOf={componentCategoryOf}
+        courseOf={parentOf} noun="components" renderCard={componentCard}
+        searchText={(i) => `${i.title} ${i.from || ""} ${COMPONENT_META[i.kind]?.label || i.kind}`}
+        empty={(
           <Card className="p-8 text-center text-sm text-neutral-500">
-            Nothing saved yet — while editing a block's content, hit the bookmark on any component to keep it here for reuse.
+            Nothing saved yet — while editing a block's content, hit the <IconBookmark size={13} stroke={1.75} className="inline mx-0.5" /> bookmark on any component to keep it here for reuse.
           </Card>
         )}
-      </div>
-
+      />
+      <Modal open={!!open} onClose={() => setOpen(null)} size="lg" title={open?.title || ""}
+        sub={open ? `${COMPONENT_META[open.kind]?.label || open.kind}${open.from ? ` · ${open.from}` : ""} — as a student sees it` : ""}>
+        {open && <ComponentStudent component={open.data} />}
+      </Modal>
 
       <p className="text-xs text-neutral-500 mt-6">
-        Insert a saved block from any lesson: <b>Add block → From My Blocks</b>. Insert a saved component while editing a block: <b>Add component → My Component Library</b>. Both drop in as a copy, so editing them never touches the saved original.
+        Insert a saved component while editing a block: <b>Add component → My Component Library</b>. It drops in as a copy, so editing it never touches the saved original.
       </p>
     </>
   );

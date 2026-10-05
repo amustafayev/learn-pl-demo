@@ -962,8 +962,13 @@ export default function BlockStudio() {
                               className="group -m-3 cursor-pointer rounded-[14px] p-3 ring-2 ring-transparent transition duration-(--dur-fast) hover:bg-primary-50/60 hover:ring-primary-300">
                               <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
                                 <StepHeading component={c} linked={linked} right={
-                                  <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
-                                    <IconPencil size={14} stroke={1.75} /> Edit
+                                  <span className="flex items-center gap-1">
+                                    <span onClick={(e) => e.stopPropagation()} className="opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100 focus-within:opacity-100">
+                                      <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
+                                    </span>
+                                    <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
+                                      <IconPencil size={14} stroke={1.75} /> Edit
+                                    </span>
                                   </span>
                                 } />
                                 <ComponentStudent component={c} source={linked} />

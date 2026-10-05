@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
-import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker, LibraryPickList } from "../design-system.jsx";
-import { useStore, groupBankByParent, bankChildLabel, activeStudents, assignWork } from "../store.jsx";
+import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
+import { useStore, activeStudents, assignWork } from "../store.jsx";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
@@ -253,7 +253,7 @@ export function AddTextModal({ open, onClose }) {
    see a different catalog than General English ones. Block types already
    used in this lesson are highlighted with a count badge, but stay fully
    clickable — a lesson can have two Reading blocks, three Practice blocks, etc. */
-export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, bank = [], onPickBank }) {
+export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} }) {
   // Categorized so a teacher picks "Reading" and sees reading-shaped block
   // types, instead of every block type from every template thrown at once.
   const groups = BLOCK_CATEGORIES
@@ -266,26 +266,10 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {}, b
     }))
     .filter((cat) => cat.items.length);
 
-  const bankGroups = groupBankByParent(bank).map(({ parent, items }) => ({
-    id: parent, label: parent,
-    items: items.map((item) => {
-      const BT = BLOCK_TYPES[item.type];
-      const child = bankChildLabel(item);
-      return { id: item.id, icon: BT.icon, tone: BT.tone, label: item.title, description: `${BT.label} · ${(item.content?.components || []).length} components${child ? ` · ${child}` : ""}` };
-    }),
-  }));
-
   return (
     <Modal open={open} onClose={onClose} title="Add a block" sub="A lesson is built from skill blocks — each can hold several components">
       <CategoryPicker groups={groups} onPick={(type) => { onPick(type); onClose(); }} />
 
-      {/* reuse a saved block — deep-copied in, so edits stay local to this lesson. */}
-      {bank.length > 0 && onPickBank && (
-        <div className="mt-4 pt-4 border-t border-neutral-200">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">From My Blocks · ready-made, drops in with all its content</div>
-          <LibraryPickList groups={bankGroups} onPick={(id) => { onPickBank(bank.find((b) => b.id === id)); onClose(); }} />
-        </div>
-      )}
     </Modal>
   );
 }

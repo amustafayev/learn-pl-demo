@@ -1,7 +1,7 @@
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_BLOCK_BANK, SEED_COMPONENT_BANK, SEED_CLASSES,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_COMPONENT_BANK, SEED_CLASSES,
   SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS, SEED_ASSIGNMENTS,
-  TEACHER, TEACHER_PROFILES, BLOCK_TYPES, LESSON_TEMPLATES,
+  TEACHER, TEACHER_PROFILES, BLOCK_TYPES,
 } from "../data.jsx";
 
 /* =========================================================================
@@ -459,7 +459,6 @@ export function createInitialState() {
     blocks: [],
     texts: clone(SEED_TEXTS),
     wordSets: clone(SEED_WORDSETS),
-    blockBank: clone(SEED_BLOCK_BANK),
     componentBank: savedComponentBank(),
     teacher: clone(TEACHER),
     teacherProfiles: clone(TEACHER_PROFILES),
@@ -614,17 +613,6 @@ export function reducer(state, action) {
       });
       return { ...state, students };
     }
-    case "SAVE_BLOCK_TO_BANK": {
-      // snapshot a block (deep copy) into the teacher's reusable bank
-      const { block, from } = action;
-      const snapshot = {
-        id: uid("bb"), type: block.type, title: block.title || block.type, from: from || "—",
-        content: JSON.parse(JSON.stringify(block.content || { components: [] })),
-      };
-      return { ...state, blockBank: [snapshot, ...state.blockBank] };
-    }
-    case "REMOVE_FROM_BANK":
-      return { ...state, blockBank: state.blockBank.filter((b) => b.id !== action.bankId) };
     case "SAVE_COMPONENT_TO_BANK": {
       const { component, title, from } = action;
       const snapshot = {
@@ -638,30 +626,6 @@ export function reducer(state, action) {
     }
     case "REMOVE_COMPONENT_FROM_BANK":
       return { ...state, componentBank: (state.componentBank || []).filter((c) => c.id !== action.bankId) };
-    case "BUILD_RECAP_LESSON": {
-      // assemble a brand-new lesson from every My-Blocks item compatible with
-      // the student's course template, deep-copied so it's independent of
-      // the saved originals, and assign it straight to that student.
-      // `contents` (bank id → content) carries copies the caller already
-      // made where that needs async work (their own H5P content).
-      const { studentId, focusLabel, contents } = action;
-      const student = state.students.find((s) => s.id === studentId);
-      const courseId = studentCourseId(state, student);
-      if (!student || !courseId) return state;
-      const course = state.courses.find((c) => c.id === courseId);
-      const templateTypes = LESSON_TEMPLATES[course?.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
-      const compatible = state.blockBank.filter((b) => templateTypes.includes(b.type));
-      if (!compatible.length) return state;
-      const list = state.lessons[courseId] || [];
-      const built = compatible.map((item) => {
-        const content = JSON.parse(JSON.stringify(contents?.[item.id] || item.content || { components: [] }));
-        content.components = (content.components || []).map((c) => ({ ...c, id: uid("c") }));
-        return { id: uid("p"), type: item.type, title: item.title, meta: "from My Blocks", content };
-      });
-      const lesson = { id: uid("l"), n: list.length + 1, title: `Recap: ${focusLabel}`, parts: built.map((p) => p.type), built, active: 0, progress: 0, current: false };
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, extraLessons: [...(s.extraLessons || []), lesson.id] } : s));
-      return { ...state, lessons: { ...state.lessons, [courseId]: [...list, lesson] }, students };
-    }
     /* ---------------- classes, students & access (teacher side) ----------------
        Each action below is one call a real backend would expose — the
        payload is exactly the request body, and the reducer applies the

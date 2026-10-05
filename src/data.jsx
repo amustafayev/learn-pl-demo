@@ -846,10 +846,9 @@ export const NORTHSTAR = [
 
 /* ------------------------------- block bank ------------------------------- */
 
-// The teacher's saved, reusable blocks. Saving snapshots a block (with all
-// its components); inserting into a lesson deep-copies it, so edits after
-// insertion never touch the saved original.
-export const SEED_BLOCK_BANK = [
+// Content snapshots for the seeded block assignments below (each assignment
+// carries its own copy, so these are only the source of that copy).
+const SEED_ASSIGNED_BLOCKS = [
   {
     id: "bb1", type: "grammar", title: "Tense timeline pack", from: "IT English · Lesson 4",
     content: { components: [
@@ -926,16 +925,16 @@ export const SEED_BLOCK_BANK = [
 // they were given even if the saved original is edited or deleted later — a
 // word set or reading points at the library item (`source`).
 // status: assigned → done (the student app, COMPLETE_ASSIGNMENT) | withdrawn.
-const bankContent = (id) => JSON.parse(JSON.stringify(SEED_BLOCK_BANK.find((b) => b.id === id).content));
+const bankContent = (id) => JSON.parse(JSON.stringify(SEED_ASSIGNED_BLOCKS.find((b) => b.id === id).content));
 export const SEED_ASSIGNMENTS = [
   { id: "as_seed_1", teacherId: "t_maria", studentId: "s_rashad", kind: "block", title: "Tense timeline pack", blockType: "grammar", componentKind: null,
-    source: { bankItemId: "bb1", from: "IT English · Lesson 4" }, content: bankContent("bb1"),
+    source: { from: "IT English · Lesson 4" }, content: bankContent("bb1"),
     assignedAt: "2026-09-25T10:20:00.000Z", status: "assigned", completedAt: null, withdrawnAt: null },
   { id: "as_seed_2", teacherId: "t_maria", studentId: "s_rashad", kind: "wordSet", title: "IT essentials", blockType: null, componentKind: null,
     source: { wordSetId: "ws_it" }, content: null,
     assignedAt: "2026-09-15T09:30:00.000Z", status: "done", completedAt: "2026-09-17T19:05:00.000Z", withdrawnAt: null },
   { id: "as_seed_3", teacherId: "t_maria", studentId: "s_nigar", kind: "block", title: "IT starter words", blockType: "vocabulary", componentKind: null,
-    source: { bankItemId: "bb2", from: "IT English · Lesson 1" }, content: bankContent("bb2"),
+    source: { from: "IT English · Lesson 1" }, content: bankContent("bb2"),
     assignedAt: "2026-09-08T11:00:00.000Z", status: "done", completedAt: "2026-09-10T18:30:00.000Z", withdrawnAt: null },
 ];
 
