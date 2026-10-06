@@ -118,7 +118,11 @@ seam so a real one can be dropped in later without touching any view:
     the reducer, as it would on the server.
   - A lesson or block opened from a class carries `?classId=` in its URL
     (`lessonPath`/`partPath`), and `ClassLessonBar` shows that class's
-    position on it. Ending a live lesson marks its lesson taught.
+    position on it. There is no live-lesson mode (teachers teach over
+    Meet): the last block of a lesson opened from a class ends with a
+    **Finish lesson** card, and the bar has the same button, both
+    sending `MARK_LESSON_TAUGHT`. Nothing marks a lesson taught on its
+    own, so opening one to prepare it doesn't count.
   - Student-level progress (`student.progress`/`step`) is still seed data
     and doesn't follow the class — deliberately out of scope until the
     student view exists. What a student *had* (lessons taught to them,
@@ -406,10 +410,8 @@ picked at once.
   never to the course's lesson: the course is the same for every class, so
   it can't hold "what to review with *this* group". Each note is one short
   line the teacher can tick off (`done`), edit in place, delete, and send
-  to the class (or take back). Three ways in, one set of pieces:
+  to the class (or take back). Two ways in, one set of pieces:
   - the lesson opened from a class: ClassLessonBar's **Notes** drawer;
-  - a live lesson: the notebook in the live bar, and a "Class notes for
-    Lesson N" card on the end-of-lesson summary;
   - the class page: a **Class notes** card under Courses, every note
     grouped by lesson (latest first) with a To do / Done / Not sent yet /
     All filter, and an add field whose lesson picker defaults to next up.
@@ -523,8 +525,6 @@ It has no design or data of its own:
     - the student's own lesson history;
     - showing a class member's own work (finished class lessons) to the
       teacher, who only sees completions for bought courses;
-    - live sessions from the student's side (joining the teacher's live
-      lesson; the students in the live room are still simulated);
     - notes for a lesson that isn't shared yet show once sent (they aren't
       held back until the lesson is shared), which is still an open
       product decision;
@@ -795,7 +795,7 @@ lint → click through it with zero console errors).
 **Done:** `english-platform-prototype.jsx` (shell/nav, including `ToastHost`,
 now in the factory), `Dashboard.jsx`, `Courses.jsx`, `Classes.jsx`,
 `Students.jsx`, `Library.jsx`, `LevelTests.jsx`, `Insights.jsx`,
-`StudentInsights.jsx`, `LiveSession.jsx`, `src/components/modals.jsx`
+`StudentInsights.jsx`, `src/components/modals.jsx`
 (`NewCourseModal`, `NewLessonModal`, `AddBlockModal`, `AssignModal`,
 `AddTextModal`), `Auth.jsx` (`LoginPage`, `SignupPage`), `Settings.jsx`,
 `src/components/StudentAssignModal.jsx`.

@@ -15,7 +15,7 @@ import { timeAgo, shortDate } from "../format.js";
    CLAUDE.md for the record and the endpoints.
 
    Three ways in, one set of pieces: the lesson page opened from a class
-   (ClassLessonBar's Notes button), the live lesson's notebook, and the
+   (ClassLessonBar's Notes button), and the
    class page's "Class notes" card, which lists them all by lesson.
    ========================================================================= */
 
@@ -157,7 +157,7 @@ export function ClassNotesButton({ cls, lesson, onOpen }) {
 }
 
 // One lesson's notes for one class, in a side drawer — from the lesson page
-// or while teaching it live.
+// or while teaching it.
 export function ClassNotesPanel({ open, onClose, cls, course, lesson }) {
   const { state, dispatch } = useStore();
   const notes = classNotesFor(state, cls.id, lesson.id);

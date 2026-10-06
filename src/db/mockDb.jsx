@@ -718,7 +718,7 @@ export function reducer(state, action) {
       const { classId, courseId, lessonId } = action;
       return { ...state, classes: mapClassCourse(state.classes, classId, courseId, (x) => ({ ...x, currentLessonId: lessonId })) };
     }
-    // A lesson was taught to a class (a live lesson ended, or the teacher
+    // A lesson was taught to a class (the teacher finished the lesson, or
     // pressed "Mark as taught"): log it, release it to the class's students,
     // and move "next up" to the lesson after it — unless the class is
     // already further along (re-teaching an earlier lesson as a review
@@ -927,14 +927,6 @@ export function reducer(state, action) {
       const { assignmentId, studentId } = action;
       return { ...state, assignments: state.assignments.map((a) => (a.id === assignmentId && a.studentId === studentId && a.status === "assigned"
         ? { ...a, status: "done", completedAt: nowIso() } : a)) };
-    }
-    case "SET_RECORDING_SUMMARY": {
-      // written when a teacher ends a recorded live lesson and drafts notes —
-      // an AI-generated summary of that session, surfaced in the student's
-      // AI Insights tab.
-      const { studentId, recording } = action;
-      const students = state.students.map((s) => (s.id === studentId ? { ...s, lastRecording: recording } : s));
-      return { ...state, students };
     }
     case "UPDATE_TEACHER_PROFILE":
       return { ...state, teacher: { ...state.teacher, ...action.patch } };

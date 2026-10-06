@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconSchool, IconCircleCheck, IconBroadcast, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
+import { IconSchool, IconCircleCheck, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Button, Tag } from "../design-system.jsx";
 import { useStore, useNav, classCourseProgress, markLessonTaught } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -18,7 +18,7 @@ const STATE_STYLE = {
 
 export default function ClassLessonBar({ cls, course, lesson, className = "" }) {
   const { state, dispatch, toast } = useStore();
-  const { go, startLive } = useNav();
+  const { go } = useNav();
   const [notesOpen, setNotesOpen] = useState(false);
   const p = classCourseProgress(state, cls, course.id);
 
@@ -86,16 +86,42 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
                 <IconFlag size={15} stroke={1.75} /> Set as next up
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: lesson.id })}>
-              <IconBroadcast size={15} stroke={1.75} /> Go live
-            </Button>
             <Button size="sm" variant={kind === "next" ? "primary" : "light"} onClick={markTaught}>
-              <IconCircleCheck size={15} stroke={1.75} /> {kind === "taught" ? "Mark taught again" : "Mark as taught"}
+              <IconCircleCheck size={15} stroke={1.75} /> {kind === "taught" ? "Finish again" : "Finish lesson"}
             </Button>
           </>
         )}
       </div>
       <ClassNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} cls={cls} course={course} lesson={lesson} />
+    </div>
+  );
+}
+
+// The end of a lesson taught from a class: sits under the last block, so the
+// teacher who has just walked the class through it (on Meet, sharing this
+// page) closes it with one click — logged as taught, shared with the class,
+// "next up" moved on. Nothing fires by itself: opening a lesson to prepare
+// it must not count as teaching it.
+export function FinishLessonCard({ cls, course, lesson, className = "" }) {
+  const { state, dispatch, toast } = useStore();
+  const p = classCourseProgress(state, cls, course.id);
+  if (!p || p.entry.status === "done") return null;
+  const taughtOn = p.taughtAt[lesson.id];
+  const finish = () => markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: p.lessons });
+  return (
+    <div className={`flex flex-wrap items-center gap-3 rounded-[14px] border border-neutral-400 bg-surface p-4 ${className}`}>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${taughtOn ? "bg-success-50 text-success-600" : "bg-primary-50 text-primary-600"}`}>
+        <IconCircleCheck size={20} stroke={1.75} />
+      </span>
+      <div className="min-w-[14rem] flex-1">
+        <div className="font-semibold text-neutral-950">{taughtOn ? `Lesson ${lesson.n} was taught to ${cls.name}` : `Done teaching Lesson ${lesson.n}?`}</div>
+        <div className="mt-0.5 text-sm text-neutral-600">
+          {taughtOn ? `${timeAgo(taughtOn)} (${shortDate(taughtOn)}).` : `Finishing logs it for ${cls.name}, shares it with the class and moves them on to the next lesson.`}
+        </div>
+      </div>
+      <Button size="sm" variant={taughtOn ? "light" : "primary"} onClick={finish}>
+        <IconCircleCheck size={15} stroke={1.75} /> {taughtOn ? "Finish again" : "Finish lesson"}
+      </Button>
     </div>
   );
 }

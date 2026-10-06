@@ -321,7 +321,7 @@ export const CLASS_COURSE_STATUS = {
 
 // Append-only log of lessons a class was taught (a backend's
 // `taught_lessons` table): one row per teaching session, written by
-// MARK_LESSON_TAUGHT (ending a live lesson, or "Mark as taught" on a lesson
+// MARK_LESSON_TAUGHT ("Finish lesson" / "Mark as taught" on a lesson
 // opened from a class). ISO timestamps only — "5 days ago" is formatting.
 export const SEED_TAUGHT_LESSONS = [
   { id: "tl_seed_1", classId: "cls_it_morning", courseId: "every", lessonId: "ev1", taughtAt: "2026-07-06T09:00:00.000Z" },

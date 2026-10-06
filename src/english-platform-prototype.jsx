@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain, IconBroadcast,
+  IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain,
   IconSettings2, IconHelpCircle, IconSun, IconMoon, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
 import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
-import { Page, Button, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
+import { Page, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
@@ -17,7 +17,6 @@ import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
 import Insights from "./views/Insights.jsx";
 import LevelTests from "./views/LevelTests.jsx";
-import LiveSession from "./views/LiveSession.jsx";
 import { LoginPage, SignupPage } from "./views/Auth.jsx";
 import Settings from "./views/Settings.jsx";
 
@@ -54,9 +53,6 @@ const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 function AppShell() {
   const { state, dispatch } = useStore();
-  const [live, setLive] = useState(null); // null | { courseId?, lessonId? }
-  const startLive = useCallback((ctx) => setLive(ctx || {}), []);
-  const endLive = useCallback(() => setLive(null), []);
   const { pathname } = useLocation();
   // Manual override on top of the existing responsive w-16/w-64 breakpoint —
   // a teacher on a real desktop screen may still want the icon-only rail
@@ -78,18 +74,17 @@ function AppShell() {
     <div className="min-h-screen bg-neutral-50 text-neutral-950 flex font-sans">
       <Sidebar pathname={pathname} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       <main className="flex-1 overflow-y-auto h-screen">
-        <TopBar pathname={pathname} onStartLive={() => startLive()} />
+        <TopBar pathname={pathname} />
         {/* Keyed on the top-level tab, not the full pathname: drilling from
             /courses into /courses/:id shouldn't remount the subtree and
             re-run its effects just to replay a 180ms entrance. */}
         <div key={tabForPath(pathname)} className="animate-fade-rise">
           <ErrorBoundary resetKey={pathname} className="p-5 sm:p-8 max-w-3xl" title="This page couldn't be displayed">
-            <Content startLive={startLive} />
+            <Content />
           </ErrorBoundary>
         </div>
       </main>
       <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
-      {live && <LiveSession context={live} onEnd={endLive} />}
     </div>
   );
 }
@@ -170,7 +165,7 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   );
 }
 
-function TopBar({ pathname, onStartLive }) {
+function TopBar({ pathname }) {
   const { state } = useStore();
   const titles = {
     dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students",
@@ -181,9 +176,6 @@ function TopBar({ pathname, onStartLive }) {
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
-        <Button variant="primary" size="sm" onClick={onStartLive}>
-          <IconBroadcast size={15} stroke={1.75} /> <span className="hidden sm:inline">Start lesson</span>
-        </Button>
         <button className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-400 text-neutral-500 hover:border-neutral-500 hover:text-neutral-900">
           <IconBell size={18} stroke={1.75} /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />
         </button>
@@ -206,31 +198,31 @@ function StudentOverviewRedirect() {
   return <Navigate to={`/students/${studentId}/profile`} replace />;
 }
 
-function Content({ startLive }) {
+function Content() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<Bridge tab="dashboard" startLive={startLive}><Dashboard /></Bridge>} />
+      <Route path="/dashboard" element={<Bridge tab="dashboard"><Dashboard /></Bridge>} />
 
-      <Route path="/courses" element={<Bridge tab="courses" startLive={startLive}><CoursesView /></Bridge>} />
-      <Route path="/courses/:courseId" element={<Bridge tab="courses" startLive={startLive}><CourseView /></Bridge>} />
-      <Route path="/courses/:courseId/lessons/:lessonId" element={<Bridge tab="courses" startLive={startLive}><LessonBuilderView /></Bridge>} />
-      <Route path="/courses/:courseId/lessons/:lessonId/parts/:partId" element={<Bridge tab="courses" startLive={startLive}><PartStudio /></Bridge>} />
+      <Route path="/courses" element={<Bridge tab="courses"><CoursesView /></Bridge>} />
+      <Route path="/courses/:courseId" element={<Bridge tab="courses"><CourseView /></Bridge>} />
+      <Route path="/courses/:courseId/lessons/:lessonId" element={<Bridge tab="courses"><LessonBuilderView /></Bridge>} />
+      <Route path="/courses/:courseId/lessons/:lessonId/parts/:partId" element={<Bridge tab="courses"><PartStudio /></Bridge>} />
 
-      <Route path="/classes/*" element={<Bridge tab="classes" startLive={startLive}><Classes /></Bridge>} />
+      <Route path="/classes/*" element={<Bridge tab="classes"><Classes /></Bridge>} />
 
-      <Route path="/library/*" element={<Bridge tab="library" startLive={startLive}><Library /></Bridge>} />
+      <Route path="/library/*" element={<Bridge tab="library"><Library /></Bridge>} />
 
-      <Route path="/students" element={<Bridge tab="students" startLive={startLive}><StudentsView /></Bridge>} />
+      <Route path="/students" element={<Bridge tab="students"><StudentsView /></Bridge>} />
       <Route path="/students/:studentId" element={<StudentOverviewRedirect />} />
-      <Route path="/students/:studentId/:section" element={<Bridge tab="students" startLive={startLive}><StudentDetail /></Bridge>} />
+      <Route path="/students/:studentId/:section" element={<Bridge tab="students"><StudentDetail /></Bridge>} />
 
-      <Route path="/level-tests" element={<Bridge tab="levelTests" startLive={startLive}><LevelTests /></Bridge>} />
-      <Route path="/insights" element={<Bridge tab="insights" startLive={startLive}><Insights /></Bridge>} />
+      <Route path="/level-tests" element={<Bridge tab="levelTests"><LevelTests /></Bridge>} />
+      <Route path="/insights" element={<Bridge tab="insights"><Insights /></Bridge>} />
 
-      <Route path="/settings/*" element={<Bridge tab="settings" startLive={startLive}><Settings /></Bridge>} />
+      <Route path="/settings/*" element={<Bridge tab="settings"><Settings /></Bridge>} />
       <Route path="/help" element={
-        <Bridge tab="help" startLive={startLive}>
+        <Bridge tab="help">
           <Page><ComingSoon icon={IconHelpCircle} title="Help & support — coming soon" sub="Docs, FAQs, and a way to reach the Lucid team will live here." /></Page>
         </Bridge>
       } />

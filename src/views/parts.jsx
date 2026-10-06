@@ -23,7 +23,7 @@ import {
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
-import ClassLessonBar from "../components/ClassLessonBar.jsx";
+import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, ROLE, blockMeta } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -819,6 +819,10 @@ export default function BlockStudio() {
               {focusedIndex >= 0 && (
                 <FocusBars block={block} components={components} index={focusedIndex}
                   onGo={(i) => setFocusId(components[i].id)} onClose={closeFocus} />
+              )}
+              {/* The last block of a lesson opened from a class closes it. */}
+              {teachingClass && blockIndex === blocks.length - 1 && (
+                <FinishLessonCard cls={teachingClass} course={course} lesson={lesson} className="lg:col-span-full" />
               )}
             </div>
           ) : (

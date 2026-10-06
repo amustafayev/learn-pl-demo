@@ -99,7 +99,7 @@ function buildPath(r) {
 // Wraps one matched route: rebuilds the shared `route` object from real URL
 // params/query, and provides a `go(patch)` that merges onto it the same way
 // the old in-memory router did, then navigates to the resulting real path.
-export function Bridge({ tab, startLive, children }) {
+export function Bridge({ tab, children }) {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -118,5 +118,5 @@ export function Bridge({ tab, startLive, children }) {
 
   const go = useCallback((patch) => navigate(buildPath(mergeRoute(route, patch))), [route, navigate]);
 
-  return <NavProvider value={{ route, go, startLive }}>{children}</NavProvider>;
+  return <NavProvider value={{ route, go }}>{children}</NavProvider>;
 }

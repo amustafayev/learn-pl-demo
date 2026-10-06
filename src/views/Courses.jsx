@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
   IconEye, IconFilter, IconArrowsMaximize, IconArrowsMinimize,
-  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconBroadcast, IconCircleCheck, IconFlag, IconPlayerPlay, IconEyeOff, IconShoppingBag,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconCircleCheck, IconFlag, IconPlayerPlay, IconEyeOff, IconShoppingBag,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
@@ -64,7 +64,7 @@ export function CoursesView() {
 
 export function CourseView() {
   const { state, dispatch, toast } = useStore();
-  const { route, go, startLive } = useNav();
+  const { route, go } = useNav();
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
@@ -310,11 +310,6 @@ export function CourseView() {
                   {classCourse && classCourse.status !== "done" && view.state !== "next" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0"><IconFlag size={13} stroke={1.75} /> Set as next up</button>
-                  )}
-                  {classCourse && (
-                    <Button variant="outline" size="sm" onClick={() => startLive({ courseId: course.id, classId: cls.id, lessonId: l.id })} className="!text-warning-600 !border-warning-200 shrink-0">
-                      <IconBroadcast size={12} stroke={1.75} /> Go live
-                    </Button>
                   )}
                   <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })} className="shrink-0">
                     Open Lesson Pathway <IconChevronRight size={14} stroke={1.75} />
