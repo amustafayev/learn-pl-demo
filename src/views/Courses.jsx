@@ -440,7 +440,7 @@ export function LessonBuilderView() {
         right={<Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><IconPlus size={14} stroke={1.75} /> Add Step</Button>} />
 
       {/* Pathway Flow Layout */}
-      <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar → Playground → Homework)</SectionLabel>
+      <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar)</SectionLabel>
 
       <div className="relative space-y-3 mb-8">
         {blocks.map((b, i) => {
