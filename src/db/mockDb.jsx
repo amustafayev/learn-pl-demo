@@ -501,12 +501,17 @@ function upsertMembership(memberships, classId, studentId, source) {
 
 export function reducer(state, action) {
   switch (action.type) {
+    // Owned by the teacher creating it — without a teacherId, teacherView
+    // filters the new course straight back out. Not for sale until the
+    // teacher puts it on sale.
     case "ADD_COURSE": {
       const { title, level, hue, templateId } = action;
       const id = uid("c");
+      const course = { id, teacherId: state.teacher.id, title, level, hue, templateId: templateId || "general", students: 0, completion: 0,
+        sale: { forSale: false, price: 0, currency: "AZN", description: "", paymentNote: "" } };
       return {
         ...state,
-        courses: [...state.courses, { id, title, level, hue, templateId: templateId || "general", students: 0, completion: 0 }],
+        courses: [...state.courses, course],
         lessons: { ...state.lessons, [id]: [] },
       };
     }

@@ -140,7 +140,7 @@ export default function Dashboard() {
                       <div className="text-sm font-medium truncate text-neutral-950">{item.title}</div>
                       <div className="text-xs text-neutral-500 truncate">{item.from}</div>
                     </div>
-                    <Badge color={isBlock ? "neutral" : "info"}>{isBlock ? "Block" : "Component"}</Badge>
+                    <Badge color="info">Component</Badge>
                   </div>
                 );
               }) : (
