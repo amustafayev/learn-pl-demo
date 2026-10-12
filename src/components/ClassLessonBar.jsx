@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { IconSchool, IconCircleCheck, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
-import { Button, Tag } from "../design-system.jsx";
+import { Button, Tag, Modal } from "../design-system.jsx";
 import { useStore, useNav, classCourseProgress, markLessonTaught } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
-import { ClassNotesButton, ClassNotesPanel } from "./ClassNotes.jsx";
+import { nextAutoShareLabel } from "../schedule.js";
 
 // Shown on a lesson (and in Block Studio) opened from a class — the lesson
 // content is the same for every class, so this bar is what says where THIS
@@ -16,10 +16,41 @@ const STATE_STYLE = {
   done: { tile: "bg-success-50 text-success-600", tag: "success", label: "Course completed" },
 };
 
+// Share / hide one lesson for one class — asks first, since sharing opens the
+// lesson to every active student in the class and hiding takes it away.
+export function ShareLessonButton({ cls, course, lesson, shared }) {
+  const { dispatch, toast } = useStore();
+  const [asking, setAsking] = useState(false);
+  const confirm = () => {
+    dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: lesson.id, released: !shared });
+    toast(!shared ? `Lesson ${lesson.n} shared with ${cls.name}` : `Lesson ${lesson.n} hidden from ${cls.name}'s students`);
+    setAsking(false);
+  };
+  return (
+    <>
+      <Button variant={shared ? "light" : "primary"} onClick={() => setAsking(true)} className="shrink-0">
+        {shared ? <><IconEyeOff size={16} stroke={1.75} /> Hide from students</> : <><IconEye size={16} stroke={1.75} /> Share with students</>}
+      </Button>
+      <Modal open={asking} onClose={() => setAsking(false)} icon={shared ? IconEyeOff : IconEye}
+        title={shared ? `Hide Lesson ${lesson.n} from ${cls.name}?` : `Share Lesson ${lesson.n} with ${cls.name}?`}
+        sub={lesson.title}
+        footer={<>
+          <Button variant="outline" onClick={() => setAsking(false)}>Cancel</Button>
+          <Button onClick={confirm}>{shared ? "Hide lesson" : "Share lesson"}</Button>
+        </>}>
+        <p className="text-sm text-neutral-700">
+          {shared
+            ? "Students in this class won't be able to open this lesson until you share it again. Nothing they've finished is removed."
+            : "Every active student in this class will be able to open this lesson, and an open student tab is told right away."}
+        </p>
+      </Modal>
+    </>
+  );
+}
+
 export default function ClassLessonBar({ cls, course, lesson, className = "" }) {
   const { state, dispatch, toast } = useStore();
   const { go } = useNav();
-  const [notesOpen, setNotesOpen] = useState(false);
   const p = classCourseProgress(state, cls, course.id);
 
   if (!p) {
@@ -48,11 +79,11 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
   const markTaught = () => markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: p.lessons });
   // Can the class's students open this lesson? (Marking it taught shares it.)
   const shared = p.released.has(lesson.id);
-  const toggleShared = () => {
-    dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: lesson.id, released: !shared });
-    toast(!shared ? `Lesson ${lesson.n} shared with ${cls.name}` : `Lesson ${lesson.n} hidden from ${cls.name}'s students`);
-  };
-
+  // The class's next lesson opens on its own before a session — say when, or
+  // that the teacher's hiding it keeps it closed.
+  const held = (p.entry.heldLessonIds || []).includes(lesson.id);
+  const opensAt = !shared && kind === "next" && !held ? nextAutoShareLabel(cls.schedule) : "";
+  const autoLine = kind !== "next" || shared ? "" : held ? " It stays hidden until you share it." : opensAt ? ` Opens for students automatically ${opensAt}.` : "";
   return (
     <div className={`flex flex-wrap items-center gap-3 rounded-[14px] border border-neutral-400 bg-surface p-4 ${className}`}>
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${style.tile}`}>
@@ -66,14 +97,10 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
             {shared ? <><IconEye size={14} stroke={1.75} /> Students can see it</> : <><IconEyeOff size={14} stroke={1.75} /> Hidden from students</>}
           </span>
         </div>
-        <div className="mt-0.5 text-sm text-neutral-600">{line}</div>
+        <div className="mt-0.5 text-sm text-neutral-600">{line}{autoLine}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {/* This class's own notes on this lesson — see ClassNotes.jsx. */}
-        <ClassNotesButton cls={cls} lesson={lesson} onOpen={() => setNotesOpen(true)} />
-        <Button size="sm" variant="light" onClick={toggleShared}>
-          {shared ? <><IconEyeOff size={15} stroke={1.75} /> Hide from class</> : <><IconEye size={15} stroke={1.75} /> Share with class</>}
-        </Button>
+        <ShareLessonButton cls={cls} course={course} lesson={lesson} shared={shared} />
         {kind === "done" ? null : (
           <>
             {kind !== "next" && p.next && (
@@ -92,7 +119,6 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
           </>
         )}
       </div>
-      <ClassNotesPanel open={notesOpen} onClose={() => setNotesOpen(false)} cls={cls} course={course} lesson={lesson} />
     </div>
   );
 }

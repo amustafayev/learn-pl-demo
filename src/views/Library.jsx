@@ -1,34 +1,35 @@
 import React, { useState } from "react";
-import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  IconBookUpload, IconSend, IconDownload, IconChevronRight, IconChevronDown, IconArrowLeft, IconStack2, IconWand,
-  IconSparkles, IconArrowRight, IconTrash, IconBookmark, IconBuildingStore,
-  IconCode, IconCoffee, IconBriefcase, IconPlane, IconCertificate, IconStethoscope, IconBook, IconFileText, IconLanguage,
+  IconBookUpload, IconSend, IconDownload, IconArrowLeft, IconStack2, IconWand,
+  IconSparkles, IconArrowRight, IconTrash, IconPlus, IconBookmark, IconBuildingStore, IconFileText, IconLanguage,
 } from "@tabler/icons-react";
 import {
-  Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon, SearchField, Select,
+  Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
 } from "../design-system.jsx";
 import { useStore, discardH5PContent } from "../store.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import Playground from "./playground.jsx";
-import { COMPONENT_META, COMPONENT_CATEGORIES, ComponentStudent } from "./parts.jsx";
+import { COMPONENT_META, ComponentStudent, COMPONENT_BANK_CATEGORIES, componentCategoryOf } from "./parts.jsx";
+import LibraryTree from "../components/LibraryTree.jsx";
+import { kidsOf, descendantsOf, pathOf, pathLabel, subtreeWords } from "../libraryTree.js";
+import { BankBrowser, SavedComponentCard, parentOf } from "../components/SavedComponents.jsx";
 
 // Library owns its own nested routing (reading/words/playground/bank/
 // marketplace, plus a reader/word-set drill-down) directly with react-router
 // hooks — this is page-internal navigation, not a cross-page resource, so it
 // doesn't need to go through the shared useNav() shim the other pages use.
-const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "Components"], ["marketplace", "Marketplace"]];
+const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "Saved"], ["marketplace", "Marketplace"]];
 
 export default function Library() {
   const navigate = useNavigate();
   return (
     <Routes>
       <Route index element={<Navigate to="reading" replace />} />
-      <Route path="reading" element={<LibraryHome tab="reading"><ReadingList open={(id) => navigate(`/library/reading/${id}`)} /></LibraryHome>} />
+      <Route path="reading" element={<LibraryHome tab="reading"><ReadingList open={(id, folder) => navigate(`/library/reading/${id}${folder ? `?folder=${folder}` : ""}`)} /></LibraryHome>} />
       <Route path="reading/:textId" element={<ReaderPanelRoute />} />
-      <Route path="words" element={<LibraryHome tab="words"><WordSetsList open={(id) => navigate(`/library/words/${id}`)} /></LibraryHome>} />
-      <Route path="words/:setId" element={<WordSetPanelRoute />} />
+      <Route path="words" element={<LibraryHome tab="words"><WordSetsList /></LibraryHome>} />
       <Route path="playground" element={<LibraryHome tab="playground"><Playground /></LibraryHome>} />
       <Route path="bank" element={<LibraryHome tab="bank"><MyComponents /></LibraryHome>} />
       <Route path="marketplace" element={
@@ -62,36 +63,48 @@ function LibraryHome({ tab, children }) {
 
 function ReaderPanelRoute() {
   const { textId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
-  return <ReaderPanel textId={textId} back={() => navigate("/library/reading")} />;
+  return <ReaderPanel textId={textId} back={() => navigate(`/library/reading${params.get("folder") ? `?folder=${params.get("folder")}` : ""}`)} />;
 }
-function WordSetPanelRoute() {
-  const { setId } = useParams();
-  const navigate = useNavigate();
-  return <WordSetPanel setId={setId} back={() => navigate("/library/words")} />;
+
+/* ------------------------------- shared bits ------------------------------- */
+
+// "Delete X and everything in it?" — folders take their contents with them.
+function ConfirmDelete({ target, detail, onCancel, onConfirm }) {
+  const last = React.useRef(target);
+  if (target) last.current = target;
+  const t = target || last.current;
+  return (
+    <Modal open={!!target} onClose={onCancel} icon={IconTrash} iconTone="warning" title={`Delete “${t?.label || ""}”?`}
+      footer={<><Button variant="outline" onClick={onCancel}>Cancel</Button><Button onClick={onConfirm}>Delete</Button></>}>
+      <p className="text-sm text-neutral-700">{detail}</p>
+    </Modal>
+  );
 }
 
 /* ------------------------------- reading ------------------------------- */
 
-// Each topic gets its own card tint and icon, so a shelf of texts scans at a
-// glance instead of reading as identical gray tiles. Tints reuse the five
-// tones courses are colored with (IT and Everyday match their courses);
-// topics that share a tone are told apart by icon.
-const TOPIC_LOOK = {
-  IT: { tone: "primary", icon: IconCode },
-  Everyday: { tone: "pending", icon: IconCoffee },
-  Business: { tone: "success", icon: IconBriefcase },
-  Travel: { tone: "info", icon: IconPlane },
-  IELTS: { tone: "success", icon: IconCertificate },
-  Medical: { tone: "warning", icon: IconStethoscope },
-  Academic: { tone: "info", icon: IconBook },
-};
-const topicLook = (topic) => TOPIC_LOOK[topic] || { tone: "primary", icon: IconFileText };
+// A folder's top-level ancestor picks its card tint, so a shelf of texts
+// scans by where they live. Same five tones courses are colored with.
+const TONES = ["primary", "pending", "success", "info", "warning"];
 
 function ReadingList({ open }) {
-  const { state } = useStore();
+  const { state, dispatch, toast } = useStore();
+  const [params, setParams] = useSearchParams();
   const [add, setAdd] = useState(false);
   const [own, setOwn] = useState(false);
+  const [removing, setRemoving] = useState(null);
+  const folders = state.textFolders;
+  const selected = folders.some((f) => f.id === params.get("folder")) ? params.get("folder") : null;
+  const select = (id) => setParams(id ? { folder: id } : {}, { replace: true });
+
+  // Texts in a folder and in every folder below it.
+  const within = (id) => new Set([id, ...descendantsOf(folders, id).map((f) => f.id)]);
+  const textsIn = (id) => state.texts.filter((t) => within(id).has(t.folderId));
+  const shown = selected ? textsIn(selected) : state.texts;
+  const rootIndex = (id) => Math.max(0, kidsOf(folders, null).findIndex((r) => r.id === pathOf(folders, id)[0]?.id));
+
   return (
     <>
       <div className="rounded-2xl border border-info-200 bg-info-50 p-4 mb-5 flex items-center gap-3">
@@ -103,23 +116,39 @@ function ReadingList({ open }) {
         <Button variant="outline" size="sm" onClick={() => setOwn(true)}>Try it <IconArrowRight size={14} stroke={1.75} /></Button>
       </div>
 
-      <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>Reading texts · grouped by topic & level</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {state.texts.map((t) => {
-          const look = topicLook(t.topic);
-          return (
-            <CourseCard key={t.id} icon={look.icon} tone={look.tone} title={t.title}
-              category={`${t.topic} · Level ${t.level}`}
-              stats={[
-                { icon: IconFileText, value: `${t.wordCount} words` },
-                ...(t.hasTranslation ? [{ icon: IconLanguage, value: "Tap to translate" }] : []),
-              ]}
-              onViewDetail={() => open(t.id)} />
-          );
-        })}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] items-start">
+        <LibraryTree nodes={folders} labelKey="name" selectedId={selected} onSelect={select} rootLabel="All readings"
+          countOf={(f) => textsIn(f.id).length} addLabel="New folder"
+          onAdd={(parentId, name) => dispatch({ type: "ADD_TEXT_FOLDER", parentId, name })}
+          onRename={(id, name) => dispatch({ type: "RENAME_TEXT_FOLDER", id, name })}
+          onDelete={(f) => setRemoving({ id: f.id, label: f.name })} />
+        <div className="min-w-0">
+          <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>
+            {selected ? pathLabel(folders, selected, "name") : "All readings"}
+          </SectionLabel>
+          {shown.length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {shown.map((t) => (
+                <CourseCard key={t.id} tone={TONES[rootIndex(t.folderId) % TONES.length]} title={t.title}
+                  category={`${pathLabel(folders, t.folderId, "name") || "No folder"} · Level ${t.level}`}
+                  stats={[
+                    { icon: IconFileText, value: `${t.wordCount} words` },
+                    ...(t.hasTranslation ? [{ icon: IconLanguage, value: "Tap to translate" }] : []),
+                  ]}
+                  onViewDetail={() => open(t.id, selected)} />
+              ))}
+            </div>
+          ) : (
+            <Card className="p-8 text-center text-sm text-neutral-600">No readings here yet — add one, or make a folder inside this one to organize them.</Card>
+          )}
+        </div>
       </div>
-      <AddTextModal open={add} onClose={() => setAdd(false)} />
+
+      <AddTextModal open={add} onClose={() => setAdd(false)} folderId={selected} />
       <OwnTextModal open={own} onClose={() => setOwn(false)} />
+      <ConfirmDelete target={removing} onCancel={() => setRemoving(null)}
+        detail={removing ? `This also deletes the folders inside it and the ${textsIn(removing.id).length} reading(s) in them.` : ""}
+        onConfirm={() => { dispatch({ type: "DELETE_TEXT_FOLDER", id: removing.id }); if (selected === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
     </>
   );
 }
@@ -132,7 +161,7 @@ function ReaderPanel({ textId, back }) {
   return (
     <Page>
       <button onClick={back} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4"><IconArrowLeft size={14} stroke={1.75} /> Library</button>
-      <PageHeader title={text.title} sub={`${text.topic} · ${text.level} · ${text.wordCount} words`}
+      <PageHeader title={text.title} sub={`${pathLabel(state.textFolders, text.folderId, "name") || "No folder"} · ${text.level} · ${text.wordCount} words`}
         right={<div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => toast("Vocabulary list exported (.csv)")}><IconDownload size={14} stroke={1.75} /> Export vocab</Button>
           <Button variant="primary" size="sm" onClick={() => setAssign(true)}><IconSend size={14} stroke={1.75} /> Assign</Button>
@@ -159,58 +188,101 @@ function ReaderPanel({ textId, back }) {
 
 /* ------------------------------- word sets ------------------------------- */
 
-function WordSetsList({ open }) {
-  const { state } = useStore();
+const WORD_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2"];
+
+// A word set is a folder: its own words, plus word sets inside it, nested to
+// any depth — IELTS → Linkers → Contrast → the words.
+function WordSetsList() {
+  const { state, dispatch, toast } = useStore();
+  const [params, setParams] = useSearchParams();
+  const [removing, setRemoving] = useState(null);
+  const [assign, setAssign] = useState(false);
+  const sets = state.wordSets;
+  const selectedId = sets.some((w) => w.id === params.get("set")) ? params.get("set") : null;
+  const select = (id) => setParams(id ? { set: id } : {}, { replace: true });
+  const node = sets.find((w) => w.id === selectedId) || null;
+  const total = (id) => subtreeWords(sets, id).length;
+
   return (
     <>
-      <SectionLabel>Category word sets</SectionLabel>
-      {/* One list card with a column header, the same shape as the course
-          tree — a set is just a named list of words, nothing to preview. */}
-      <Card className="overflow-hidden">
-        <div className="flex items-center gap-4 bg-neutral-50 px-5 py-2.5 border-b border-neutral-200">
-          <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Word set</span>
-          <span className="hidden sm:block w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Category</span>
-          <span className="hidden sm:block w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Level</span>
-          <span className="hidden sm:block w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">Words</span>
-          <span className="w-4 shrink-0" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] items-start">
+        <LibraryTree nodes={sets} labelKey="title" selectedId={selectedId} onSelect={select} rootLabel="All word sets"
+          countOf={(n) => total(n.id)} addLabel="New word set"
+          onAdd={(parentId, title) => dispatch({ type: "ADD_WORDSET", parentId, title })}
+          onRename={(id, title) => dispatch({ type: "UPDATE_WORDSET", id, patch: { title } })}
+          onDelete={(n) => setRemoving({ id: n.id, label: n.title })} />
+        <div className="min-w-0">
+          {node ? (
+            <WordSetPane key={node.id} node={node} path={pathLabel(sets, node.id)} below={total(node.id) - node.words.length} onAssign={() => setAssign(true)} />
+          ) : (
+            <Card className="p-8 text-center text-sm text-neutral-600">
+              <IconStack2 size={22} stroke={1.5} className="mx-auto mb-2 text-neutral-500" />
+              Pick a word set on the left to see its words — or press <b>New word set</b> to start one. Use the folder icon on a set to add a category inside it.
+            </Card>
+          )}
         </div>
-        <div className="divide-y divide-neutral-200">
-          {state.wordSets.map((ws) => (
-            <button key={ws.id} onClick={() => open(ws.id)}
-              className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-(--dur-fast) hover:bg-neutral-50">
-              <span className="flex-1 min-w-0 flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0"><IconStack2 size={16} stroke={1.75} /></span>
-                <span className="min-w-0">
-                  <span className="block font-semibold text-neutral-950 truncate">{ws.title}</span>
-                  <span className="block sm:hidden text-xs text-neutral-500 mt-0.5">{ws.category} · {ws.level} · {ws.words.length} words</span>
-                </span>
-              </span>
-              <span className="hidden sm:block w-28 shrink-0"><Tag color="neutral">{ws.category}</Tag></span>
-              <span className="hidden sm:block w-16 shrink-0 text-sm text-neutral-700">{ws.level}</span>
-              <span className="hidden sm:block w-16 shrink-0 text-sm tabular-nums text-neutral-700">{ws.words.length}</span>
-              <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-neutral-400" />
-            </button>
-          ))}
-        </div>
-      </Card>
+      </div>
+      {node && <AssignModal open={assign} onClose={() => setAssign(false)} item={{ kind: "wordSet", title: node.title, source: { wordSetId: node.id } }} />}
+      <ConfirmDelete target={removing} onCancel={() => setRemoving(null)}
+        detail={removing ? `This also deletes the word sets inside it — ${total(removing.id)} word(s) in all.` : ""}
+        onConfirm={() => { dispatch({ type: "DELETE_WORDSET", id: removing.id }); if (selectedId === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
     </>
   );
 }
 
-// A set's words as a plain list — the same Word list students get in a
-// lesson, so the two never drift apart.
-function WordSetPanel({ setId, back }) {
-  const { state } = useStore();
-  const [assign, setAssign] = useState(false);
-  const ws = state.wordSets.find((w) => w.id === setId);
+// One word set: its path, level, and its own words — edited in place.
+function WordSetPane({ node, path, below, onAssign }) {
+  const { dispatch } = useStore();
+  const [draft, setDraft] = useState({ term: "", az: "", def: "" });
+  const add = () => {
+    if (!draft.term.trim()) return;
+    dispatch({ type: "ADD_WORD", setId: node.id, word: draft });
+    setDraft({ term: "", az: "", def: "" });
+  };
+  const edit = (index, field, value) => {
+    if (value.trim() === (node.words[index][field] || "")) return;
+    if (field === "term" && !value.trim()) return;
+    dispatch({ type: "UPDATE_WORD", setId: node.id, index, patch: { [field]: value.trim() } });
+  };
+  const cell = "h-9 w-full rounded-lg border border-transparent bg-transparent px-2 text-sm text-neutral-900 outline-none hover:border-neutral-400 focus:border-primary-500 focus:bg-surface";
   return (
-    <Page>
-      <button onClick={back} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4"><IconArrowLeft size={14} stroke={1.75} /> Library</button>
-      <PageHeader title={ws.title} sub={`${ws.category} · ${ws.level} · ${ws.words.length} words`}
-        right={<Button variant="primary" size="sm" onClick={() => setAssign(true)}><IconSend size={14} stroke={1.75} /> Assign set</Button>} />
-      <ComponentStudent component={{ id: ws.id, kind: "wordlist", items: ws.words }} />
-      <AssignModal open={assign} onClose={() => setAssign(false)} item={{ kind: "wordSet", title: ws.title, source: { wordSetId: ws.id } }} />
-    </Page>
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-400 px-5 py-4">
+        <div className="min-w-0">
+          <div className="truncate text-base font-semibold text-neutral-950">{node.title}</div>
+          <div className="truncate text-xs text-neutral-600">{path} · {node.words.length} word{node.words.length === 1 ? "" : "s"}{below > 0 ? ` here, ${below} in word sets inside` : ""}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={node.level || ""} aria-label="Level" onChange={(e) => dispatch({ type: "UPDATE_WORDSET", id: node.id, patch: { level: e.target.value } })}
+            className="h-9 rounded-lg border border-neutral-400 bg-surface px-2 text-sm font-semibold text-neutral-800 outline-none focus:border-primary-500">
+            {WORD_LEVELS.map((l) => <option key={l} value={l}>{l ? `Level ${l}` : "No level"}</option>)}
+          </select>
+          <Button size="sm" onClick={onAssign}><IconSend size={14} stroke={1.75} /> Assign</Button>
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="hidden sm:grid grid-cols-[1fr_1fr_2fr_2rem] gap-2 px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <span>Word</span><span>Azerbaijani</span><span>Meaning</span><span />
+        </div>
+        {node.words.map((w, i) => (
+          <div key={`${node.id}-${i}-${w.term}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_2rem] items-center gap-2">
+            <input className={`${cell} font-semibold`} defaultValue={w.term} aria-label="Word" onBlur={(e) => edit(i, "term", e.target.value)} />
+            <input className={cell} defaultValue={w.az} aria-label="Azerbaijani" onBlur={(e) => edit(i, "az", e.target.value)} />
+            <input className={cell} defaultValue={w.def} aria-label="Meaning" onBlur={(e) => edit(i, "def", e.target.value)} />
+            <button type="button" title="Delete word" aria-label="Delete word" onClick={() => dispatch({ type: "DELETE_WORD", setId: node.id, index: i })}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-warning-50 hover:text-warning-600"><IconTrash size={15} stroke={1.75} /></button>
+          </div>
+        ))}
+        {!node.words.length && <p className="px-2 py-4 text-sm text-neutral-600">No words in this one yet{below > 0 ? " — its words are in the word sets inside it" : ""}. Add the first below.</p>}
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_auto] items-center gap-2 border-t border-neutral-400 pt-3">
+          {[["term", "New word"], ["az", "Azerbaijani"], ["def", "Meaning"]].map(([k, ph]) => (
+            <input key={k} className="h-9 rounded-lg border border-neutral-400 bg-surface px-3 text-sm text-neutral-900 outline-none focus:border-primary-500" placeholder={ph} aria-label={ph}
+              value={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") add(); }} />
+          ))}
+          <Button size="sm" variant={draft.term.trim() ? "primary" : "disabled"} onClick={add}><IconPlus size={14} stroke={1.75} /> Add</Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -251,122 +323,21 @@ function OwnTextModal({ open, onClose }) {
 
 /* --------------------------- component library (bank) --------------------------- */
 
-// A collapsible group for one category of saved components.
-function BankGroup({ label, icon: Icon, count, shown, onShowAll, children }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <div className="mb-6 last:mb-0">
-      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 mb-3 group">
-        {open ? <IconChevronDown size={14} stroke={1.75} className="text-neutral-300 shrink-0" /> : <IconChevronRight size={14} stroke={1.75} className="text-neutral-300 shrink-0" />}
-        {Icon && <Icon size={14} stroke={1.75} className="text-neutral-600 shrink-0" />}
-        <h3 className="text-sm font-bold text-neutral-700 group-hover:text-primary-600 transition-colors">{label}</h3>
-        <Tag color="neutral">{count}</Tag>
-        <div className="flex-1 h-px bg-neutral-200" />
-      </button>
-      {open && children}
-      {open && onShowAll && count > shown && (
-        <div className="mt-3"><Button variant="light" size="sm" onClick={onShowAll}>Show all {count}</Button></div>
-      )}
-    </div>
-  );
-}
-
-// How many cards a category shows in the overview, and how many more each
-// "Show more" reveals once a single category is open — a bank can hold
-// hundreds of items, so nothing renders unbounded.
-const PREVIEW_COUNT = 6;
-const PAGE_SIZE = 24;
-
-// Search + category/course filters + categorized, paged grid, shared by the
-// saved Blocks and saved Components lists. `categories` is [{id, label, icon}]
-// in display order; `categoryOf(item)` returns one of those ids.
-function BankBrowser({ items, categories, categoryOf, searchText, courseOf, noun, empty, renderCard }) {
-  const [query, setQuery] = useState("");
-  const [cat, setCat] = useState("all");
-  const [course, setCourse] = useState("all");
-  const [limit, setLimit] = useState(PAGE_SIZE);
-
-  const q = query.trim().toLowerCase();
-  const courses = [...new Set(items.map(courseOf))].sort();
-  const matches = items.filter((it) =>
-    (course === "all" || courseOf(it) === course) && (!q || searchText(it).toLowerCase().includes(q)));
-  const counts = new Map();
-  for (const it of matches) counts.set(categoryOf(it), (counts.get(categoryOf(it)) || 0) + 1);
-  const groups = categories
-    .map((c) => ({ ...c, items: matches.filter((it) => categoryOf(it) === c.id) }))
-    .filter((g) => g.items.length && (cat === "all" || g.id === cat));
-  const reset = (fn) => (e) => { fn(e.target.value); setLimit(PAGE_SIZE); };
-
-  if (!items.length) return empty;
-  return (
-    <>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <SearchField className="flex-1" placeholder={`Search ${noun} by name, course or component`} value={query} onChange={reset(setQuery)} />
-        <Select className="sm:w-52" value={cat} onChange={reset(setCat)} aria-label="Category">
-          <option value="all">All categories ({matches.length})</option>
-          {categories.filter((c) => counts.get(c.id)).map((c) => <option key={c.id} value={c.id}>{c.label} ({counts.get(c.id)})</option>)}
-        </Select>
-        {courses.length > 1 && (
-          <Select className="sm:w-52" value={course} onChange={reset(setCourse)} aria-label="Course">
-            <option value="all">All courses</option>
-            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
-          </Select>
-        )}
-      </div>
-      {groups.length ? groups.map((g) => {
-        const single = cat !== "all";
-        const shown = single ? limit : PREVIEW_COUNT;
-        return (
-          <BankGroup key={g.id} label={g.label} icon={g.icon} count={g.items.length} shown={shown}
-            onShowAll={single ? () => setLimit((n) => n + PAGE_SIZE) : () => { setCat(g.id); setLimit(PAGE_SIZE); }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{g.items.slice(0, shown).map(renderCard)}</div>
-          </BankGroup>
-        );
-      }) : (
-        <Card className="p-8 text-center text-sm text-neutral-500">No {noun} match your search.</Card>
-      )}
-    </>
-  );
-}
-
-const COMPONENT_BANK_CATEGORIES = [
-  ...COMPONENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
-  { id: "other", label: "Other" },
-];
-const componentCategoryOf = (item) => COMPONENT_CATEGORIES.find((c) => c.kinds.includes(item.kind))?.id || "other";
-const parentOf = (item) => (item.from || "Other").split(" · ")[0] || "Other";
-
 function MyComponents() {
   const { state, dispatch, toast } = useStore();
   const [open, setOpen] = useState(null); // the saved component being previewed
   const components = state.componentBank || [];
 
-  const componentCard = (item) => {
-    const M = COMPONENT_META[item.kind] || { label: item.kind, icon: IconStack2, tone: "bg-neutral-100 text-neutral-600" };
-    const I = M.icon;
-    return (
-      <Card key={item.id} className="p-5 cursor-pointer hover:border-primary-500 transition-colors" role="button" tabIndex={0}
-        onClick={() => setOpen(item)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(item); } }}>
-        <div className="flex items-center justify-between mb-3">
-          <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${M.tone}`}><I size={16} /></span>
-          <div className="flex items-center gap-1.5">
-            {item.data?.level && <Tag color="neutral">{item.data.level}</Tag>}
-            <button title="Delete from Component Library"
-              onClick={(e) => { e.stopPropagation(); discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Component Library`); }}
-              className="text-neutral-400 hover:text-warning-500 p-1"><IconTrash size={14} stroke={1.75} /></button>
-          </div>
-        </div>
-        <div className="font-bold mb-0.5 text-neutral-950">{item.title}</div>
-        <div className="text-xs text-neutral-500">{M.label}{item.from ? ` · ${item.from}` : ""}</div>
-      </Card>
-    );
-  };
+  const componentCard = (item) => (
+    <SavedComponentCard key={item.id} item={item} onOpen={() => setOpen(item)}
+      onDelete={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Saved`); }} />
+  );
 
   return (
     <>
       <BankBrowser
         items={components} categories={COMPONENT_BANK_CATEGORIES} categoryOf={componentCategoryOf}
-        courseOf={parentOf} noun="components" renderCard={componentCard}
+        courseOf={parentOf} noun="saved items" renderCard={componentCard}
         searchText={(i) => `${i.title} ${i.from || ""} ${COMPONENT_META[i.kind]?.label || i.kind}`}
         empty={(
           <Card className="p-8 text-center text-sm text-neutral-500">
@@ -380,7 +351,7 @@ function MyComponents() {
       </Modal>
 
       <p className="text-xs text-neutral-500 mt-6">
-        Insert a saved component while editing a block: <b>Add component → My Component Library</b>. It drops in as a copy, so editing it never touches the saved original.
+        Insert a saved component while editing a block: <b>Add component → Saved</b>. It drops in as a copy, so editing it never touches the saved original.
       </p>
     </>
   );

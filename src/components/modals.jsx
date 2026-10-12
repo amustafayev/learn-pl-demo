@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
+import { pathLabel } from "../libraryTree.js";
 import { useStore, activeStudents, assignWork } from "../store.jsx";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
@@ -117,10 +118,12 @@ function extractTokens(root) {
   return tokens;
 }
 
-export function AddTextModal({ open, onClose }) {
-  const { dispatch, toast } = useStore();
+export function AddTextModal({ open, onClose, folderId = null }) {
+  const { state, dispatch, toast } = useStore();
   const [title, setTitle] = useState("");
-  const [topic, setTopic] = useState("IT");
+  // The folder the text goes in: the one open in the Library, until changed.
+  const [picked, setPicked] = useState(null);
+  const folder = picked ?? folderId ?? state.textFolders[0]?.id ?? null;
   const [level, setLevel] = useState("B1");
   const [isEmpty, setIsEmpty] = useState(true);
   const [popover, setPopover] = useState(null); // { mode: "new"|"edit", top, left, text, color, az, def, example }
@@ -128,7 +131,7 @@ export function AddTextModal({ open, onClose }) {
   const pendingRangeRef = useRef(null);
   const pendingMarkRef = useRef(null);
 
-  function reset() { setTitle(""); setPopover(null); pendingRangeRef.current = null; pendingMarkRef.current = null; }
+  function reset() { setTitle(""); setPicked(null); setPopover(null); pendingRangeRef.current = null; pendingMarkRef.current = null; }
   function closePopover() { setPopover(null); pendingRangeRef.current = null; pendingMarkRef.current = null; }
 
   function handleMouseUp() {
@@ -183,7 +186,7 @@ export function AddTextModal({ open, onClose }) {
     const bodyTokens = extractTokens(root);
     const hasTranslation = bodyTokens.some((t) => t.term);
     const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
-    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), topic, level, wordCount, hasTranslation, body: bodyTokens } });
+    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), folderId: folder, level, wordCount, hasTranslation, body: bodyTokens } });
     toast("Text added to the library");
     reset(); onClose();
   }
@@ -194,9 +197,9 @@ export function AddTextModal({ open, onClose }) {
       footer={<><Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button><Button onClick={create}>Add to library</Button></>}>
       <Field label="Title"><TextField value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sprint retrospective" autoFocus /></Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Topic">
-          <Select value={topic} onChange={(e) => setTopic(e.target.value)}>
-            {["Everyday", "IT", "Business", "Medical", "Travel", "IELTS", "Academic"].map((t) => <option key={t}>{t}</option>)}
+        <Field label="Folder">
+          <Select value={folder || ""} onChange={(e) => setPicked(e.target.value)}>
+            {state.textFolders.map((f) => <option key={f.id} value={f.id}>{pathLabel(state.textFolders, f.id, "name")}</option>)}
           </Select>
         </Field>
         <Field label="Level">

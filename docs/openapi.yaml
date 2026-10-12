@@ -1,0 +1,2250 @@
+openapi: 3.0.3
+info:
+  title: Lucid — backend API
+  version: 0.1.0
+  description: |
+    The API the Lucid frontends need, written from what they do today. There are
+    two clients: the **teacher app** (`src/`) and the **student app** (`student/`,
+    served at `/student/`). Both currently run on a mock database
+    (`src/db/mockDb.jsx`); every `case` in that reducer is one endpoint here, and
+    its rules are written into the operation descriptions so the backend can
+    reproduce them. The frontend swaps the mock for these calls in one place.
+
+    ## Conventions
+    - Base path `/api/v1`. JSON everywhere except file upload (`multipart/form-data`).
+    - Auth: `Authorization: Bearer <JWT>` (the frontend's `apiClient` carries it via
+      `setAuthToken`). The token says whether the caller is a **teacher** or a **student**.
+    - Errors are always `{ "code": string, "description": string }` — the shape the
+      frontend's `ApiError` normalizes to, so `description` can be shown in a toast.
+    - IDs are opaque strings. Timestamps are RFC 3339 UTC. The **server stamps all
+      times**; clients never send `createdAt`, `taughtAt`, `decidedAt`, etc.
+    - Weekdays are `0 = Monday … 6 = Sunday`. Schedule times are `HH:MM` wall-clock
+      in the **class's time zone** (the frontend currently uses the viewer's local
+      time; store a `timeZone` on the class once there are real accounts).
+    - Lists are plain arrays for now; add `limit`/`cursor` when a list can grow large.
+
+    ## Visibility rules (the server must enforce them, not the client)
+    - A **teacher** sees a student **only through a relationship**: an active/past
+      membership in one of their classes, or a purchase of one of their courses.
+      There is no platform-wide student list or search.
+    - A **student** sees their own record, their memberships and those classes, their
+      purchases, invitations to their email, the courses they can reach (their
+      classes', bought, and the public catalog), and **only notes sent to them**.
+    - **Lesson access rule** — a student may open lesson *L* of course *C* **iff** they
+      hold a `paid` purchase of *C*, **or** they are an `active` member of a class
+      taking *C* **and** *L* is in that class's `releasedLessonIds`. Every endpoint
+      that returns lesson content to a student must go through this one check.
+
+    ## Background job: auto-share the next lesson
+    Not an endpoint. Every minute the server runs: for each class with a `schedule`,
+    if *now* is inside `[session start − 5 min, session end)` of any session, and the
+    class's course is `in-progress`, and its `currentLessonId` is not already released
+    and **not** in `heldLessonIds`, add it to `releasedLessonIds` and push a
+    `lesson.released` event. Hiding a lesson (`PUT …/released/{lessonId}` with
+    `released:false`) adds it to `heldLessonIds` so this job never undoes the
+    teacher; sharing it again removes the hold.
+
+    ## Real time
+    `GET /events` is a server-sent-events stream that replaces the frontends'
+    same-browser `BroadcastChannel` sync. See that operation for the event types.
+
+    ## Suggested module split (Go backend `cmd/<name>`)
+    `iam` (auth, profile) · `course` (courses, lessons, blocks, library, saved
+    components, media, lesson notes) · `class` (classes, schedule, membership,
+    invitations, taught lessons, attendance, blocked students) · `learning`
+    (student app reads, access rule, completions, assignments, purchases, history).
+    Each tag carries an `x-module` hint.
+
+    ## Not covered (frontend still on seed data — no endpoint to design yet)
+    Level tests, AI insights / per-student analytics tabs, the marketplace, and the
+    Playground word games read static seed data only. The H5P content server is
+    existing code (`server/`, mounted at `/h5p`) and is only summarised below.
+  contact:
+    name: Lucid frontend
+servers:
+  - url: /api/v1
+    description: Same origin as the frontends (dev proxy or deployed rewrite)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - { name: "Auth", description: "Sign up, log in, the signed-in user and their profile.", x-module: iam }
+  - { name: "Courses", description: "A teacher's courses and their sale settings.", x-module: course }
+  - { name: Lessons & blocks, description: "Lessons of a course, and the blocks (steps) inside a lesson, each holding components.", x-module: course }
+  - { name: "Library — reading", description: "Reading texts in a folder tree.", x-module: course }
+  - { name: "Library — word sets", description: "Word sets as a folder tree; words live in the nodes.", x-module: course }
+  - { name: "Saved components", description: "The teacher's saved-component library (\"Saved\").", x-module: course }
+  - { name: "Media", description: "Uploaded files (Listening audio, Document files).", x-module: course }
+  - { name: Lesson notes, description: "One rich-text notes document per lesson, optionally a Google Doc, sent to classes.", x-module: course }
+  - { name: "Classes", description: "Classes, schedule, course progress, taught lessons and attendance.", x-module: class }
+  - { name: Joining, description: "Class link/code, requests, invitations, members, blocked students.", x-module: class }
+  - { name: "Sales", description: "Course purchases (self-paced product).", x-module: learning }
+  - { name: Students, description: "The teacher's view of their students: roster, history, assigned work.", x-module: learning }
+  - { name: Student app, description: "What the signed-in student reads and does.", x-module: learning }
+  - { name: "Realtime", description: "Server-sent events.", x-module: learning }
+  - { name: H5P, description: "Existing H5P content server (server/), mounted at /h5p — summary only.", x-module: course }
+
+paths:
+  # ───────────────────────────── Auth & profile ─────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Sign up (teacher or student)
+      description: |
+        One account per email (case-insensitive) → `409 email_taken`. A new **student**
+        is visible to no teacher until they join a class or buy a course (visibility
+        rule). Mirrors `REGISTER_STUDENT`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201": { description: "Account created and signed in", content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200": { description: "Signed in", content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Log out (revoke the token)
+      responses:
+        "204": { description: "Signed out" }
+  /me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: The signed-in user
+      responses:
+        "200":
+          description: The caller, as a teacher or a student
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/Teacher" }
+                  - { $ref: "#/components/schemas/Student" }
+                discriminator:
+                  propertyName: role
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [Auth]
+      operationId: updateMyProfile
+      summary: Update the teacher's profile (Settings → Profile)
+      description: Mirrors `UPDATE_TEACHER_PROFILE`. Teachers only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+      responses:
+        "200": { description: "Updated profile", content: { application/json: { schema: { $ref: "#/components/schemas/Teacher" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /me/two-factor:
+    put:
+      tags: [Auth]
+      operationId: setTwoFactor
+      summary: Turn two-factor authentication on or off
+      description: Mirrors `SET_TEACHER_2FA`. Enabling needs an enrolment step the frontend does not show yet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Teacher" } } } }
+
+  # ───────────────────────────── Courses ─────────────────────────────
+  /courses:
+    get:
+      tags: [Courses]
+      operationId: listCourses
+      summary: The teacher's courses
+      description: "Teacher: their own courses only. (Students use `/me/courses` and `/catalog/courses`.)"
+      responses:
+        "200": { description: "Courses", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Course" } } } } }
+    post:
+      tags: [Courses]
+      operationId: createCourse
+      summary: Create a course
+      description: Mirrors `ADD_COURSE`. Starts with no lessons and `sale.forSale = false`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                level: { type: string, example: B1 → B2 }
+                hue: { $ref: "#/components/schemas/CourseHue" }
+                templateId: { $ref: "#/components/schemas/LessonTemplateId" }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Course" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /courses/{courseId}:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }]
+    get:
+      tags: [Courses]
+      operationId: getCourse
+      summary: One course
+      responses:
+        "200": { description: "The course", content: { application/json: { schema: { $ref: "#/components/schemas/Course" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Courses]
+      operationId: updateCourse
+      summary: Edit a course, including its sale settings
+      description: |
+        Partial update. `sale` is merged field by field (`UPDATE_COURSE_SALE`).
+        Taking a course **off sale** stops new purchases but existing buyers keep
+        access. Owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                level: { type: string }
+                hue: { $ref: "#/components/schemas/CourseHue" }
+                sale: { $ref: "#/components/schemas/Sale" }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Course" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── Lessons & blocks ─────────────────────────────
+  /courses/{courseId}/lessons:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }]
+    get:
+      tags: [Lessons & blocks]
+      operationId: listLessons
+      summary: Lessons of a course, in order
+      description: Authoring view (teacher). Blocks are returned in full by the single-lesson read; here only a summary.
+      responses:
+        "200": { description: "Lessons", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/LessonSummary" } } } } }
+    post:
+      tags: [Lessons & blocks]
+      operationId: createLesson
+      summary: Add a lesson
+      description: |
+        Mirrors `ADD_LESSON`. `n` is assigned by the server (count + 1). A lesson with
+        no blocks is *unbuilt*: the server fills it from the course template's starter
+        blocks on first read (this replaces the frontend's `ENSURE_BUILT`) so a lesson
+        always returns a concrete `blocks` array with stable block ids.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Lesson" } } } }
+  /courses/{courseId}/lessons/{lessonId}:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    get:
+      tags: [Lessons & blocks]
+      operationId: getLesson
+      summary: One lesson with all its blocks and components
+      responses:
+        "200": { description: "The lesson", content: { application/json: { schema: { $ref: "#/components/schemas/Lesson" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /courses/{courseId}/lessons/{lessonId}/blocks:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    post:
+      tags: [Lessons & blocks]
+      operationId: addBlock
+      summary: Add a block (step) to a lesson, at the end
+      description: Mirrors `ADD_PART`. `content` may be omitted for a block of a type's starter components.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlockInput" }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Block" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /courses/{courseId}/lessons/{lessonId}/blocks/{blockId}:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }, { $ref: "#/components/parameters/BlockId" }]
+    patch:
+      tags: [Lessons & blocks]
+      operationId: updateBlock
+      summary: Rename a block or replace its components
+      description: |
+        Mirrors `UPDATE_PART`. Send `title` to rename, `content` to replace the whole
+        components list (the editor saves the full list). Every component keeps its
+        id. H5P components keep their `contentId` (see the H5P tag for copying).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                meta: { type: string }
+                content: { $ref: "#/components/schemas/BlockContent" }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Block" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Lessons & blocks]
+      operationId: removeBlock
+      summary: Remove a block
+      description: |
+        Mirrors `REMOVE_PART`. The client deletes the H5P content the block referenced
+        (`DELETE /h5p/{contentId}`); a backend that owns H5P may do it itself.
+      responses:
+        "204": { description: "Removed" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /courses/{courseId}/lessons/{lessonId}/blocks/{blockId}/move:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }, { $ref: "#/components/parameters/BlockId" }]
+    post:
+      tags: [Lessons & blocks]
+      operationId: moveBlock
+      summary: Move a block up or down one place
+      description: Mirrors `MOVE_PART`. Moving past either end is a no-op (returns the unchanged order).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [direction]
+              properties:
+                direction: { type: string, enum: [up, down] }
+      responses:
+        "200": { description: "The lesson's blocks in their new order", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Block" } } } } }
+
+  # ───────────────────────────── Library — reading ─────────────────────────────
+  /library/reading/folders:
+    get:
+      tags: [Library — reading]
+      operationId: listReadingFolders
+      summary: All reading folders (flat; build the tree with `parentId`)
+      responses:
+        "200": { description: "Folders", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ReadingFolder" } } } } }
+    post:
+      tags: [Library — reading]
+      operationId: createReadingFolder
+      summary: New folder (top level when `parentId` is null)
+      description: Mirrors `ADD_TEXT_FOLDER`. Empty names are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                parentId: { type: string, nullable: true }
+                name: { type: string }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingFolder" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /library/reading/folders/{folderId}:
+    parameters: [{ $ref: "#/components/parameters/FolderId" }]
+    patch:
+      tags: [Library — reading]
+      operationId: renameReadingFolder
+      summary: Rename a folder
+      description: Mirrors `RENAME_TEXT_FOLDER`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200": { description: "Renamed", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingFolder" } } } }
+    delete:
+      tags: [Library — reading]
+      operationId: deleteReadingFolder
+      summary: Delete a folder **and everything in it**
+      description: |
+        Mirrors `DELETE_TEXT_FOLDER`: deletes the folder, every folder below it, and
+        every reading text in them. The frontend asks for confirmation first. Return
+        how much was removed so the UI can say so.
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedFolders: { type: integer }
+                  deletedTexts: { type: integer }
+  /library/reading/texts:
+    get:
+      tags: [Library — reading]
+      operationId: listReadingTexts
+      summary: Reading texts, optionally only those in a folder and below it
+      parameters:
+        - { name: folderId, in: query, schema: { type: string }, description: "Texts in this folder **and every folder below it**. Omit for all." }
+      responses:
+        "200": { description: "Texts (without `body`)", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ReadingTextSummary" } } } } }
+    post:
+      tags: [Library — reading]
+      operationId: createReadingText
+      summary: Add a reading text to a folder
+      description: Mirrors `ADD_TEXT`. `wordCount` and `hasTranslation` may be computed by the server from `body`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReadingTextInput" }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingText" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /library/reading/texts/{textId}:
+    parameters: [{ $ref: "#/components/parameters/TextId" }]
+    get:
+      tags: [Library — reading]
+      operationId: getReadingText
+      summary: One reading text with its tagged body
+      description: Teachers read their own; a student may read a text only through an assignment of it (`source.textId`).
+      responses:
+        "200": { description: "The text", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingText" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── Library — word sets ─────────────────────────────
+  /library/word-sets:
+    get:
+      tags: [Library — word sets]
+      operationId: listWordSets
+      summary: All word-set nodes (flat; build the tree with `parentId`)
+      description: Each node returns its **own** words; `wordCountBelow` counts the words in nodes under it.
+      responses:
+        "200": { description: "Nodes", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WordSet" } } } } }
+    post:
+      tags: [Library — word sets]
+      operationId: createWordSet
+      summary: New word set (a top-level folder) or a word set inside another
+      description: Mirrors `ADD_WORDSET`. Empty titles are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                parentId: { type: string, nullable: true }
+                title: { type: string }
+                level: { $ref: "#/components/schemas/WordLevel" }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/WordSet" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /library/word-sets/{setId}:
+    parameters: [{ $ref: "#/components/parameters/SetId" }]
+    patch:
+      tags: [Library — word sets]
+      operationId: updateWordSet
+      summary: Rename a word set or change its level
+      description: Mirrors `UPDATE_WORDSET`. An empty title is rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                level: { $ref: "#/components/schemas/WordLevel" }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/WordSet" } } } }
+    delete:
+      tags: [Library — word sets]
+      operationId: deleteWordSet
+      summary: Delete a word set **and every word set inside it**
+      description: Mirrors `DELETE_WORDSET` (cascade). The frontend asks first; assignments that pointed at it show "no longer in the library".
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedSets: { type: integer }
+                  deletedWords: { type: integer }
+  /library/word-sets/{setId}/words:
+    parameters: [{ $ref: "#/components/parameters/SetId" }]
+    get:
+      tags: [Library — word sets]
+      operationId: listWordSetWords
+      summary: Words of a set; `includeBelow=true` flattens the whole subtree
+      description: Used when assigning a set (a student receives the set's words and everything below it) and by the student app's word-set view.
+      parameters:
+        - { name: includeBelow, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: "Words in tree order", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Word" } } } } }
+    post:
+      tags: [Library — word sets]
+      operationId: addWord
+      summary: Add a word to a set
+      description: Mirrors `ADD_WORD`. `term` is required and trimmed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WordInput" }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Word" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /library/word-sets/{setId}/words/{wordId}:
+    parameters: [{ $ref: "#/components/parameters/SetId" }, { $ref: "#/components/parameters/WordId" }]
+    patch:
+      tags: [Library — word sets]
+      operationId: updateWord
+      summary: Edit a word
+      description: |
+        Mirrors `UPDATE_WORD`. **Note:** the mock identifies a word by array index; the
+        backend should give every word a stable `id` (this operation assumes it). An
+        empty `term` is rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                term: { type: string }
+                az: { type: string }
+                def: { type: string }
+                example: { type: string }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Word" } } } }
+    delete:
+      tags: [Library — word sets]
+      operationId: deleteWord
+      summary: Delete a word
+      description: Mirrors `DELETE_WORD`.
+      responses:
+        "204": { description: "Deleted" }
+
+  # ───────────────────────────── Saved components ─────────────────────────────
+  /library/saved-components:
+    get:
+      tags: [Saved components]
+      operationId: listSavedComponents
+      summary: The teacher's saved components, newest first
+      responses:
+        "200": { description: "Saved components", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SavedComponent" } } } } }
+    post:
+      tags: [Saved components]
+      operationId: saveComponent
+      summary: Save a component to "Saved"
+      description: |
+        Mirrors `SAVE_COMPONENT_TO_BANK`. Stores an **independent snapshot** — editing
+        the lesson's component later does not change it. The frontend first asks the
+        H5P server to copy any H5P content in the component (`POST /h5p/{id}/copy`)
+        and sends the copy, so the saved item owns its own H5P content.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [component]
+              properties:
+                component: { $ref: "#/components/schemas/Component" }
+                title: { type: string, description: "Defaults to the component's title, then \"Saved Component\"." }
+                from: { type: string, example: "IT English · Lesson 4", description: Where it was saved from — shown as the card's subtitle. }
+      responses:
+        "201": { description: "Saved", content: { application/json: { schema: { $ref: "#/components/schemas/SavedComponent" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /library/saved-components/{savedId}:
+    parameters: [{ name: savedId, in: path, required: true, schema: { type: string } }]
+    delete:
+      tags: [Saved components]
+      operationId: deleteSavedComponent
+      summary: Remove from Saved
+      description: Mirrors `REMOVE_COMPONENT_FROM_BANK`. The client then deletes the H5P content the item owned.
+      responses:
+        "204": { description: "Removed" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── Media ─────────────────────────────
+  /media:
+    post:
+      tags: [Media]
+      operationId: uploadMedia
+      summary: Upload a file (Listening audio, Document PDF / Word / image)
+      description: |
+        Replaces the frontend's IndexedDB `mediaStore` (`saveMedia(file)` → id). A
+        component stores only the returned `id` (`audioFileId` / `fileId`) plus the file
+        name. Allowed types: audio (mp3, m4a, wav, ogg), PDF, Word (doc, docx, rtf),
+        images. Replacing a file in a component does **not** delete the old one — a
+        duplicated or saved copy may still point at it.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201": { description: "Stored", content: { application/json: { schema: { $ref: "#/components/schemas/MediaFile" } } } }
+        "413": { description: "File too large", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "415": { description: "Unsupported file type", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /media/{mediaId}:
+    parameters: [{ name: mediaId, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Media]
+      operationId: getMedia
+      summary: The file's bytes
+      description: |
+        Authorised like the content that references it: the owning teacher, or a
+        student who can open a lesson / assignment containing it. Return a signed,
+        short-lived URL instead if media is served from object storage.
+      responses:
+        "200": { description: "The file", content: { "*/*": { schema: { type: string, format: binary } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── Lesson notes ─────────────────────────────
+  /courses/{courseId}/lessons/{lessonId}/notes:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    get:
+      tags: [Lesson notes]
+      operationId: getLessonNotes
+      summary: The teacher's notes document for a lesson (404 if none yet)
+      description: Teacher only. Students receive notes through `GET /me/notes`.
+      responses:
+        "200": { description: "The notes", content: { application/json: { schema: { $ref: "#/components/schemas/LessonNotes" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Lesson notes]
+      operationId: saveLessonNotes
+      summary: Save the notes document (create or replace)
+      description: |
+        Mirrors `SAVE_LESSON_NOTES`. **Upsert** — one document per lesson, belonging to
+        the **lesson, not a class**. The editor autosaves ~0.5 s after typing stops, so
+        expect frequent small PUTs. **The server must sanitize `html`** with an
+        allow-list: tags `p br b strong i em u s ul ol li h2 h3 div span mark`, no
+        attributes except `style` on `span`/`mark` limited to `color` and
+        `background-color` (hex or `rgb[a]()`), no scripts/iframes/links; store the
+        cleaned HTML plus its plain `text`. A document with no text **and** no Google
+        Doc link is deleted. Sending an `If-Match: <updatedAt>` header lets the server
+        reject a stale save from a second tab with `412`.
+      parameters:
+        - { name: If-Match, in: header, required: false, schema: { type: string }, description: The `updatedAt` the client started from. }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [html]
+              properties:
+                html: { type: string }
+      responses:
+        "200": { description: "Saved (or `204` when the empty document was removed)", content: { application/json: { schema: { $ref: "#/components/schemas/LessonNotes" } } } }
+        "204": { description: "Document removed because it became empty" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    patch:
+      tags: [Lesson notes]
+      operationId: setLessonNotesDoc
+      summary: Link, change or remove the Google Doc
+      description: |
+        Mirrors `SET_LESSON_NOTES_DOC`. `docUrl` must be `https` on `docs.google.com`
+        or `drive.google.com` (empty string removes it). `managed: true` means the app
+        created the doc in the teacher's Drive (browser-side Google sign-in, scope
+        `drive.file`) and therefore also manages its link sharing — the backend only
+        stores the flag; it does not call Google.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [docUrl]
+              properties:
+                docUrl: { type: string }
+                managed: { type: boolean, default: false }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/LessonNotes" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /courses/{courseId}/lessons/{lessonId}/notes/classes/{classId}:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }, { $ref: "#/components/parameters/ClassId" }]
+    put:
+      tags: [Lesson notes]
+      operationId: sendLessonNotes
+      summary: Send the notes to a class's students, or take them back
+      description: |
+        Mirrors `SEND_LESSON_NOTES`. Only for a class **taking this course** and owned
+        by the caller; the lesson must already have notes. Sending again keeps the
+        first send time. Takes effect for the class's **active** members only (leaving
+        or being removed takes the notes away with the lessons); the student sees the
+        whole document and its Google Doc link, and later edits show live. Push
+        `notes.updated` to the class's students.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sent]
+              properties:
+                sent: { type: boolean }
+      responses:
+        "200": { description: "Updated notes", content: { application/json: { schema: { $ref: "#/components/schemas/LessonNotes" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ───────────────────────────── Classes ─────────────────────────────
+  /classes:
+    get:
+      tags: [Classes]
+      operationId: listClasses
+      summary: The teacher's classes
+      responses:
+        "200": { description: "Classes", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Class" } } } } }
+    post:
+      tags: [Classes]
+      operationId: createClass
+      summary: Create a class
+      description: |
+        Mirrors `ADD_CLASS`. Generates a join token, `joinOpen = true`. If `courseId`
+        is given the class starts on that course (`in-progress`, `currentLessonId` =
+        its first lesson, nothing released). A class takes **one course for now**.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                schedule: { type: array, items: { $ref: "#/components/schemas/ScheduleSlot" } }
+                courseId: { type: string, nullable: true }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /classes/{classId}:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    get:
+      tags: [Classes]
+      operationId: getClass
+      summary: One class (teacher)
+      responses:
+        "200": { description: "The class", content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Classes]
+      operationId: updateClass
+      summary: Rename a class or open/close joining by link
+      description: Mirrors `SET_CLASS_JOINING`. A closed class takes no new requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                joinOpen: { type: boolean }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+  /classes/{classId}/schedule:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    put:
+      tags: [Classes]
+      operationId: updateClassSchedule
+      summary: Replace the class's weekly schedule
+      description: |
+        Mirrors `UPDATE_CLASS_SCHEDULE`. Each meeting day has its **own** start time
+        and length; at most one slot per weekday; the server sorts by `day`. The
+        auto-share job (see top of file) reads this.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schedule]
+              properties:
+                schedule: { type: array, items: { $ref: "#/components/schemas/ScheduleSlot" } }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /classes/{classId}/join-token:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    post:
+      tags: [Joining]
+      operationId: regenerateJoinToken
+      summary: New join link/code (the old one stops working)
+      description: Mirrors `REGENERATE_JOIN_TOKEN`.
+      responses:
+        "200":
+          description: The new token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  joinToken: { type: string, example: M4R9QX }
+  /classes/{classId}/courses:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    post:
+      tags: [Classes]
+      operationId: assignClassCourse
+      summary: Give the class its course
+      description: |
+        Mirrors `ASSIGN_CLASS_COURSE`. **A class takes one course for now** → `409`
+        once it has one. The new entry is `in-progress`, `currentLessonId` = first
+        lesson, `releasedLessonIds = []`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId]
+              properties:
+                courseId: { type: string }
+      responses:
+        "201": { description: "Assigned", content: { application/json: { schema: { $ref: "#/components/schemas/ClassCourse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /classes/{classId}/courses/{courseId}:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }, { $ref: "#/components/parameters/CourseId" }]
+    get:
+      tags: [Classes]
+      operationId: getClassCourseProgress
+      summary: Where this class is in the course (read model)
+      description: |
+        `classCourseProgress`. **A course has no progress of its own** — progress,
+        "next up" and "lessons taught" exist only per class-course pairing, so this is
+        the only place progress is returned.
+      responses:
+        "200": { description: "Progress", content: { application/json: { schema: { $ref: "#/components/schemas/ClassCourseProgress" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Classes]
+      operationId: updateClassCourse
+      summary: Change the course's status, or correct "next up"
+      description: |
+        Mirrors `SET_CLASS_COURSE_STATUS` and `SET_CLASS_CURRENT_LESSON`. Send either
+        field. Making a course `in-progress` pauses whichever other course was active
+        (at most one in-progress per class). `currentLessonId` is the teacher's manual
+        correction of "next up".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [in-progress, paused, done] }
+                currentLessonId: { type: string }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/ClassCourse" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /classes/{classId}/courses/{courseId}/taught-lessons:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }, { $ref: "#/components/parameters/CourseId" }]
+    get:
+      tags: [Classes]
+      operationId: listTaughtLessons
+      summary: The append-only log of lessons taught to this class
+      responses:
+        "200": { description: "Log", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TaughtLesson" } } } } }
+    post:
+      tags: [Classes]
+      operationId: markLessonTaught
+      summary: Finish / mark a lesson as taught
+      description: |
+        Mirrors `MARK_LESSON_TAUGHT` — the **Finish lesson** and **Mark as taught**
+        buttons. In one transaction: append a `taught_lessons` row (server time),
+        **release** the lesson to the class, and move `currentLessonId` to the lesson
+        after it — but **never backwards** (re-teaching an earlier lesson as a review
+        leaves "next up" where it was; the last lesson stays current). The course
+        becomes the class's active one, except that reviewing a `done` course does not
+        take over from the active one. Nothing marks a lesson taught automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lessonId]
+              properties:
+                lessonId: { type: string }
+      responses:
+        "201":
+          description: The log row and the updated class-course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taughtLesson: { $ref: "#/components/schemas/TaughtLesson" }
+                  classCourse: { $ref: "#/components/schemas/ClassCourse" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /classes/{classId}/courses/{courseId}/released/{lessonId}:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }, { $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    put:
+      tags: [Classes]
+      operationId: setLessonReleased
+      summary: Share a lesson with the class, or hide it
+      description: |
+        Mirrors `SET_LESSON_RELEASED`. Students only ever see released lessons.
+        `released:false` also adds the lesson to `heldLessonIds` so the automatic
+        sharing never reopens it; `released:true` removes the hold. Push
+        `lesson.released` to the class's active students when it becomes visible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [released]
+              properties:
+                released: { type: boolean }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/ClassCourse" } } } }
+  /taught-lessons/{taughtLessonId}/attendance/{studentId}:
+    parameters:
+      - { name: taughtLessonId, in: path, required: true, schema: { type: string } }
+      - { $ref: "#/components/parameters/StudentId" }
+    put:
+      tags: [Classes]
+      operationId: setAttendance
+      summary: Mark a student present or absent for one taught lesson
+      description: |
+        Mirrors `SET_ATTENDANCE`. One row per (taught lesson, student). Only a student
+        who was **in the class when it was taught** (inside one of their membership
+        periods) → otherwise `409`. A student counts as having had the lesson unless an
+        `absent` row exists; teachers mark the exceptions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [present, absent] }
+      responses:
+        "200": { description: "Recorded", content: { application/json: { schema: { $ref: "#/components/schemas/Attendance" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ───────────────────────────── Joining a class ─────────────────────────────
+  /classes/{classId}/members:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    get:
+      tags: [Joining]
+      operationId: listClassMembers
+      summary: A class's memberships
+      description: Teacher. `status=active` is the roster; `requested` the Requests tab.
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/MembershipStatus" } }
+      responses:
+        "200": { description: "Memberships with the student", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MembershipWithStudent" } } } } }
+    post:
+      tags: [Joining]
+      operationId: addClassMember
+      summary: Add one of the teacher's own students (the "+" on a class)
+      description: |
+        Mirrors `ADD_CLASS_MEMBER`. Only students the teacher already has a
+        relationship with (visibility rule). **One membership row per (class,
+        student)**: re-adding a former/declined member **reactivates that row** and
+        opens a **new period** (`periods[]`); earlier stints keep their dates.
+        `source = teacher`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId: { type: string }
+      responses:
+        "200": { description: "The membership", content: { application/json: { schema: { $ref: "#/components/schemas/Membership" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /memberships/{membershipId}:
+    parameters: [{ name: membershipId, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [Joining]
+      operationId: updateMembership
+      summary: Accept or decline a request, or remove a member
+      description: |
+        Mirrors `DECIDE_MEMBERSHIP` and `REMOVE_CLASS_MEMBER`.
+        - `active` / `declined` — only from `requested` (anything else is a no-op `409`). Accepting opens a period.
+        - `removed` — only from `active`; sets `endedAt` and **closes the open period** with `endReason: removed`. History stays (the student reads as a former student). Never overwrite a period.
+        Push `membership.changed` to the student.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [active, declined, removed] }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Membership" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /classes/{classId}/invitations:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    get:
+      tags: [Joining]
+      operationId: listInvitations
+      summary: A class's email invitations
+      responses:
+        "200": { description: "Invitations", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Invitation" } } } } }
+    post:
+      tags: [Joining]
+      operationId: createInvitation
+      summary: Invite someone by email
+      description: |
+        Mirrors `CREATE_INVITATION`. Email is trimmed and lower-cased. A second
+        `pending` invite for the same (class, email) is rejected (`409`). Expires after
+        **14 days**. Accepting **admits directly** (no teacher step).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+      responses:
+        "201": { description: "Created", content: { application/json: { schema: { $ref: "#/components/schemas/Invitation" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /invitations/{invitationId}:
+    parameters: [{ name: invitationId, in: path, required: true, schema: { type: string } }]
+    delete:
+      tags: [Joining]
+      operationId: revokeInvitation
+      summary: Withdraw an invitation
+      description: Mirrors `REVOKE_INVITATION` — sets `status = revoked` (the row stays).
+      responses:
+        "204": { description: "Revoked" }
+  /blocked-students:
+    get:
+      tags: [Joining]
+      operationId: listBlockedStudents
+      summary: Students this teacher has blocked
+      description: Named `blocks` in the mock (renamed here so it doesn't collide with lesson blocks).
+      responses:
+        "200": { description: "Blocks", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/StudentBlock" } } } } }
+    post:
+      tags: [Joining]
+      operationId: blockStudent
+      summary: Block a student
+      description: |
+        Mirrors `BLOCK_STUDENT`. Declines the student's pending class requests and
+        purchase requests with this teacher, and hides their future ones. **Never
+        removes something they bought.** Idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId: { type: string }
+      responses:
+        "201": { description: "Blocked", content: { application/json: { schema: { $ref: "#/components/schemas/StudentBlock" } } } }
+  /blocked-students/{studentId}:
+    parameters: [{ $ref: "#/components/parameters/StudentId" }]
+    delete:
+      tags: [Joining]
+      operationId: unblockStudent
+      summary: Unblock a student
+      description: Mirrors `UNBLOCK_STUDENT`.
+      responses:
+        "204": { description: "Unblocked" }
+
+  # ───────────────────────────── Sales (self-paced purchases) ─────────────────────────────
+  /purchases:
+    get:
+      tags: [Sales]
+      operationId: listPurchases
+      summary: Purchases of the teacher's courses
+      description: Teacher. `requested` ones are the Requests / Customers screens' to-do list.
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/PurchaseStatus" } }
+        - { name: courseId, in: query, schema: { type: string } }
+      responses:
+        "200": { description: "Purchases", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PurchaseWithStudent" } } } } }
+  /purchases/{purchaseId}:
+    parameters: [{ name: purchaseId, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [Sales]
+      operationId: decidePurchase
+      summary: Confirm payment ("Mark paid & give access") or decline
+      description: |
+        Mirrors `DECIDE_PURCHASE`. Payments are taken **outside the app** for now (the
+        buyer pays the teacher; the course's `sale.paymentNote` says how), so the
+        teacher confirms by hand. Only from `requested`; `paid` sets `paidAt` and
+        `confirmedBy`. A later in-app checkout only changes *how* a purchase becomes
+        `paid`. A refund (`refunded`) ends access — not exposed by the UI yet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [paid, declined] }
+      responses:
+        "200": { description: "Updated", content: { application/json: { schema: { $ref: "#/components/schemas/Purchase" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ───────────────────────────── Students (teacher view) ─────────────────────────────
+  /students:
+    get:
+      tags: [Students]
+      operationId: getStudentRoster
+      summary: The teacher's students, grouped by relationship (`teacherRoster`)
+      description: |
+        The only student list a teacher gets — **no platform-wide search**. Groups:
+        `active` (in a class now), `requests` (class join requests **and** purchase
+        requests), `former` (removed or left), `customers` (paid purchases), `blocked`.
+        A student may appear in several groups.
+      responses:
+        "200": { description: "Roster", content: { application/json: { schema: { $ref: "#/components/schemas/Roster" } } } }
+  /students/{studentId}:
+    parameters: [{ $ref: "#/components/parameters/StudentId" }]
+    get:
+      tags: [Students]
+      operationId: getStudent
+      summary: A student's own record (name, email, level, goal)
+      description: Only through a relationship → otherwise `404` (never reveal that the student exists).
+      responses:
+        "200": { description: "The student", content: { application/json: { schema: { $ref: "#/components/schemas/Student" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /students/{studentId}/history:
+    parameters: [{ $ref: "#/components/parameters/StudentId" }]
+    get:
+      tags: [Students]
+      operationId: getStudentHistory
+      summary: Everything this student had with the teacher (`studentHistory`)
+      description: |
+        The read model behind the student's Profile and Lesson history pages. Rules:
+        - A **class lesson is theirs** if it was taught **while they were in the class**, inside one of their membership periods (not before they joined, between stints, or after they left).
+        - **Attendance marks the exceptions** — in the class at the time ⇒ had it, unless an `absent` row says otherwise. "Lessons taken" never counts a missed one.
+        - **Self-paced lessons** are `lessonCompletions`, returned only for a course the student **bought from this teacher** (paid or refunded).
+        - Nothing new about a former student reaches the teacher after their end date.
+      responses:
+        "200": { description: "History", content: { application/json: { schema: { $ref: "#/components/schemas/StudentHistory" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /assignments:
+    get:
+      tags: [Students]
+      operationId: listAssignments
+      summary: Work this teacher assigned
+      parameters:
+        - { name: studentId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/AssignmentStatus" } }
+      responses:
+        "200": { description: "Assignments", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Assignment" } } } } }
+    post:
+      tags: [Students]
+      operationId: assignWork
+      summary: Hand work to one or more students
+      description: |
+        Mirrors `ASSIGN_WORK` — one `assignments` row **per student**. Students
+        outside the teacher's **current active class members** are silently dropped
+        (former students, course-only customers, other teachers' students); return the
+        rows actually created (empty array if none). A `block` or `task` is a
+        **snapshot**: `content` is copied per student, so editing or deleting the saved
+        original later never changes what they were given (the frontend first has H5P
+        content copied per student). A `wordSet` or `reading` only points at the
+        library item through `source`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignWorkRequest" }
+      responses:
+        "201": { description: "Created assignments", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Assignment" } } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /assignments/{assignmentId}:
+    parameters: [{ name: assignmentId, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [Students]
+      operationId: withdrawAssignment
+      summary: Take back open work
+      description: Mirrors `WITHDRAW_ASSIGNMENT`. Only `assigned` work of this teacher. The row stays as history ("taken back"); withdrawn work is hidden from the student.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [withdrawn] }
+      responses:
+        "200": { description: "Withdrawn", content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /students/{studentId}/words/{term}/status:
+    parameters:
+      - { $ref: "#/components/parameters/StudentId" }
+      - { name: term, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [Students]
+      operationId: setStudentWordStatus
+      summary: Set how well a student knows a word
+      description: |
+        Mirrors `SET_WORD_STATUS`. **Seed-backed today** — the per-student word list
+        and analytics tabs are parked behind `SHOW_STUDENT_ANALYTICS`; implement when
+        the student app starts producing real word data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [weak, medium, strong, new, learning, known] }
+      responses:
+        "200": { description: "Updated" }
+  /students/{studentId}/notes:
+    parameters: [{ $ref: "#/components/parameters/StudentId" }]
+    post:
+      tags: [Students]
+      operationId: saveStudentNote
+      summary: A teacher's private note about one student ("Lesson notes" tab)
+      description: |
+        Mirrors `SAVE_NOTE`. Distinct from **lesson notes**. `newWords` are added to the
+        student's vocabulary as `weak`, skipping terms they already have. **Seed-backed
+        today** (see above).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date: { type: string }
+                summary: { type: string }
+                newWords: { type: array, items: { type: string } }
+      responses:
+        "201": { description: "Saved" }
+
+  # ───────────────────────────── Student app ─────────────────────────────
+  /join:
+    post:
+      tags: [Student app]
+      operationId: requestToJoin
+      summary: Ask to join a class by link/code
+      description: |
+        Mirrors `REQUEST_TO_JOIN` (`/student/join/CODE` or typing the code). A class
+        link **never admits directly** — it only creates a `requested` membership the
+        teacher accepts. Fails silently-as-no-op (return `404 invalid_code`) for an
+        unknown/rotated token, a closed class (`joinOpen=false`) or a student blocked by
+        that class's teacher — do not reveal which. **One row per (class, student)**: a
+        former/declined member asking again reuses theirs (status back to `requested`,
+        `source = code`), an `active` one is a no-op, and a `requested` one just updates
+        `message`. Push `membership.requested` to the teacher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+                message: { type: string }
+      responses:
+        "200": { description: "The caller's membership", content: { application/json: { schema: { $ref: "#/components/schemas/Membership" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /me/invitations:
+    get:
+      tags: [Student app]
+      operationId: listMyInvitations
+      summary: Pending invitations sent to the caller's email
+      responses:
+        "200": { description: "Invitations", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Invitation" } } } } }
+  /invitations/{invitationId}/accept:
+    parameters: [{ name: invitationId, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [Student app]
+      operationId: acceptInvitation
+      summary: Accept an email invitation
+      description: |
+        Mirrors `ACCEPT_INVITATION`. The invitation must be `pending`, unexpired, and
+        addressed to the caller's email. **Admits directly** (membership `active`,
+        `source = invite`, new period). Expired or withdrawn invites → `409`. Declining
+        is not built in the frontend yet.
+      responses:
+        "200": { description: "The caller's membership", content: { application/json: { schema: { $ref: "#/components/schemas/Membership" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /me/classes:
+    get:
+      tags: [Student app]
+      operationId: listMyClasses
+      summary: Classes the caller is in, asked to join, was invited to, or left
+      description: |
+        For an `active` membership the full class (course entries, schedule, teacher
+        name). For a class they only **asked to join, were invited to, or left**: the
+        name (and teacher) only — no courses, no notes, no join token unless they
+        have a membership row.
+      responses:
+        "200": { description: "Classes with the caller's membership", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MyClass" } } } } }
+  /me/classes/{classId}:
+    parameters: [{ $ref: "#/components/parameters/ClassId" }]
+    get:
+      tags: [Student app]
+      operationId: getMyClass
+      summary: One class page — its course, lessons and what is open
+      description: |
+        Each course entry lists **its lessons** with `open` (the access rule) and
+        `taughtAt`. Lessons not released show as "Not shared yet" and **their content
+        is not obtainable**. `notes` are the sent lesson notes for this class.
+      responses:
+        "200": { description: "The class page", content: { application/json: { schema: { $ref: "#/components/schemas/MyClassPage" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /me/courses:
+    get:
+      tags: [Student app]
+      operationId: listMyCourses
+      summary: Courses the caller can reach, with access reason
+      description: Their classes' courses and the ones they **bought**. Each carries `access`.
+      responses:
+        "200": { description: "Courses", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } } } } }
+  /catalog/courses:
+    get:
+      tags: [Student app]
+      operationId: listCatalog
+      summary: The public catalog — courses currently for sale
+      description: Any signed-in student. Carries the teacher's `sale.paymentNote` (how to pay) so "Request to buy" can show it. Existing buyers keep access even after a course is taken off sale.
+      responses:
+        "200": { description: "Courses for sale", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/CatalogCourse" } } } } }
+  /me/courses/{courseId}/lessons/{lessonId}:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    get:
+      tags: [Student app]
+      operationId: getMyLesson
+      summary: Open a lesson (the lesson player)
+      description: |
+        **The access rule.** `403 lesson_not_open` unless the caller can open this
+        lesson (paid purchase of the course, **or** active member of a class taking it
+        **and** the lesson is released to that class). Returns the blocks and
+        components exactly as authored. If the lesson is open through a class, also
+        returns that class's sent `notes` for it.
+      responses:
+        "200": { description: "The lesson", content: { application/json: { schema: { $ref: "#/components/schemas/MyLesson" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /me/courses/{courseId}/lessons/{lessonId}/completion:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }, { $ref: "#/components/parameters/LessonId" }]
+    post:
+      tags: [Student app]
+      operationId: completeLesson
+      summary: "Finish lesson"
+      description: |
+        Mirrors `COMPLETE_LESSON`. Only a lesson the caller can open (access rule →
+        `403`). Finishing it again is a **no-op** (return the existing row, `200`). The
+        teacher sees completions **only for a course the student bought from them** —
+        a class member's own work is not shown to the teacher yet. A student's answers
+        inside activities are **not** stored (only this completion).
+      responses:
+        "201": { description: "Recorded", content: { application/json: { schema: { $ref: "#/components/schemas/LessonCompletion" } } } }
+        "200": { description: "Already finished", content: { application/json: { schema: { $ref: "#/components/schemas/LessonCompletion" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /me/notes:
+    get:
+      tags: [Student app]
+      operationId: listMyNotes
+      summary: Lesson notes sent to the caller, newest first
+      description: |
+        `notesSentToStudent`: one row per (note, class) the teacher sent to a class
+        where the caller is an **active** member — leave or be removed and they
+        disappear with the lessons. Unsent notes never leave the teacher. `sentAt` is
+        the first send time (for "New" badges and grouping — "seen" state is the
+        client's own).
+      responses:
+        "200": { description: "Notes", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MyNote" } } } } }
+  /me/assignments:
+    get:
+      tags: [Student app]
+      operationId: listMyAssignments
+      summary: Work assigned to the caller (My work)
+      description: Open and done. **Withdrawn work is not returned.** A `block`/`task` carries its `content` snapshot; a `wordSet`/`reading` only a `source` (resolve via the library endpoints below, restricted to assigned items).
+      responses:
+        "200": { description: "Assignments", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Assignment" } } } } }
+  /me/assignments/{assignmentId}/complete:
+    parameters: [{ name: assignmentId, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [Student app]
+      operationId: completeAssignment
+      summary: Mark my assigned work as done
+      description: Mirrors `COMPLETE_ASSIGNMENT`. Only the caller's own, still `assigned` work → otherwise `409`.
+      responses:
+        "200": { description: "Done", content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /me/library/word-sets/{setId}/words:
+    parameters: [{ $ref: "#/components/parameters/SetId" }]
+    get:
+      tags: [Student app]
+      operationId: getMyAssignedWordSetWords
+      summary: Words of a word set the caller was assigned (set + everything below it)
+      description: Only if an `assigned`/`done` assignment points at this set → else `403`. (The teacher-side equivalent is `GET /library/word-sets/{setId}/words?includeBelow=true`.)
+      responses:
+        "200": { description: "Words", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Word" } } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /me/library/reading/texts/{textId}:
+    parameters: [{ $ref: "#/components/parameters/TextId" }]
+    get:
+      tags: [Student app]
+      operationId: getMyAssignedText
+      summary: A reading text the caller was assigned
+      description: Only if an assignment points at it → else `403`.
+      responses:
+        "200": { description: "The text", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingText" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /courses/{courseId}/purchases:
+    parameters: [{ $ref: "#/components/parameters/CourseId" }]
+    post:
+      tags: [Student app]
+      operationId: requestPurchase
+      summary: "Request to buy"
+      description: |
+        Mirrors `REQUEST_PURCHASE`. Only for a course with `sale.forSale = true`; a
+        student **blocked** by that teacher is refused. A `paid` or `requested`
+        purchase for the same (course, student) already existing is a **no-op**
+        (`409`, return it). Creates `requested` with `amount`/`currency` copied from
+        the sale settings at that moment, `method = external`. Push
+        `purchase.requested` to the teacher.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+      responses:
+        "201": { description: "Requested", content: { application/json: { schema: { $ref: "#/components/schemas/Purchase" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /me/purchases:
+    get:
+      tags: [Student app]
+      operationId: listMyPurchases
+      summary: The caller's purchases
+      responses:
+        "200": { description: "Purchases", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Purchase" } } } } }
+
+  # ───────────────────────────── Realtime ─────────────────────────────
+  /events:
+    get:
+      tags: [Realtime]
+      operationId: streamEvents
+      summary: Server-sent events for the signed-in user
+      description: |
+        Replaces `src/db/mockSync.js`. `Content-Type: text/event-stream`; each event's
+        `data` is a small JSON object — clients refetch the affected resource (or the
+        event may embed it). Only events the caller may see are sent (a student never
+        gets another student's, nor a teacher's unsent notes).
+
+        | event | to | when |
+        |---|---|---|
+        | `lesson.released` | class's students | a lesson became visible (teacher shared it, taught it, or the auto-share job opened it) — the student app toasts "Lesson N is open" |
+        | `notes.updated` | class's students | notes sent, taken back, or edited while sent — "New note from…" |
+        | `membership.changed` | the student | request accepted/declined, removed — "You're in …" |
+        | `membership.requested` | the teacher | a class join request arrived (sidebar count) |
+        | `purchase.requested` | the teacher | a "Request to buy" arrived |
+        | `purchase.decided` | the student | payment confirmed/declined — "Payment confirmed…" |
+        | `assignment.created` / `assignment.withdrawn` | the student | work assigned / taken back — "New work from…" |
+        | `class.updated` | members | schedule or name changed |
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  # ───────────────────────────── H5P (existing server) ─────────────────────────────
+  /h5p:
+    get:
+      tags: [H5P]
+      operationId: h5pList
+      summary: List H5P content objects
+      description: Existing server (`server/src/routes.js`, `@lumieducation/h5p-server`). Mounted at `/h5p` — **not under `/api/v1`**; keep it on the same origin. Today it has one anonymous user and no CSRF; when auth is added, require the bearer token and scope content to its owner.
+      responses:
+        "200": { description: "Content objects" }
+    post:
+      tags: [H5P]
+      operationId: h5pCreate
+      summary: Create content
+      description: "Body `{ library, params: { params, metadata } }` → `{ contentId, metadata }`. A lesson component of kind `h5pActivity` stores only that `contentId`."
+      responses:
+        "200": { description: "`{ contentId, metadata }`" }
+  /h5p/{contentId}:
+    parameters: [{ name: contentId, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [H5P]
+      operationId: h5pUpdate
+      summary: Save content (same body as create)
+      responses:
+        "200": { description: "`{ contentId, metadata }`" }
+    delete:
+      tags: [H5P]
+      operationId: h5pDelete
+      summary: Delete content
+      description: The frontend calls this when the component, block, or saved item referencing it is removed, so content follows its component's lifecycle.
+      responses:
+        "200": { description: "Deleted" }
+  /h5p/{contentId}/edit:
+    parameters: [{ name: contentId, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [H5P]
+      operationId: h5pEdit
+      summary: Editor model for the H5P editor UI
+      responses:
+        "200": { description: "Editor model" }
+  /h5p/{contentId}/play:
+    parameters: [{ name: contentId, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [H5P]
+      operationId: h5pPlay
+      summary: Player model (`contextId`, `asUserId`, `readOnlyState` optional)
+      responses:
+        "200": { description: "Player model" }
+  /h5p/{contentId}/copy:
+    parameters: [{ name: contentId, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [H5P]
+      operationId: h5pCopy
+      summary: Duplicate content with its media files
+      description: Called whenever a component is copied independently (duplicate, save to Saved, reuse from Saved, assign to a student) so two places never edit the same activity. Returns `{ contentId, metadata }`.
+      responses:
+        "200": { description: "`{ contentId, metadata }`" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CourseId: { name: courseId, in: path, required: true, schema: { type: string } }
+    LessonId: { name: lessonId, in: path, required: true, schema: { type: string } }
+    BlockId: { name: blockId, in: path, required: true, schema: { type: string } }
+    ClassId: { name: classId, in: path, required: true, schema: { type: string } }
+    StudentId: { name: studentId, in: path, required: true, schema: { type: string } }
+    FolderId: { name: folderId, in: path, required: true, schema: { type: string } }
+    TextId: { name: textId, in: path, required: true, schema: { type: string } }
+    SetId: { name: setId, in: path, required: true, schema: { type: string } }
+    WordId: { name: wordId, in: path, required: true, schema: { type: string } }
+
+  responses:
+    BadRequest: { description: "Invalid input", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Unauthorized: { description: "Missing or invalid credentials", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Forbidden: { description: "Not allowed (wrong role, not the owner, or the access rule failed)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    NotFound: { description: "Not found — also used when the caller may not know it exists", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Conflict: { description: "The request conflicts with current state (a no-op the client should treat as \"nothing changed\")", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    PreconditionFailed: { description: "The resource changed since `If-Match`", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, description]
+      properties:
+        code: { type: string, example: email_taken }
+        description: { type: string, example: There's already an account with that email. }
+
+    # ─── identity ───
+    RegisterRequest:
+      type: object
+      required: [role, name, email, password]
+      properties:
+        role: { type: string, enum: [teacher, student] }
+        name: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        role: { type: string, enum: [teacher, student], description: Optional hint when one email exists in both roles. }
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+        user:
+          oneOf:
+            - { $ref: "#/components/schemas/Teacher" }
+            - { $ref: "#/components/schemas/Student" }
+          discriminator: { propertyName: role }
+    Timestamp: { type: string, format: date-time }
+    Teacher:
+      type: object
+      required: [id, role, name, email]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [teacher] }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        since: { type: string, example: "2024" }
+        twoFactorEnabled: { type: boolean }
+        linkedAccounts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, example: instagram }
+              label: { type: string }
+              handle: { type: string }
+    Student:
+      type: object
+      description: A student's **own** data only. Membership is never stored on the student.
+      required: [id, role, name, email]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [student] }
+        name: { type: string }
+        email: { type: string, format: email }
+        level: { type: string, example: B1+ }
+        goal: { type: string }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ─── courses, lessons, blocks ───
+    CourseHue: { type: string, enum: [indigo, emerald, amber, rose, sky], description: "The course's tint; the frontend maps it onto its colour tokens." }
+    LessonTemplateId: { type: string, enum: [general, ielts, business], description: Decides which block types the course offers. }
+    Sale:
+      type: object
+      properties:
+        forSale: { type: boolean }
+        price: { type: number }
+        currency: { type: string, example: AZN }
+        description: { type: string }
+        paymentNote: { type: string, description: "How the buyer pays the teacher directly (shown on \"Request to buy\")." }
+    Course:
+      type: object
+      required: [id, teacherId, title]
+      description: |
+        Authored content. **Carries no progress** — progress lives per class-course
+        (`ClassCourseProgress`). (The mock's `students`/`completion` counters are seed
+        noise; do not return them.)
+      properties:
+        id: { type: string }
+        teacherId: { type: string }
+        title: { type: string }
+        level: { type: string, example: B1 → B2 }
+        hue: { $ref: "#/components/schemas/CourseHue" }
+        templateId: { $ref: "#/components/schemas/LessonTemplateId" }
+        lessonCount: { type: integer }
+        sale: { $ref: "#/components/schemas/Sale" }
+    LessonSummary:
+      type: object
+      required: [id, courseId, n, title]
+      properties:
+        id: { type: string }
+        courseId: { type: string }
+        n: { type: integer, description: 1-based position }
+        title: { type: string }
+        blockCount: { type: integer }
+        componentCount: { type: integer }
+    Lesson:
+      allOf:
+        - $ref: "#/components/schemas/LessonSummary"
+        - type: object
+          required: [blocks]
+          properties:
+            blocks: { type: array, items: { $ref: "#/components/schemas/Block" } }
+    BlockType:
+      type: string
+      enum: [reading, listening, speaking, writing, grammar, vocabulary, practice, playground, homework, resources, h5p,
+             ieltsListening, ieltsReading, ieltsWriting1, ieltsWriting2, ieltsSpeaking1, ieltsSpeaking2, ieltsSpeaking3, businessWriting, peerwork]
+    BlockContent:
+      type: object
+      required: [components]
+      properties:
+        components: { type: array, items: { $ref: "#/components/schemas/Component" } }
+    BlockInput:
+      type: object
+      required: [type]
+      properties:
+        type: { $ref: "#/components/schemas/BlockType" }
+        title: { type: string, description: "Defaults to the type's name." }
+        meta: { type: string }
+        content: { $ref: "#/components/schemas/BlockContent" }
+    Block:
+      type: object
+      required: [id, type, title, content]
+      properties:
+        id: { type: string, description: "Stable — block URLs survive reloads (`<lesson>-<n>` for template-built ones)." }
+        type: { $ref: "#/components/schemas/BlockType" }
+        title: { type: string }
+        meta: { type: string }
+        content: { $ref: "#/components/schemas/BlockContent" }
+    ComponentKind:
+      type: string
+      enum: [passage, comprehension, wordlist, flashcards, match, memory, crossword, wheel, wordsearch, imagetoword,
+             timeline, sentence, preposition, conjugation, conditional, comparison, wordweb,
+             quiz, gapfill, wordformation, scramble, arrowcorrection, correctincorrect, dialoguecompletion, speedround,
+             video, listening, youtube, scenario, speakingRecord, shadowing, homework, upload, slidedeck, document, peertask, h5pActivity]
+    Component:
+      type: object
+      description: |
+        One activity inside a block. `id` and `kind` are the contract; **everything
+        else is kind-specific** (the editors in `parts.jsx` define each shape — a quiz
+        has `items`, a word list `items` of words, a passage `textId`/`text`, a
+        comprehension set `passageRefId`, …). Store the object as JSON as the client
+        sends it and return it unchanged; validate only `id`/`kind`/`level`. Three
+        kinds hold references the backend must understand: `listening`
+        (`audioFileId`, `audioUrl`), `document` (`fileId`, `url`) and `h5pActivity`
+        (`contentId`).
+      required: [id, kind]
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/ComponentKind" }
+        level: { type: string, enum: [A1, A2, B1, B2, C1, C2] }
+        title: { type: string }
+        audioFileId: { type: string, nullable: true, description: "`listening`: a `/media` id." }
+        audioName: { type: string }
+        audioUrl: { type: string, description: "`listening`: a pasted link (alternative to a file)." }
+        showTranscript: { type: boolean, description: "`listening`: students see the transcript only when there is text and this is not `false`." }
+        docKind: { type: string, enum: [pdf, docx, image], description: "`document`" }
+        fileId: { type: string, nullable: true, description: "`document`: a `/media` id (uploaded file); `url` is the alternative." }
+        fileName: { type: string }
+        url: { type: string }
+        contentId: { type: string, description: "`h5pActivity`: the H5P content id." }
+
+    # ─── library ───
+    ReadingFolder:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        parentId: { type: string, nullable: true }
+        name: { type: string }
+    ReadingToken:
+      type: object
+      description: "A piece of a text's body: plain glue (`text` only) or a tagged word (`term` + translation)."
+      properties:
+        text: { type: string }
+        term: { type: string }
+        az: { type: string }
+        def: { type: string }
+        example: { type: string }
+        status: { type: string, enum: [new, learning, known] }
+        emoji: { type: string }
+        ipaUk: { type: string }
+        ipaUs: { type: string }
+    ReadingTextSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string }
+        folderId: { type: string, nullable: true }
+        title: { type: string }
+        level: { type: string, example: B1 }
+        wordCount: { type: integer }
+        hasTranslation: { type: boolean }
+    ReadingTextInput:
+      type: object
+      required: [title, folderId, body]
+      properties:
+        title: { type: string }
+        folderId: { type: string }
+        level: { type: string, enum: [A2, B1, B2, C1] }
+        body: { type: array, items: { $ref: "#/components/schemas/ReadingToken" } }
+        wordCount: { type: integer }
+        hasTranslation: { type: boolean }
+    ReadingText:
+      allOf:
+        - $ref: "#/components/schemas/ReadingTextSummary"
+        - type: object
+          properties:
+            body: { type: array, items: { $ref: "#/components/schemas/ReadingToken" } }
+    WordLevel: { type: string, enum: ["", A1, A2, B1, B2, C1, C2] }
+    Word:
+      type: object
+      required: [term]
+      properties:
+        id: { type: string }
+        term: { type: string }
+        az: { type: string, description: Azerbaijani translation }
+        def: { type: string }
+        example: { type: string }
+    WordInput:
+      type: object
+      required: [term]
+      properties:
+        term: { type: string }
+        az: { type: string }
+        def: { type: string }
+        example: { type: string }
+    WordSet:
+      type: object
+      description: A node of the tree. It holds its **own** words and may contain other word sets (IELTS → Linkers → Contrast → words).
+      required: [id, title]
+      properties:
+        id: { type: string }
+        parentId: { type: string, nullable: true }
+        title: { type: string }
+        level: { $ref: "#/components/schemas/WordLevel" }
+        words: { type: array, items: { $ref: "#/components/schemas/Word" } }
+        wordCountBelow: { type: integer, description: Words in nodes under this one (not counting its own). }
+    SavedComponent:
+      type: object
+      required: [id, title, kind, data]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        kind: { $ref: "#/components/schemas/ComponentKind" }
+        from: { type: string, example: "IT English · Lesson 4" }
+        data: { $ref: "#/components/schemas/Component" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+    MediaFile:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        mimeType: { type: string }
+        size: { type: integer }
+        url: { type: string, description: "Where to fetch it (the `/media/{id}` path or a signed URL)." }
+
+    # ─── lesson notes ───
+    LessonNotes:
+      type: object
+      description: "One document per **lesson** (not per class). Private until sent to a class."
+      required: [id, courseId, lessonId, html]
+      properties:
+        id: { type: string }
+        courseId: { type: string }
+        lessonId: { type: string }
+        html: { type: string, description: "Sanitized rich text (see `PUT …/notes`)." }
+        text: { type: string, description: Its plain text. }
+        docUrl: { type: string, nullable: true, description: A Google Docs / Drive link. }
+        docManaged: { type: boolean, description: "The app created the doc and manages its link sharing (set by the client; backend just stores it)." }
+        sentTo:
+          type: array
+          items:
+            type: object
+            properties:
+              classId: { type: string }
+              at: { $ref: "#/components/schemas/Timestamp" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ─── classes ───
+    ScheduleSlot:
+      type: object
+      required: [day, start, durationMin]
+      properties:
+        day: { type: integer, minimum: 0, maximum: 6, description: "0 = Monday … 6 = Sunday" }
+        start: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', example: "10:00" }
+        durationMin: { type: integer, enum: [30, 45, 60, 90, 120], description: "Each day has its own length. (The UI offers these; accept any positive value.)" }
+    ClassCourse:
+      type: object
+      description: "A class's course (`class_courses`). **At most one in-progress** per class; a class takes one course for now."
+      required: [courseId, status]
+      properties:
+        courseId: { type: string }
+        status: { type: string, enum: [in-progress, paused, done] }
+        currentLessonId: { type: string, nullable: true, description: '"Next up".' }
+        releasedLessonIds: { type: array, items: { type: string }, description: Lessons the class's students can open. }
+        heldLessonIds: { type: array, items: { type: string }, description: Lessons the teacher hid — the auto-share job must not reopen them. }
+    Class:
+      type: object
+      required: [id, teacherId, name]
+      properties:
+        id: { type: string }
+        teacherId: { type: string }
+        name: { type: string }
+        schedule: { type: array, items: { $ref: "#/components/schemas/ScheduleSlot" } }
+        joinToken: { type: string, description: Teacher only; also given to a student who has a membership row. }
+        joinOpen: { type: boolean }
+        courses: { type: array, items: { $ref: "#/components/schemas/ClassCourse" } }
+        activeMemberCount: { type: integer }
+    ClassCourseProgress:
+      type: object
+      description: What `GET /classes/:id/courses/:courseId` returns — "where did this class leave off?". Lesson-level only; nothing is tracked inside a lesson.
+      properties:
+        entry: { $ref: "#/components/schemas/ClassCourse" }
+        lessons: { type: array, items: { $ref: "#/components/schemas/LessonSummary" } }
+        taughtAt: { type: object, additionalProperties: { $ref: "#/components/schemas/Timestamp" }, description: lessonId → the latest time it was taught }
+        taughtCount: { type: integer }
+        total: { type: integer }
+        pct: { type: integer, description: "100 when the course is `done`." }
+        allTaught: { type: boolean }
+        last:
+          type: object
+          nullable: true
+          properties:
+            lesson: { $ref: "#/components/schemas/LessonSummary" }
+            taughtAt: { $ref: "#/components/schemas/Timestamp" }
+        next: { allOf: [{ $ref: "#/components/schemas/LessonSummary" }], nullable: true, description: 'Null once the course is `done` or every lesson was taught; falls back to the first lesson if unset.' }
+    TaughtLesson:
+      type: object
+      description: Append-only (`taught_lessons`).
+      properties:
+        id: { type: string }
+        classId: { type: string }
+        courseId: { type: string }
+        lessonId: { type: string }
+        taughtAt: { $ref: "#/components/schemas/Timestamp" }
+    Attendance:
+      type: object
+      properties:
+        taughtLessonId: { type: string }
+        studentId: { type: string }
+        status: { type: string, enum: [present, absent] }
+        markedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ─── membership ───
+    MembershipStatus: { type: string, enum: [requested, active, declined, removed, left] }
+    MembershipPeriod:
+      type: object
+      description: One stint in the class. **Never overwrite a period** — re-adding opens a new one, removing closes the open one.
+      properties:
+        startedAt: { $ref: "#/components/schemas/Timestamp" }
+        endedAt: { $ref: "#/components/schemas/Timestamp" }
+        endReason: { type: string, enum: [removed, left], nullable: true }
+    Membership:
+      type: object
+      required: [id, classId, studentId, status]
+      properties:
+        id: { type: string }
+        classId: { type: string }
+        studentId: { type: string }
+        status: { $ref: "#/components/schemas/MembershipStatus" }
+        source: { type: string, enum: [code, invite, teacher] }
+        requestedAt: { $ref: "#/components/schemas/Timestamp" }
+        decidedAt: { $ref: "#/components/schemas/Timestamp" }
+        endedAt: { $ref: "#/components/schemas/Timestamp" }
+        message: { type: string }
+        periods: { type: array, items: { $ref: "#/components/schemas/MembershipPeriod" } }
+    MembershipWithStudent:
+      allOf:
+        - $ref: "#/components/schemas/Membership"
+        - type: object
+          properties:
+            student: { $ref: "#/components/schemas/Student" }
+    Invitation:
+      type: object
+      properties:
+        id: { type: string }
+        classId: { type: string }
+        className: { type: string }
+        email: { type: string, format: email }
+        name: { type: string, nullable: true }
+        status: { type: string, enum: [pending, accepted, revoked] }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+        acceptedAt: { $ref: "#/components/schemas/Timestamp" }
+    StudentBlock:
+      type: object
+      properties:
+        studentId: { type: string }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ─── sales ───
+    PurchaseStatus: { type: string, enum: [requested, paid, declined, refunded] }
+    Purchase:
+      type: object
+      required: [id, courseId, studentId, status]
+      properties:
+        id: { type: string }
+        courseId: { type: string }
+        studentId: { type: string }
+        status: { $ref: "#/components/schemas/PurchaseStatus" }
+        amount: { type: number }
+        currency: { type: string }
+        method: { type: string, enum: [external, in_app] }
+        requestedAt: { $ref: "#/components/schemas/Timestamp" }
+        paidAt: { $ref: "#/components/schemas/Timestamp" }
+        confirmedBy: { type: string, nullable: true, description: The teacher who confirmed payment. }
+        message: { type: string }
+    PurchaseWithStudent:
+      allOf:
+        - $ref: "#/components/schemas/Purchase"
+        - type: object
+          properties:
+            student: { $ref: "#/components/schemas/Student" }
+            course: { $ref: "#/components/schemas/Course" }
+
+    # ─── teacher's student views ───
+    Roster:
+      type: object
+      properties:
+        active:
+          type: array
+          description: Students in one of the teacher's classes right now.
+          items: { $ref: "#/components/schemas/Student" }
+        requests:
+          type: array
+          description: Newest first. A class join request or a purchase request.
+          items:
+            type: object
+            properties:
+              kind: { type: string, enum: [class, purchase] }
+              id: { type: string }
+              at: { $ref: "#/components/schemas/Timestamp" }
+              student: { $ref: "#/components/schemas/Student" }
+              membership: { $ref: "#/components/schemas/Membership" }
+              purchase: { $ref: "#/components/schemas/Purchase" }
+              class: { $ref: "#/components/schemas/Class" }
+              course: { $ref: "#/components/schemas/Course" }
+              previously: { type: boolean, description: Had a stint in one of the teacher's classes before. }
+        former:
+          type: array
+          description: Removed or left — read-only history; the teacher can add them back.
+          items:
+            type: object
+            properties:
+              student: { $ref: "#/components/schemas/Student" }
+              blocked: { type: boolean }
+              ended: { type: array, items: { $ref: "#/components/schemas/Membership" } }
+        customers:
+          type: array
+          description: Paid purchases.
+          items:
+            type: object
+            properties:
+              purchase: { $ref: "#/components/schemas/Purchase" }
+              student: { $ref: "#/components/schemas/Student" }
+              course: { $ref: "#/components/schemas/Course" }
+        blocked:
+          type: array
+          description: Blocked students not already listed under `former` — so they can always be unblocked.
+          items: { $ref: "#/components/schemas/Student" }
+    HistoryLesson:
+      type: object
+      properties:
+        kind: { type: string, enum: [class, self-paced] }
+        id: { type: string }
+        at: { $ref: "#/components/schemas/Timestamp" }
+        absent: { type: boolean }
+        class: { $ref: "#/components/schemas/Class" }
+        course: { $ref: "#/components/schemas/Course" }
+        lesson: { $ref: "#/components/schemas/LessonSummary" }
+    StudentHistory:
+      type: object
+      properties:
+        classes:
+          type: array
+          description: Each class the student has been in, with every stint.
+          items:
+            type: object
+            properties:
+              class: { $ref: "#/components/schemas/Class" }
+              membership: { $ref: "#/components/schemas/Membership" }
+              periods: { type: array, items: { $ref: "#/components/schemas/MembershipPeriod" } }
+              active: { type: boolean }
+              lessons: { type: array, items: { $ref: "#/components/schemas/HistoryLesson" } }
+              attended: { type: integer }
+              missed: { type: integer }
+              now:
+                type: object
+                nullable: true
+                description: What the class is on now (course and progress).
+                properties:
+                  course: { $ref: "#/components/schemas/Course" }
+                  progress: { $ref: "#/components/schemas/ClassCourseProgress" }
+        purchases:
+          type: array
+          items:
+            type: object
+            properties:
+              purchase: { $ref: "#/components/schemas/Purchase" }
+              course: { $ref: "#/components/schemas/Course" }
+              lessons: { type: array, items: { $ref: "#/components/schemas/HistoryLesson" } }
+              completed: { type: integer }
+              total: { type: integer }
+              lastAt: { $ref: "#/components/schemas/Timestamp" }
+        lessons: { type: array, items: { $ref: "#/components/schemas/HistoryLesson" }, description: "All lessons, newest first." }
+        assignments: { type: array, items: { $ref: "#/components/schemas/Assignment" } }
+        timeline:
+          type: array
+          description: Lessons plus milestones (`joined`, `ended`, `bought`, `assigned`, `finished`), newest first.
+          items:
+            type: object
+            properties:
+              kind: { type: string, enum: [class, self-paced, joined, ended, bought, assigned, finished] }
+              id: { type: string }
+              at: { $ref: "#/components/schemas/Timestamp" }
+              details: { type: object, additionalProperties: true }
+        totals:
+          type: object
+          properties:
+            taken: { type: integer }
+            inClass: { type: integer }
+            selfPaced: { type: integer }
+            missed: { type: integer }
+            lastAt: { $ref: "#/components/schemas/Timestamp" }
+            toDo: { type: integer }
+    AssignmentKind: { type: string, enum: [block, task, wordSet, reading] }
+    AssignmentStatus: { type: string, enum: [assigned, done, withdrawn] }
+    Assignment:
+      type: object
+      required: [id, studentId, kind, title, status]
+      properties:
+        id: { type: string }
+        teacherId: { type: string }
+        studentId: { type: string }
+        kind: { $ref: "#/components/schemas/AssignmentKind" }
+        title: { type: string }
+        blockType: { $ref: "#/components/schemas/BlockType" }
+        componentKind: { $ref: "#/components/schemas/ComponentKind" }
+        source:
+          type: object
+          description: "`wordSetId` / `textId` for library items (a word set means the set **and everything below it**); `from` is a label for a snapshot."
+          properties:
+            wordSetId: { type: string }
+            textId: { type: string }
+            from: { type: string }
+        content:
+          nullable: true
+          description: "The snapshot: `{ components }` for a block, one component for a task. Null for a word set or reading."
+          oneOf:
+            - { $ref: "#/components/schemas/BlockContent" }
+            - { $ref: "#/components/schemas/Component" }
+        status: { $ref: "#/components/schemas/AssignmentStatus" }
+        assignedAt: { $ref: "#/components/schemas/Timestamp" }
+        completedAt: { $ref: "#/components/schemas/Timestamp" }
+        withdrawnAt: { $ref: "#/components/schemas/Timestamp" }
+    AssignWorkRequest:
+      type: object
+      required: [studentIds, kind, title]
+      properties:
+        studentIds: { type: array, items: { type: string } }
+        kind: { $ref: "#/components/schemas/AssignmentKind" }
+        title: { type: string }
+        blockType: { $ref: "#/components/schemas/BlockType" }
+        componentKind: { $ref: "#/components/schemas/ComponentKind" }
+        source: { type: object, additionalProperties: true }
+        content: { type: object, additionalProperties: true, description: "The snapshot, with H5P content already copied per student by the client." }
+
+    # ─── student app ───
+    TeacherRef:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+    MyClass:
+      allOf:
+        - $ref: "#/components/schemas/Class"
+        - type: object
+          properties:
+            teacher: { $ref: "#/components/schemas/TeacherRef" }
+            membership: { $ref: "#/components/schemas/Membership" }
+    MyLessonRow:
+      type: object
+      properties:
+        lesson: { $ref: "#/components/schemas/LessonSummary" }
+        open: { type: boolean, description: The access rule for this lesson. }
+        taughtAt: { $ref: "#/components/schemas/Timestamp" }
+        isNext: { type: boolean }
+        notesCount: { type: integer }
+    MyClassPage:
+      type: object
+      properties:
+        class: { $ref: "#/components/schemas/MyClass" }
+        courses:
+          type: array
+          items:
+            type: object
+            properties:
+              course: { $ref: "#/components/schemas/Course" }
+              status: { type: string, enum: [in-progress, paused, done] }
+              pct: { type: integer }
+              lessons: { type: array, items: { $ref: "#/components/schemas/MyLessonRow" } }
+        notes: { type: array, items: { $ref: "#/components/schemas/MyNote" } }
+    MyCourse:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            access: { type: string, enum: [class, purchase, both] }
+            teacher: { $ref: "#/components/schemas/TeacherRef" }
+            completedLessons: { type: integer }
+    CatalogCourse:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            teacher: { $ref: "#/components/schemas/TeacherRef" }
+            purchase: { allOf: [{ $ref: "#/components/schemas/Purchase" }], nullable: true, description: "The caller's own purchase of it, if any." }
+    MyLesson:
+      allOf:
+        - $ref: "#/components/schemas/Lesson"
+        - type: object
+          properties:
+            course: { $ref: "#/components/schemas/Course" }
+            classId: { type: string, nullable: true, description: "The class it is open through, if any." }
+            notes: { type: array, items: { $ref: "#/components/schemas/MyNote" } }
+    LessonCompletion:
+      type: object
+      properties:
+        id: { type: string }
+        studentId: { type: string }
+        courseId: { type: string }
+        lessonId: { type: string }
+        completedAt: { $ref: "#/components/schemas/Timestamp" }
+    MyNote:
+      type: object
+      description: A lesson-notes document as one class's student reads it.
+      properties:
+        id: { type: string, description: "Stable per (note, class) — the client keys its \"seen\" badges on it." }
+        classId: { type: string }
+        courseId: { type: string }
+        lessonId: { type: string }
+        html: { type: string }
+        text: { type: string }
+        docUrl: { type: string, nullable: true }
+        sentAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }

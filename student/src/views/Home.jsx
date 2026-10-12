@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { IconUserPlus, IconSchool, IconMail, IconClock, IconChevronRight, IconBook2, IconCircleCheck, IconNotes } from "@tabler/icons-react";
 import { Alert, Button, Card, ClassCard, CourseCard, PageHeader, Page, SectionLabel } from "@app/design-system.jsx";
 import { useStore, classCourseProgress, activeClassCourse } from "@app/store.jsx";
-import { scheduleLabel } from "@app/data.jsx";
+import { scheduleLabel } from "@app/schedule.js";
 import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { boughtCourses, classOf, courseOf, finishedLesson, firstName, lessonsOf, myClasses, teacherName, toneOf } from "../lib.js";
@@ -77,7 +77,7 @@ export default function Home() {
             const p = course ? classCourseProgress(state, cls, course.id) : null;
             const nextOpen = p?.next && p.released.has(p.next.id);
             return (
-              <ClassCard key={cls.id} icon={IconSchool} tone={toneOf(course)} title={cls.name} scheduleLabel={scheduleLabel(cls.scheduleDays)}
+              <ClassCard key={cls.id} icon={IconSchool} tone={toneOf(course)} title={cls.name} scheduleLabel={scheduleLabel(cls.schedule)}
                 courseTitle={course ? course.title : "No course in progress"}
                 lessonLine={p?.next ? `${nextOpen ? "Next" : "Coming up"}: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
                 studentCountLabel={`with ${teacherName(state, cls.teacherId)}`}

@@ -4,6 +4,7 @@ import { Modal, Button, Card, PillTabs, LibraryPickList } from "../design-system
 import { useStore, assignWork } from "../store.jsx";
 import { blockMeta } from "../data.jsx";
 import { timeAgo } from "../format.js";
+import { pathOf, pathLabel, subtreeWords } from "../libraryTree.js";
 import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent } from "../views/parts.jsx";
 
 /* =========================================================================
@@ -57,13 +58,17 @@ export function StudentAssignModal({ open, onClose, student }) {
   const assignNew = () => preview && give({ kind: "task", title: COMPONENT_META[preview.kind].label, componentKind: preview.kind, content: preview.component });
 
   const vocab = blockMeta("vocabulary");
-  const wordGroups = [...new Set(state.wordSets.map((ws) => ws.category))].map((cat) => ({
-    id: cat, label: cat,
-    items: state.wordSets.filter((ws) => ws.category === cat).map((ws) => ({
-      id: ws.id, icon: vocab.icon, tone: vocab.tone, label: ws.title,
-      description: `${ws.level} · ${ws.words.length} words${givenNote(given.find((a) => a.source?.wordSetId === ws.id))}`,
+  // Word sets to pick from: every one that has words, itself or below it,
+  // grouped under its top-level set and labelled with its path.
+  const ofWords = state.wordSets.filter((w) => subtreeWords(state.wordSets, w.id).length);
+  const roots = state.wordSets.filter((w) => !w.parentId);
+  const wordGroups = roots.map((root) => ({
+    id: root.id, label: root.title,
+    items: ofWords.filter((w) => pathOf(state.wordSets, w.id)[0]?.id === root.id).map((w) => ({
+      id: w.id, icon: vocab.icon, tone: vocab.tone, label: pathLabel(state.wordSets, w.id).split(" › ").slice(1).join(" › ") || w.title,
+      description: `${w.level ? `${w.level} · ` : ""}${subtreeWords(state.wordSets, w.id).length} words${givenNote(given.find((a) => a.source?.wordSetId === w.id))}`,
     })),
-  }));
+  })).filter((g) => g.items.length);
 
   return (
     <Modal open={open} onClose={close} icon={IconSend} size="lg" title={`Assign to ${first}`}
@@ -74,12 +79,12 @@ export function StudentAssignModal({ open, onClose, student }) {
       </> : undefined}>
       <div className="mb-4">
         <PillTabs value={tab} onChange={(t) => { if (TABS.includes(t)) { setTab(t); setPreview(null); } }} tabs={[
-          { id: "words", label: "Word sets", count: state.wordSets.length },
+          { id: "words", label: "Word sets", count: ofWords.length },
           { id: "new", label: "New task" },
         ]} />
       </div>
 
-      {tab === "words" && (state.wordSets.length
+      {tab === "words" && (ofWords.length
         ? <LibraryPickList groups={wordGroups} onPick={assignWordSet} />
         : <p className="p-2 text-sm text-neutral-600">No word sets in the library yet.</p>)}
 

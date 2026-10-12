@@ -1,3 +1,4 @@
+import { subtreeWords } from "@app/libraryTree.js";
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { IconArrowLeft, IconBook, IconCircleCheck, IconChevronRight, IconClipboardList, IconStack2 } from "@tabler/icons-react";
@@ -120,7 +121,7 @@ function WorkContent({ a }) {
   if (a.kind === "task") return a.content ? <ComponentStudent component={a.content} /> : <Missing />;
   if (a.kind === "wordSet") {
     const ws = state.wordSets.find((w) => w.id === a.source?.wordSetId);
-    return ws ? <ComponentStudent component={{ id: a.id, kind: "wordlist", items: ws.words }} /> : <Missing />;
+    return ws ? <ComponentStudent component={{ id: a.id, kind: "wordlist", items: subtreeWords(state.wordSets, ws.id) }} /> : <Missing />;
   }
   const text = state.texts.find((t) => t.id === a.source?.textId);
   return text ? <ComponentStudent component={{ id: a.id, kind: "passage", textId: text.id }} /> : <Missing />;

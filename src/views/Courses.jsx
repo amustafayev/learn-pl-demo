@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
-  IconEye, IconFilter, IconArrowsMaximize, IconArrowsMinimize,
-  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconCircleCheck, IconFlag, IconPlayerPlay, IconEyeOff, IconShoppingBag,
+  IconEye, IconFilter,
+  IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconCircleCheck, IconFlag, IconPlayerPlay, IconShoppingBag,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
@@ -11,7 +11,7 @@ import {
   uid, discardH5PContent, teacherRoster,
 } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
-import ClassLessonBar from "../components/ClassLessonBar.jsx";
+import ClassLessonBar, { ShareLessonButton } from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
@@ -146,13 +146,6 @@ export function CourseView() {
       return true;
     });
 
-  function expandAll() {
-    const nextL = {}; const nextB = {};
-    tree.forEach((t) => { nextL[t.lesson.id] = true; t.blocks.forEach((b) => { nextB[`${t.lesson.id}:${b.id}`] = true; }); });
-    setExpandedLessons(nextL); setExpandedBlocks(nextB);
-  }
-  const collapseAll = () => { setExpandedLessons({}); setExpandedBlocks({}); };
-  const anyExpanded = Object.values(expandedLessons).some(Boolean);
 
 
   return (
@@ -242,11 +235,6 @@ export function CourseView() {
                 { id: "not-taught", label: "Not taught yet", count: notTaughtCount },
               ]} />
           )}
-          <Button variant="outline" onClick={anyExpanded ? collapseAll : expandAll}>
-            {anyExpanded
-              ? <><IconArrowsMinimize size={16} stroke={1.75} /> Collapse all</>
-              : <><IconArrowsMaximize size={16} stroke={1.75} /> Expand all</>}
-          </Button>
         </div>
       </div>
 
@@ -296,16 +284,7 @@ export function CourseView() {
                     </span>
                   )}
                   {classCourse && (
-                    // Whether the class's students can open this lesson.
-                    <button type="button" onClick={() => {
-                      const shared = !progress.released.has(l.id);
-                      dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: l.id, released: shared });
-                      toast(shared ? `Lesson ${l.n} shared with ${cls.name}` : `Lesson ${l.n} hidden from ${cls.name}'s students`);
-                    }} aria-pressed={progress.released.has(l.id)}
-                      title={progress.released.has(l.id) ? "The class's students can open this lesson — click to hide it" : "Hidden from the class's students — click to share it"}
-                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold shrink-0 ${progress.released.has(l.id) ? "text-success-600 hover:bg-success-50" : "text-neutral-600 hover:bg-neutral-200"}`}>
-                      {progress.released.has(l.id) ? <><IconEye size={14} stroke={1.75} /> Shared</> : <><IconEyeOff size={14} stroke={1.75} /> Share</>}
-                    </button>
+                    <ShareLessonButton cls={cls} course={course} lesson={l} shared={progress.released.has(l.id)} />
                   )}
                   {classCourse && classCourse.status !== "done" && view.state !== "next" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
@@ -437,7 +416,7 @@ export function LessonBuilderView() {
       {cls && <ClassLessonBar cls={cls} course={course} lesson={lesson} className="mb-6" />}
 
       <PageHeader title={`Lesson ${lesson.n}: ${lesson.title}`} sub={`${course.title} (${course.level}) · Structured Pathway Flow (${blocks.length} steps)`}
-        right={<Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><IconPlus size={14} stroke={1.75} /> Add Step</Button>} />
+        right={cls ? null : <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><IconPlus size={14} stroke={1.75} /> Add Step</Button>} />
 
       {/* Pathway Flow Layout */}
       <SectionLabel>Structured Pathway Flow (Passage → Words → Videos → Listenings → Grammar → Practice Grammar)</SectionLabel>
@@ -475,12 +454,15 @@ export function LessonBuilderView() {
                   <Button variant="light" size="sm" onClick={() => go({ partId: b.id })} className="!text-primary-600 font-semibold">
                     <IconEye size={14} stroke={1.75} /> Open Step
                   </Button>
-                  <div className="flex items-center gap-1 text-neutral-400">
-                    <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
-                    <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                    <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                    <button title="Remove" onClick={() => { discardH5PContent(toast, b); dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
-                  </div>
+                  {/* Teaching from a class is read-only: no renaming, moving or removing steps. */}
+                  {!cls && (
+                    <div className="flex items-center gap-1 text-neutral-400">
+                      <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                      <button title="Remove" onClick={() => { discardH5PContent(toast, b); dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

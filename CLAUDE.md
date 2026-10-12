@@ -96,6 +96,25 @@ seam so a real one can be dropped in later without touching any view:
   this class leave off?"; nothing is tracked inside a lesson, and there is
   no per-lesson percentage. The model, shaped like the backend tables it
   stands in for:
+  - **A class meets on days with their own times:** `class.schedule` is
+    `[{ day (Mon = 0), start "HH:MM", durationMin }]` — each day can start at
+    a different time and run a different length (`src/schedule.js` has every
+    helper: `scheduleLabel`, `nextSession`, `inAutoShareWindow`). Set in the
+    new-class form and "Edit schedule" on the class page
+    (`UPDATE_CLASS_SCHEDULE`), through `ScheduleEditor`. Times are local to
+    the viewer.
+  - **The next lesson opens by itself:** from 5 minutes before a session
+    until it ends, the class's next-up lesson is added to
+    `releasedLessonIds` (`AUTO_RELEASE_LESSONS`, the server's job — here run
+    by `StoreProvider` every 30 s and on load). Hiding a lesson
+    (`SET_LESSON_RELEASED` false) also adds it to `heldLessonIds`, so the
+    automatic opening never undoes the teacher; sharing it lifts the hold.
+    The lesson bar says when it will open.
+  - **A class takes one course for now:** `ASSIGN_CLASS_COURSE` does
+    nothing once `class.courses` has an entry, and the class page only
+    offers **Assign course** while it has none. The array and its
+    statuses stay, so lifting the limit later is a rule change, not a
+    migration.
   - `class.courses[]` (`class_courses`): `{ courseId, status, currentLessonId }`
     — `status` is `"in-progress" | "paused" | "done"`, at most **one**
     in-progress per class (making one active pauses the other);
@@ -128,6 +147,10 @@ seam so a real one can be dropped in later without touching any view:
     student view exists. What a student *had* (lessons taught to them,
     missed, finished on their own) is real, though: see **Lesson history**
     under Students, classes & access.
+- **`docs/openapi.yaml`** — the backend contract (OpenAPI 3.0.3), written
+  from this reducer: every action is one operation, and the rules each one
+  enforces are in its description. Keep it in step when an action or a
+  record shape changes.
 - **`src/db/h5pClient.js`** — the one real backend today: the H5P server in
   `server/`, built on `createApiClient("/h5p")` (below). It also owns the
   rule that a lesson component's H5P content follows that component:
@@ -182,7 +205,37 @@ seam so a real one can be dropped in later without touching any view:
   can point at a Listening as well as a Passage; linked to a Listening it's
   labelled "Listening comprehension" everywhere (`componentLabel` /
   `linkedSource` in `parts.jsx`).
-- **Component bank persistence** — the saved-component library is the one
+- **Lesson notes persistence** — the lesson notes (the whole `lessonNotes`
+  table, sent or not) are kept in `localStorage` under
+  `lucid.lesson-notes` (`savedLessonNotes` / `persistLessonNotes` in
+  `db/mockDb.jsx`, written from `StoreProvider` by the teacher app only),
+  so what a teacher writes survives a reload and the student app reads the
+  same copy. The seed notes appear only the first time. This pair is what
+  a real backend replaces: `SAVE_LESSON_NOTES` becomes a `PUT`, and the
+  initial load a `GET` (see the endpoint list in `mockDb.jsx`).
+- **Library trees** (`src/components/LibraryTree.jsx`, `src/libraryTree.js`):
+  word sets and reading texts are folders nested to any depth, like a file
+  system. `state.wordSets` is a flat list of nodes `{ id, parentId, title,
+  level, words[] }` — a word set holds its own words and can hold word sets
+  inside it (IELTS → Linkers → Contrast → the words); assigning one sends
+  its words and everything below it (`subtreeWords`). Reading texts sit in
+  `state.textFolders` (`{ id, parentId, name }`) via `text.folderId`; a
+  folder shows the texts in it and below it. Both Library tabs are a tree
+  on the left and the open folder on the right, with the open folder kept in
+  the URL (`?set=` / `?folder=`). Deleting a folder deletes what's inside
+  (the view asks first). Actions: `ADD_/RENAME_/DELETE_TEXT_FOLDER`,
+  `ADD_WORDSET`, `UPDATE_WORDSET`, `DELETE_WORDSET`, `ADD_WORD`,
+  `UPDATE_WORD`, `DELETE_WORD`. Reading cards carry no icon.
+- **Saved** (the Library tab, and "Add a component → Saved" in a lesson) is
+  the saved-component library, one `BankBrowser`
+  (`src/components/SavedComponents.jsx`) in both places: categorized cards,
+  search and filters. The bookmark on a component turns into a filled one
+  once saved, until the component is edited.
+- **Documents** can be uploaded (PDF, Word, image) into the mock file
+  storage (`fileId`, `fileName`, like Listening audio) or linked by URL. An
+  uploaded Word file offers a download — Office's viewer can't open a file
+  that isn't at a public address.
+- **Component bank persistence** — the saved-component library is the other
   piece of state kept in `localStorage` (`persistComponentBank` /
   `savedComponentBank` in `db/mockDb.jsx`). A seed item added to
   `SEED_COMPONENT_BANK` later reaches an already-saved library exactly
@@ -258,8 +311,8 @@ email.
 
 ```
 courses       { id, teacherId, …, sale: { forSale, price, currency, description, paymentNote } }
-classes       { id, teacherId, name, scheduleDays, joinToken, joinOpen,
-                courses: [{ courseId, status, currentLessonId, releasedLessonIds[] }] }
+classes       { id, teacherId, name, schedule: [{ day, start, durationMin }], joinToken, joinOpen,
+                courses: [{ courseId, status, currentLessonId, releasedLessonIds[], heldLessonIds[] }] }
 memberships   { id, classId, studentId, status: requested | active | declined | removed | left,
                 source: code | invite | teacher, requestedAt, decidedAt, endedAt, message?,
                 periods: [{ startedAt, endedAt, endReason: removed | left | null }] }
@@ -268,7 +321,7 @@ purchases     { id, courseId, studentId, status: requested | paid | declined | r
 invitations   { id, classId, email, name?, status: pending | accepted | revoked, createdAt, expiresAt }
 blocks        { teacherId, studentId, createdAt }
 taughtLessons { id, classId, courseId, lessonId, taughtAt }
-classNotes    { id, classId, courseId, lessonId, text, done, sharedAt, createdAt, updatedAt }
+lessonNotes   { id, courseId, lessonId, html, text, docUrl?, docManaged, sentTo: [{ classId, at }], createdAt, updatedAt }  (one per lesson)
 attendance    { taughtLessonId, studentId, status: present | absent, markedAt }
 lessonCompletions { id, studentId, courseId, lessonId, completedAt }
 assignments   { id, teacherId, studentId, kind: block | task | wordSet | reading, title,
@@ -305,10 +358,10 @@ the catalog, "My classes", "My courses" and the lesson player. Consequences:
   access, with separate progress.
 - A course taken off sale stops new purchases, but **existing buyers keep
   access**. A refund ends access.
-- **Class notes** a teacher has sent (`sharedAt` set) reach the class's
-  **active** members, and only them: leaving or being removed from the class
-  takes the notes away with its lessons. Unsent notes never leave the
-  teacher. Written once as `notesSentToStudent(db, studentId)`.
+- **Lesson notes** a teacher has sent to a class (`sentTo`) reach that
+  class's **active** members, and only them: leaving or being removed from
+  the class takes the notes away with its lessons. Unsent notes never leave
+  the teacher. Written once as `notesSentToStudent(db, studentId)`.
 
 ### Lesson history: what counts as a student's lesson
 
@@ -340,9 +393,9 @@ milestones, and `totals`.
   - `CREATE_INVITATION` / `REVOKE_INVITATION`.
   - `DECIDE_MEMBERSHIP` (`active` | `declined`), `ADD_CLASS_MEMBER`,
     `REMOVE_CLASS_MEMBER`, `BLOCK_STUDENT` / `UNBLOCK_STUDENT`.
-  - `ADD_CLASS_NOTE`, `UPDATE_CLASS_NOTE` (text, done), `SHARE_CLASS_NOTES`
-    (send or take back, several at once) and `REMOVE_CLASS_NOTE`. A note
-    can only be added for a course the class is taking.
+  - `SAVE_LESSON_NOTES` (a lesson's rich-text notes), `SET_LESSON_NOTES_DOC`
+    (its Google Doc link) and `SEND_LESSON_NOTES` (send to one class, or take
+    back; only a class taking the course).
   - `SET_LESSON_RELEASED`, `UPDATE_COURSE_SALE`, `DECIDE_PURCHASE`
     (`paid` | `declined`).
   - `SET_ATTENDANCE { taughtLessonId, studentId, status }` (`present` |
@@ -405,17 +458,46 @@ picked at once.
   (class and purchase) from any page.
 - **Course page through a class:** a **Shared / Share** toggle per lesson.
   `ClassLessonBar` shows "Students can see it" with Share or Hide, and a
-  **Notes** button (count of open notes) for this class's notes on the lesson.
-- **Class notes** (`src/components/ClassNotes.jsx`) belong to the class,
-  never to the course's lesson: the course is the same for every class, so
-  it can't hold "what to review with *this* group". Each note is one short
-  line the teacher can tick off (`done`), edit in place, delete, and send
-  to the class (or take back). Two ways in, one set of pieces:
-  - the lesson opened from a class: ClassLessonBar's **Notes** drawer;
-  - the class page: a **Class notes** card under Courses, every note
-    grouped by lesson (latest first) with a To do / Done / Not sent yet /
-    All filter, and an add field whose lesson picker defaults to next up.
-  A plain lesson page (no `?classId=`) has no notes at all.
+
+- **Lesson notes** (`src/components/LessonNotes.jsx`) belong to the
+  **lesson**, not to a class: one document per lesson, the same whichever
+  class it's taught to, written while teaching. They're only in the lesson
+  itself (Block Studio), not on the class page, the course tree or the
+  lesson overview, and only when the lesson was opened from a class
+  (**teaching mode**: the lesson is locked to the student's view — no
+  As student / Edit switch, no Add Step, rename, move or delete on the
+  overview; opened from the Courses tab it's the author's view, with those
+  and no notes):
+  - writing: the **Notes** button in Block Studio's toolbar (it stays open as the teacher moves between blocks — the notes belong to the lesson) opens a docked
+    side panel (`LessonNotesPanel`) beside the lesson, not over it
+    (`body[data-notes-open]` in `index.css` makes room). It holds a small
+    Google-Docs-style editor (bold, italic, underline, heading, lists, text
+    colour, highlight, clear), autosaved a moment after typing stops
+    (`SAVE_LESSON_NOTES`). The note is rich text (`html`, plus its plain
+    `text`), always cleaned by `src/richText.js` on write and rendered with
+    the `.note-body` class;
+  - **sending:** when the lesson was opened from a class (`?classId=`), the
+    panel has one **Send to [class]** button (and Unsend,
+    `SEND_LESSON_NOTES`): the whole document and its Google Doc link reach
+    that class's active students, who see edits live. `sentTo` records which
+    classes have it. Opened without a class, the notes are the teacher's
+    own. Students get one row per (note, class) from `notesSentToStudent`,
+    which is what the student app still reads as `classNotes`;
+  - a **Google Doc** per lesson (`docUrl`, `SET_LESSON_NOTES_DOC`; https
+    `docs.google.com` / `drive.google.com` only). With a Google OAuth
+    client ID in `VITE_GOOGLE_CLIENT_ID` (`.env.example`), one click signs
+    the teacher in (Google's browser sign-in popup, no backend of ours),
+    creates the doc in their Drive (scope `drive.file`: only files the app
+    created) and opens it in the panel in an iframe, with an Expand button
+    for room. All of it lives in `src/db/googleDocs.js`, on `apiClient.js`;
+    the token is in memory only. A doc the app created is `docManaged`:
+    sending the notes to a class sets it to "anyone with the link can read",
+    and taking it back from the last class removes that. Without a client
+    ID the panel falls back to pasting a link ("Start a new Google Doc"
+    opens `docs.new`), and a pasted doc's sharing is the teacher's to set in
+    Google. Students see "Read the document here" (the read-only `/preview`
+    in an iframe) and "Open in Google Docs". While a doc is linked it is
+    where the teacher writes; the in-app editor comes back if it's unlinked.
 - **Plain course page:** a sales card with For sale or "Put on sale" and
   **Sale settings** (price, currency, description, how to pay), plus
   **Customers** (requests to confirm, then buyers).
@@ -492,7 +574,8 @@ It has no design or data of its own:
   first, so it starts where the others are. `StoreProvider`'s `caughtUp` is
   true once that first copy arrived, and the student app only toasts
   changes ("New note from…", "You're in…", "Lesson 5 is open…", "Payment
-  confirmed…") after it. Nothing is stored: close every tab and the seed
+  confirmed…") after it. Apart from the component library and the lesson notes
+  (`localStorage`), nothing is stored: close every tab and the seed
   comes back. A real backend's push replaces this file. When testing in a
   browser, use a fresh profile per run; leftover open tabs hand their data
   to new ones.

@@ -155,11 +155,6 @@ export function statusPill(status) {
   return "neutral";
 }
 
-// A class's meeting days (indices into DAY_LABELS), rendered as "Mon, Wed" —
-// the compact form used everywhere a class card or row needs to show when it meets.
-export function scheduleLabel(days) {
-  return (days || []).map((d) => DAY_LABELS[d]).filter(Boolean).join(", ") || "No schedule set";
-}
 
 /* ------------------------------- teacher ------------------------------- */
 
@@ -269,7 +264,6 @@ export const SEED_LESSONS = {
 // (a backend's `class_members`) — never on the class or the student — so a
 // student can be in several classes, even other teachers', and keep their
 // history. joinToken is the class link/code; joinOpen turns it off.
-export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // A class's `courses` is its assignment history (a backend's `class_courses`
 // rows) — every course it has studied, each with:
@@ -284,26 +278,23 @@ export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // from that log, never stored here.
 export const SEED_CLASSES = [
   {
-    id: "cls_it_morning", teacherId: "t_maria", name: "ITler — Morning", scheduleDays: [1, 3],
+    id: "cls_it_morning", teacherId: "t_maria", name: "ITler — Morning", schedule: [{ day: 0, start: "10:00", durationMin: 60 }, { day: 2, start: "10:00", durationMin: 60 }],
     joinToken: "M4R9QX", joinOpen: true,
-    courses: [
-      { courseId: "every", currentLessonId: "ev5", status: "done", releasedLessonIds: ["ev1", "ev2", "ev3", "ev4", "ev5"] },
-      { courseId: "it", currentLessonId: "it4", status: "in-progress", releasedLessonIds: ["it1", "it2", "it3", "it4"] },
-    ],
+    courses: [{ courseId: "it", currentLessonId: "it4", status: "in-progress", releasedLessonIds: ["it1", "it2", "it3", "it4"] }],
   },
   {
-    id: "cls_it_evening", teacherId: "t_maria", name: "ITler — Evening", scheduleDays: [2, 4],
+    id: "cls_it_evening", teacherId: "t_maria", name: "ITler — Evening", schedule: [{ day: 1, start: "19:00", durationMin: 60 }, { day: 3, start: "19:00", durationMin: 90 }],
     joinToken: "E7K2PB", joinOpen: true,
     courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress", releasedLessonIds: ["it1"] }],
   },
   {
-    id: "cls_ielts_main", teacherId: "t_maria", name: "IELTS Speaking — Main", scheduleDays: [1, 3, 5],
+    id: "cls_ielts_main", teacherId: "t_maria", name: "IELTS Speaking — Main", schedule: [{ day: 0, start: "18:00", durationMin: 90 }, { day: 2, start: "18:00", durationMin: 90 }, { day: 4, start: "17:00", durationMin: 60 }],
     joinToken: "IE5T8W", joinOpen: true,
     courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress", releasedLessonIds: ["ie1", "ie2"] }],
   },
   // Another teacher's class — never visible to this teacher.
   {
-    id: "cls_kamal_biz", teacherId: "t_kamal", name: "Business English — Tuesdays", scheduleDays: [1],
+    id: "cls_kamal_biz", teacherId: "t_kamal", name: "Business English — Tuesdays", schedule: [{ day: 1, start: "11:00", durationMin: 60 }],
     joinToken: "KB3N6Y", joinOpen: true,
     courses: [{ courseId: "biz", currentLessonId: "bz1", status: "in-progress", releasedLessonIds: ["bz1"] }],
   },
@@ -326,35 +317,35 @@ export const CLASS_COURSE_STATUS = {
 // MARK_LESSON_TAUGHT ("Finish lesson" / "Mark as taught" on a lesson
 // opened from a class). ISO timestamps only — "5 days ago" is formatting.
 export const SEED_TAUGHT_LESSONS = [
-  { id: "tl_seed_1", classId: "cls_it_morning", courseId: "every", lessonId: "ev1", taughtAt: "2026-07-06T09:00:00.000Z" },
-  { id: "tl_seed_2", classId: "cls_it_morning", courseId: "every", lessonId: "ev2", taughtAt: "2026-07-13T09:00:00.000Z" },
-  { id: "tl_seed_3", classId: "cls_it_morning", courseId: "every", lessonId: "ev3", taughtAt: "2026-07-20T09:00:00.000Z" },
-  { id: "tl_seed_4", classId: "cls_it_morning", courseId: "every", lessonId: "ev4", taughtAt: "2026-07-27T09:00:00.000Z" },
-  { id: "tl_seed_4b", classId: "cls_it_morning", courseId: "every", lessonId: "ev5", taughtAt: "2026-08-03T09:00:00.000Z" },
   { id: "tl_seed_5", classId: "cls_it_morning", courseId: "it", lessonId: "it1", taughtAt: "2026-09-07T09:00:00.000Z" },
   { id: "tl_seed_6", classId: "cls_it_morning", courseId: "it", lessonId: "it2", taughtAt: "2026-09-14T09:00:00.000Z" },
   { id: "tl_seed_7", classId: "cls_it_morning", courseId: "it", lessonId: "it3", taughtAt: "2026-09-24T09:00:00.000Z" },
   { id: "tl_seed_8", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", taughtAt: "2026-09-26T16:00:00.000Z" },
 ];
 
-// A class's own notes on its lessons (see "Class notes" in CLAUDE.md):
-// what to review, homework, who needs help. Private to the teacher until
-// sent (`sharedAt`); `done` is the teacher's own tick.
-export const SEED_CLASS_NOTES = [
-  { id: "cn_seed_1", classId: "cls_it_morning", courseId: "it", lessonId: "it2", text: "The role-play worked really well — reuse the same format in Lesson 5.",
-    done: true, sharedAt: null, createdAt: "2026-09-14T10:10:00.000Z", updatedAt: "2026-09-14T10:10:00.000Z" },
-  { id: "cn_seed_2", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Rashad still says “I have fixed it yesterday” — go over past simple vs present perfect again.",
-    done: false, sharedAt: null, createdAt: "2026-09-24T10:05:00.000Z", updatedAt: "2026-09-24T10:05:00.000Z" },
-  { id: "cn_seed_3", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Homework: write three standup updates using “so far” and “by Friday”.",
-    done: false, sharedAt: "2026-09-24T10:08:00.000Z", createdAt: "2026-09-24T10:07:00.000Z", updatedAt: "2026-09-24T10:07:00.000Z" },
-  { id: "cn_seed_4", classId: "cls_it_morning", courseId: "it", lessonId: "it3", text: "Print the bug-report template for everyone.",
-    done: true, sharedAt: null, createdAt: "2026-09-24T10:09:00.000Z", updatedAt: "2026-09-24T10:09:00.000Z" },
-  { id: "cn_seed_5", classId: "cls_it_morning", courseId: "it", lessonId: "it4", text: "Open with a 5-minute recap of last lesson's time markers (already, so far, yet).",
-    done: false, sharedAt: null, createdAt: "2026-09-25T08:30:00.000Z", updatedAt: "2026-09-25T08:30:00.000Z" },
-  { id: "cn_seed_6", classId: "cls_it_morning", courseId: "it", lessonId: "it4", text: "Pair Nigar with Leyla for the info-gap task.",
-    done: false, sharedAt: null, createdAt: "2026-09-25T08:32:00.000Z", updatedAt: "2026-09-25T08:32:00.000Z" },
-  { id: "cn_seed_7", classId: "cls_ielts_main", courseId: "ielts", lessonId: "ie1", text: "Part 2 answers ran short — practise speaking for the full two minutes.",
-    done: false, sharedAt: "2026-09-26T17:05:00.000Z", createdAt: "2026-09-26T17:00:00.000Z", updatedAt: "2026-09-26T17:00:00.000Z" },
+// The teacher's notes on a lesson (see "Lesson notes" in CLAUDE.md): one
+// document per (course, lesson) — they belong to the lesson, not to a class —
+// written in the rich-text editor (`html`, kept clean by richText.js; `text`
+// is its plain text) and optionally pointing at a Google Doc (`docUrl`).
+// Private to the teacher until sent to a class (`sentTo`: [{ classId, at }]),
+// then that class's students see the whole document.
+export const SEED_LESSON_NOTES = [
+  { id: "ln_seed_1", courseId: "it", lessonId: "it2",
+    html: "<p>The role-play worked really well — reuse the same format in Lesson 5.</p>",
+    text: "The role-play worked really well — reuse the same format in Lesson 5.", docUrl: null, docManaged: false,
+    sentTo: [], createdAt: "2026-09-14T10:10:00.000Z", updatedAt: "2026-09-14T10:10:00.000Z" },
+  { id: "ln_seed_3", courseId: "it", lessonId: "it3",
+    html: "<h3>Homework</h3><ul><li>Write three standup updates using “so far” and “by Friday”.</li></ul><p>Print the bug-report template for everyone.</p>",
+    text: "Homework Write three standup updates using “so far” and “by Friday”. Print the bug-report template for everyone.", docUrl: null, docManaged: false,
+    sentTo: [{ classId: "cls_it_morning", at: "2026-09-24T10:08:00.000Z" }], createdAt: "2026-09-24T10:05:00.000Z", updatedAt: "2026-09-24T10:08:00.000Z" },
+  { id: "ln_seed_5", courseId: "it", lessonId: "it4",
+    html: "<ul><li>Open with a 5-minute recap of last lesson's time markers (already, so far, yet).</li><li>Pair Nigar with Leyla for the info-gap task.</li></ul>",
+    text: "Open with a 5-minute recap of last lesson's time markers (already, so far, yet). Pair Nigar with Leyla for the info-gap task.", docUrl: null, docManaged: false,
+    sentTo: [], createdAt: "2026-09-25T08:30:00.000Z", updatedAt: "2026-09-25T08:32:00.000Z" },
+  { id: "ln_seed_7", courseId: "ielts", lessonId: "ie1",
+    html: "<p>Part 2 answers ran short — practise speaking for the full two minutes.</p>",
+    text: "Part 2 answers ran short — practise speaking for the full two minutes.", docUrl: null, docManaged: false,
+    sentTo: [{ classId: "cls_ielts_main", at: "2026-09-26T17:05:00.000Z" }], createdAt: "2026-09-26T17:00:00.000Z", updatedAt: "2026-09-26T17:00:00.000Z" },
 ];
 
 // Who missed a taught lesson (a backend's `attendance`): one row per
@@ -362,7 +353,6 @@ export const SEED_CLASS_NOTES = [
 // the class when the lesson was taught counts as having had it unless a row
 // says "absent" — teachers mark the exceptions, not the whole roster.
 export const SEED_ATTENDANCE = [
-  { taughtLessonId: "tl_seed_3", studentId: "s_nigar",  status: "absent", markedAt: "2026-07-20T11:00:00.000Z" },
   { taughtLessonId: "tl_seed_6", studentId: "s_rashad", status: "absent", markedAt: "2026-09-14T11:00:00.000Z" },
 ];
 
@@ -450,9 +440,20 @@ export const SEED_INVITATIONS = [
 const w = (term, az, def, example, status = "known", extra = {}) => ({ term, az, def, example, status, ...extra });
 const s = (text) => ({ text }); // plain glue text (punctuation / known words)
 
+// Reading texts live in folders, nested like a file system (Academic reading → Psychology …).
+export const SEED_TEXT_FOLDERS = [
+  { id: "tf_it", parentId: null, name: "IT" },
+  { id: "tf_every", parentId: null, name: "Everyday" },
+  { id: "tf_biz", parentId: null, name: "Business" },
+  { id: "tf_travel", parentId: null, name: "Travel" },
+  { id: "tf_ielts", parentId: null, name: "IELTS" },
+  { id: "tf_academic", parentId: null, name: "Academic reading" },
+  { id: "tf_psych", parentId: "tf_academic", name: "Psychology" },
+];
+
 export const SEED_TEXTS = [
   {
-    id: "t_standup", title: "A morning standup", topic: "IT", level: "B1", wordCount: 58, hasTranslation: true,
+    id: "t_standup", title: "A morning standup", folderId: "tf_it", level: "B1", wordCount: 58, hasTranslation: true,
     body: [
       s("Every morning the team has a short "), w("standup", "gündəlik toplantı", "a short daily meeting where each person shares progress", "We keep the standup under ten minutes.", "new"),
       s(". Yesterday I "), w("shipped", "təhvil verdim", "released code to users", "We shipped the new login screen last night.", "learning", { emoji: "📦", ipaUk: "/ʃɪpt/", ipaUs: "/ʃɪpt/" }),
@@ -463,7 +464,7 @@ export const SEED_TEXTS = [
     ],
   },
   {
-    id: "t_cafe", title: "At the café", topic: "Everyday", level: "A2", wordCount: 44, hasTranslation: true,
+    id: "t_cafe", title: "At the café", folderId: "tf_every", level: "A2", wordCount: 44, hasTranslation: true,
     body: [
       s("I usually "), w("order", "sifariş vermək", "to ask for food or drink in a place", "I order a coffee every morning.", "learning"),
       s(" a coffee before work. The café near my flat is "), w("cozy", "rahat", "warm and comfortable", "The room was small but cozy.", "new", { emoji: "🛋️", ipaUk: "/ˈkəʊ.zi/", ipaUs: "/ˈkoʊ.zi/" }),
@@ -472,7 +473,7 @@ export const SEED_TEXTS = [
     ],
   },
   {
-    id: "t_email", title: "A polite client email", topic: "Business", level: "B2", wordCount: 51, hasTranslation: true,
+    id: "t_email", title: "A polite client email", folderId: "tf_biz", level: "B2", wordCount: 51, hasTranslation: true,
     body: [
       s("Thank you for your "), w("patience", "səbir", "the ability to wait calmly", "Thank you for your patience during the delay.", "new"),
       s(" while we looked into this. We have "), w("identified", "müəyyən etdik", "found or recognised something", "We identified the root cause.", "learning"),
@@ -481,7 +482,7 @@ export const SEED_TEXTS = [
     ],
   },
   {
-    id: "t_neighbour", title: "Meeting a new neighbour", topic: "Everyday", level: "A2", wordCount: 62, hasTranslation: true,
+    id: "t_neighbour", title: "Meeting a new neighbour", folderId: "tf_every", level: "A2", wordCount: 62, hasTranslation: true,
     body: [
       s("On Saturday a new family moved in next door. I went over to say "), w("hello", "salam", "a friendly word you say when you meet someone", "Hello! I'm Nigar from number 12.", "known", { emoji: "👋", ipaUk: "/həˈləʊ/", ipaUs: "/həˈloʊ/" }),
       s(" and "), w("introduce", "təqdim etmək", "to tell someone your name when you meet", "Let me introduce myself.", "learning"),
@@ -491,7 +492,7 @@ export const SEED_TEXTS = [
     ],
   },
   {
-    id: "t_city", title: "Finding the museum", topic: "Travel", level: "A2", wordCount: 70, hasTranslation: true,
+    id: "t_city", title: "Finding the museum", folderId: "tf_travel", level: "A2", wordCount: 70, hasTranslation: true,
     body: [
       s("Last summer I visited Tbilisi for the first time. On my second day I wanted to see the national museum, but I got "), w("lost", "azmaq", "not knowing where you are or how to get somewhere", "I got lost in the old town.", "new", { emoji: "🧭", ipaUk: "/lɒst/", ipaUs: "/lɑːst/" }),
       s(". I asked a woman at a bus "), w("stop", "dayanacaq", "a place where a bus stops for passengers", "The bus stop is across the road.", "known"),
@@ -501,7 +502,7 @@ export const SEED_TEXTS = [
     ],
   },
   {
-    id: "t_market", title: "A Saturday at the market", topic: "Everyday", level: "B1", wordCount: 66, hasTranslation: true,
+    id: "t_market", title: "A Saturday at the market", folderId: "tf_every", level: "B1", wordCount: 66, hasTranslation: true,
     body: [
       s("Every Saturday I go to the market with a shopping list. Fruit is usually "), w("cheaper", "daha ucuz", "costing less money", "Apples are cheaper at the market.", "learning"),
       s(" there than in the supermarket. Today strawberries were on "), w("sale", "endirim", "when things are sold at a lower price", "These shoes are on sale this week.", "new", { emoji: "🏷️", ipaUk: "/seɪl/", ipaUs: "/seɪl/" }),
@@ -513,7 +514,7 @@ export const SEED_TEXTS = [
   // Deliberately long (~450 words, many tappable words) — the text a
   // layout has to survive, not just the 50-word ones above.
   {
-    id: "t_newcity", title: "My first week in a new city", topic: "Travel", level: "B1", wordCount: 456, hasTranslation: true,
+    id: "t_newcity", title: "My first week in a new city", folderId: "tf_travel", level: "B1", wordCount: 456, hasTranslation: true,
     body: [
       s("Last month I "), w("moved", "köçdüm", "went to live in a different place", "We moved to Baku in 2020.", "known"),
       s(" to Istanbul for a new job. I had visited the city twice as a tourist, but living there turned out to be "), w("completely", "tamamilə", "in every way; totally", "The new office is completely different.", "learning"),
@@ -546,7 +547,12 @@ export const SEED_TEXTS = [
 /* ------------------------------- word sets ------------------------------- */
 
 export const SEED_WORDSETS = [
-  { id: "ws_it", title: "IT essentials", category: "IT", level: "B1", words: [
+  { id: "wf_it", parentId: null, title: "IT", level: "", words: [] },
+  { id: "wf_biz", parentId: null, title: "Business", level: "", words: [] },
+  { id: "wf_every", parentId: null, title: "Everyday", level: "", words: [] },
+  { id: "wf_travel", parentId: null, title: "Travel", level: "", words: [] },
+  { id: "wf_ielts", parentId: null, title: "IELTS", level: "", words: [] },
+  { id: "ws_it", title: "IT essentials", parentId: "wf_it", level: "B1", words: [
     { term: "deploy", az: "yerləşdirmək", def: "to put software onto a server so people can use it" },
     { term: "ship", az: "təhvil vermək", def: "to release finished work to users" },
     { term: "release", az: "buraxılış", def: "a new version of software made available to users" },
@@ -554,35 +560,35 @@ export const SEED_WORDSETS = [
     { term: "merge", az: "birləşdirmək", def: "to combine two branches of code into one" },
     { term: "rollback", az: "geri qaytarma", def: "reverting to an earlier, working version after a bad release" },
   ] },
-  { id: "ws_biz", title: "Client email phrases", category: "Business", level: "B2", words: [
+  { id: "ws_biz", title: "Client email phrases", parentId: "wf_biz", level: "B2", words: [
     { term: "follow up", az: "əlaqə saxlamaq", def: "to contact someone again to check on progress" },
     { term: "reach out", az: "əlaqə saxla", def: "to get in touch with someone" },
     { term: "on track", az: "planda", def: "progressing as planned, without delay" },
     { term: "let me know", az: "mənə bildir", def: "please tell me — a request to be informed" },
     { term: "at your earliest convenience", az: "ilk imkanda", def: "as soon as it's reasonably possible for you" },
   ] },
-  { id: "ws_every", title: "Everyday basics", category: "Everyday", level: "A2", words: [
+  { id: "ws_every", title: "Everyday basics", parentId: "wf_every", level: "A2", words: [
     { term: "order", az: "sifariş vermək", def: "to ask for food or drink in a place" },
     { term: "grab", az: "tez almaq", def: "to take or get something quickly" },
     { term: "cozy", az: "rahat", def: "warm and comfortable" },
     { term: "friendly", az: "mehriban", def: "kind and pleasant" },
     { term: "nearby", az: "yaxınlıqda", def: "a short distance away" },
   ] },
-  { id: "ws_travel", title: "Travel & directions", category: "Travel", level: "A2", words: [
+  { id: "ws_travel", title: "Travel & directions", parentId: "wf_travel", level: "A2", words: [
     { term: "boarding pass", az: "minik talonu", def: "the document you need to get on a flight" },
     { term: "gate", az: "çıxış qapısı", def: "the airport entrance where passengers board a specific flight" },
     { term: "delay", az: "gecikmə", def: "a period of time when something happens later than planned" },
     { term: "aisle", az: "keçid", def: "the walkway between rows of seats" },
     { term: "layover", az: "aralıq dayanacaq", def: "a stop between flights before reaching the final destination" },
   ] },
-  { id: "ws_ielts", title: "IELTS band-7 linkers", category: "IELTS", level: "B2", words: [
+  { id: "ws_ielts", title: "IELTS band-7 linkers", parentId: "wf_ielts", level: "B2", words: [
     { term: "furthermore", az: "üstəlik", def: "in addition to what has just been said" },
     { term: "nevertheless", az: "buna baxmayaraq", def: "in spite of what was just mentioned" },
     { term: "consequently", az: "nəticədə", def: "as a result of something" },
     { term: "in contrast", az: "əksinə", def: "showing a clear difference when compared with something else" },
   ] },
   // Deliberately long (30 words) — goes with Everyday English L5.
-  { id: "ws_newcity", title: "Moving to a new city", category: "Travel", level: "B1", words: [
+  { id: "ws_newcity", title: "Moving to a new city", parentId: "wf_travel", level: "B1", words: [
     { term: "move", az: "köçmək", def: "to go to live in a different place" },
     { term: "commute", az: "işə gedib-gəlmək", def: "to travel to and from work" },
     { term: "crowded", az: "adamla dolu", def: "full of people" },

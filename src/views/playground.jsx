@@ -36,6 +36,7 @@ const LEVEL_ORDER = { A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
 export function wordsByLevel(wordSets) {
   const byLevel = new Map();
   wordSets.forEach((ws) => {
+    if (!ws.words.length) return; // a folder of word sets with no words of its own
     const level = ws.level || "—";
     if (!byLevel.has(level)) byLevel.set(level, { level, sets: [], words: [] });
     const bucket = byLevel.get(level);

@@ -1,14 +1,15 @@
 import React, { useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
-import {
+import { IconClock,
   IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool, IconCopy, IconRefresh, IconMail, IconInbox,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
 import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers, teacherRoster } from "../store.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
-import { ClassNotesCard } from "../components/ClassNotes.jsx";
 import { timeAgo, shortDate } from "../format.js";
-import { DAY_LABELS, CLASS_COURSE_STATUS, joinLink, scheduleLabel } from "../data.jsx";
+import { CLASS_COURSE_STATUS, joinLink } from "../data.jsx";
+import { scheduleLabel } from "../schedule.js";
+import ScheduleEditor from "../components/ScheduleEditor.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -44,15 +45,14 @@ function ClassesView() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [days, setDays] = useState([]);
+  const [schedule, setSchedule] = useState([]);
   const [courseId, setCourseId] = useState("");
 
-  const toggleDay = (i) => setDays((d) => (d.includes(i) ? d.filter((x) => x !== i) : [...d, i].sort()));
   function createClass() {
     if (!name.trim()) return toast("Give the class a name", "err");
-    dispatch({ type: "ADD_CLASS", name: name.trim(), scheduleDays: days, courseId: courseId || null });
+    dispatch({ type: "ADD_CLASS", name: name.trim(), schedule, courseId: courseId || null });
     toast(`“${name.trim()}” class created`);
-    setName(""); setDays([]); setCourseId(""); setCreating(false);
+    setName(""); setSchedule([]); setCourseId(""); setCreating(false);
   }
 
   return (
@@ -74,15 +74,7 @@ function ClassesView() {
               </Select>
             </Field>
           </div>
-          <div className="mb-3">
-            <span className="text-xs font-semibold text-neutral-600">Meets on</span>
-            <div className="flex gap-1.5 mt-1.5">
-              {DAY_LABELS.map((d, i) => (
-                <button key={d} onClick={() => toggleDay(i)}
-                  className={`w-9 h-9 rounded-lg text-xs font-semibold border transition-colors ${days.includes(i) ? "border-primary-400 bg-primary-50 text-primary-700" : "border-neutral-300 text-neutral-600"}`}>{d}</button>
-              ))}
-            </div>
-          </div>
+          <div className="mb-3"><ScheduleEditor value={schedule} onChange={setSchedule} /></div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
             <Button variant="primary" size="sm" onClick={createClass}>Create class</Button>
@@ -99,7 +91,7 @@ function ClassesView() {
           const p = active ? classCourseProgress(state, cls, active.courseId) : null;
           return (
             <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
-              title={cls.name} scheduleLabel={scheduleLabel(cls.scheduleDays)}
+              title={cls.name} scheduleLabel={scheduleLabel(cls.schedule)}
               courseTitle={course ? course.title : "No course in progress"}
               lessonLine={p?.next ? `Next up: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
               progressLabel={p ? `${p.taughtCount} of ${p.total} lessons taught` : undefined}
@@ -140,6 +132,8 @@ function ClassDetailView({ classId }) {
   const [confirmRemove, setConfirmRemove] = useState(null); // student pending removal
   const [panelTab, setPanelTab] = useState("students"); // "students" | "requests"
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [draftSchedule, setDraftSchedule] = useState([]);
   // The confirm dialog keeps showing the student it was opened for while it
   // plays its exit animation, after confirmRemove is already cleared.
   const lastRemove = useRef(null);
@@ -155,21 +149,17 @@ function ClassDetailView({ classId }) {
   const roster = members.map((m) => m.student);
   const others = state.students.filter((s) => !roster.some((r) => r.id === s.id));
   const requests = teacherRoster(state).requests.filter((r) => r.kind === "class" && r.cls.id === cls.id);
-  const unassignedCourses = state.courses.filter((c) => !cls.courses.some((x) => x.courseId === c.id));
+  // A class takes one course for now — only offered while it has none.
+  const unassignedCourses = cls.courses.length ? [] : state.courses;
 
   function removeStudent(s) {
     dispatch({ type: "REMOVE_CLASS_MEMBER", classId: cls.id, studentId: s.id });
     toast(`${s.name.split(" ")[0]} removed from ${cls.name}`);
     setConfirmRemove(null);
   }
-  // The new course becomes the class's active one; whatever was in
-  // progress is paused (resumable from its course page), and the toast
-  // says so rather than letting it happen silently.
   function assignCourse(courseId) {
-    const paused = state.courses.find((c) => c.id === activeClassCourse(cls)?.courseId);
     dispatch({ type: "ASSIGN_CLASS_COURSE", classId: cls.id, courseId });
-    const title = state.courses.find((c) => c.id === courseId)?.title;
-    toast(paused ? `${title} is now in progress for ${cls.name} — ${paused.title} paused` : `${title} assigned to ${cls.name}`);
+    toast(`${state.courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`);
     setAssignOpen(false);
   }
 
@@ -177,7 +167,16 @@ function ClassDetailView({ classId }) {
     <Page>
       <Breadcrumbs items={[{ label: "Classes", onClick: () => navigate("/classes") }, { label: cls.name }]} />
       <PageHeader title={cls.name}
-        sub={`${scheduleLabel(cls.scheduleDays)} · ${roster.length} student${roster.length === 1 ? "" : "s"}`} />
+        sub={`${scheduleLabel(cls.schedule)} · ${roster.length} student${roster.length === 1 ? "" : "s"}`}
+        right={<Button variant="outline" size="sm" onClick={() => { setDraftSchedule(cls.schedule || []); setScheduleOpen(true); }}><IconClock size={15} stroke={1.75} /> Edit schedule</Button>} />
+      <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} icon={IconClock} title="Class schedule" sub={cls.name}
+        footer={<>
+          <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancel</Button>
+          <Button onClick={() => { dispatch({ type: "UPDATE_CLASS_SCHEDULE", classId: cls.id, schedule: draftSchedule }); toast("Schedule updated"); setScheduleOpen(false); }}>Save schedule</Button>
+        </>}>
+        <ScheduleEditor value={draftSchedule} onChange={setDraftSchedule} />
+        <p className="mt-4 text-xs text-neutral-600">The class's next lesson opens to its students 5 minutes before each session. You can hide it again from the lesson.</p>
+      </Modal>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* main column — assigned courses */}
@@ -249,9 +248,6 @@ function ClassDetailView({ classId }) {
               </Card>
             )}
           </div>
-
-          {/* The class's own notes on its lessons — to do, done, sent. */}
-          <div className="mt-6"><ClassNotesCard cls={cls} /></div>
         </div>
 
         {/* right rail — one panel: the class's students and its requests as

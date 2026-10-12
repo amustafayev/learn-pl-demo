@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { IconNotes, IconClock, IconDoorExit, IconChevronRight } from "@tabler/icons-react";
 import { Alert, Badge, Breadcrumbs, Button, Card, CountBadge, Page, PageHeader, SegmentedBar } from "@app/design-system.jsx";
 import { useStore, classCourseProgress } from "@app/store.jsx";
-import { CLASS_COURSE_STATUS, scheduleLabel } from "@app/data.jsx";
+import { CLASS_COURSE_STATUS } from "@app/data.jsx";
+import { scheduleLabel } from "@app/schedule.js";
 import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { classCourses, courseOf, finishedLesson, membershipIn, teacherName } from "../lib.js";
@@ -52,7 +53,7 @@ export default function ClassPage() {
   return (
     <Page>
       <Breadcrumbs items={crumbs} />
-      <PageHeader title={cls.name} sub={`with ${teacher} · ${scheduleLabel(cls.scheduleDays)}`} />
+      <PageHeader title={cls.name} sub={`with ${teacher} · ${scheduleLabel(cls.schedule)}`} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6 min-w-0">
           {classCourses(cls).map((entry) => <ClassCourse key={entry.courseId} cls={cls} entry={entry} />)}

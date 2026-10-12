@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
-  groupBankByParent, bankChildLabel, persistComponentBank, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
-  classNotesFor, studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
+  groupBankByParent, bankChildLabel, persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
+  lessonNoteFor, studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
 } from "./db/mockDb.jsx";
 import { openSyncChannel, sharedChanged } from "./db/mockSync.js";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
+import { googleDocs, googleDocsConfigured, docEmbedUrl } from "./db/googleDocs.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
 
@@ -23,7 +24,7 @@ import { MOTION, cssMs } from "./motion.js";
 // in the db layer now, next to the state shape they describe.
 export {
   lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel,
-  classMembers, studentClasses, activeStudents, teacherRoster, classNotesFor, studentHistory, membershipPeriods, uid, h5pClient, saveMedia,
+  classMembers, studentClasses, activeStudents, teacherRoster, lessonNoteFor, studentHistory, membershipPeriods, uid, h5pClient, googleDocs, googleDocsConfigured, docEmbedUrl, saveMedia,
   studentView, signedOutView, canOpenLesson,
 };
 
@@ -45,12 +46,13 @@ export function discardH5PContent(toast, value) {
   deleteH5PContentIn(value).catch((err) => toast(`Couldn't delete the H5P content on the server: ${err.message}`, "err"));
 }
 
-// Save a single Component into the Component Library. Shared by Block Studio's editor and the course tree's leaf rows.
+// Save a single Component to Saved. Shared by Block Studio's editor and the course tree's leaf rows.
 export async function saveComponentToBank(dispatch, toast, component, title, from) {
   const snapshot = await copyWithOwnH5P(toast, component);
-  if (!snapshot) return;
+  if (!snapshot) return false;
   dispatch({ type: "SAVE_COMPONENT_TO_BANK", component: snapshot, title, from });
-  toast(`Saved “${title}” to Component Library`);
+  toast(`“${title}” saved`);
+  return true;
 }
 
 // Hand one thing to one or more students (ASSIGN_WORK) — the student page's
@@ -119,7 +121,7 @@ function useMockSync(db, dispatch) {
 // `scope` is what the logged-in user's API would return — the teacher's
 // slice by default (teacherView); the student app passes its own. Writes
 // always go to the whole mock db (the "server").
-export function StoreProvider({ children, scope = teacherView, keepComponentBank = true }) {
+export function StoreProvider({ children, scope = teacherView, keepComponentBank = true, keepLessonNotes = keepComponentBank }) {
   const [db, dispatch] = useReducer(reducer, undefined, createInitialState);
   const caughtUp = useMockSync(db, dispatch);
   // Views get the logged-in teacher's slice of the data only — their own
@@ -134,6 +136,23 @@ export function StoreProvider({ children, scope = teacherView, keepComponentBank
   useEffect(() => {
     if (keepComponentBank) persistComponentBank(state.componentBank);
   }, [state.componentBank, keepComponentBank]);
+
+  // Lesson notes likewise: the whole table (not the scoped slice), so what the
+  // teacher wrote — sent or not — is what comes back after a reload.
+  useEffect(() => {
+    if (keepLessonNotes) persistLessonNotes(db.lessonNotes);
+  }, [db.lessonNotes, keepLessonNotes]);
+
+  // The server's own job, standing in here: every half minute (and on load),
+  // open each class's next lesson to its students from 5 minutes before a
+  // session. Any open tab runs it — the first one to change something
+  // syncs the rest.
+  useEffect(() => {
+    const tick = () => dispatch({ type: "AUTO_RELEASE_LESSONS", now: new Date().toISOString() });
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const toast = useCallback((text, tone) => {
     const id = uid("toast");

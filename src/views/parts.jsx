@@ -9,7 +9,7 @@ import {
   Dices, Image, MonitorPlay, Handshake, CornerDownRight, CheckCheck, MessageSquare, FileText,
 } from "lucide-react";
 import {
-  IconEye, IconPencil, IconBookmarkPlus, IconCheck,
+  IconEye, IconPencil, IconBookmarkPlus, IconBookmarkFilled, IconCheck,
   IconCopy, IconArrowUp, IconArrowDown, IconTrash, IconStack2, IconX,
   IconMaximize, IconMinimize, IconRefresh, IconArrowLeft, IconArrowRight, IconInfoCircle,
   IconMessageCircle, IconSend, IconUsers, IconFilePlus, IconBulb, IconVolume, IconMicrophone, IconCornerDownRight, IconSparkles, IconTrophy,
@@ -17,13 +17,16 @@ import {
   IconListCheck, IconPlayerPause,
 } from "@tabler/icons-react";
 import { LEVELS } from "../ui.jsx";
-import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, LibraryPickList, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
+import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useNav, saveComponentToBank, groupBankByParent, bankChildLabel, studentCourseId, activeStudents,
+  useStore, useNav, saveComponentToBank, bankChildLabel, studentCourseId, activeStudents,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
+import { pathLabel } from "../libraryTree.js";
+import { BankBrowser, SavedComponentCard, parentOf } from "../components/SavedComponents.jsx";
+import { LessonNotesToggle, LessonNotesPanel } from "../components/LessonNotes.jsx";
 import { BLOCK_TYPES, ROLE, blockMeta } from "../data.jsx";
 import {
   Reader, RoleLegend, ColorSentence, TenseTimeline,
@@ -109,6 +112,10 @@ export const COMPONENT_CATEGORIES = [
   { id: "peer", label: "Peer & group work", kinds: ["peertask"] },
   { id: "homework", label: "Homework & files", kinds: ["homework", "upload"] },
 ];
+
+// The saved library's own grouping: the picker's categories, plus a catch-all.
+export const COMPONENT_BANK_CATEGORIES = [...COMPONENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })), { id: "other", label: "Other" }];
+export const componentCategoryOf = (item) => COMPONENT_CATEGORIES.find((c) => c.kinds.includes(item.kind))?.id || "other";
 
 const SAMPLE_WORDS = [
   { term: "introduce", az: "təqdim etmək", def: "to present someone or yourself", example: "Let me introduce myself." },
@@ -234,7 +241,7 @@ export function defaultComponent(kind, texts = []) {
     ] };
     case "upload":     return { ...base, instructions: "Upload your written report as a PDF or Word file.", accept: ".pdf,.doc,.docx" };
     case "slidedeck":  return { ...base, provider: "slides", url: "", title: "Untitled deck", notes: "" };
-    case "document":   return { ...base, docKind: "pdf", url: "", title: "Untitled document", notes: "" };
+    case "document":   return { ...base, docKind: "pdf", url: "", fileId: null, fileName: "", title: "Untitled document", notes: "" };
     case "h5pActivity": return { ...base, ...defaultH5PActivity() };
     case "peertask": return { ...base,
       mode: "infogap", // "infogap" (any group size) | "quizrace" (Kahoot/Quizlet-Live-style team game)
@@ -352,6 +359,7 @@ export default function BlockStudio() {
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
+  const [savedAs, setSavedAs] = useState({}); // component id → what was saved (see handleSaveComponent)
   // Where the next component goes: null = picker closed, otherwise the
   // index it will be spliced in at. Every "+ Add component" slot in the
   // preview sets this to its own position, so a component lands exactly
@@ -638,17 +646,23 @@ export default function BlockStudio() {
     setSelectedId(copy.id);
     toast("Component duplicated");
   };
+  // What was saved, as it was when saved: a component shows as saved until
+  // it's edited, then offers saving again (a new version).
+  const isSaved = (c) => savedAs[c.id] === JSON.stringify(c);
   const handleSaveComponent = async (c) => {
+    if (isSaved(c)) { toast("Already saved"); return; }
     const list = await flushOpenEditor();
     if (!list) return;
-    saveComponentToBank(dispatch, toast, list.find((x) => x.id === c.id) || c,
+    const current = list.find((x) => x.id === c.id) || c;
+    const ok = await saveComponentToBank(dispatch, toast, current,
       `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
+    if (ok) setSavedAs((m) => ({ ...m, [c.id]: JSON.stringify(current) }));
   };
   const insertSavedComponent = async (item) => {
     const copy = await copyWithOwnH5P(toast, item.data);
     if (!copy) return;
     copy.id = cid();
-    insertNew(copy, `Inserted “${item.title}” from Component Library`);
+    insertNew(copy, `Inserted “${item.title}” from Saved`);
   };
   const changeMode = async (next) => {
     if (next === mode) return;
@@ -754,13 +768,25 @@ export default function BlockStudio() {
           <BlockFlowNav prev={blocks[blockIndex - 1]} next={blocks[blockIndex + 1]}
             onGo={goToBlock} onFinish={() => go({ partId: null })} />
           <div className="flex items-center gap-2 shrink-0">
-            {mode === "edit" && (
-              <Button size="sm" variant="light" className="whitespace-nowrap" onClick={saveAndClose}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+            {/* Teaching (opened from a class): the lesson as students see it, with
+                notes beside it — no editing. Opened from the course: the
+                author's view, with the edit switch and no notes. */}
+            {teachingClass ? (
+              <>
+                <LessonNotesToggle lesson={lesson} />
+                <LessonNotesPanel cls={teachingClass} course={course} lesson={lesson} />
+              </>
+            ) : (
+              <>
+                {mode === "edit" && (
+                  <Button size="sm" variant="light" className="whitespace-nowrap" onClick={saveAndClose}><IconCheck size={14} stroke={1.75} /> Save & close</Button>
+                )}
+                <SegmentedToggle value={mode} onChange={changeMode} options={[
+                  { id: "student", label: "As student", icon: IconEye },
+                  { id: "edit", label: "Edit content", icon: IconPencil },
+                ]} />
+              </>
             )}
-            <SegmentedToggle value={mode} onChange={changeMode} options={[
-              { id: "student", label: "As student", icon: IconEye },
-              { id: "edit", label: "Edit content", icon: IconPencil },
-            ]} />
           </div>
         </div>
       </div>
@@ -937,7 +963,7 @@ export default function BlockStudio() {
                                         {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
                                       </select>
                                     )}
-                                    <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
+                                    <SaveTool saved={isSaved(c)} onClick={() => handleSaveComponent(c)} />
                                     <StepTool title="Duplicate" onClick={() => duplicateComponent(i)}><IconCopy size={16} stroke={1.75} /></StepTool>
                                     <StepTool title="Move up" disabled={i === 0} onClick={() => moveComponent(i, -1)}><IconArrowUp size={16} stroke={1.75} /></StepTool>
                                     <StepTool title="Move down" disabled={i === components.length - 1} onClick={() => moveComponent(i, 1)}><IconArrowDown size={16} stroke={1.75} /></StepTool>
@@ -967,8 +993,8 @@ export default function BlockStudio() {
                               <div className={linked ? "ml-6 pl-4 border-l-2 border-primary-200" : ""}>
                                 <StepHeading component={c} linked={linked} right={
                                   <span className="flex items-center gap-1">
-                                    <span onClick={(e) => e.stopPropagation()} className="opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100 focus-within:opacity-100">
-                                      <StepTool title="Save component to library" onClick={() => handleSaveComponent(c)}><IconBookmarkPlus size={16} stroke={1.75} /></StepTool>
+                                    <span onClick={(e) => e.stopPropagation()} className={`transition-opacity duration-(--dur-fast) ${isSaved(c) ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}>
+                                      <SaveTool saved={isSaved(c)} onClick={() => handleSaveComponent(c)} />
                                     </span>
                                     <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-600 opacity-0 transition-opacity duration-(--dur-fast) group-hover:opacity-100">
                                       <IconPencil size={14} stroke={1.75} /> Edit
@@ -1035,7 +1061,7 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
   };
   const nav = [
     ...(suggested.length ? [{ id: "suggested", label: `Suggested for ${blockLabel}`, count: suggested.length }] : []),
-    ...(bank.length ? [{ id: "library", label: "My Component Library", count: bank.length }] : []),
+    ...(bank.length ? [{ id: "library", label: "Saved", count: bank.length }] : []),
     ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, count: cat.kinds.length })),
   ];
 
@@ -1044,7 +1070,7 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
   const q = query.trim().toLowerCase();
   const hits = (text) => text.toLowerCase().includes(q);
   const results = q ? [
-    ...(bank.some((b) => hits(b.title || "")) ? [{ id: "library", label: "My Component Library", saved: true, items: bank.filter((b) => hits(b.title || "")).map(savedItem) }] : []),
+    ...(bank.some((b) => hits(b.title || "")) ? [{ id: "library", label: "Saved", saved: true, items: bank.filter((b) => hits(b.title || "")).map(savedItem) }] : []),
     ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, items: cat.kinds.filter((k) => hits(COMPONENT_META[k].label) || hits(COMPONENT_META[k].hint || "")).map(kindItem) }))
       .filter((g) => g.items.length),
   ] : [];
@@ -1098,16 +1124,16 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
               <h4 className="text-base font-semibold text-neutral-950">{current?.label}</h4>
               <p className="text-sm text-neutral-600">
                 {category === "suggested" ? `The components a ${blockLabel} block is built for.`
-                  : category === "library" ? "Components you saved from other lessons — inserted as independent copies."
+                  : category === "library" ? "Components you saved — inserted as independent copies."
                     : `${current?.count} ${current?.count === 1 ? "component" : "components"}`}
               </p>
             </div>
             {category === "library" ? (
               // grouped by the course/parent it was saved from, so the
               // library reads as folders instead of one flat pile
-              <LibraryPickList
-                groups={groupBankByParent(bank).map(({ parent, items }) => ({ id: parent, label: parent, items: items.map(savedItem) }))}
-                onPick={onPickSaved} />
+              <BankBrowser compact items={bank} categories={COMPONENT_BANK_CATEGORIES} categoryOf={componentCategoryOf}
+                courseOf={parentOf} noun="saved items" searchText={() => ""} empty={null}
+                renderCard={(item) => <SavedComponentCard key={item.id} item={item} onOpen={() => onPickSaved(item.id)} actionLabel="Add to block" />} />
             ) : (
               <CategoryPickerGrid gridCols={grid} onPick={onPickKind}
                 items={(category === "suggested" ? suggested : COMPONENT_CATEGORIES.find((cat) => cat.id === category)?.kinds || []).map(kindItem)} />
@@ -1291,6 +1317,17 @@ function StepHeading({ component, linked, right, showLevel = true }) {
 }
 
 // An icon-only action on a step's heading row (the editor's toolbar).
+// Save to Saved: turns into a filled, orange bookmark the moment it's saved
+// (and stays visible without hovering), so the click visibly did something.
+function SaveTool({ saved, onClick }) {
+  return (
+    <button type="button" title={saved ? "Saved" : "Save to Saved"} aria-label={saved ? "Saved" : "Save to Saved"} aria-pressed={saved} onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-(--dur-fast) ${saved ? "bg-primary-50 text-primary-600" : "text-neutral-600 hover:bg-surface hover:text-neutral-950"}`}>
+      {saved ? <IconBookmarkFilled size={16} className="animate-fade-rise" /> : <IconBookmarkPlus size={16} stroke={1.75} />}
+    </button>
+  );
+}
+
 function StepTool({ title, onClick, disabled, danger, children }) {
   return (
     <button type="button" title={title} aria-label={title} disabled={disabled} onClick={onClick}
@@ -1307,12 +1344,12 @@ function BlockFlowNav({ prev, next, onGo, onFinish }) {
   return (
     <div className="flex items-center gap-2 min-w-0">
       {prev && (
-        <Button variant="outline" size="sm" className="whitespace-nowrap" title="Previous block" onClick={() => onGo(prev.id)}>
-          <IconArrowLeft size={14} stroke={1.75} /> {blockName(prev)}
+        <Button variant="outline" size="sm" className="whitespace-nowrap" title={`Previous: ${blockName(prev)}`} onClick={() => onGo(prev.id)}>
+          <IconArrowLeft size={14} stroke={1.75} /> Previous
         </Button>
       )}
       {next
-        ? <Button size="sm" className="whitespace-nowrap" onClick={() => onGo(next.id)}>Next: {blockName(next)} <IconArrowRight size={14} stroke={1.75} /></Button>
+        ? <Button size="sm" className="whitespace-nowrap" title={`Next: ${blockName(next)}`} onClick={() => onGo(next.id)}>Next <IconArrowRight size={14} stroke={1.75} /></Button>
         : <Button variant="dark" size="sm" className="whitespace-nowrap" onClick={onFinish}><IconCheck size={14} stroke={1.75} /> Back to lesson overview</Button>}
     </div>
   );
@@ -1415,7 +1452,7 @@ function PassageComponent({ component }) {
     <Card className="p-6">
       <div className="mb-4">
         <div className="text-lg font-semibold text-neutral-950">{text.title}</div>
-        <div className="text-sm text-neutral-600">{text.topic} · {text.level} · {text.wordCount} words</div>
+        <div className="text-sm text-neutral-600">{pathLabel(state.textFolders, text.folderId, "name")} · {text.level} · {text.wordCount} words</div>
       </div>
       <Reader text={text} onSaveWord={() => toast("Word saved to the personal list")} />
     </Card>
@@ -2151,8 +2188,12 @@ const DOC_KIND_LABEL = { image: "Image", pdf: "PDF", docx: "Word document" };
    natively and this app has no file storage of its own to convert it. ---- */
 function DocumentComponent({ component }) {
   const kind = component.docKind || "pdf";
-  const url = component.url;
-  const officeSrc = url ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : "";
+  // An uploaded file (kept in the browser's file storage) or a pasted link.
+  const { src: fileSrc, missing } = useMediaSrc(component.fileId, component.url);
+  const url = fileSrc || "";
+  // Office's online viewer can only open a public link, never an uploaded file.
+  const uploadedWord = kind === "docx" && !!component.fileId;
+  const officeSrc = url && !uploadedWord ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : "";
   return (
     <div className="">
       <Card className="p-0 overflow-hidden">
@@ -2160,7 +2201,15 @@ function DocumentComponent({ component }) {
           {!url ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-600 text-sm py-10">
               <FileText size={22} />
-              No file linked yet — add a link in Edit content.
+              {missing ? "This file couldn't be loaded — upload it again in Edit content." : "No file yet — upload one or add a link in Edit content."}
+            </div>
+          ) : uploadedWord ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 py-10">
+              <FileText size={28} className="text-neutral-600" />
+              <a href={url} download={component.fileName || "document.docx"}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600">
+                Download {component.fileName || "the document"}
+              </a>
             </div>
           ) : kind === "image" ? (
             <img src={url} alt={component.title || "Image"} className="w-full h-auto" />
@@ -2767,7 +2816,7 @@ function PassageEditor({ component, onChange }) {
   return (
     <Field label="Reading text (from Library)">
       <select className={inputCls} value={component.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
-        {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {t.topic} · {t.level}</option>)}
+        {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {pathLabel(state.textFolders, t.folderId, "name")} · {t.level}</option>)}
       </select>
     </Field>
   );
@@ -3053,12 +3102,12 @@ function readAudioLength(file) {
 
 // The file-picker control, styled as the kit's "Add File" hairline button
 // (same as the student Upload activity's).
-function AudioFilePicker({ label, onFile, busy, compact = false }) {
+function AudioFilePicker({ label, onFile, busy, compact = false, accept = "audio/*,.mp3,.m4a,.wav,.ogg" }) {
   return (
     <label className={`${compact ? "h-9 px-3" : "h-12 px-4 w-full"} inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-400 bg-surface text-sm font-medium text-neutral-900 hover:border-primary-300 hover:text-primary-700 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-100 ${PRESS}`}>
       <IconFilePlus size={compact ? 16 : 18} stroke={1.75} className="shrink-0" />
       <span className="truncate">{busy ? "Saving…" : label}</span>
-      <input type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg" className="sr-only" disabled={busy}
+      <input type="file" accept={accept} className="sr-only" disabled={busy}
         onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
     </label>
   );
@@ -3395,8 +3444,35 @@ function SlideDeckEditor({ component, onChange }) {
   );
 }
 
+const DOC_FILE_KIND = (file) => {
+  if (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name)) return "image";
+  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
+  if (/\.(docx?|rtf)$/i.test(file.name) || file.type.includes("word")) return "docx";
+  return null;
+};
+
 function DocumentEditor({ component, onChange }) {
+  const { toast } = useStore();
+  const [busy, setBusy] = useState(false);
+  const latest = useRef(onChange);
+  useEffect(() => { latest.current = onChange; });
   const kind = component.docKind || "pdf";
+  const upload = async (file) => {
+    if (!file) return;
+    const docKind = DOC_FILE_KIND(file);
+    if (!docKind) { toast("Pick a PDF, a Word file or an image.", "err"); return; }
+    setBusy(true);
+    try {
+      const fileId = await saveMedia(file);
+      latest.current({
+        fileId, fileName: file.name, url: "", docKind,
+        ...(!component.title || component.title === "Untitled document" ? { title: file.name.replace(/\.[^.]+$/, "") } : {}),
+      });
+      toast("File added");
+    } catch {
+      toast("Couldn't save that file — try again.", "err");
+    } finally { setBusy(false); }
+  };
   const HINTS = {
     image: "Paste a direct image URL (.png/.jpg/.svg…).",
     pdf: "Paste a direct link to a hosted PDF file (must be publicly viewable).",
@@ -3409,8 +3485,26 @@ function DocumentEditor({ component, onChange }) {
           {Object.entries(DOC_KIND_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       </Field>
-      <Field label="File URL"><input className={inputCls} value={component.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://…" /></Field>
-      <p className="text-xs text-neutral-400">{HINTS[kind]}</p>
+      <div>
+        <span className="text-xs font-semibold text-neutral-600">File</span>
+        <div className="mt-1.5">
+          {component.fileId ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 truncate rounded-lg border border-neutral-400 bg-surface px-3 py-2 text-sm font-semibold text-neutral-950">{component.fileName || "Uploaded file"}</span>
+              <AudioFilePicker compact label="Replace file" onFile={upload} busy={busy} accept="application/pdf,image/*,.pdf,.doc,.docx,.rtf" />
+              <Button size="sm" variant="light" onClick={() => onChange({ fileId: null, fileName: "" })}><IconTrash size={15} stroke={1.75} /> Remove file</Button>
+            </div>
+          ) : (
+            <AudioFilePicker label="Upload a PDF, Word file or image" onFile={upload} busy={busy} accept="application/pdf,image/*,.pdf,.doc,.docx,.rtf" />
+          )}
+        </div>
+      </div>
+      {!component.fileId && (
+        <>
+          <Field label="…or a link to a hosted file"><input className={inputCls} value={component.url || ""} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://…" /></Field>
+          <p className="text-xs text-neutral-400">{HINTS[kind]}</p>
+        </>
+      )}
       <Field label="Title"><input className={inputCls} value={component.title} onChange={(e) => onChange({ title: e.target.value })} /></Field>
       <Field label="Notes for students"><input className={inputCls} value={component.notes} onChange={(e) => onChange({ notes: e.target.value })} /></Field>
     </div>

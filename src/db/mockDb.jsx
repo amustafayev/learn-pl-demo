@@ -1,8 +1,11 @@
 import {
-  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_WORDSETS, SEED_COMPONENT_BANK, SEED_CLASSES,
-  SEED_TAUGHT_LESSONS, SEED_CLASS_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS, SEED_ASSIGNMENTS,
+  SEED_COURSES, SEED_LESSONS, SEED_STUDENTS, SEED_TEXTS, SEED_TEXT_FOLDERS, SEED_WORDSETS, SEED_COMPONENT_BANK, SEED_CLASSES,
+  SEED_TAUGHT_LESSONS, SEED_LESSON_NOTES, SEED_MEMBERSHIPS, SEED_PURCHASES, SEED_INVITATIONS, SEED_ATTENDANCE, SEED_LESSON_COMPLETIONS, SEED_ASSIGNMENTS,
   TEACHER, TEACHER_PROFILES, BLOCK_TYPES,
 } from "../data.jsx";
+import { descendantsOf, nodeId } from "../libraryTree.js";
+import { inAutoShareWindow, sortSchedule } from "../schedule.js";
+import { cleanNoteHtml, htmlToText, isGoogleDocUrl } from "../richText.js";
 
 /* =========================================================================
    The mock "database": everything that persists app state and enforces the
@@ -60,6 +63,25 @@ export function persistComponentBank(bank) {
     window.localStorage.setItem(COMPONENT_BANK_KEY, JSON.stringify(bank));
     window.localStorage.setItem(OFFERED_SEEDS_KEY, JSON.stringify(SEED_COMPONENT_BANK.map((c) => c.id)));
   } catch { /* prototype still works without storage */ }
+}
+
+// Lesson notes (one rich-text document per lesson) are the other piece of
+// state kept in localStorage, so what a teacher writes survives a reload.
+// Same rules as the library above: read-only at init (StrictMode calls the
+// initializer twice), written by persistLessonNotes after commit. A real
+// backend replaces this pair — see "Lesson notes" in CLAUDE.md.
+const LESSON_NOTES_KEY = "lucid.lesson-notes";
+
+function savedLessonNotes() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(LESSON_NOTES_KEY) || "null");
+    if (Array.isArray(saved)) return saved.filter((n) => n && typeof n.html === "string" && n.courseId && n.lessonId && Array.isArray(n.sentTo));
+  } catch { /* fall through to the seed */ }
+  return clone(SEED_LESSON_NOTES);
+}
+
+export function persistLessonNotes(notes) {
+  try { window.localStorage.setItem(LESSON_NOTES_KEY, JSON.stringify(notes)); } catch { /* prototype still works without storage */ }
 }
 
 // Blocks for a lesson — hydrated from the shorthand `parts` list (an array
@@ -169,7 +191,7 @@ export function teacherView(db) {
     invitations: db.invitations.filter((i) => classIds.has(i.classId)),
     blocks,
     taughtLessons,
-    classNotes: db.classNotes.filter((n) => classIds.has(n.classId)),
+    lessonNotes: db.lessonNotes.filter((n) => courseIds.has(n.courseId)),
     attendance: db.attendance.filter((a) => taughtIds.has(a.taughtLessonId) && related.has(a.studentId)),
     lessonCompletions: db.lessonCompletions.filter((c) => bought.has(`${c.studentId}:${c.courseId}`)),
     assignments: db.assignments.filter((a) => a.teacherId === me && related.has(a.studentId)),
@@ -341,21 +363,21 @@ export function canOpenLesson(db, studentId, courseId, lessonId) {
   });
 }
 
-// A class's notes, optionally for one lesson — open ones first, newest on
-// top, then the ones the teacher has ticked off.
-export function classNotesFor(state, classId, lessonId) {
-  const notes = (state.classNotes || [])
-    .filter((n) => n.classId === classId && (!lessonId || n.lessonId === lessonId))
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return [...notes.filter((n) => !n.done), ...notes.filter((n) => n.done)];
-}
+// The notes document for one lesson (or null) — they belong to the lesson,
+// so every class taking the course sees the same one on the teacher's side.
+export const lessonNoteFor = (state, courseId, lessonId) =>
+  (state.lessonNotes || []).find((n) => n.courseId === courseId && n.lessonId === lessonId) || null;
 
 // What a student receives: the notes a teacher sent to a class the student
 // is an active member of — leave the class and they're gone, like its
-// lessons. For the student app. Pass the unscoped db state.
+// lessons. One row per (note, class), in the shape the student app reads
+// (`classId`, `sharedAt`). For the student app. Pass the unscoped db state.
 export function notesSentToStudent(db, studentId) {
   const classIds = new Set(db.memberships.filter((m) => m.studentId === studentId && m.status === "active").map((m) => m.classId));
-  return db.classNotes.filter((n) => n.sharedAt && classIds.has(n.classId)).sort((a, b) => (a.sharedAt < b.sharedAt ? 1 : -1));
+  return db.lessonNotes
+    .flatMap((n) => n.sentTo.filter((s) => classIds.has(s.classId))
+      .map((s) => ({ id: `${n.id}:${s.classId}`, classId: s.classId, courseId: n.courseId, lessonId: n.lessonId, html: n.html, text: n.text, docUrl: n.docUrl, sharedAt: s.at, updatedAt: n.updatedAt })))
+    .sort((a, b) => (a.sharedAt < b.sharedAt ? 1 : -1));
 }
 
 /* ------------------------------- the student app -------------------------------
@@ -376,7 +398,7 @@ export function studentView(db, studentId) {
   const invitations = db.invitations.filter((i) => i.email === (me.email || "").toLowerCase());
   const known = new Set([...memberships.map((m) => m.classId), ...invitations.filter((i) => i.status === "pending").map((i) => i.classId)]);
   const classes = db.classes.filter((c) => known.has(c.id)).map((c) => (active.has(c.id) ? c
-    : { id: c.id, teacherId: c.teacherId, name: c.name, scheduleDays: c.scheduleDays, courses: [], ...(memberships.some((m) => m.classId === c.id) ? { joinToken: c.joinToken } : {}) }));
+    : { id: c.id, teacherId: c.teacherId, name: c.name, schedule: c.schedule, courses: [], ...(memberships.some((m) => m.classId === c.id) ? { joinToken: c.joinToken } : {}) }));
   const purchases = db.purchases.filter((p) => p.studentId === studentId);
   const courseIds = new Set([
     ...db.classes.filter((c) => active.has(c.id)).flatMap((c) => c.courses.map((x) => x.courseId)),
@@ -399,6 +421,7 @@ export function studentView(db, studentId) {
     // Work handed to them — not what a teacher took back.
     assignments: db.assignments.filter((a) => a.studentId === studentId && a.status !== "withdrawn"),
     texts: db.texts,
+    textFolders: db.textFolders,
     wordSets: db.wordSets,
     toasts: db.toasts,
   };
@@ -439,6 +462,19 @@ export function groupBankByParent(items) {
 // item's own detail line instead of repeating the parent in every row.
 export const bankChildLabel = (item) => (item.from || "").split(" · ").slice(1).join(" · ");
 
+// Create-or-update the one notes document for a lesson. A document with no
+// text and no Google Doc link is removed.
+function upsertLessonNote(state, { courseId, lessonId }, fn) {
+  if (!state.courses.some((c) => c.id === courseId)) return state;
+  if (!(state.lessons[courseId] || []).some((l) => l.id === lessonId)) return state;
+  const at = nowIso();
+  const existing = state.lessonNotes.find((n) => n.courseId === courseId && n.lessonId === lessonId);
+  const next = fn(existing || { id: uid("ln"), courseId, lessonId, html: "", text: "", docUrl: null, docManaged: false, sentTo: [], createdAt: at });
+  const row = { ...next, updatedAt: at };
+  const rest = state.lessonNotes.filter((n) => n !== existing);
+  return { ...state, lessonNotes: row.text || row.docUrl ? [...rest, row] : rest };
+}
+
 // Lazy-init (passed as useReducer's third arg) so each mount gets a fresh
 // deep copy of the seed data instead of sharing one mutable module-level
 // object across remounts.
@@ -449,7 +485,7 @@ export function createInitialState() {
     classes: clone(SEED_CLASSES),
     students: clone(SEED_STUDENTS),
     taughtLessons: clone(SEED_TAUGHT_LESSONS),
-    classNotes: clone(SEED_CLASS_NOTES),
+    lessonNotes: savedLessonNotes(),
     memberships: clone(SEED_MEMBERSHIPS),
     purchases: clone(SEED_PURCHASES),
     invitations: clone(SEED_INVITATIONS),
@@ -458,6 +494,7 @@ export function createInitialState() {
     assignments: clone(SEED_ASSIGNMENTS),
     blocks: [],
     texts: clone(SEED_TEXTS),
+    textFolders: clone(SEED_TEXT_FOLDERS),
     wordSets: clone(SEED_WORDSETS),
     componentBank: savedComponentBank(),
     teacher: clone(TEACHER),
@@ -573,6 +610,53 @@ export function reducer(state, action) {
       const { text } = action;
       return { ...state, texts: [{ ...text, id: uid("t") }, ...state.texts] };
     }
+    /* ---- the library's folder trees (see libraryTree.js) ----
+       Reading folders hold texts (`folderId`); word-set nodes hold their own
+       words and can have child nodes. Deleting a folder deletes what's
+       inside it — the views ask first. */
+    case "ADD_TEXT_FOLDER": {
+      const { parentId, name } = action;
+      const clean = (name || "").trim();
+      if (!clean) return state;
+      return { ...state, textFolders: [...state.textFolders, { id: nodeId("tf_"), parentId: parentId || null, name: clean }] };
+    }
+    case "RENAME_TEXT_FOLDER": {
+      const clean = (action.name || "").trim();
+      return clean ? { ...state, textFolders: state.textFolders.map((f) => (f.id === action.id ? { ...f, name: clean } : f)) } : state;
+    }
+    case "DELETE_TEXT_FOLDER": {
+      const gone = new Set([action.id, ...descendantsOf(state.textFolders, action.id).map((f) => f.id)]);
+      return { ...state, textFolders: state.textFolders.filter((f) => !gone.has(f.id)), texts: state.texts.filter((t) => !gone.has(t.folderId)) };
+    }
+    case "ADD_WORDSET": {
+      const { parentId, title, level } = action;
+      const clean = (title || "").trim();
+      if (!clean) return state;
+      return { ...state, wordSets: [...state.wordSets, { id: nodeId("ws_"), parentId: parentId || null, title: clean, level: level || "", words: [] }] };
+    }
+    case "UPDATE_WORDSET": {
+      const { id, patch } = action;
+      const title = patch.title === undefined ? undefined : (patch.title || "").trim();
+      if (title === "") return state;
+      return { ...state, wordSets: state.wordSets.map((w) => (w.id === id ? { ...w, ...patch, ...(title ? { title } : {}) } : w)) };
+    }
+    case "DELETE_WORDSET": {
+      const gone = new Set([action.id, ...descendantsOf(state.wordSets, action.id).map((w) => w.id)]);
+      return { ...state, wordSets: state.wordSets.filter((w) => !gone.has(w.id)) };
+    }
+    case "ADD_WORD": {
+      const { setId, word } = action;
+      if (!word?.term?.trim()) return state;
+      return { ...state, wordSets: state.wordSets.map((w) => (w.id === setId ? { ...w, words: [...w.words, { term: word.term.trim(), az: (word.az || "").trim(), def: (word.def || "").trim() }] } : w)) };
+    }
+    case "UPDATE_WORD": {
+      const { setId, index, patch } = action;
+      return { ...state, wordSets: state.wordSets.map((w) => (w.id === setId ? { ...w, words: w.words.map((x, i) => (i === index ? { ...x, ...patch } : x)) } : w)) };
+    }
+    case "DELETE_WORD": {
+      const { setId, index } = action;
+      return { ...state, wordSets: state.wordSets.map((w) => (w.id === setId ? { ...w, words: w.words.filter((_, i) => i !== index) } : w)) };
+    }
     // Hand work to one or more students — one `assignments` row each. Only
     // students in one of the teacher's classes right now; a block or task
     // keeps its own snapshot (`content`), copied per student.
@@ -639,7 +723,9 @@ export function reducer(state, action) {
        Full model: "Students, classes & access" in CLAUDE.md.
 
        Class progress
-         ADD_CLASS                POST   /classes                                    { name, scheduleDays, courseId? }
+         ADD_CLASS                POST   /classes                                    { name, schedule, courseId? }
+         UPDATE_CLASS_SCHEDULE    PUT    /classes/:classId/schedule                  { schedule: [{ day, start, durationMin }] }
+         AUTO_RELEASE_LESSONS     (the server's own job, every minute)               { now } — opens each class's next lesson 5 min before a session
          ASSIGN_CLASS_COURSE      POST   /classes/:classId/courses                   { courseId }
          SET_CLASS_COURSE_STATUS  PATCH  /classes/:classId/courses/:courseId         { status }
          SET_CLASS_CURRENT_LESSON PATCH  /classes/:classId/courses/:courseId         { currentLessonId }
@@ -647,10 +733,9 @@ export function reducer(state, action) {
          SET_LESSON_RELEASED      PUT    /classes/:classId/courses/:courseId/released/:lessonId  { released }
          SET_ATTENDANCE           PUT    /taught-lessons/:taughtLessonId/attendance/:studentId  { status: present | absent }
        Class notes (private to the teacher until sent)
-         ADD_CLASS_NOTE           POST   /classes/:classId/notes                     { courseId, lessonId, text }
-         UPDATE_CLASS_NOTE        PATCH  /class-notes/:noteId                        { text?, done? }
-         SHARE_CLASS_NOTES        POST   /classes/:classId/notes/share               { noteIds, shared }
-         REMOVE_CLASS_NOTE        DELETE /class-notes/:noteId
+         SAVE_LESSON_NOTES        PUT    /courses/:courseId/lessons/:lessonId/notes   { html }
+         SET_LESSON_NOTES_DOC     PATCH  /courses/:courseId/lessons/:lessonId/notes   { docUrl, managed? }
+         SEND_LESSON_NOTES        PUT    /courses/:courseId/lessons/:lessonId/notes/classes/:classId  { sent }
        Assigning work to students
          ASSIGN_WORK              POST   /assignments                                { studentIds, kind, title, blockType?, componentKind?, source, content? }
          WITHDRAW_ASSIGNMENT      PATCH  /assignments/:assignmentId                  { status: withdrawn }
@@ -690,20 +775,19 @@ export function reducer(state, action) {
        keep their dates); only a student who was in the class when a lesson
        was taught can be marked absent from it. */
     case "ADD_CLASS": {
-      const { courseId, name, scheduleDays } = action;
-      const cls = { id: uid("cls"), teacherId: state.teacher.id, name, scheduleDays: scheduleDays || [],
+      const { courseId, name, schedule } = action;
+      const cls = { id: uid("cls"), teacherId: state.teacher.id, name, schedule: sortSchedule(schedule),
         joinToken: joinToken(), joinOpen: true,
         courses: courseId ? [{ courseId, currentLessonId: firstLessonId(state, courseId), status: "in-progress", releasedLessonIds: [] }] : [] };
       return { ...state, classes: [...state.classes, cls] };
     }
-    // Adds a course to the class's history and makes it the active one; a
-    // course already in progress is paused (not finished), so it can be
-    // resumed later. No-op if the course is already in the history.
+    // Gives the class its course. A class takes ONE course for now, so this
+    // is a no-op once it has one.
     case "ASSIGN_CLASS_COURSE": {
       const { classId, courseId } = action;
       const classes = state.classes.map((c) => {
-        if (c.id !== classId || c.courses.some((x) => x.courseId === courseId)) return c;
-        return { ...c, courses: [...pauseActive(c.courses), { courseId, currentLessonId: firstLessonId(state, courseId), status: "in-progress", releasedLessonIds: [] }] };
+        if (c.id !== classId || c.courses.length) return c;
+        return { ...c, courses: [{ courseId, currentLessonId: firstLessonId(state, courseId), status: "in-progress", releasedLessonIds: [] }] };
       });
       return { ...state, classes };
     }
@@ -752,11 +836,41 @@ export function reducer(state, action) {
     }
     // Share a lesson with the class's students (or take it back). Students
     // in a class only ever see released lessons.
+    // Hiding a lesson also "holds" it, so the automatic opening before a
+    // session doesn't undo the teacher's choice; sharing it lifts the hold.
     case "SET_LESSON_RELEASED": {
       const { classId, courseId, lessonId, released } = action;
       return { ...state, classes: mapClassCourse(state.classes, classId, courseId, (x) => ({
-        ...x, releasedLessonIds: released ? withItem(x.releasedLessonIds, lessonId) : (x.releasedLessonIds || []).filter((id) => id !== lessonId),
+        ...x,
+        releasedLessonIds: released ? withItem(x.releasedLessonIds, lessonId) : (x.releasedLessonIds || []).filter((id) => id !== lessonId),
+        heldLessonIds: released ? (x.heldLessonIds || []).filter((id) => id !== lessonId) : withItem(x.heldLessonIds, lessonId),
       })) };
+    }
+    case "UPDATE_CLASS_SCHEDULE": {
+      const { classId, schedule } = action;
+      return { ...state, classes: state.classes.map((c) => (c.id === classId ? { ...c, schedule: sortSchedule(schedule) } : c)) };
+    }
+    // The server's job: from 5 minutes before a session until it ends, the
+    // class's next lesson opens to its students — unless the teacher hid it.
+    // Run on a timer by StoreProvider; changes nothing (same state object)
+    // when there's nothing to open.
+    case "AUTO_RELEASE_LESSONS": {
+      const now = new Date(action.now);
+      let changed = false;
+      const classes = state.classes.map((c) => {
+        if (!inAutoShareWindow(c.schedule, now)) return c;
+        let touched = false;
+        const courses = c.courses.map((x) => {
+          if (x.status !== "in-progress" || !x.currentLessonId) return x;
+          if ((x.releasedLessonIds || []).includes(x.currentLessonId) || (x.heldLessonIds || []).includes(x.currentLessonId)) return x;
+          touched = true;
+          return { ...x, releasedLessonIds: withItem(x.releasedLessonIds, x.currentLessonId) };
+        });
+        if (!touched) return c;
+        changed = true;
+        return { ...c, courses };
+      });
+      return changed ? { ...state, classes } : state;
     }
 
     // Mark a student present or absent for one taught lesson. Only someone
@@ -775,36 +889,34 @@ export function reducer(state, action) {
     /* class notes */
     // A note on one lesson, owned by the class — only for a course the
     // class is actually taking, so notes never end up on the course itself.
-    case "ADD_CLASS_NOTE": {
-      const { classId, courseId, lessonId, text } = action;
-      const clean = (text || "").trim();
-      const cls = state.classes.find((c) => c.id === classId);
-      if (!clean || !cls?.courses.some((x) => x.courseId === courseId)) return state;
-      if (!(state.lessons[courseId] || []).some((l) => l.id === lessonId)) return state;
-      const at = nowIso();
-      const note = { id: uid("cn"), classId, courseId, lessonId, text: clean, done: false, sharedAt: null, createdAt: at, updatedAt: at };
-      return { ...state, classNotes: [...state.classNotes, note] };
+    case "SAVE_LESSON_NOTES": {
+      const { courseId, lessonId, html } = action;
+      const clean = cleanNoteHtml(html);
+      return upsertLessonNote(state, { courseId, lessonId }, (n) => ({ ...n, html: clean, text: htmlToText(clean) }));
     }
-    // Edit the text and/or tick it off. An empty edit keeps the old text.
-    case "UPDATE_CLASS_NOTE": {
-      const { noteId, text, done } = action;
-      return { ...state, classNotes: state.classNotes.map((n) => {
-        if (n.id !== noteId) return n;
-        const clean = text === undefined ? n.text : text.trim() || n.text;
-        return { ...n, text: clean, done: done === undefined ? n.done : !!done, updatedAt: nowIso() };
+    // Point the lesson's notes at a Google Doc (an empty link clears it).
+    case "SET_LESSON_NOTES_DOC": {
+      // `managed`: the app created this doc (so it can set its sharing).
+      const { courseId, lessonId, docUrl, managed } = action;
+      const url = (docUrl || "").trim();
+      if (url && !isGoogleDocUrl(url)) return state;
+      return upsertLessonNote(state, { courseId, lessonId }, (n) => ({ ...n, docUrl: url || null, docManaged: !!url && !!managed }));
+    }
+    // Send the lesson's notes (the document and its Google Doc link) to one
+    // class's students, or take them back from that class. Only a class that
+    // is taking the course; sending again keeps the first send time.
+    case "SEND_LESSON_NOTES": {
+      const { courseId, lessonId, classId, sent } = action;
+      const cls = state.classes.find((c) => c.id === classId);
+      if (!cls?.courses.some((x) => x.courseId === courseId)) return state;
+      const at = nowIso();
+      return { ...state, lessonNotes: state.lessonNotes.map((n) => {
+        if (n.courseId !== courseId || n.lessonId !== lessonId) return n;
+        const kept = n.sentTo.filter((s) => s.classId !== classId);
+        const was = n.sentTo.find((s) => s.classId === classId);
+        return { ...n, sentTo: sent ? [...kept, { classId, at: was?.at || at }] : kept };
       }) };
     }
-    // Send notes to the class's students (or take them back). Sending again
-    // keeps the first send time.
-    case "SHARE_CLASS_NOTES": {
-      const { classId, noteIds, shared } = action;
-      const ids = new Set(noteIds || []);
-      const at = nowIso();
-      return { ...state, classNotes: state.classNotes.map((n) => (n.classId === classId && ids.has(n.id)
-        ? { ...n, sharedAt: shared ? n.sharedAt || at : null } : n)) };
-    }
-    case "REMOVE_CLASS_NOTE":
-      return { ...state, classNotes: state.classNotes.filter((n) => n.id !== action.noteId) };
 
     /* joining a class */
     case "REGENERATE_JOIN_TOKEN": {
