@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "h5p": "npm --prefix server start"
   },
   "dependencies": {
     "@lumieducation/h5p-react": "^10.0.4",

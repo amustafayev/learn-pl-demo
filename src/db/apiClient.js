@@ -51,6 +51,12 @@ export function createApiClient(baseURL) {
       try { data = JSON.parse(text); } catch { data = text; }
     }
     if (!res.ok) {
+      // A web page or an empty reply instead of the backend's own error
+      // means the backend never answered: something else holds its port
+      // (another app's 404 page), or nothing does (the dev proxy's bare 500).
+      if (isHtmlPage || !text) {
+        throw new ApiError("backend_unreachable", `The backend didn't answer (${res.status}) — it may not be running, or another program is using its port.`);
+      }
       const message = typeof data === "string" ? data : data?.description || data?.message;
       throw new ApiError(data?.code || String(res.status), message || `The server couldn't handle this request (${res.status}).`);
     }

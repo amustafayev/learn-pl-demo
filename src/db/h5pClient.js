@@ -1,4 +1,4 @@
-import { createApiClient } from "./apiClient.js";
+import { ApiError, createApiClient } from "./apiClient.js";
 
 /* The real H5P backend in /server (@lumieducation/h5p-server + h5p-express —
    see server/README.md). Dev proxies "/h5p" there (vite.config.js); a
@@ -10,8 +10,19 @@ import { createApiClient } from "./apiClient.js";
    loadContentCallback/saveContentCallback. */
 const api = createApiClient("/h5p");
 
+// When the H5P server isn't the one answering, say what to do about it —
+// every H5P call goes through here, so the editor, the player and copies all
+// show the same message instead of a bare status code.
+const NOT_RUNNING = new Set(["backend_unreachable", "network_error", "unexpected_response"]);
+const h5p = (call) => call.catch((err) => {
+  if (NOT_RUNNING.has(err?.code)) {
+    throw new ApiError(err.code, "The H5P server isn't answering. Start it by running “npm run h5p”, and make sure no other app is using port 8080.");
+  }
+  throw err;
+});
+
 export const h5pClient = {
-  getEdit: (contentId) => api.get(`/${contentId}/edit`),
+  getEdit: (contentId) => h5p(api.get(`/${contentId}/edit`)),
 
   getPlay(contentId, contextId, asUserId, readOnlyState) {
     const query = new URLSearchParams();
@@ -19,13 +30,13 @@ export const h5pClient = {
     if (asUserId) query.append("asUserId", asUserId);
     if (readOnlyState === true) query.append("readOnlyState", "yes");
     const qs = query.toString();
-    return api.get(`/${contentId}/play${qs ? `?${qs}` : ""}`);
+    return h5p(api.get(`/${contentId}/play${qs ? `?${qs}` : ""}`));
   },
 
-  save: (contentId, body) => (contentId ? api.patch(`/${contentId}`, body) : api.post("", body)),
-  remove: (contentId) => api.delete(`/${contentId}`),
+  save: (contentId, body) => h5p(contentId ? api.patch(`/${contentId}`, body) : api.post("", body)),
+  remove: (contentId) => h5p(api.delete(`/${contentId}`)),
   // Server-side copy, media files included → { contentId, metadata }.
-  copy: (contentId) => api.post(`/${contentId}/copy`),
+  copy: (contentId) => h5p(api.post(`/${contentId}/copy`)),
 };
 
 /* A lesson component only holds a reference to its H5P content, so that

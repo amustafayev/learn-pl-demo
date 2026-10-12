@@ -18,11 +18,19 @@ bash download-assets.sh   # pulls H5P's real core/editor JS+CSS (~13MB, gitignor
 
 ```
 npm start                 # http://localhost:8080/h5p
+npm run h5p               # the same, from the repo root
 ```
 
 Then run the frontend as usual (`npm run dev` from the repo root) — Vite
 proxies `/h5p` to this server (see `vite.config.js`), so nothing else needs
-configuring.
+configuring. It has to be running for the **Interactive (H5P)** block to
+work; `npm run dev` doesn't start it.
+
+**Port 8080 must be free.** Many Java/Spring Boot apps (Tomcat's default)
+take 8080 too; if one is running, `/h5p` requests reach it instead and the
+editor says *"The H5P server isn't answering"*. Check with
+`lsof -nP -iTCP:8080 -sTCP:LISTEN`, stop whatever holds it, then start this
+server.
 
 ## Known upstream issues worked around here
 
