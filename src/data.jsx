@@ -81,27 +81,23 @@ export function blockMeta(type) {
 // adding a step — mirrors how COMPONENT_CATEGORIES (parts.jsx) groups
 // Component *kinds* — so "Add a block" shows Reading options under Reading
 // instead of throwing every block type from every template at once.
-// Playground, Homework, Resources and Interactive (H5P) aren't offered as
-// blocks: they're really components (games; homework and file uploads; a
-// document, slide deck or video; an H5P activity), added inside any skill
-// block from the component picker instead. Their BLOCK_TYPES entries stay
-// so lessons that already have one still render.
+// Playground, Homework, Resources, Interactive (H5P) and Peer work aren't
+// offered as blocks: they're really components (games; homework and file
+// uploads; a document, slide deck or video; an H5P activity; a group task),
+// added inside any skill block from the component picker instead. Their
+// BLOCK_TYPES entries stay so lessons that already have one still render.
 export const BLOCK_CATEGORIES = [
   { id: "reading", label: "Reading & listening", types: ["reading", "ieltsReading", "listening", "ieltsListening"] },
   { id: "vocabulary", label: "Vocabulary", types: ["vocabulary"] },
   { id: "grammar", label: "Grammar & practice", types: ["grammar", "practice"] },
   { id: "speaking", label: "Speaking", types: ["speaking", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3"] },
   { id: "writing", label: "Writing", types: ["writing", "ieltsWriting1", "ieltsWriting2", "businessWriting"] },
-  // Low priority — kept as its own group, last, rather than mixed in above.
-  { id: "peer", label: "Peer work", types: ["peerwork"] },
 ];
 
 export const LESSON_TEMPLATES = {
-  // "peerwork" is appended last in every template — low priority, so it
-  // doesn't compete for attention in the Add-a-block/component pickers.
-  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice", "peerwork"] },
-  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary", "peerwork"] },
-  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary", "peerwork"] },
+  general:  { id: "general",  label: "General English", blockTypes: ["reading", "listening", "speaking", "writing", "grammar", "vocabulary", "practice"] },
+  ielts:    { id: "ielts",    label: "IELTS Prep",       blockTypes: ["ieltsListening", "ieltsReading", "ieltsWriting1", "ieltsWriting2", "ieltsSpeaking1", "ieltsSpeaking2", "ieltsSpeaking3", "grammar", "vocabulary"] },
+  business: { id: "business", label: "Business English", blockTypes: ["reading", "listening", "speaking", "businessWriting", "grammar", "vocabulary"] },
 };
 
 // "Color = a fixed meaning" — the signature rule. A grammar role is ALWAYS the
