@@ -10,17 +10,27 @@ import {
 import { useStore, discardH5PContent } from "../store.jsx";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
-import Playground from "./playground.jsx";
 import { COMPONENT_META, ComponentStudent, COMPONENT_BANK_CATEGORIES, componentCategoryOf } from "./parts.jsx";
 import LibraryTree from "../components/LibraryTree.jsx";
 import { kidsOf, descendantsOf, pathOf, pathLabel, subtreeWords } from "../libraryTree.js";
 import { BankBrowser, SavedComponentCard, parentOf } from "../components/SavedComponents.jsx";
 
-// Library owns its own nested routing (reading/words/playground/bank/
+// Library owns its own nested routing (reading/words/bank/
 // marketplace, plus a reader/word-set drill-down) directly with react-router
 // hooks — this is page-internal navigation, not a cross-page resource, so it
 // doesn't need to go through the shared useNav() shim the other pages use.
-const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["playground", "Playground"], ["bank", "Saved"], ["marketplace", "Marketplace"]];
+const LIBRARY_TABS = [["reading", "Reading"], ["words", "Word sets"], ["bank", "Saved"], ["marketplace", "Marketplace"]];
+
+// Whether the folder panel is folded away — shared by Reading and Word sets,
+// remembered per browser (a convenience only; falls back to open).
+const FOLD_KEY = "lucid.library-tree-folded";
+function useTreeFold() {
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem(FOLD_KEY) === "1"; } catch { return false; } });
+  const set = (v) => { setFolded(v); try { localStorage.setItem(FOLD_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
+  return [folded, set];
+}
+// Static class strings so Tailwind can see them.
+const treeGrid = (folded) => `grid grid-cols-1 gap-6 items-start lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out ${folded ? "lg:grid-cols-[11rem_minmax(0,1fr)]" : "lg:grid-cols-[18rem_minmax(0,1fr)]"}`;
 
 export default function Library() {
   const navigate = useNavigate();
@@ -30,12 +40,12 @@ export default function Library() {
       <Route path="reading" element={<LibraryHome tab="reading"><ReadingList open={(id, folder) => navigate(`/library/reading/${id}${folder ? `?folder=${folder}` : ""}`)} /></LibraryHome>} />
       <Route path="reading/:textId" element={<ReaderPanelRoute />} />
       <Route path="words" element={<LibraryHome tab="words"><WordSetsList /></LibraryHome>} />
-      <Route path="playground" element={<LibraryHome tab="playground"><Playground /></LibraryHome>} />
+      <Route path="playground" element={<Navigate to="/library/reading" replace />} />
       <Route path="bank" element={<LibraryHome tab="bank"><MyComponents /></LibraryHome>} />
       <Route path="marketplace" element={
         <LibraryHome tab="marketplace">
           <ComingSoon icon={IconBuildingStore} title="Teacher marketplace — coming soon"
-            sub="Publish your own ready-to-use reading, playground, and other lesson blocks for other teachers to buy and drop straight into their lessons." />
+            sub="Publish your own ready-to-use reading and other lesson blocks for other teachers to buy and drop straight into their lessons." />
         </LibraryHome>
       } />
     </Routes>
@@ -49,7 +59,7 @@ function LibraryHome({ tab, children }) {
   const navigate = useNavigate();
   return (
     <Page>
-      <PageHeader kicker="Content library" title="Library" sub="Reading texts, vocabulary sets, and the playground learners explore between lessons." />
+      <PageHeader kicker="Content library" title="Library" sub="Reading texts and vocabulary sets for your lessons." />
       <div className="flex gap-1.5 mb-6 bg-neutral-100 rounded-xl p-1 w-fit">
         {LIBRARY_TABS.map(([id, label]) => (
           <button key={id} onClick={() => navigate(`/library/${id}`)}
@@ -91,6 +101,7 @@ const TONES = ["primary", "pending", "success", "info", "warning"];
 
 function ReadingList({ open }) {
   const { state, dispatch, toast } = useStore();
+  const [folded, setFolded] = useTreeFold();
   const [params, setParams] = useSearchParams();
   const [add, setAdd] = useState(false);
   const [own, setOwn] = useState(false);
@@ -116,8 +127,8 @@ function ReadingList({ open }) {
         <Button variant="outline" size="sm" onClick={() => setOwn(true)}>Try it <IconArrowRight size={14} stroke={1.75} /></Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] items-start">
-        <LibraryTree nodes={folders} labelKey="name" selectedId={selected} onSelect={select} rootLabel="All readings"
+      <div className={treeGrid(folded)}>
+        <LibraryTree folded={folded} onFoldChange={setFolded} nodes={folders} labelKey="name" selectedId={selected} onSelect={select} rootLabel="All readings"
           countOf={(f) => textsIn(f.id).length} addLabel="New folder"
           onAdd={(parentId, name) => dispatch({ type: "ADD_TEXT_FOLDER", parentId, name })}
           onRename={(id, name) => dispatch({ type: "RENAME_TEXT_FOLDER", id, name })}
@@ -194,6 +205,7 @@ const WORD_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2"];
 // any depth — IELTS → Linkers → Contrast → the words.
 function WordSetsList() {
   const { state, dispatch, toast } = useStore();
+  const [folded, setFolded] = useTreeFold();
   const [params, setParams] = useSearchParams();
   const [removing, setRemoving] = useState(null);
   const [assign, setAssign] = useState(false);
@@ -205,8 +217,8 @@ function WordSetsList() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] items-start">
-        <LibraryTree nodes={sets} labelKey="title" selectedId={selectedId} onSelect={select} rootLabel="All word sets"
+      <div className={treeGrid(folded)}>
+        <LibraryTree folded={folded} onFoldChange={setFolded} nodes={sets} labelKey="title" selectedId={selectedId} onSelect={select} rootLabel="All word sets"
           countOf={(n) => total(n.id)} addLabel="New word set"
           onAdd={(parentId, title) => dispatch({ type: "ADD_WORDSET", parentId, title })}
           onRename={(id, title) => dispatch({ type: "UPDATE_WORDSET", id, patch: { title } })}

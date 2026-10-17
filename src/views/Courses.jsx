@@ -28,7 +28,7 @@ export function CoursesView() {
   const [modal, setModal] = useState(false);
   return (
     <Page>
-      <PageHeader kicker="Teacher Console · Maryam Bayramova" title="Courses"
+      <PageHeader title="Courses"
         sub="Build the lesson pathway — rosters and progress live in Classes"
         right={<Button variant="primary" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New course</Button>} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

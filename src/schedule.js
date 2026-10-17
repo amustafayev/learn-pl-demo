@@ -27,6 +27,13 @@ export function scheduleLabel(schedule) {
   return list.map((s) => `${DAY_NAMES[s.day]} ${slot(s)}`).join(", ");
 }
 
+// Just the meeting days for cards ("Mon, Wed, Fri") — times live in the class
+// details (`scheduleLabel`).
+export function scheduleDays(schedule) {
+  const list = sortSchedule(schedule);
+  return list.length ? list.map((s) => DAY_NAMES[s.day]).join(", ") : "No schedule set";
+}
+
 // The date a session on `day` (Mon = 0) starts, in the week of `from`'s day
 // plus `weekOffsetDays`. Local time.
 function sessionDate(s, from, offsetDays) {
@@ -67,4 +74,18 @@ export function nextAutoShareLabel(schedule, now = new Date()) {
   if (opens <= now) return "";
   const today = opens.toDateString() === now.toDateString();
   return `${today ? "today" : DAY_NAMES[(opens.getDay() + 6) % 7]} at ${pad(opens.getHours())}:${pad(opens.getMinutes())}`;
+}
+
+// Every session of `schedule` that starts on `date`'s calendar day, as
+// {day, start, end}, earliest first. Local time.
+export function sessionsOnDay(schedule, date) {
+  const day = (date.getDay() + 6) % 7; // Mon = 0
+  return (schedule || [])
+    .filter((s) => s.day === day)
+    .map((s) => {
+      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+      start.setMinutes(toMinutes(s.start));
+      return { day, start, end: new Date(start.getTime() + s.durationMin * 60_000) };
+    })
+    .sort((a, b) => a.start - b.start);
 }

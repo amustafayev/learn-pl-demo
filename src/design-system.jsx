@@ -807,7 +807,7 @@ const BAND_TINT = { primary: "bg-primary-50", success: "bg-success-50", pending:
 // to "students/rating" since not every consumer has both of those numbers.
 export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel = "Mentor", creatorName, creatorColor = "dark", category, stats = [], progressPct, onViewDetail, className = "" }) {
   return (
-    <Card className={`overflow-hidden !rounded-xl ${className}`}>
+    <Card className={`overflow-hidden !rounded-xl flex flex-col h-full ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between">
           {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface shadow-sm"><Icon size={18} stroke={1.75} /></span>}
@@ -823,7 +823,7 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
           </div>
         )}
       </div>
-      <div className="p-5">
+      <div className="p-5 flex flex-1 flex-col">
         {category && <div className="text-sm text-neutral-600">{category}</div>}
         {stats.length > 0 && (
           <div className="mt-2.5 flex items-center gap-4 text-sm text-neutral-800">
@@ -832,13 +832,12 @@ export function CourseCard({ icon: Icon, tone = "primary", title, creatorLabel =
             ))}
           </div>
         )}
-        {progressPct != null && (
-          <div className="mt-4">
-            <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
-            <SegmentedBar pct={progressPct} />
-          </div>
-        )}
-        <Button variant="outline" className="mt-4 w-full" onClick={onViewDetail}>View Detail</Button>
+        {/* always rendered (empty when not started) so every card is the same height */}
+        <div className="mt-4">
+          <div className="mb-1.5 text-sm font-bold text-neutral-950">Progress</div>
+          <SegmentedBar pct={progressPct ?? 0} />
+        </div>
+        <div className="mt-auto pt-5"><Button variant="outline" className="w-full" onClick={onViewDetail}>View Detail</Button></div>
       </div>
     </Card>
   );
@@ -889,18 +888,18 @@ export function HeaderCardSection({ well = false, className = "", children }) {
   return <div className={`${well ? "border-t border-neutral-400 bg-neutral-200 p-4 sm:p-6 last:rounded-b-[13px]" : "p-5 sm:p-6 space-y-4"} ${className}`}>{children}</div>;
 }
 
-export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, courseTitle, lessonLine, roster = [], studentCountLabel, progressPct, progressLabel = "Progress", onViewDetail, className = "" }) {
+export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, scheduleLabel, scheduleTitle, courseTitle, lessonLine, roster = [], studentCountLabel, progressPct, progressLabel = "Progress", onViewDetail, className = "" }) {
   return (
-    <Card className={`overflow-hidden !rounded-xl ${className}`}>
+    <Card className={`overflow-hidden !rounded-xl flex flex-col h-full ${className}`}>
       <div className={`p-5 ${BAND_TINT[tone]}`}>
         <div className="flex items-start justify-between gap-2">
           {Icon && <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface shadow-sm shrink-0"><Icon size={18} stroke={1.75} /></span>}
-          {scheduleLabel && <Tag color="neutral">{scheduleLabel}</Tag>}
+          {scheduleLabel && <span title={scheduleTitle || scheduleLabel} className="flex min-w-0 [&>span]:min-w-0"><Tag color="neutral"><span className="block max-w-full truncate whitespace-nowrap">{scheduleLabel}</span></Tag></span>}
         </div>
         <div className="mt-3 text-xl font-bold leading-snug text-neutral-950">{title}</div>
         <div className="mt-1.5 text-sm text-neutral-600">{courseTitle}</div>
       </div>
-      <div className="p-5">
+      <div className="p-5 flex flex-1 flex-col">
         <div className="text-sm text-neutral-700 min-h-[1.25rem] truncate">{lessonLine || ""}</div>
         <div className="mt-2.5 flex items-center gap-2">
           {roster.length > 0 && (
@@ -910,13 +909,11 @@ export function ClassCard({ icon: Icon = IconUsers, tone = "primary", title, sch
           )}
           <span className="text-sm text-neutral-800">{studentCountLabel}</span>
         </div>
-        {progressPct != null && (
-          <div className="mt-4">
-            <div className="mb-1.5 text-sm font-bold text-neutral-950">{progressLabel}</div>
-            <SegmentedBar pct={progressPct} />
-          </div>
-        )}
-        <Button variant="outline" className="mt-4 w-full" onClick={onViewDetail}>View Detail</Button>
+        <div className="mt-4">
+          <div className="mb-1.5 text-sm font-bold text-neutral-950">{progressLabel}</div>
+          <SegmentedBar pct={progressPct ?? 0} />
+        </div>
+        <div className="mt-auto pt-5"><Button variant="outline" className="w-full" onClick={onViewDetail}>View Detail</Button></div>
       </div>
     </Card>
   );
@@ -1238,3 +1235,59 @@ export function MenuButton({ icon: Icon, label, value, options, onChange, active
     </div>
   );
 }
+
+/* AccountMenu — the avatar + name button in the top bar that opens the
+   account dropdown (name/email header, then whatever `children` hold:
+   `AccountMenuItem` rows, a theme switch, dividers). Closes on an outside
+   press or Esc, same as MenuButton. */
+export function AccountMenu({ name, email, color = "dark", children }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label="Account menu" onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2.5 rounded-lg p-1.5 sm:pl-3 hover:bg-neutral-200 transition-colors duration-(--dur-fast) outline-none focus:ring-2 focus:ring-primary-100">
+        <Avatar name={name} color={color} size="sm" />
+        <div className="hidden sm:block leading-none text-left">
+          <div className="text-sm font-semibold text-neutral-950">{name}</div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">{email}</div>
+        </div>
+        <IconChevronDown size={14} stroke={1.75} className="hidden sm:block text-neutral-500" />
+      </button>
+      {open && (
+        <div role="menu" onClick={(e) => { if (e.target.closest("[data-menu-close]")) setOpen(false); }}
+          className="absolute right-0 top-full mt-1.5 z-40 w-64 rounded-xl border border-neutral-400 bg-surface p-1.5 shadow-xl animate-fade-rise">
+          <div className="px-3 py-2.5">
+            <div className="text-sm font-semibold text-neutral-950 truncate">{name}</div>
+            <div className="text-xs text-neutral-500 truncate">{email}</div>
+          </div>
+          <div className="my-1 h-px bg-neutral-300" />
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AccountMenuItem({ icon: Icon, children, onClick, tone = "default" }) {
+  return (
+    <button type="button" role="menuitem" data-menu-close onClick={onClick}
+      className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-left transition-colors duration-(--dur-fast) ${tone === "danger" ? "text-warning-600 hover:bg-warning-50" : "text-neutral-800 hover:bg-neutral-200"}`}>
+      {Icon && <Icon size={16} stroke={1.75} className="shrink-0" />}
+      <span className="flex-1">{children}</span>
+    </button>
+  );
+}
+
+export const AccountMenuDivider = () => <div className="my-1 h-px bg-neutral-300" />;

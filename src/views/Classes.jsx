@@ -8,7 +8,7 @@ import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers,
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import { CLASS_COURSE_STATUS, joinLink } from "../data.jsx";
-import { scheduleLabel } from "../schedule.js";
+import { scheduleLabel, scheduleDays } from "../schedule.js";
 import ScheduleEditor from "../components/ScheduleEditor.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
@@ -91,7 +91,7 @@ function ClassesView() {
           const p = active ? classCourseProgress(state, cls, active.courseId) : null;
           return (
             <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
-              title={cls.name} scheduleLabel={scheduleLabel(cls.schedule)}
+              title={cls.name} scheduleLabel={scheduleDays(cls.schedule)} scheduleTitle={scheduleLabel(cls.schedule)}
               courseTitle={course ? course.title : "No course in progress"}
               lessonLine={p?.next ? `Next up: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
               progressLabel={p ? `${p.taughtCount} of ${p.total} lessons taught` : undefined}

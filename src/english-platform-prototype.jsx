@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBell, IconBrain,
-  IconSettings2, IconHelpCircle, IconSun, IconMoon, IconChevronLeft, IconChevronRight,
+  IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBrain,
+  IconSettings2, IconHelpCircle, IconSun, IconMoon, IconLogout, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
 import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
-import { Page, NavItem, NavSectionLabel, Avatar, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
+import { Page, NavItem, AccountMenu, AccountMenuItem, AccountMenuDivider, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
@@ -28,11 +28,6 @@ const NAV = [
   { id: "students", label: "Students", icon: IconUsers },
   { id: "levelTests", label: "Level tests", icon: IconCertificate },
   { id: "insights", label: "AI Insights", icon: IconBrain },
-];
-
-const LIGHT_DARK_OPTIONS = [
-  { id: "light", label: <span className="inline-flex items-center gap-1.5"><IconSun size={14} stroke={1.75} /> Light</span> },
-  { id: "dark", label: <span className="inline-flex items-center gap-1.5"><IconMoon size={14} stroke={1.75} /> Dark</span> },
 ];
 
 export default function App() {
@@ -91,7 +86,6 @@ function AppShell() {
 
 function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   const navigate = useNavigate();
-  const [theme, setTheme] = useTheme();
   // `collapsed` is a manual override forcing icon-only at any width; without
   // it, the existing sm: breakpoint still decides (icon-only under sm,
   // labeled at sm+).
@@ -131,7 +125,6 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
         </button>
       </div>
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        {showLabels && <NavSectionLabel><span className="hidden sm:inline">Main Menu</span></NavSectionLabel>}
         {NAV.map((n) => (
           <NavItem key={n.id} icon={n.icon} collapsed={collapsed}
             label={pending[n.id]
@@ -142,31 +135,19 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
             active={pathname.startsWith(TAB_PATH[n.id])} onClick={() => navigate(TAB_PATH[n.id])} />
         ))}
       </nav>
-      <div className="px-3 py-2">
-        {showLabels && <NavSectionLabel><span className="hidden sm:inline">Other</span></NavSectionLabel>}
-        <NavItem icon={IconSettings2} label={<span className={labelCls}>Setting</span>} collapsed={collapsed}
-          active={pathname.startsWith("/settings")} onClick={() => navigate("/settings")} />
-        <NavItem icon={IconHelpCircle} label={<span className={labelCls}>Help & Support</span>} collapsed={collapsed}
-          active={pathname.startsWith("/help")} onClick={() => navigate("/help")} />
-        {showLabels && (
-          <div className="hidden sm:block mt-2">
-            <SegmentedToggle value={theme} options={LIGHT_DARK_OPTIONS} onChange={setTheme} />
-          </div>
-        )}
-        {/* The Light/Dark pill only fits the labeled rail — the icon-only
-            rail (collapsed, or any screen under sm) gets a single row that
-            flips to the other theme instead, so switching is never lost. */}
-        <div className={collapsed ? "" : "sm:hidden"} title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-          <NavItem icon={theme === "dark" ? IconSun : IconMoon} label={<span className="hidden">{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
-            collapsed={collapsed} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} />
-        </div>
-      </div>
     </aside>
   );
 }
 
+const LIGHT_DARK_OPTIONS = [
+  { id: "light", label: <span className="inline-flex items-center gap-1.5"><IconSun size={14} stroke={1.75} /> Light</span> },
+  { id: "dark", label: <span className="inline-flex items-center gap-1.5"><IconMoon size={14} stroke={1.75} /> Dark</span> },
+];
+
 function TopBar({ pathname }) {
   const { state } = useStore();
+  const navigate = useNavigate();
+  const [theme, setTheme] = useTheme();
   const titles = {
     dashboard: "Dashboard", courses: "Courses", classes: "Classes", library: "Library", students: "Students",
     levelTests: "Level tests", insights: "AI Insights", settings: "Setting", help: "Help & Support",
@@ -175,17 +156,13 @@ function TopBar({ pathname }) {
     <div className="h-16 bg-neutral-50/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-xs text-neutral-500 hidden lg:flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /> Interface: Azerbaijani</span>
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-400 text-neutral-500 hover:border-neutral-500 hover:text-neutral-900">
-          <IconBell size={18} stroke={1.75} /><span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />
-        </button>
-        <div className="hidden sm:flex items-center gap-2.5 pl-3">
-          <Avatar name={state.teacher.name} color="dark" size="sm" />
-          <div className="leading-none">
-            <div className="text-sm font-semibold text-neutral-950">{state.teacher.name}</div>
-            <div className="text-[11px] text-neutral-500 mt-0.5">{state.teacher.email}</div>
-          </div>
-        </div>
+        <AccountMenu name={state.teacher.name} email={state.teacher.email}>
+          <AccountMenuItem icon={IconSettings2} onClick={() => navigate("/settings/account/profile")}>Setting</AccountMenuItem>
+          <AccountMenuItem icon={IconHelpCircle} onClick={() => navigate("/help")}>Help &amp; Support</AccountMenuItem>
+          <div className="px-1.5 py-1.5"><SegmentedToggle value={theme} options={LIGHT_DARK_OPTIONS} onChange={setTheme} /></div>
+          <AccountMenuDivider />
+          <AccountMenuItem icon={IconLogout} tone="danger" onClick={() => navigate("/login")}>Sign out</AccountMenuItem>
+        </AccountMenu>
       </div>
     </div>
   );

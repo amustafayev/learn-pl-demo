@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconChevronRight, IconChevronDown, IconFolder, IconFolderOpen, IconFolderPlus, IconPencil, IconTrash, IconLibrary } from "@tabler/icons-react";
+import { IconChevronRight, IconChevronDown, IconFolder, IconFolderOpen, IconFolderPlus, IconPencil, IconTrash, IconLibrary, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import { Card } from "../design-system.jsx";
 import { kidsOf, pathOf } from "../libraryTree.js";
 
@@ -29,7 +29,7 @@ function Tool({ title, onClick, danger, children }) {
   );
 }
 
-export default function LibraryTree({ nodes, labelKey, selectedId, onSelect, rootLabel, countOf, addLabel = "New folder", onAdd, onRename, onDelete }) {
+export default function LibraryTree({ nodes, labelKey, selectedId, onSelect, rootLabel, countOf, addLabel = "New folder", onAdd, onRename, onDelete, folded = false, onFoldChange }) {
   const [open, setOpen] = useState(() => new Set(selectedId ? pathOf(nodes, selectedId).map((n) => n.id) : []));
   const [adding, setAdding] = useState(undefined); // undefined = no, null = at the top level, id = inside that folder
   const [renaming, setRenaming] = useState(null);
@@ -83,12 +83,43 @@ export default function LibraryTree({ nodes, labelKey, selectedId, onSelect, roo
     );
   });
 
-  return (
-    <Card className="p-2">
-      <button type="button" onClick={() => onSelect(null)}
-        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${selectedId === null ? "bg-neutral-300 font-semibold text-neutral-950" : "text-neutral-800 hover:bg-neutral-200"}`}>
-        <IconLibrary size={16} stroke={1.75} className="shrink-0 text-neutral-600" /> <span className="flex-1">{rootLabel}</span>
+  // Shrunk: a slimmer list of top-level folders with their names (no counts,
+  // tools or subfolders), so the content gets the room.
+  if (folded) {
+    const row = (active, label, onClick, icon) => (
+      <button key={label} type="button" title={label} onClick={onClick}
+        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${active ? "bg-neutral-300 font-semibold text-neutral-950" : "text-neutral-800 hover:bg-neutral-200"}`}>
+        {icon}<span className="min-w-0 flex-1 truncate">{label}</span>
       </button>
+    );
+    return (
+      <Card className="flex flex-col gap-0.5 p-2 overflow-hidden animate-fade-rise">
+        <button type="button" title="Unfold panel" aria-label="Unfold panel" onClick={() => onFoldChange(false)}
+          className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-950">
+          <IconLayoutSidebarLeftExpand size={18} stroke={1.75} />
+        </button>
+        {row(selectedId === null, rootLabel, () => onSelect(null), <IconLibrary size={16} stroke={1.75} className="shrink-0 text-neutral-600" />)}
+        {kidsOf(nodes, null).map((n) => row(
+          selectedId === n.id || pathOf(nodes, selectedId || "").some((p) => p.id === n.id),
+          n[labelKey], () => onSelect(n.id), <IconFolder size={16} stroke={1.75} className="shrink-0 text-primary-600" />))}
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-2 overflow-hidden animate-fade-rise">
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onSelect(null)}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${selectedId === null ? "bg-neutral-300 font-semibold text-neutral-950" : "text-neutral-800 hover:bg-neutral-200"}`}>
+          <IconLibrary size={16} stroke={1.75} className="shrink-0 text-neutral-600" /> <span className="flex-1 truncate">{rootLabel}</span>
+        </button>
+        {onFoldChange && (
+          <button type="button" title="Fold panel" aria-label="Fold panel" onClick={() => onFoldChange(true)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-950">
+            <IconLayoutSidebarLeftCollapse size={18} stroke={1.75} />
+          </button>
+        )}
+      </div>
       <ul className="mt-1">{renderLevel(null, 0)}</ul>
       {adding === null && addRow(null, 0)}
       <button type="button" onClick={() => setAdding(null)}

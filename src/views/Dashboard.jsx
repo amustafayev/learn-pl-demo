@@ -1,58 +1,30 @@
-import React, { useState, useMemo } from "react";
+import React from "react";
 import {
-  IconBookUpload, IconSend, IconAlertTriangle, IconBrain, IconArrowRight, IconBookmark,
-  IconUsers, IconChartBar, IconVocabulary,
+  IconAlertTriangle, IconArrowRight,
+  IconUsers, IconChartBar, IconVocabulary, IconUserPlus, IconCheck, IconX,
 } from "@tabler/icons-react";
-import { Page, PageHeader, SectionLabel, Card, Button, Avatar, StatCard, Badge, Modal, StudentCheckList } from "../design-system.jsx";
-import { useStore, useNav, activeStudents } from "../store.jsx";
-import { WORD_OF_DAY } from "../data.jsx";
-import { COMPONENT_META } from "./parts.jsx";
-import { AddTextModal } from "../components/modals.jsx";
-import { StudentAssignModal } from "../components/StudentAssignModal.jsx";
-
-function weakest(concepts) {
-  return Object.entries(concepts).sort((a, b) => a[1] - b[1])[0];
-}
-// derive a one-line pre-lesson brief from the tracked data
-function brief(s) {
-  const [concept, score] = weakest(s.concepts);
-  const bits = [`stuck on ${concept.toLowerCase()} (${score}%)`];
-  if (s.last.includes("d ago")) bits.push(`hasn't practised in ${s.last.replace(" ago", "")}`);
-  if (s.skills.vocab >= 80) bits.push("ready to move past current vocab");
-  return bits.join(" · ");
-}
+import { Page, SectionLabel, Card, Button, Avatar, Tag, StatCard } from "../design-system.jsx";
+import { useStore, useNav, activeStudents, teacherRoster } from "../store.jsx";
+import { timeAgo } from "../format.js";
+import UpcomingCalendar from "../components/UpcomingCalendar.jsx";
 
 export default function Dashboard() {
-  const { state, toast } = useStore();
+  const { state } = useStore();
   const { go } = useNav();
-  const [modal, setModal] = useState(null);
 
   const students = activeStudents(state);
   const active = students.filter((s) => s.status !== "not started").length;
   const atRisk = students.filter((s) => s.atRisk);
+  // students asking to join one of this teacher's classes (purchase requests live on the Students page)
+  const joinRequests = teacherRoster(state).requests.filter((r) => r.kind === "class");
   // A course has no completion of its own (see Courses.jsx) — this is a
   // teacher-facing "how's my roster doing" number, so it averages students'
   // own progress, not a static per-course field.
   const avg = students.length ? Math.round(students.reduce((a, s) => a + s.progress, 0) / students.length) : 0;
-  // three students to brief before their next session (most recently active, not-at-risk first)
-  const briefs = students.filter((s) => s.status === "in progress").slice(0, 3);
-  // most recently saved Components — the bank is unshifted-to on save, so
-  // index 0 is the latest.
-  const recentSaves = useMemo(() => (state.componentBank || []).slice(0, 4), [state.componentBank]);
 
   return (
     <Page>
-      <PageHeader
-        kicker={`${state.teacher.role} · signed in`}
-        title={`Good morning, ${state.teacher.name.split(" ")[0]}`}
-        sub="Your teaching cockpit — who to help today, and where they're stuck."
-        right={
-          <div className="hidden sm:flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setModal("text")}><IconBookUpload size={15} stroke={1.75} /> Add reading</Button>
-            <Button variant="primary" size="sm" onClick={() => setModal("assign")}><IconSend size={15} stroke={1.75} /> Assign</Button>
-          </div>
-        }
-      />
+      <p className="text-neutral-600 mb-6">Your teaching cockpit — who to help today, and where they're stuck.</p>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard icon={IconUsers} label="active students" value={active} onClick={() => go({ tab: "students" })} />
@@ -62,116 +34,60 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* pre-lesson briefs — the teacher-visibility loop */}
+        {/* upcoming sessions — week calendar of the teacher's classes */}
         <div className="lg:col-span-2">
-          <SectionLabel right={<button onClick={() => go({ tab: "students" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">All students <IconArrowRight size={12} stroke={1.75} /></button>}>
-            Before your next sessions · AI pre-lesson briefs
+          <SectionLabel right={<button onClick={() => go({ tab: "classes" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">All classes <IconArrowRight size={12} stroke={1.75} /></button>}>
+            Upcoming sessions
           </SectionLabel>
-          <div className="space-y-3">
-            {briefs.map((s) => (
-              <Card key={s.id} className="p-4 hover:border-primary-300 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Avatar name={s.name} size="lg" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-neutral-950">{s.name}</div>
-                    <div className="text-xs text-neutral-500">{s.goal}</div>
-                  </div>
-                  <Button variant="light" size="sm" onClick={() => go({ tab: "students", studentId: s.id })}>Open<IconArrowRight size={13} stroke={1.75} /></Button>
-                </div>
-                <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50 p-3.5">
-                  <IconBrain size={16} stroke={1.75} className="text-primary-600 shrink-0 mt-0.5" />
-                  <div className="text-sm leading-relaxed text-neutral-800"><b>{s.name.split(" ")[0]}</b> is {brief(s)}.</div>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <UpcomingCalendar />
         </div>
 
-        {/* needs attention + quick actions */}
+        {/* who's waiting to join */}
         <div className="space-y-6">
           <div>
-            <SectionLabel>Needs attention</SectionLabel>
-            <div className="space-y-2.5">
-              {atRisk.map((s) => (
-                <button key={s.id} onClick={() => go({ tab: "students", studentId: s.id })} className="w-full text-left">
-                  <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50 p-3.5">
-                    <IconAlertTriangle size={16} stroke={1.75} className="text-warning-600 shrink-0 mt-0.5" />
-                    <div className="text-sm leading-relaxed text-neutral-800">
-                      <div className="font-semibold mb-0.5 text-neutral-950">{s.name}</div>
-                      {s.riskReason}
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {!atRisk.length && <Card className="p-4 text-sm text-neutral-500">Nobody's slipping right now. 🎉</Card>}
-            </div>
-          </div>
-
-          <div>
-            <SectionLabel>Word of the day</SectionLabel>
-            <Card className="p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-3xl leading-none">{WORD_OF_DAY.emoji}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-neutral-950">{WORD_OF_DAY.term} <span className="text-primary-600 font-medium text-sm">· {WORD_OF_DAY.az}</span></div>
-                  <div className="text-[10px] font-mono text-neutral-500 mt-0.5">UK {WORD_OF_DAY.ipaUk} · US {WORD_OF_DAY.ipaUs}</div>
-                  <p className="text-sm text-neutral-600 mt-1">{WORD_OF_DAY.def}</p>
-                  <p className="text-xs text-neutral-500 italic mt-1">“{WORD_OF_DAY.example}”</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => toast(`“${WORD_OF_DAY.term}” pushed to all students`)}>
-                <IconSend size={12} stroke={1.75} /> Push to all students
-              </Button>
-            </Card>
-          </div>
-
-          <div>
-            <SectionLabel right={<button onClick={() => go({ tab: "library" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">Library <IconArrowRight size={12} stroke={1.75} /></button>}>
-              Recently saved
+            <SectionLabel right={joinRequests.length ? <button onClick={() => go({ tab: "students", filter: "requests" })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">All requests <IconArrowRight size={12} stroke={1.75} /></button> : null}>
+              Join requests{joinRequests.length ? ` · ${joinRequests.length}` : ""}
             </SectionLabel>
-            <Card className="p-2 divide-y divide-neutral-200">
-              {recentSaves.length ? recentSaves.map((item) => {
-                const meta = COMPONENT_META[item.kind];
-                const I = meta?.icon || IconBookmark;
-                return (
-                  <div key={item.id} className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-neutral-100 text-neutral-700"><I size={15} stroke={1.75} /></span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate text-neutral-950">{item.title}</div>
-                      <div className="text-xs text-neutral-500 truncate">{item.from}</div>
-                    </div>
-                    <Badge color="info">Component</Badge>
-                  </div>
-                );
-              }) : (
-                <p className="text-sm text-neutral-500 p-3">Nothing saved yet — bookmark a block or component from any lesson to see it here.</p>
-              )}
+            <Card className="divide-y divide-neutral-200 overflow-hidden">
+              {joinRequests.map((r) => <JoinRequestRow key={r.id} request={r} />)}
+              {!joinRequests.length && <div className="p-4 text-sm text-neutral-500">No students are waiting to join.</div>}
             </Card>
           </div>
         </div>
       </div>
 
-      <AddTextModal open={modal === "text"} onClose={() => setModal(null)} />
-      <AssignFromDashboardModal open={modal === "assign"} onClose={() => setModal(null)} />
     </Page>
   );
 }
 
-// The dashboard's quick "Assign" doesn't start from a student's own page, so
-// it needs one extra step first: pick who, then reuse the exact same real
-// assign flow (lessons/blocks/words/new task) as the student page does.
-function AssignFromDashboardModal({ open, onClose }) {
-  const { state } = useStore();
-  const [student, setStudent] = useState(null);
-  const close = () => { setStudent(null); onClose(); };
-  if (!open) return null;
-  if (!student) {
-    return (
-      <Modal open onClose={close} title="Assign to a student" sub="Pick who you're assigning first">
-        <StudentCheckList students={activeStudents(state)} isSelected={() => false} onToggle={(s) => setStudent(s)}
-          metaFor={(s) => `${s.level} · ${s.status}`} />
-      </Modal>
-    );
-  }
-  return <StudentAssignModal open onClose={close} student={student} />;
+// One student asking to join a class: who, which class, when — Accept or Decline
+// right here. Same two reducer actions as the Students page's request rows.
+function JoinRequestRow({ request }) {
+  const { dispatch, toast } = useStore();
+  const { student, cls, membership } = request;
+  const first = student.name.split(" ")[0];
+  const decide = (status) => {
+    dispatch({ type: "DECIDE_MEMBERSHIP", membershipId: membership.id, status });
+    toast(status === "active" ? `${first} joined ${cls.name}` : `Declined ${first}'s request`);
+  };
+  return (
+    <div className="p-3.5">
+      <div className="flex items-center gap-2.5">
+        <Avatar name={student.name} size="sm" color="primary" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-neutral-950 truncate">{student.name}</div>
+          <div className="text-xs text-neutral-500">wants to join · {timeAgo(request.at)}</div>
+        </div>
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-xs text-neutral-600">
+        <IconUserPlus size={14} stroke={1.75} className="shrink-0" /> Class: <span className="whitespace-nowrap"><Tag color="primary">{cls.name}</Tag></span>
+        {request.previously && <span className="whitespace-nowrap"><Tag color="info">Former student</Tag></span>}
+      </div>
+      {membership.message && <p className="mt-2 rounded-lg bg-neutral-200 px-2.5 py-1.5 text-xs text-neutral-800">“{membership.message}”</p>}
+      <div className="mt-3 flex gap-2">
+        <Button size="sm" className="flex-1" onClick={() => decide("active")}><IconCheck size={14} stroke={1.75} /> Accept</Button>
+        <Button size="sm" variant="outline" className="flex-1" onClick={() => decide("declined")}><IconX size={14} stroke={1.75} /> Decline</Button>
+      </div>
+    </div>
+  );
 }
