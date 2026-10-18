@@ -492,6 +492,7 @@ export function createInitialState() {
     attendance: clone(SEED_ATTENDANCE),
     lessonCompletions: clone(SEED_LESSON_COMPLETIONS),
     assignments: clone(SEED_ASSIGNMENTS),
+    homework: [],
     blocks: [],
     texts: clone(SEED_TEXTS),
     textFolders: clone(SEED_TEXT_FOLDERS),
@@ -510,6 +511,48 @@ const pauseActive = (courses, exceptCourseId) =>
 
 const nowIso = () => new Date().toISOString();
 const ASSIGNMENT_KINDS = new Set(["block", "task", "wordSet", "reading"]);
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in (o || {})).map((k) => [k, o[k]]));
+// Upsert a homework post of the teacher's own class; returns the state (or
+// {state} when the caller chains on). `status` is where it ends up.
+function saveHomework(state, input, status, scheduledAt = null) {
+  const me = state.teacher.id;
+  const cls = state.classes.find((c) => c.id === input?.classId && c.teacherId === me);
+  if (!cls || !String(input.title || "").trim()) return status === "assigned" ? { state, id: null } : state;
+  const prev = state.homework.find((h) => h.id === input.id);
+  if (prev && prev.status === "assigned") return status === "assigned" ? { state, id: null } : state; // posted ones only change through UPDATE_HOMEWORK
+  const hw = {
+    id: prev?.id || input.id || uid("hw"), teacherId: me, classId: cls.id,
+    lessonId: input.lessonId || null, courseId: input.lessonId ? input.courseId || null : null,
+    title: input.title.trim(), instructions: input.instructions || "",
+    attachments: (input.attachments || []).map((x) => ({ ...clone(x), id: x.id || uid("att") })),
+    dueAt: input.dueAt || null, status, scheduledAt,
+    postedAt: prev?.postedAt || null, createdAt: prev?.createdAt || nowIso(),
+  };
+  const next = { ...state, homework: prev ? state.homework.map((h) => (h.id === hw.id ? hw : h)) : [...state.homework, hw] };
+  return status === "assigned" ? { state: next, id: hw.id } : next;
+}
+// One task row per active member per attachment.
+function homeworkRows(state, hw, attachments, at) {
+  const members = state.memberships.filter((m) => m.classId === hw.classId && m.status === "active").map((m) => m.studentId);
+  return members.flatMap((studentId) => attachments.map((att) => ({
+    id: uid("as"), teacherId: hw.teacherId, studentId, kind: att.kind, title: att.title,
+    blockType: att.blockType || null, componentKind: att.componentKind || null,
+    source: { ...(att.source || {}) }, content: att.content ? clone(att.content) : null,
+    classId: hw.classId, lessonId: hw.lessonId, courseId: hw.courseId, dueAt: hw.dueAt,
+    homeworkId: hw.id, batchId: hw.id, homeworkTitle: hw.title,
+    assignedAt: at, status: "assigned", completedAt: null, withdrawnAt: null,
+  })));
+}
+// Give a saved post to the class.
+function postHomework(state, id) {
+  const saved = state.homework.find((h) => h.id === id);
+  if (!saved || (saved.postedAt && state.assignments.some((a) => a.homeworkId === saved.id))) return state;
+  const at = nowIso();
+  const rows = homeworkRows(state, saved, saved.attachments, at);
+  return { ...state,
+    homework: state.homework.map((h) => (h.id === saved.id ? { ...h, status: "assigned", scheduledAt: null, postedAt: at } : h)),
+    assignments: [...state.assignments, ...rows] };
+}
 const withItem = (list, item) => ((list || []).includes(item) ? list || [] : [...(list || []), item]);
 const isBlocked = (state, teacherId, studentId) => state.blocks.some((b) => b.teacherId === teacherId && b.studentId === studentId);
 // A short, unambiguous class code (no 0/O, 1/I/L) — what goes in the join link.
@@ -679,6 +722,42 @@ export function reducer(state, action) {
     case "WITHDRAW_ASSIGNMENT":
       return { ...state, assignments: state.assignments.map((a) => (a.id === action.assignmentId && a.status === "assigned" && a.teacherId === state.teacher.id
         ? { ...a, status: "withdrawn", withdrawnAt: nowIso() } : a)) };
+    // ---- Class homework (Google Classroom's "assignment" post) -------------
+    // A post has a title, instructions, attachments, a due date and a topic
+    // (the lesson). Drafts and scheduled posts hold no student rows; posting
+    // gives every active member of the class one `assignments` row per
+    // attachment, all tagged with the post's id (`homeworkId` = `batchId`).
+    case "SAVE_HOMEWORK": return saveHomework(state, action.homework, "draft");
+    case "PUBLISH_HOMEWORK": {
+      const at = action.scheduledAt && new Date(action.scheduledAt) > new Date() ? action.scheduledAt : null;
+      if (at) return saveHomework(state, action.homework, "scheduled", at);
+      const saved = saveHomework(state, action.homework, "assigned");
+      return saved.id ? postHomework(saved.state, saved.id) : state;
+    }
+    // Scheduled posts whose time has come (a real backend does this itself).
+    case "RELEASE_SCHEDULED_HOMEWORK": {
+      const due = state.homework.filter((h) => h.status === "scheduled" && h.scheduledAt && new Date(h.scheduledAt) <= new Date());
+      return due.reduce((st, h) => postHomework(st, h.id), state);
+    }
+    // Title / instructions / due date can change after posting; a due-date
+    // change reaches every open row. Components can be added; what was given stays as it was.
+    case "UPDATE_HOMEWORK": {
+      const { id, patch } = action;
+      const hw = state.homework.find((h) => h.id === id && h.teacherId === state.teacher.id);
+      if (!hw) return state;
+      const at = nowIso();
+      const added = (patch.addAttachments || []).map((x) => ({ ...clone(x), id: x.id || uid("att") }));
+      const next = { ...hw, ...pick(patch, ["title", "instructions", "dueAt"]), attachments: [...hw.attachments, ...added] };
+      return { ...state,
+        homework: state.homework.map((h) => (h.id === id ? next : h)),
+        assignments: [...state.assignments.map((a) => (a.homeworkId === id && a.status === "assigned" ? { ...a, dueAt: next.dueAt || null, homeworkTitle: next.title } : a)),
+          ...homeworkRows(state, next, added, at)] };
+    }
+    // Delete a post; work students haven't done is taken back, done work stays as history.
+    case "DELETE_HOMEWORK":
+      return { ...state,
+        homework: state.homework.filter((h) => !(h.id === action.id && h.teacherId === state.teacher.id)),
+        assignments: state.assignments.map((a) => (a.homeworkId === action.id && a.status === "assigned" ? { ...a, status: "withdrawn", withdrawnAt: nowIso() } : a)) };
     case "SET_WORD_STATUS": {
       const { studentId, term, status } = action;
       const students = state.students.map((s) => {
@@ -739,6 +818,10 @@ export function reducer(state, action) {
        Assigning work to students
          ASSIGN_WORK              POST   /assignments                                { studentIds, kind, title, blockType?, componentKind?, source, content? }
          WITHDRAW_ASSIGNMENT      PATCH  /assignments/:assignmentId                  { status: withdrawn }
+         SAVE_HOMEWORK            POST|PUT /classes/:classId/homework[/:id]          { title, instructions, attachments, dueAt, lessonId } (draft)
+         PUBLISH_HOMEWORK         POST   /classes/:classId/homework/:id/publish      { scheduledAt? }
+         UPDATE_HOMEWORK          PATCH  /classes/:classId/homework/:id              { title?, instructions?, dueAt?, addAttachments? }
+         DELETE_HOMEWORK          DELETE /classes/:classId/homework/:id
        Joining a class
          REGENERATE_JOIN_TOKEN    POST   /classes/:classId/join-token                (old link stops working)
          SET_CLASS_JOINING        PATCH  /classes/:classId                           { joinOpen }

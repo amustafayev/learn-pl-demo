@@ -74,6 +74,10 @@ export const lessonPath = (courseId, lessonId, classId) => `/courses/${courseId}
 export const partPath = (courseId, lessonId, partId, classId) => `/courses/${courseId}/lessons/${lessonId}/parts/${partId}${classQuery(classId)}`;
 export const classesPath = () => "/classes";
 export const classDetailPath = (classId) => `/classes/${classId}`;
+export const classHomeworkPath = (classId) => `/classes/${classId}/homework`;
+export const classHomeworkNewPath = (classId, lessonId) => `/classes/${classId}/homework/new${lessonId ? `?lessonId=${lessonId}` : ""}`;
+export const classHomeworkPostPath = (classId, homeworkId) => `/classes/${classId}/homework/${homeworkId}`;
+export const classHomeworkEditPath = (classId, homeworkId) => `/classes/${classId}/homework/${homeworkId}/edit`;
 export const studentsPath = (filter) => `/students${filter ? `?filter=${filter}` : ""}`;
 export const studentDetailPath = (studentId, filter) => `/students/${studentId}/profile${filter ? `?filter=${filter}` : ""}`;
 

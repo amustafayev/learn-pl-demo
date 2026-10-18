@@ -393,7 +393,8 @@ export default function BlockStudio() {
   // Latest "close the editor" handler, for the Escape listener below (it's
   // only re-subscribed when the selection changes, so it can't close over it).
   const closeEditorRef = useRef(null);
-  const pickerOpen = insertAt !== null;
+  const [linkTo, setLinkTo] = useState(null); // a source's id while the picker adds a component linked to it
+  const pickerOpen = insertAt !== null || linkTo !== null;
   // Bumped on every open, as the dialog's key, so each open starts fresh.
   const [pickerKey, setPickerKey] = useState(0);
   const openPicker = (at) => { setPickerKey((k) => k + 1); setInsertAt(at); };
@@ -618,23 +619,36 @@ export default function BlockStudio() {
     if (!list) return;
     const at = where ? where(list) : insertAt === null ? list.length : Math.min(insertAt, list.length);
     const next = [...list]; next.splice(at, 0, component);
-    setComponents(next); setInsertAt(null); setSelectedId(component.id);
+    setComponents(next); setInsertAt(null); setLinkTo(null); setSelectedId(component.id);
     toast(label);
   };
-  const addComponent = (kind) => insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
-  // A Listening's "Add questions" — a comprehension set already linked to
-  // it, dropped right under it (after any sets it already has), so the
-  // questions sit with the audio they're about.
-  const addQuestionsFor = (source) => insertNew(
-    { ...defaultComponent("comprehension", state.texts), level: source.level, passageRefId: source.id,
-      items: [{ q: "", options: ["", "", ""], answer: 0, why: "" }] },
-    "Added questions for this listening",
+  // Add a component linked to `source` (reading, listening, video, audio):
+  // it's dropped under the source, after anything already linked to it, and
+  // shows nested there. A linked component can't be a source itself.
+  const addLinked = (source, kind) => insertNew(
+    { ...defaultComponent(kind, state.texts), level: source.level, passageRefId: source.id,
+      ...(kind === "comprehension" ? { items: [{ q: "", options: ["", "", ""], answer: 0, why: "" }] } : {}) },
+    `Added ${COMPONENT_META[kind].label} linked to this ${sourceNoun(source)}`,
     (list) => {
       let at = list.findIndex((x) => x.id === source.id) + 1;
-      while (at > 0 && at < list.length && list[at].kind === "comprehension" && list[at].passageRefId === source.id) at++;
+      while (at > 0 && at < list.length && list[at].passageRefId === source.id && !isSourceKind(list[at])) at++;
       return at > 0 ? at : list.length;
     },
   );
+  const openLinkPicker = (source) => { setPickerKey((k) => k + 1); setInsertAt(null); setLinkTo(source.id); };
+  const linkSource = linkTo ? components.find((x) => x.id === linkTo) : null;
+  // From the plain picker, a new question set links itself to the nearest
+  // source at or above where it's going (else the first one in the block).
+  // The "Linked to" field on the card changes or clears it.
+  const addComponent = (kind) => {
+    if (linkSource) return addLinked(linkSource, kind);
+    if (kind === "comprehension") {
+      const at = insertAt === null ? components.length : insertAt;
+      const source = [...components.slice(0, at)].reverse().find(isSourceKind) || components.find(isSourceKind);
+      if (source) return addLinked(source, kind);
+    }
+    return insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
+  };
 
   const duplicateComponent = async (i) => {
     const list = await flushOpenEditor();
@@ -977,9 +991,9 @@ export default function BlockStudio() {
                                 <div className="rounded-[14px] border-2 border-primary-500 bg-surface p-4 sm:p-5 shadow-md">
                                   <ErrorBoundary resetKey={c}>
                                     <ComponentEditor component={c} onChange={(patch) => updateComponent(i, patch)} roster={assignedToLesson}
-                                      sources={components.filter((x) => x.kind === "passage" || x.kind === "listening")}
-                                      linkedCount={components.filter((x) => linkedSource(x, components)?.id === c.id).length}
-                                      onAddQuestions={() => addQuestionsFor(c)} registerFlush={registerFlush} />
+                                      sources={components.filter(isSourceKind)}
+                                      attached={components.filter((x) => x.passageRefId === c.id && !isSourceKind(x))}
+                                      onAddRelated={() => openLinkPicker(c)} registerFlush={registerFlush} />
                                   </ErrorBoundary>
                                 </div>
                               </div>
@@ -1027,9 +1041,11 @@ export default function BlockStudio() {
 
       {/* Remounted on each open (key) so it starts on a fresh search and on
           this block's suggestions. */}
-      <ComponentPicker key={pickerKey} open={pickerOpen} onClose={() => setInsertAt(null)}
+      <ComponentPicker key={pickerKey} open={pickerOpen} onClose={() => { setInsertAt(null); setLinkTo(null); }}
         blockLabel={BT.label} suggested={(BT.components || []).filter((k) => COMPONENT_META[k])}
-        components={components} bank={state.componentBank || []} position={pickerPosition}
+        components={components} bank={linkSource ? [] : state.componentBank || []}
+        position={linkSource ? `Linked to ${COMPONENT_META[linkSource.kind].label}` : pickerPosition}
+        hideKinds={linkSource ? SOURCE_KINDS : []}
         onPickKind={addComponent} onPickSaved={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))} />
     </div>
   );
@@ -1047,9 +1063,11 @@ const CATEGORY_ICON = {
 };
 const TOTAL_KINDS = COMPONENT_CATEGORIES.reduce((n, cat) => n + cat.kinds.length, 0);
 
-function ComponentPicker({ open, onClose, blockLabel, suggested, components, bank, position, onPickKind, onPickSaved }) {
+export function ComponentPicker({ open, onClose, blockLabel, suggested: suggestedAll, components, bank, position, hideKinds = [], onPickKind, onPickSaved }) {
+  const suggested = suggestedAll.filter((k) => !hideKinds.includes(k));
+  const categories = COMPONENT_CATEGORIES.map((cat) => ({ ...cat, kinds: cat.kinds.filter((k) => !hideKinds.includes(k)) })).filter((cat) => cat.kinds.length);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(suggested.length ? "suggested" : COMPONENT_CATEGORIES[0].id);
+  const [category, setCategory] = useState(suggested.length ? "suggested" : categories[0].id);
   const kindItem = (k) => {
     const M = COMPONENT_META[k];
     return { id: k, icon: M.icon, tone: M.tone, label: M.label, description: M.hint, used: components.filter((c) => c.kind === k).length };
@@ -1062,7 +1080,7 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
   const nav = [
     ...(suggested.length ? [{ id: "suggested", label: `Suggested for ${blockLabel}`, count: suggested.length }] : []),
     ...(bank.length ? [{ id: "library", label: "Saved", count: bank.length }] : []),
-    ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, count: cat.kinds.length })),
+    ...categories.map((cat) => ({ id: cat.id, label: cat.label, count: cat.kinds.length })),
   ];
 
   // Search: every kind whose name or description matches, grouped by
@@ -1071,7 +1089,7 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
   const hits = (text) => text.toLowerCase().includes(q);
   const results = q ? [
     ...(bank.some((b) => hits(b.title || "")) ? [{ id: "library", label: "Saved", saved: true, items: bank.filter((b) => hits(b.title || "")).map(savedItem) }] : []),
-    ...COMPONENT_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label, items: cat.kinds.filter((k) => hits(COMPONENT_META[k].label) || hits(COMPONENT_META[k].hint || "")).map(kindItem) }))
+    ...categories.map((cat) => ({ id: cat.id, label: cat.label, items: cat.kinds.filter((k) => hits(COMPONENT_META[k].label) || hits(COMPONENT_META[k].hint || "")).map(kindItem) }))
       .filter((g) => g.items.length),
   ] : [];
   const pickFirst = () => {
@@ -1136,7 +1154,7 @@ function ComponentPicker({ open, onClose, blockLabel, suggested, components, ban
                 renderCard={(item) => <SavedComponentCard key={item.id} item={item} onOpen={() => onPickSaved(item.id)} actionLabel="Add to block" />} />
             ) : (
               <CategoryPickerGrid gridCols={grid} onPick={onPickKind}
-                items={(category === "suggested" ? suggested : COMPONENT_CATEGORIES.find((cat) => cat.id === category)?.kinds || []).map(kindItem)} />
+                items={(category === "suggested" ? suggested : categories.find((cat) => cat.id === category)?.kinds || []).map(kindItem)} />
             )}
           </>
         )}
@@ -1282,12 +1300,16 @@ function FocusBars({ block, components, index, onGo, onClose }) {
   );
 }
 
-// The passage or listening a comprehension set is checked against — null if
-// it isn't linked, or its source has since left the block.
+// Components others can be linked to (audio is "listening"). A linked
+// component is never itself a source, so links are one level deep.
+export const SOURCE_KINDS = ["passage", "listening", "video", "youtube"];
+export const isSourceKind = (component) => SOURCE_KINDS.includes(component.kind);
+// The source a component is linked to (`passageRefId`, kept for old data) —
+// null if it isn't linked, or its source has since left the block.
 export const linkedSource = (component, components) =>
-  (component.kind === "comprehension" && component.passageRefId
-    && components.find((x) => x.id === component.passageRefId)) || null;
-export const sourceNoun = (source) => (source?.kind === "listening" ? "listening" : "passage");
+  (!isSourceKind(component) && component.passageRefId
+    && components.find((x) => x.id === component.passageRefId && isSourceKind(x))) || null;
+export const sourceNoun = (source) => (source?.kind === "listening" ? "listening" : source?.kind === "video" || source?.kind === "youtube" ? "video" : "passage");
 // One question engine for reading and listening; a set tied to a Listening
 // is just named for what the student actually does with it.
 export const componentLabel = (component, components) =>
@@ -2760,7 +2782,44 @@ function SpeedRoundComponent({ component }) {
 
 const ROLE_KEYS = ["", ...Object.keys(ROLE)];
 
-function ComponentEditor({ component, onChange, roster, sources = [], linkedCount = 0, onAddQuestions, registerFlush }) {
+// "Linked components" on a source (reading, listening, video, audio): opens the
+// same picker as "+ Add component", the new one linked to this source.
+function LinkedComponentsCard({ source, attached, onAdd }) {
+  const noun = sourceNoun(source);
+  return (
+    <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-neutral-950">Linked components</div>
+        <div className="text-xs text-neutral-600 mt-0.5">
+          {attached.length ? `${attached.length} linked below — ${attached.map((x) => COMPONENT_META[x.kind]?.label || x.kind).join(", ")}` : `Questions, vocabulary or practice that belong to this ${noun}.`}
+        </div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onAdd}><IconPlus size={14} stroke={1.75} /> Add linked component</Button>
+    </div>
+  );
+}
+
+export function ComponentEditor(props) {
+  const { component, onChange, sources = [], attached = [], onAddRelated } = props;
+  const body = <ComponentEditorBody {...props} />;
+  if (isSourceKind(component)) {
+    return onAddRelated ? <div className="space-y-4">{body}<LinkedComponentsCard source={component} attached={attached} onAdd={onAddRelated} /></div> : body;
+  }
+  // Linked non-question components get a one-line link row (question sets have
+  // their own "Linked to" field).
+  const src = component.kind !== "comprehension" && sources.find((x) => x.id === component.passageRefId);
+  return src ? (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-700">
+        <span className="min-w-0 truncate">↳ Linked to {COMPONENT_META[src.kind]?.label}</span>
+        <button type="button" className="shrink-0 font-semibold text-primary-600 hover:text-primary-700" onClick={() => onChange({ passageRefId: null })}>Unlink</button>
+      </div>
+      {body}
+    </div>
+  ) : body;
+}
+
+function ComponentEditorBody({ component, onChange, roster, sources = [], registerFlush }) {
   switch (component.kind) {
     case "passage":    return <PassageEditor component={component} onChange={onChange} />;
     case "wordlist":   return <RowsEditor component={component} onChange={onChange} fields={[["term", "Word"], ["az", "Azerbaijani"], ["def", "Definition"], ["example", "Example"]]} blank={{ term: "", az: "", def: "", example: "" }} label="word" wide={["def", "example"]} />;
@@ -2783,7 +2842,7 @@ function ComponentEditor({ component, onChange, roster, sources = [], linkedCoun
     case "dialoguecompletion": return <DialogueCompletionEditor component={component} onChange={onChange} />;
     case "speedround": return <SpeedRoundEditor component={component} onChange={onChange} />;
     case "video":      return <MediaEditor component={component} onChange={onChange} />;
-    case "listening":  return <ListeningEditor component={component} onChange={onChange} linkedCount={linkedCount} onAddQuestions={onAddQuestions} />;
+    case "listening":  return <ListeningEditor component={component} onChange={onChange} />;
     case "scenario":   return <ScenarioEditor component={component} onChange={onChange} />;
     case "homework":   return <HomeworkEditor component={component} onChange={onChange} />;
     case "comprehension": return <ComprehensionEditor component={component} onChange={onChange} sources={sources} />;
@@ -2814,11 +2873,13 @@ function WordSearchEditor({ component, onChange }) {
 function PassageEditor({ component, onChange }) {
   const { state } = useStore();
   return (
-    <Field label="Reading text (from Library)">
-      <select className={inputCls} value={component.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
-        {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {pathLabel(state.textFolders, t.folderId, "name")} · {t.level}</option>)}
-      </select>
-    </Field>
+    <div className="space-y-4">
+      <Field label="Reading text (from Library)">
+        <select className={inputCls} value={component.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
+          {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {pathLabel(state.textFolders, t.folderId, "name")} · {t.level}</option>)}
+        </select>
+      </Field>
+    </div>
   );
 }
 
@@ -2942,8 +3003,10 @@ function ComprehensionEditor({ component, onChange, sources = [] }) {
   const mode = component.mode || "multiple";
   const sourceTitle = (x) => (x.kind === "listening"
     ? `Listening — ${x.title || x.audioName || "untitled audio"}`
-    : `Reading — ${state.texts.find((t) => t.id === x.textId)?.title || "untitled passage"}`);
-  const fromAudio = sources.find((x) => x.id === component.passageRefId)?.kind === "listening";
+    : x.kind === "passage" ? `Reading — ${state.texts.find((t) => t.id === x.textId)?.title || "untitled passage"}`
+      : `Video — ${x.title || x.url || "untitled video"}`);
+  const linkedFound = sources.find((x) => x.id === component.passageRefId);
+  const fromAudio = linkedFound?.kind === "listening";
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -2951,12 +3014,20 @@ function ComprehensionEditor({ component, onChange, sources = [] }) {
           <button key={id} onClick={() => onChange({ mode: id })} className={`text-sm rounded-lg px-3 py-1.5 border ${mode === id ? "border-primary-400 bg-primary-50 text-primary-700 font-semibold" : "border-neutral-200 text-neutral-500"}`}>{lbl}</button>
         ))}
       </div>
-      <Field label="Questions about (optional)">
-        <select className={inputCls} value={component.passageRefId || ""} onChange={(e) => onChange({ passageRefId: e.target.value || null })}>
-          <option value="">Nothing specific</option>
+      <Field label="Linked to">
+        <select className={`${inputCls} ${component.passageRefId && !linkedFound ? "!border-warning-500" : ""}`} value={component.passageRefId || ""} onChange={(e) => onChange({ passageRefId: e.target.value || null })}>
+          <option value="">Not linked — standalone questions</option>
           {sources.map((x) => <option key={x.id} value={x.id}>{sourceTitle(x)}</option>)}
         </select>
-        <p className="text-xs text-neutral-400 mt-1.5">Links these questions to a passage or a listening already in this block — shown nested under it, here and in the course tree.</p>
+        {component.passageRefId && !linkedFound ? (
+          <p className="text-xs text-warning-600 mt-1.5">The passage or listening this was linked to is no longer in this block — pick another or leave it unlinked.</p>
+        ) : !component.passageRefId && sources.length ? (
+          <p className="text-xs text-warning-600 mt-1.5">Not linked to a passage or listening. Link it so it shows nested under the text it asks about.</p>
+        ) : !sources.length ? (
+          <p className="text-xs text-neutral-500 mt-1.5">Add a Reading passage or Listening to this block to link questions to it.</p>
+        ) : (
+          <p className="text-xs text-neutral-500 mt-1.5">Shown nested under it, here and in the course tree.</p>
+        )}
       </Field>
       {mode === "multiple" && <QuizEditor component={component} onChange={onChange} />}
       {mode === "truefalse" && <TrueFalseEditor component={component} onChange={onChange} />}
@@ -3113,7 +3184,7 @@ function AudioFilePicker({ label, onFile, busy, compact = false, accept = "audio
   );
 }
 
-function ListeningEditor({ component, onChange, linkedCount = 0, onAddQuestions }) {
+function ListeningEditor({ component, onChange }) {
   const { toast } = useStore();
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState("");
@@ -3197,14 +3268,6 @@ function ListeningEditor({ component, onChange, linkedCount = 0, onAddQuestions 
 
       <TranscriptFields component={component} onChange={onChange} />
 
-      {onAddQuestions && (
-        <Alert tone="primary" icon={IconListCheck} title="Questions about this audio"
-          actionLabel={linkedCount ? "Add another set" : "Add questions"} onAction={onAddQuestions}>
-          {linkedCount
-            ? `${linkedCount} question set${linkedCount === 1 ? "" : "s"} linked below.`
-            : "Multiple choice, true / false or matching — placed right under this listening."}
-        </Alert>
-      )}
     </div>
   );
 }

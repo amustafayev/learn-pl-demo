@@ -12,6 +12,9 @@ import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
 import Classes from "./views/Classes.jsx";
+import Homework from "./views/Homework.jsx";
+import HomeworkEdit from "./views/HomeworkEdit.jsx";
+import HomeworkDetail from "./views/HomeworkDetail.jsx";
 import PartStudio from "./views/parts.jsx";
 import Library from "./views/Library.jsx";
 import { StudentsView, StudentDetail } from "./views/Students.jsx";
@@ -186,6 +189,11 @@ function Content() {
       <Route path="/courses/:courseId/lessons/:lessonId" element={<Bridge tab="courses"><LessonBuilderView /></Bridge>} />
       <Route path="/courses/:courseId/lessons/:lessonId/parts/:partId" element={<Bridge tab="courses"><PartStudio /></Bridge>} />
 
+      {/* Homework is its own page (views/Homework.jsx), not part of Classes.jsx */}
+      <Route path="/classes/:classId/homework/new" element={<Bridge tab="classes"><HomeworkEdit /></Bridge>} />
+      <Route path="/classes/:classId/homework/:homeworkId/edit" element={<Bridge tab="classes"><HomeworkEdit /></Bridge>} />
+      <Route path="/classes/:classId/homework/:homeworkId" element={<Bridge tab="classes"><HomeworkDetail /></Bridge>} />
+      <Route path="/classes/:classId/homework" element={<Bridge tab="classes"><Homework /></Bridge>} />
       <Route path="/classes/*" element={<Bridge tab="classes"><Classes /></Bridge>} />
 
       <Route path="/library/*" element={<Bridge tab="library"><Library /></Bridge>} />

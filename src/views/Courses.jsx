@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
-  IconEye, IconFilter,
+  IconEye, IconFilter, IconClipboardCheck,
   IconBookmarkPlus, IconSitemap, IconBook2, IconUsers, IconSchool, IconCircleCheck, IconFlag, IconPlayerPlay, IconShoppingBag,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
@@ -13,6 +14,7 @@ import {
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar, { ShareLessonButton } from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
+import { classHomeworkNewPath } from "../router.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
 
@@ -63,6 +65,7 @@ export function CoursesView() {
    different pieces of metadata layered onto one page, not two pages. */
 
 export function CourseView() {
+  const navigate = useNavigate();
   const { state, dispatch, toast } = useStore();
   const { route, go } = useNav();
   const [modal, setModal] = useState(false);
@@ -285,6 +288,10 @@ export function CourseView() {
                   )}
                   {classCourse && (
                     <ShareLessonButton cls={cls} course={course} lesson={l} shared={progress.released.has(l.id)} />
+                  )}
+                  {classCourse && (
+                    <button onClick={() => navigate(classHomeworkNewPath(cls.id, l.id))} title="Give this lesson's blocks or components to the class as homework"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0"><IconClipboardCheck size={13} stroke={1.75} /> Assign</button>
                   )}
                   {classCourse && classCourse.status !== "done" && view.state !== "next" && (
                     <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}

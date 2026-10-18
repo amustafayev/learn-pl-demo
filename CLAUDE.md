@@ -443,6 +443,49 @@ picked at once.
   an assignment with `assignmentLook(a)`, which gives its icon, tone and
   type label.
 
+### Class homework (Classwork)
+
+Modeled on Google Classroom's Classwork, for the whole class (assigning to
+individual students is not part of it yet). An **assignment** is one post:
+title, instructions, attachments (lesson blocks / components, or a library
+word set), an optional due date and time, and a topic — the lesson, or "No
+topic". It is a **draft**, **scheduled** for later, or **assigned**. State
+lives in `homework`; posting gives every active class member one
+`assignments` row per attachment, tagged `homeworkId` (= `batchId`), so the
+student app is unchanged. Per student the teacher sees **Turned in** (every
+attachment row done), **Assigned**, or **Missing** (not done after the due
+date) — see `homeworkStats`.
+- **Pages, all decoupled from Classes/Courses:** `views/Homework.jsx` —
+  Classwork list by topic (`/classes/:classId/homework`);
+  `views/HomeworkEdit.jsx` — the composer (`…/homework/new?lessonId=`,
+  `…/:homeworkId/edit`): Save draft / Schedule / Assign; a posted one edits
+  only title, instructions and due date; `views/HomeworkDetail.jsx` —
+  Student work and Instructions tabs, Edit, Delete (`…/:homeworkId`). Path
+  builders `classHomework*Path` in `router.jsx`. Classes.jsx has just a
+  "Classwork" link; Courses.jsx has the lesson row's "Assign" link.
+- **Attachments** (composer, not a dialog): Upload file (PDF / Word / image →
+  a `document` task, file kept via `saveMedia`), YouTube video (a `youtube`
+  task), From the lesson (a whole block or one component), Word set, and Any
+  component (the kind picker; the new one opens its editor inline —
+  `ComponentEditor` from parts.jsx). Files, videos and components are `task`
+  attachments, so the student app plays them like any assigned task.
+  `components/HomeworkAttachment.jsx` (`describeAttachment`) words each one —
+  what it is, where from, and a block's components — for the composer and the
+  assignment page. Already-attached picker rows say "✓ Attached".
+- **One door:** the pages use only `src/homework.jsx`
+  (`useClassHomework`, `useHomeworkPost`, `useHomeworkActions`).
+- **The mock backend:** `db/homeworkClient.js` holds the contract
+  (`list` / `get` / `saveDraft` / `publish` / `update` / `remove`), the mock
+  client over the reducer (`SAVE_HOMEWORK`, `PUBLISH_HOMEWORK`,
+  `UPDATE_HOMEWORK`, `DELETE_HOMEWORK`, `RELEASE_SCHEDULED_HOMEWORK`) and an
+  HTTP client for `/classes/{classId}/homework…` (docs/openapi.yaml). To go
+  live, build the HTTP one in `homework.jsx`'s `useHomeworkClient`. The mock
+  has no server clock, so pages nudge `RELEASE_SCHEDULED_HOMEWORK` on open and
+  every 30 seconds; a real server posts scheduled assignments itself.
+- Delete takes back rows still `assigned` and leaves `done` ones as history;
+  a due-date change reaches open rows; H5P content is copied per attachment at
+  post time (`useHomeworkActions().publish`).
+
 ### Where it shows up (teacher side)
 
 - **Class page:** one **Class members** panel in the right rail.

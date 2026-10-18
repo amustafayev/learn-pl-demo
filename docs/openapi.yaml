@@ -1407,6 +1407,104 @@ paths:
         client's own).
       responses:
         "200": { description: "Notes", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MyNote" } } } } }
+  /classes/{classId}/homework:
+    parameters: [{ name: classId, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Students]
+      operationId: listClassHomework
+      summary: A class's Classwork — its assignments
+      description: |
+        Modeled on Google Classroom's Classwork. Every assignment post of this class
+        (draft, scheduled and assigned), newest first, each with its per-student
+        stats. Scheduled posts whose `scheduledAt` has passed are posted by the
+        server itself.
+      responses:
+        "200": { description: "Assignments", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Homework" } } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Students]
+      operationId: createClassHomework
+      summary: Create an assignment (as a draft)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/HomeworkInput" } } }
+      responses:
+        "201": { description: "The draft", content: { application/json: { schema: { $ref: "#/components/schemas/Homework" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /classes/{classId}/homework/{homeworkId}:
+    parameters:
+      - { name: classId, in: path, required: true, schema: { type: string } }
+      - { name: homeworkId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Students]
+      operationId: getClassHomework
+      summary: One assignment with its student work
+      responses:
+        "200": { description: "The assignment", content: { application/json: { schema: { $ref: "#/components/schemas/Homework" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Students]
+      operationId: saveClassHomework
+      summary: Replace a draft or scheduled assignment
+      description: Mirrors `SAVE_HOMEWORK`. Only while it is a draft or scheduled — an assigned post changes through PATCH.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/HomeworkInput" } } }
+      responses:
+        "200": { description: "The saved assignment", content: { application/json: { schema: { $ref: "#/components/schemas/Homework" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Students]
+      operationId: updateClassHomework
+      summary: Change title, instructions or due date of an assigned post
+      description: Mirrors `UPDATE_HOMEWORK`. A due-date change reaches every row still `assigned`; attachments stay as students were given them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                instructions: { type: string }
+                dueAt: { $ref: "#/components/schemas/Timestamp" }
+      responses:
+        "200": { description: "The updated assignment", content: { application/json: { schema: { $ref: "#/components/schemas/Homework" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Students]
+      operationId: deleteClassHomework
+      summary: Delete an assignment
+      description: Mirrors `DELETE_HOMEWORK`. Rows still `assigned` are taken back (`withdrawn`); rows already `done` stay as history.
+      responses:
+        "204": { description: "Deleted" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /classes/{classId}/homework/{homeworkId}/publish:
+    parameters:
+      - { name: classId, in: path, required: true, schema: { type: string } }
+      - { name: homeworkId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [Students]
+      operationId: publishClassHomework
+      summary: Assign now, or schedule
+      description: |
+        Mirrors `PUBLISH_HOMEWORK`. With a future `scheduledAt` the post becomes
+        `scheduled`; otherwise it becomes `assigned` and every **active member of
+        the class** gets one `assignments` row per attachment, tagged with
+        `homeworkId`. (Assigning to individual students is not part of this yet.)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledAt: { $ref: "#/components/schemas/Timestamp" }
+      responses:
+        "200": { description: "The post", content: { application/json: { schema: { $ref: "#/components/schemas/Homework" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /me/assignments:
     get:
       tags: [Student app]
@@ -2157,6 +2255,57 @@ components:
         assignedAt: { $ref: "#/components/schemas/Timestamp" }
         completedAt: { $ref: "#/components/schemas/Timestamp" }
         withdrawnAt: { $ref: "#/components/schemas/Timestamp" }
+        classId: { type: string, nullable: true, description: "Set when it came from class homework." }
+        lessonId: { type: string, nullable: true }
+        courseId: { type: string, nullable: true }
+        dueAt: { $ref: "#/components/schemas/Timestamp" }
+        homeworkId: { type: string, nullable: true, description: "The assignment post this row belongs to (`batchId` is the same value)." }
+        homeworkTitle: { type: string, nullable: true }
+    HomeworkAttachment:
+      type: object
+      required: [kind, title]
+      description: One thing handed over — same shape as an assignment's snapshot (a block, a one-off task, or a pointer to a library word set / reading).
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/AssignmentKind" }
+        title: { type: string }
+        blockType: { $ref: "#/components/schemas/BlockType" }
+        componentKind: { $ref: "#/components/schemas/ComponentKind" }
+        source: { type: object, additionalProperties: true }
+        content: { nullable: true }
+    HomeworkInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        instructions: { type: string }
+        lessonId: { type: string, nullable: true, description: "The topic. Null = no topic." }
+        courseId: { type: string, nullable: true }
+        attachments: { type: array, items: { $ref: "#/components/schemas/HomeworkAttachment" } }
+        dueAt: { $ref: "#/components/schemas/Timestamp" }
+    Homework:
+      allOf:
+        - { $ref: "#/components/schemas/HomeworkInput" }
+        - type: object
+          required: [id, classId, status]
+          properties:
+            id: { type: string }
+            classId: { type: string }
+            status: { type: string, enum: [draft, scheduled, assigned] }
+            scheduledAt: { $ref: "#/components/schemas/Timestamp" }
+            postedAt: { $ref: "#/components/schemas/Timestamp" }
+            createdAt: { $ref: "#/components/schemas/Timestamp" }
+            turnedIn: { type: integer, description: "Students whose every attachment row is done." }
+            assigned: { type: integer, description: "Students still working, not yet past due." }
+            missing: { type: integer, description: "Students not done after the due date." }
+            students:
+              type: array
+              items:
+                type: object
+                properties:
+                  studentId: { type: string }
+                  status: { type: string, enum: [turnedIn, assigned, missing] }
+                  doneAt: { $ref: "#/components/schemas/Timestamp" }
     AssignWorkRequest:
       type: object
       required: [studentIds, kind, title]

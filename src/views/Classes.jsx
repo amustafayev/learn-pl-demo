@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
-import { IconClock,
+import { IconClock, IconClipboardCheck,
   IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool, IconCopy, IconRefresh, IconMail, IconInbox,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
@@ -9,6 +9,7 @@ import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import { CLASS_COURSE_STATUS, joinLink } from "../data.jsx";
 import { scheduleLabel, scheduleDays } from "../schedule.js";
+import { classHomeworkPath } from "../router.jsx";
 import ScheduleEditor from "../components/ScheduleEditor.jsx";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
@@ -168,7 +169,10 @@ function ClassDetailView({ classId }) {
       <Breadcrumbs items={[{ label: "Classes", onClick: () => navigate("/classes") }, { label: cls.name }]} />
       <PageHeader title={cls.name}
         sub={`${scheduleLabel(cls.schedule)} · ${roster.length} student${roster.length === 1 ? "" : "s"}`}
-        right={<Button variant="outline" size="sm" onClick={() => { setDraftSchedule(cls.schedule || []); setScheduleOpen(true); }}><IconClock size={15} stroke={1.75} /> Edit schedule</Button>} />
+        right={<div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(classHomeworkPath(cls.id))}><IconClipboardCheck size={15} stroke={1.75} /> Classwork</Button>
+          <Button variant="outline" size="sm" onClick={() => { setDraftSchedule(cls.schedule || []); setScheduleOpen(true); }}><IconClock size={15} stroke={1.75} /> Edit schedule</Button>
+        </div>} />
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} icon={IconClock} title="Class schedule" sub={cls.name}
         footer={<>
           <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancel</Button>

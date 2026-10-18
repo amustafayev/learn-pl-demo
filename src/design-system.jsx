@@ -317,9 +317,9 @@ export function CategoryPicker({ groups, onPick, columns = 2 }) {
 // label + meta) but single-column, denser, and ends in a plain "insert" cue
 // instead of a used-count badge, since a saved item can be reused any number
 // of times.
-export function LibraryPickList({ groups, onPick }) {
+export function LibraryPickList({ groups, onPick, maxHeight = "max-h-72 overflow-y-auto" }) {
   return (
-    <div className="space-y-3 max-h-72 overflow-y-auto pr-0.5">
+    <div className={`space-y-3 pr-0.5 ${maxHeight}`}>
       {groups.map((g) => (
         <div key={g.id}>
           <div className="text-[10px] font-bold uppercase tracking-wide text-primary-600/80 mb-1.5 px-0.5">{g.label}</div>
