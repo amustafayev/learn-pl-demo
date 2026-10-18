@@ -259,7 +259,7 @@ export const SEED_LESSONS = {
 // owned by one teacher (teacherId). Who's in it lives in SEED_MEMBERSHIPS
 // (a backend's `class_members`) — never on the class or the student — so a
 // student can be in several classes, even other teachers', and keep their
-// history. joinToken is the class link/code; joinOpen turns it off.
+// history. joinToken is the invitation id in the class link; joinOpen turns it off.
 
 // A class's `courses` is its assignment history (a backend's `class_courses`
 // rows) — every course it has studied, each with:
@@ -275,23 +275,23 @@ export const SEED_LESSONS = {
 export const SEED_CLASSES = [
   {
     id: "cls_it_morning", teacherId: "t_maria", name: "ITler — Morning", schedule: [{ day: 0, start: "10:00", durationMin: 60 }, { day: 2, start: "10:00", durationMin: 60 }],
-    joinToken: "M4R9QX", joinOpen: true,
+    joinToken: "6f1c2a9e-3b7d-4e58-9a41-c0d5e8b27f13", joinOpen: true,
     courses: [{ courseId: "it", currentLessonId: "it4", status: "in-progress", releasedLessonIds: ["it1", "it2", "it3", "it4"] }],
   },
   {
     id: "cls_it_evening", teacherId: "t_maria", name: "ITler — Evening", schedule: [{ day: 1, start: "19:00", durationMin: 60 }, { day: 3, start: "19:00", durationMin: 90 }],
-    joinToken: "E7K2PB", joinOpen: true,
+    joinToken: "b3a8d4f0-7c21-4d96-8e5a-1f9c6a2d0e47", joinOpen: true,
     courses: [{ courseId: "it", currentLessonId: "it1", status: "in-progress", releasedLessonIds: ["it1"] }],
   },
   {
     id: "cls_ielts_main", teacherId: "t_maria", name: "IELTS Speaking — Main", schedule: [{ day: 0, start: "18:00", durationMin: 90 }, { day: 2, start: "18:00", durationMin: 90 }, { day: 4, start: "17:00", durationMin: 60 }],
-    joinToken: "IE5T8W", joinOpen: true,
+    joinToken: "2d9e7b61-a4c3-4f08-b6d2-8e1a5c730f94", joinOpen: true,
     courses: [{ courseId: "ielts", currentLessonId: "ie2", status: "in-progress", releasedLessonIds: ["ie1", "ie2"] }],
   },
   // Another teacher's class — never visible to this teacher.
   {
     id: "cls_kamal_biz", teacherId: "t_kamal", name: "Business English — Tuesdays", schedule: [{ day: 1, start: "11:00", durationMin: 60 }],
-    joinToken: "KB3N6Y", joinOpen: true,
+    joinToken: "c85a0f3d-1e9b-47a2-9d6c-4b2e7f18a350", joinOpen: true,
     courses: [{ courseId: "biz", currentLessonId: "bz1", status: "in-progress", releasedLessonIds: ["bz1"] }],
   },
 ];

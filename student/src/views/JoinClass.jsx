@@ -1,75 +1,103 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { IconCheck, IconAlertTriangle, IconSend, IconClock } from "@tabler/icons-react";
-import { Alert, Button, Card, Field, Page, PageHeader, TextArea, TextField } from "@app/design-system.jsx";
+import { IconCheck, IconAlertTriangle, IconSend, IconClock, IconCalendarTime, IconUsers, IconBook2 } from "@tabler/icons-react";
+import { Alert, Button, Card, Field, Page, PageHeader, TextArea } from "@app/design-system.jsx";
 import { useStore } from "@app/store.jsx";
 import { timeAgo } from "@app/format.js";
+import { scheduleLabel } from "@app/schedule.js";
 import { classOf, membershipIn, teacherName } from "../lib.js";
 
-// Join a class with the code (or the link, /join/CODE, which fills it in).
-// It only ever sends a request — the teacher accepts it (REQUEST_TO_JOIN);
-// the class shows up on Home once they do.
+// The page behind a class link (/join/:token) — what a teacher shares in a
+// group chat or on social media. It previews the class (teacher, schedule,
+// what it covers, lesson titles — never the lessons themselves), then the
+// student asks to join. It only ever sends a request; the teacher accepts it
+// (REQUEST_TO_JOIN) and the class shows up on Home.
 export default function JoinClass() {
   const { token } = useParams();
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
-  const [code, setCode] = useState((token || "").toUpperCase());
   const [message, setMessage] = useState("");
-  const [sent, setSent] = useState(null); // the code last sent
 
-  // What came of it, read back from the data: a request waiting, already in
-  // the class, or nothing (a wrong code, a closed class).
-  const cls = sent ? state.classes.find((c) => c.joinToken === sent) : null;
+  const preview = token ? state.joinPreviews?.find((p) => p.token === token) : null;
+  const cls = preview ? classOf(state, preview.classId) : null;
   const status = cls ? membershipIn(state, cls.id)?.status : null;
-  const result = !sent ? null : status === "requested" ? "requested" : status === "active" ? "active" : "failed";
-  const waiting = state.memberships.filter((m) => m.status === "requested" && classOf(state, m.classId)?.joinToken !== sent);
+  const waiting = state.memberships.filter((m) => m.status === "requested" && m.classId !== preview?.classId);
 
-  const submit = (e) => {
+  const waitingList = waiting.map((m) => {
+    const c = classOf(state, m.classId);
+    return (
+      <Alert key={m.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(state, c?.teacherId)} to accept you`}>
+        {c?.name} · asked {timeAgo(m.requestedAt)}.
+      </Alert>
+    );
+  });
+
+  if (!preview) {
+    return (
+      <Page>
+        <PageHeader title="Join a class" sub="Open the link your teacher shared — you'll see the class first, then you can ask to join." />
+        <div className="max-w-xl space-y-3">
+          {token && (
+            <Alert tone="warning" icon={IconAlertTriangle} title="This link doesn't work">
+              It may have been replaced by a new one, or the class isn't taking requests right now. Ask your teacher for a fresh link.
+            </Alert>
+          )}
+          {waitingList}
+        </div>
+      </Page>
+    );
+  }
+
+  const teacher = teacherName(state, preview.teacherId);
+  const send = (e) => {
     e.preventDefault();
-    const clean = code.trim().toUpperCase();
-    if (!clean) return;
-    dispatch({ type: "REQUEST_TO_JOIN", token: clean, studentId: state.me.id, message });
-    setSent(clean);
+    dispatch({ type: "REQUEST_TO_JOIN", token, studentId: state.me.id, message });
   };
 
   return (
     <Page>
-      <PageHeader title="Join a class" sub="Enter the code your teacher gave you. They accept your request, then the class appears on your Home." />
-      <Card className="p-5 max-w-xl">
-        <form onSubmit={submit}>
-          <Field label="Class code">
-            <TextField value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setSent(null); }} placeholder="e.g. M4R9QX"
-              className="font-mono tracking-widest uppercase" autoFocus={!token} maxLength={12} />
-          </Field>
-          <Field label="Message to your teacher (optional)">
-            <TextArea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Hi! I'm in your Monday group." className="!min-h-[84px]" />
-          </Field>
-          <Button type="submit" variant={code.trim() ? "primary" : "disabled"} disabled={!code.trim()}><IconSend size={16} stroke={1.75} /> Send request</Button>
-        </form>
-      </Card>
+      <PageHeader title={preview.name} sub={`with ${teacher}`} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl">
+        <div className="lg:col-span-2 space-y-4 min-w-0">
+          <Card className="p-5">
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-700">
+              <span className="inline-flex items-center gap-2"><IconCalendarTime size={16} stroke={1.75} className="text-neutral-500" /> {scheduleLabel(preview.schedule)}</span>
+              <span className="inline-flex items-center gap-2"><IconUsers size={16} stroke={1.75} className="text-neutral-500" /> {preview.studentCount} student{preview.studentCount === 1 ? "" : "s"}</span>
+            </div>
+          </Card>
+          {preview.courses.length > 0 ? preview.courses.map((c) => (
+            <Card key={c.id} className="p-5">
+              <div className="flex items-center gap-2 text-base font-semibold text-neutral-950"><IconBook2 size={16} stroke={1.75} className="text-neutral-500" /> {c.title}
+                <span className="text-xs font-normal text-neutral-600">· {c.level}</span></div>
+              {c.lessons.length > 0 && (
+                <ol className="mt-3 space-y-1.5 text-sm text-neutral-800">
+                  {c.lessons.map((l) => <li key={l.n} className="flex gap-2"><span className="w-12 shrink-0 text-neutral-500">Lesson {l.n}</span><span className="min-w-0 truncate">{l.title}</span></li>)}
+                </ol>
+              )}
+            </Card>
+          )) : <Card className="p-5 text-sm text-neutral-600">{teacher} hasn't started a course with this class yet.</Card>}
+        </div>
 
-      <div className="max-w-xl mt-4 space-y-3">
-        {result === "requested" && (
-          <Alert tone="success" icon={IconCheck} title={`Request sent to ${cls.name}`}>
-            {teacherName(state, cls.teacherId)} will accept you — the class shows up on your Home as soon as they do.
-          </Alert>
-        )}
-        {result === "active" && (
-          <Alert tone="info" icon={IconCheck} title={`You're already in ${cls.name}`} actionLabel="Open the class" onAction={() => navigate(`/classes/${cls.id}`)} />
-        )}
-        {result === "failed" && (
-          <Alert tone="warning" icon={IconAlertTriangle} title="That code didn't work">
-            Check it with your teacher — it may be mistyped, replaced by a new one, or the class isn't taking requests right now.
-          </Alert>
-        )}
-        {waiting.map((m) => {
-          const c = classOf(state, m.classId);
-          return (
-            <Alert key={m.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(state, c?.teacherId)} to accept you`}>
-              {c?.name} · asked {timeAgo(m.requestedAt)}.
+        <div className="space-y-3">
+          {status === "active" ? (
+            <Alert tone="info" icon={IconCheck} title={`You're already in ${preview.name}`} actionLabel="Open the class" onAction={() => navigate(`/classes/${preview.classId}`)} />
+          ) : status === "requested" ? (
+            <Alert tone="success" icon={IconCheck} title="Request sent">
+              {teacher} will accept you — the class shows up on your Home as soon as they do.
             </Alert>
-          );
-        })}
+          ) : (
+            <Card className="p-5">
+              <form onSubmit={send}>
+                <Field label="Message to your teacher (optional)">
+                  <TextArea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Hi! I saw your class and would like to join." className="!min-h-[84px]" />
+                </Field>
+                <Button type="submit" className="w-full"><IconSend size={16} stroke={1.75} /> Request to join</Button>
+                <p className="mt-2 text-xs text-neutral-600">{teacher} reviews each request before you're in.</p>
+              </form>
+            </Card>
+          )}
+          {waitingList}
+        </div>
       </div>
     </Page>
   );

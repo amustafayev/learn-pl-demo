@@ -405,9 +405,21 @@ export function studentView(db, studentId) {
     ...purchases.map((p) => p.courseId),
     ...db.courses.filter((c) => c.sale?.forSale).map((c) => c.id),
   ]);
+  // What the public join link shows before anyone asks to join: names and
+  // outline only, never lesson content, notes or other students. Stand-in
+  // for GET /join/:token (no sign-in needed); only classes taking requests.
+  const joinPreviews = db.classes.filter((c) => c.joinOpen && c.joinToken).map((c) => ({
+    token: c.joinToken, classId: c.id, name: c.name, teacherId: c.teacherId, schedule: c.schedule,
+    studentCount: db.memberships.filter((m) => m.classId === c.id && m.status === "active").length,
+    courses: c.courses.map((x) => db.courses.find((k) => k.id === x.courseId)).filter(Boolean).map((k) => ({
+      id: k.id, title: k.title, level: k.level, hue: k.hue,
+      lessons: (db.lessons[k.id] || []).map((l) => ({ n: l.n, title: l.title })),
+    })),
+  }));
   return {
     me,
     students: [me],
+    joinPreviews,
     teachers: db.teacherProfiles.map((t) => (t.id === db.teacher.id ? { ...t, name: db.teacher.name } : t)),
     memberships,
     classes,
@@ -555,13 +567,8 @@ function postHomework(state, id) {
 }
 const withItem = (list, item) => ((list || []).includes(item) ? list || [] : [...(list || []), item]);
 const isBlocked = (state, teacherId, studentId) => state.blocks.some((b) => b.teacherId === teacherId && b.studentId === studentId);
-// A short, unambiguous class code (no 0/O, 1/I/L) — what goes in the join link.
-function joinToken() {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(6);
-  globalThis.crypto.getRandomValues(bytes);
-  return [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
-}
+// An unguessable invitation id (UUID v4) — the only thing in the join link.
+const joinToken = () => globalThis.crypto.randomUUID();
 // Apply fn to one class's entry for one course.
 const mapClassCourse = (classes, classId, courseId, fn) =>
   classes.map((c) => (c.id !== classId ? c : { ...c, courses: c.courses.map((x) => (x.courseId === courseId ? fn(x) : x)) }));
@@ -843,6 +850,7 @@ export function reducer(state, action) {
          COMPLETE_LESSON          POST   /me/courses/:courseId/lessons/:lessonId/completion
          COMPLETE_ASSIGNMENT      POST   /me/assignments/:assignmentId/complete
        Reads (selectors below the reducer's inputs, same shapes)
+         joinPreviews             GET    /join/:token  (public: class outline before asking to join)
          classCourseProgress      GET    /classes/:classId/courses/:courseId
          teacherRoster            GET    /students  (grouped)
          studentHistory           GET    /students/:studentId/history
@@ -1021,7 +1029,7 @@ export function reducer(state, action) {
     }
     case "REVOKE_INVITATION":
       return { ...state, invitations: state.invitations.map((i) => (i.id === action.invitationId ? { ...i, status: "revoked" } : i)) };
-    // Accept or decline a request that came in with the class link/code.
+    // Accept or decline a request that came in with the class link (UUID).
     case "DECIDE_MEMBERSHIP": {
       const { membershipId, status } = action;
       if (status !== "active" && status !== "declined") return state;

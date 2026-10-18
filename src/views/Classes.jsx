@@ -404,10 +404,8 @@ function InviteStudentsPanel({ cls }) {
           <div className="min-w-0 flex-1 truncate rounded-lg bg-neutral-200 px-3 py-2 text-sm text-neutral-900" data-join-link>{link}</div>
           <Button size="sm" variant="outline" iconOnly icon={IconCopy} onClick={() => copy(link, "Link")} disabled={!cls.joinOpen} title="Copy link" aria-label="Copy link" />
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
-          Code <button type="button" onClick={() => copy(cls.joinToken, "Code")} disabled={!cls.joinOpen}
-            className="rounded-md border border-neutral-400 bg-surface px-2 py-0.5 font-semibold tracking-widest text-neutral-950 hover:border-primary-300" title="Copy code">{cls.joinToken}</button>
-          <button type="button" onClick={() => { dispatch({ type: "REGENERATE_JOIN_TOKEN", classId: cls.id }); toast("New link and code — the old ones no longer work"); }}
+        <div className="mt-2 flex items-center text-sm text-neutral-600">
+          <button type="button" onClick={() => { dispatch({ type: "REGENERATE_JOIN_TOKEN", classId: cls.id }); toast("New link — the old one no longer works"); }}
             className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-600 hover:text-primary-700"><IconRefresh size={14} stroke={1.75} /> New link</button>
         </div>
         <p className="mt-2 text-xs text-neutral-600">{cls.joinOpen ? "Anyone with it can ask to join — you accept each request." : "Joining is off — the link doesn't take requests."}</p>

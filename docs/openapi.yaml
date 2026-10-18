@@ -823,7 +823,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  joinToken: { type: string, example: M4R9QX }
+                  joinToken: { type: string, format: uuid, example: 6f1c2a9e-3b7d-4e58-9a41-c0d5e8b27f13 }
   /classes/{classId}/courses:
     parameters: [{ $ref: "#/components/parameters/ClassId" }]
     post:
@@ -1279,7 +1279,7 @@ paths:
       operationId: requestToJoin
       summary: Ask to join a class by link/code
       description: |
-        Mirrors `REQUEST_TO_JOIN` (`/student/join/CODE` or typing the code). A class
+        Mirrors `REQUEST_TO_JOIN` (`/student/join/<uuid>`). A class
         link **never admits directly** — it only creates a `requested` membership the
         teacher accepts. Fails silently-as-no-op (return `404 invalid_code`) for an
         unknown/rotated token, a closed class (`joinOpen=false`) or a student blocked by

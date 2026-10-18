@@ -605,7 +605,7 @@ It has no design or data of its own:
     a class filter.
   - **Courses:** bought courses, plus the catalog with **Request to buy**
     (showing the teacher's payment note).
-  - **Join a class:** a code, or `/join/CODE`.
+  - **Join a class:** the link `/join/<uuid>` (no typed code): it first previews the class (teacher, schedule, course and lesson titles), then Request to join.
   - **My work:** open and done assignments. A block or task plays from
     its `content` snapshot; a word set or reading opens the library item.
     **Mark as done** sends `COMPLETE_ASSIGNMENT`. Withdrawn work is hidden
@@ -626,7 +626,7 @@ It has no design or data of its own:
   `sessionStorage`) and which notes they've seen (the "New" badges),
   kept in `student/src/session.jsx`.
 - **Teacher side:** the Invite dialog's class link is `joinLink(token)`
-  (`data.jsx`), which opens `/student/join/CODE` on the same site.
+  (`data.jsx`), which opens `/student/join/<uuid>` on the same site.
 - **Status (2026-10-01).** UI only, on the mock db; no real backend.
   - **Built and checked end to end,** with two tabs (teacher and student)
     in light and dark mode and at phone width:
