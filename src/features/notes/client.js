@@ -1,3 +1,5 @@
+import { nullIfMissing } from "../../db/apiClient.js";
+
 /* Lesson notes API — the seam between the UI and wherever notes live.
 
    A lesson has one notes document (rich text, optionally a Google Doc
@@ -50,10 +52,7 @@ export function createMockNotesClient({ getState, dispatch }) {
 export function createHttpNotesClient(api) {
   const base = (courseId, lessonId) => `/courses/${courseId}/lessons/${lessonId}/notes`;
   return {
-    get: (courseId, lessonId) => api.get(base(courseId, lessonId)).catch((err) => {
-      if (err.code === "404" || err.code === "not_found") return null;
-      throw err;
-    }),
+    get: (courseId, lessonId) => api.get(base(courseId, lessonId)).catch(nullIfMissing),
     save: (courseId, lessonId, html) => api.put(base(courseId, lessonId), { html }).then(() => {}),
     setDoc: (courseId, lessonId, { docUrl, managed = false }) => api.patch(base(courseId, lessonId), { docUrl, managed }).then(() => {}),
     send: (courseId, lessonId, classId, sent) => api.put(`${base(courseId, lessonId)}/classes/${classId}`, { sent }).then(() => {}),

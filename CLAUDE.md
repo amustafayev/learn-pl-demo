@@ -96,20 +96,35 @@ src/features/<name>/
   responses straight through. Where the mock's shape differs, the mock
   client translates (notes: the mock's `sharedAt` is the API's `sentAt`).
 - **Hooks are async-ready** (`loading`, promises from every action), so the
-  real backend needs no screen changes. Backend day for a feature: build its
-  HTTP client in `hooks.js` instead of the mock one, and drive its refresh
-  from the server's push (`GET /events`).
+  real backend needs no screen changes. They load through `src/useLoad.js`
+  (keeps the old data while refreshing, so nothing remounts; `refresh()`
+  after a write). A screen that seeds something once from the data (an
+  editor, a starter component) waits for `loading` to clear first. Backend
+  day for a feature: build its HTTP client in `hooks.js` instead of the mock
+  one (with `{ audience: "student" }` in the student app where the client
+  takes one), and drive its refresh from the server's push (`GET /events`).
+  `nullIfMissing` (`db/apiClient.js`) turns a 404/403 into "none".
 - **Schools/organizations later:** the active school will travel with the
   login token in `apiClient` and the backend scopes by it; features and
   screens don't change.
 
-Converted so far: **notes** (`src/features/notes/`: the teacher's notes
-panel, the student app's notes everywhere, and Google Docs). Class homework
-already follows the same pattern from before (`src/homework.jsx` +
-`src/db/homeworkClient.js`) and moves into `src/features/` when it's next
-touched. Everything else still reads the mock through `useStore()` and is
-converted feature by feature: library, courses & lessons, classes,
-students & joining, sales, assigned work, account.
+Converted so far:
+- **notes** — the teacher's notes panel, the student app's notes
+  everywhere, and Google Docs.
+- **readings** — reading texts and their folders: Library → Reading, Add
+  text, every lesson passage (`useReadingTexts` gives summaries without the
+  body, for lists and pickers; `useReadingText(id)` gives one with it).
+- **wordSets** — Library → Word sets, the word games, picking a set to
+  assign, a student's assigned set. Every word has an `id` (the mock's is
+  its place in the set).
+- **savedComponents** — Library → Saved, saving from Block Studio and the
+  course tree (`save` copies the H5P content first), inserting a saved one.
+
+Class homework already follows the same pattern from before
+(`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
+`src/features/` when it's next touched. Everything else still reads the mock
+through `useStore()` and is converted feature by feature: courses &
+lessons, classes, students & joining, sales, assigned work, account.
 
 ## Data layer
 
@@ -123,8 +138,8 @@ seam so a real one can be dropped in later without touching any view:
   `reducer`'s cases into API calls and have `StoreProvider` fetch/await
   instead of `useReducer`. It also owns the handful of pure selector/derive
   functions that describe how the mock data relates to itself (`lessonBlocks`,
-  `activeClassCourse`, `classesOnCourse`, `courseAvgProgress`,
-  `groupBankByParent`, …) — a real backend would either
+  `activeClassCourse`, `classesOnCourse`, `courseAvgProgress`, …) — a
+  real backend would either
   replicate this logic or return it pre-joined, so it lives next to the state
   shape it describes, not in the React layer. `classesOnCourse`/
   `courseAvgProgress` encode a load-bearing rule: **a course has no progress

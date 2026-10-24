@@ -22,6 +22,13 @@ export class ApiError extends Error {
   }
 }
 
+// For a "get one" call where a missing (or not-yours) answer just means
+// "none": `api.get(path).catch(nullIfMissing)`.
+export function nullIfMissing(err) {
+  if (["404", "403", "not_found", "forbidden"].includes(err?.code)) return null;
+  throw err;
+}
+
 export function createApiClient(baseURL) {
   let token = null;
 

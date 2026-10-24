@@ -2,7 +2,8 @@ import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
 import { pathLabel } from "../libraryTree.js";
-import { useStore, activeStudents, assignWork } from "../store.jsx";
+import { useStore, useToast, activeStudents, assignWork } from "../store.jsx";
+import { useReadingFolders, useReadingTexts } from "../features/readings/index.js";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
@@ -119,11 +120,13 @@ function extractTokens(root) {
 }
 
 export function AddTextModal({ open, onClose, folderId = null }) {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const { folders } = useReadingFolders();
+  const { createText } = useReadingTexts();
   const [title, setTitle] = useState("");
   // The folder the text goes in: the one open in the Library, until changed.
   const [picked, setPicked] = useState(null);
-  const folder = picked ?? folderId ?? state.textFolders[0]?.id ?? null;
+  const folder = picked ?? folderId ?? folders[0]?.id ?? null;
   const [level, setLevel] = useState("B1");
   const [isEmpty, setIsEmpty] = useState(true);
   const [popover, setPopover] = useState(null); // { mode: "new"|"edit", top, left, text, color, az, def, example }
@@ -186,7 +189,7 @@ export function AddTextModal({ open, onClose, folderId = null }) {
     const bodyTokens = extractTokens(root);
     const hasTranslation = bodyTokens.some((t) => t.term);
     const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
-    dispatch({ type: "ADD_TEXT", text: { title: title.trim(), folderId: folder, level, wordCount, hasTranslation, body: bodyTokens } });
+    createText({ title: title.trim(), folderId: folder, level, wordCount, hasTranslation, body: bodyTokens });
     toast("Text added to the library");
     reset(); onClose();
   }
@@ -199,7 +202,7 @@ export function AddTextModal({ open, onClose, folderId = null }) {
       <div className="grid grid-cols-2 gap-3">
         <Field label="Folder">
           <Select value={folder || ""} onChange={(e) => setPicked(e.target.value)}>
-            {state.textFolders.map((f) => <option key={f.id} value={f.id}>{pathLabel(state.textFolders, f.id, "name")}</option>)}
+            {folders.map((f) => <option key={f.id} value={f.id}>{pathLabel(folders, f.id, "name")}</option>)}
           </Select>
         </Field>
         <Field label="Level">

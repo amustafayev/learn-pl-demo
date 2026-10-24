@@ -1,4 +1,3 @@
-import { subtreeWords } from "@app/libraryTree.js";
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { IconArrowLeft, IconBook, IconCircleCheck, IconChevronRight, IconClipboardList, IconStack2 } from "@tabler/icons-react";
@@ -7,6 +6,8 @@ import { useStore } from "@app/store.jsx";
 import { ASSIGNMENT_KIND_LABEL, blockMeta } from "@app/data.jsx";
 import { BlockStudentView, ComponentStudent, COMPONENT_META } from "@app/views/parts.jsx";
 import { timeAgo, shortDate } from "@app/format.js";
+import { useReadingText } from "@app/features/readings/index.js";
+import { useWordSetWords } from "@app/features/wordSets/index.js";
 import { teacherName, toneText } from "../lib.js";
 
 /* Work a teacher assigned to this student (the `assignments` rows): a saved
@@ -116,14 +117,22 @@ export function WorkPage() {
 
 // The work itself, through the same renderers a lesson uses.
 function WorkContent({ a }) {
-  const { state } = useStore();
   if (a.kind === "block") return <BlockStudentView block={{ id: a.id, type: a.blockType, content: a.content || { components: [] } }} />;
   if (a.kind === "task") return a.content ? <ComponentStudent component={a.content} /> : <Missing />;
-  if (a.kind === "wordSet") {
-    const ws = state.wordSets.find((w) => w.id === a.source?.wordSetId);
-    return ws ? <ComponentStudent component={{ id: a.id, kind: "wordlist", items: subtreeWords(state.wordSets, ws.id) }} /> : <Missing />;
-  }
-  const text = state.texts.find((t) => t.id === a.source?.textId);
+  if (a.kind === "wordSet") return <WordSetWork a={a} />;
+  return <ReadingWork a={a} />;
+}
+
+// A word set: its words and the words of every set inside it, as one list.
+function WordSetWork({ a }) {
+  const { words, loading } = useWordSetWords(a.source?.wordSetId);
+  if (loading) return null;
+  return words ? <ComponentStudent component={{ id: a.id, kind: "wordlist", items: words }} /> : <Missing />;
+}
+
+function ReadingWork({ a }) {
+  const { text, loading } = useReadingText(a.source?.textId);
+  if (loading) return null;
   return text ? <ComponentStudent component={{ id: a.id, kind: "passage", textId: text.id }} /> : <Missing />;
 }
 

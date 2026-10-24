@@ -6,6 +6,8 @@ import { blockMeta } from "../data.jsx";
 import { timeAgo } from "../format.js";
 import { pathOf, pathLabel, subtreeWords } from "../libraryTree.js";
 import { ComponentKindPicker, ComponentStudent, COMPONENT_META, defaultComponent } from "../views/parts.jsx";
+import { useWordSets } from "../features/wordSets/index.js";
+import { useReadingTexts } from "../features/readings/index.js";
 
 /* =========================================================================
    Everything a teacher can hand to ONE student, in one place: a word set, or a quick one-off task built from any
@@ -34,6 +36,8 @@ export function StudentAssignModal({ open, onClose, student }) {
   const [tab, setTab] = useState("words");
   const [preview, setPreview] = useState(null); // { kind, component }
   const [busy, setBusy] = useState(false);
+  const { sets: wordSets } = useWordSets();
+  const { texts } = useReadingTexts();
 
   const close = () => { setPreview(null); setTab("words"); onClose(); };
   if (!student) return null;
@@ -52,7 +56,7 @@ export function StudentAssignModal({ open, onClose, student }) {
     if (ok) close();
   }
   const assignWordSet = (id) => {
-    const ws = state.wordSets.find((x) => x.id === id);
+    const ws = wordSets.find((x) => x.id === id);
     if (ws) give({ kind: "wordSet", title: ws.title, source: { wordSetId: ws.id } });
   };
   const assignNew = () => preview && give({ kind: "task", title: COMPONENT_META[preview.kind].label, componentKind: preview.kind, content: preview.component });
@@ -60,13 +64,13 @@ export function StudentAssignModal({ open, onClose, student }) {
   const vocab = blockMeta("vocabulary");
   // Word sets to pick from: every one that has words, itself or below it,
   // grouped under its top-level set and labelled with its path.
-  const ofWords = state.wordSets.filter((w) => subtreeWords(state.wordSets, w.id).length);
-  const roots = state.wordSets.filter((w) => !w.parentId);
+  const ofWords = wordSets.filter((w) => subtreeWords(wordSets, w.id).length);
+  const roots = wordSets.filter((w) => !w.parentId);
   const wordGroups = roots.map((root) => ({
     id: root.id, label: root.title,
-    items: ofWords.filter((w) => pathOf(state.wordSets, w.id)[0]?.id === root.id).map((w) => ({
-      id: w.id, icon: vocab.icon, tone: vocab.tone, label: pathLabel(state.wordSets, w.id).split(" › ").slice(1).join(" › ") || w.title,
-      description: `${w.level ? `${w.level} · ` : ""}${subtreeWords(state.wordSets, w.id).length} words${givenNote(given.find((a) => a.source?.wordSetId === w.id))}`,
+    items: ofWords.filter((w) => pathOf(wordSets, w.id)[0]?.id === root.id).map((w) => ({
+      id: w.id, icon: vocab.icon, tone: vocab.tone, label: pathLabel(wordSets, w.id).split(" › ").slice(1).join(" › ") || w.title,
+      description: `${w.level ? `${w.level} · ` : ""}${subtreeWords(wordSets, w.id).length} words${givenNote(given.find((a) => a.source?.wordSetId === w.id))}`,
     })),
   })).filter((g) => g.items.length);
 
@@ -98,7 +102,7 @@ export function StudentAssignModal({ open, onClose, student }) {
       ) : (
         <div className="max-h-80 overflow-y-auto pr-0.5">
           <p className="mb-3 text-sm text-neutral-600">Pick a kind — it fills with starter content you can assign as a one-off task.</p>
-          <ComponentKindPicker kinds={Object.keys(COMPONENT_META)} onPick={(kind) => setPreview({ kind, component: defaultComponent(kind, state.texts) })} />
+          <ComponentKindPicker kinds={Object.keys(COMPONENT_META)} onPick={(kind) => setPreview({ kind, component: defaultComponent(kind, texts) })} />
         </div>
       ))}
     </Modal>

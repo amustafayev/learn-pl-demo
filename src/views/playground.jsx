@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Star, Check, RotateCcw } from "lucide-react";
 import { Card, Btn, Pill, AiNote, SectionLabel } from "../ui.jsx";
-import { useStore } from "../store.jsx";
+import { useWordSets } from "../features/wordSets/index.js";
 
 /* =========================================================================
    Playground — free-form vocabulary games outside the lesson pathway,
@@ -32,7 +32,7 @@ const LEVEL_ORDER = { A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
 // every word set at that level plus their words flattened together. Shared
 // by Word Tower (one floor per level, word sets as rooms within it) and any
 // other generator (matching/quiz) that wants the same leveled word pool,
-// rather than each re-deriving its own grouping from state.wordSets.
+// rather than each re-deriving its own grouping from the word sets.
 export function wordsByLevel(wordSets) {
   const byLevel = new Map();
   wordSets.forEach((ws) => {
@@ -47,13 +47,13 @@ export function wordsByLevel(wordSets) {
 }
 
 export function WordTower() {
-  const { state } = useStore();
+  const { sets: wordSets } = useWordSets();
   const [openWin, setOpenWin] = useState(null); // { setId, i }
 
   // floors sorted easy → hard, rendered top-down so the tower "grows" upward —
   // one floor per CEFR level, holding every word set at that level as a room,
   // so a level with lots of categories still reads as one consolidated floor.
-  const floors = useMemo(() => wordsByLevel(state.wordSets), [state.wordSets]);
+  const floors = useMemo(() => wordsByLevel(wordSets), [wordSets]);
 
   const totals = useMemo(() => {
     let lit = 0, all = 0;
@@ -61,7 +61,7 @@ export function WordTower() {
     return { lit, all };
   }, [floors]);
 
-  const selSet = openWin ? state.wordSets.find((ws) => ws.id === openWin.setId) : null;
+  const selSet = openWin ? wordSets.find((ws) => ws.id === openWin.setId) : null;
   const sel = selSet ? selSet.words[openWin.i] : null;
   const selStatus = openWin ? towerStatus(openWin.i) : null;
 

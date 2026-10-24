@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useStore } from "../../store.jsx";
+import { useLoad } from "../../useLoad.js";
 import { createMockNotesClient } from "./client.js";
 import { googleDocs } from "./googleDocs.js";
 
@@ -27,18 +28,8 @@ function useNotesSource() {
 // showing the current ones, so an open editor is never swapped out.
 export function useLessonNotes(courseId, lessonId) {
   const { client, revision } = useNotesSource();
-  const key = `${courseId}:${lessonId}`;
-  const [loaded, setLoaded] = useState({ key: null, note: null, error: null });
-  const [version, refresh] = useReducer((n) => n + 1, 0);
-  useEffect(() => {
-    let live = true;
-    client.get(courseId, lessonId)
-      .then((note) => { if (live) setLoaded({ key, note, error: null }); })
-      .catch((error) => { if (live) setLoaded((prev) => ({ key, note: prev.key === key ? prev.note : null, error })); });
-    return () => { live = false; };
-  }, [client, courseId, lessonId, key, revision, version]);
-
-  const note = loaded.key === key ? loaded.note : null;
+  const { data, loading, error, refresh } = useLoad(() => client.get(courseId, lessonId), `${courseId}:${lessonId}`, revision);
+  const note = data || null;
   const current = useRef(note);
   current.current = note;
 
@@ -63,9 +54,9 @@ export function useLessonNotes(courseId, lessonId) {
       await client.send(courseId, lessonId, classId, sent);
       refresh();
     },
-  }), [client, courseId, lessonId]);
+  }), [client, courseId, lessonId, refresh]);
 
-  return { note, loading: loaded.key !== key, error: loaded.key === key ? loaded.error : null, ...actions };
+  return { note, loading, error, ...actions };
 }
 
 // Student: every note sent to them, newest first. `loading` is true until
@@ -73,14 +64,7 @@ export function useLessonNotes(courseId, lessonId) {
 // change — so code that compares old and new lists waits for it.
 export function useMyNotes() {
   const { client, revision } = useNotesSource();
-  const [loaded, setLoaded] = useState({ revision: null, notes: null });
-  useEffect(() => {
-    let live = true;
-    client.listMine()
-      .then((notes) => { if (live) setLoaded({ revision, notes }); })
-      .catch(() => { if (live) setLoaded((prev) => ({ revision, notes: prev.notes || [] })); });
-    return () => { live = false; };
-  }, [client, revision]);
-  const notes = useMemo(() => loaded.notes || [], [loaded.notes]);
-  return { notes, loading: loaded.revision !== revision };
+  const { data, stale } = useLoad(() => client.listMine(), "mine", revision);
+  const notes = useMemo(() => data || [], [data]);
+  return { notes, loading: stale };
 }

@@ -1538,8 +1538,11 @@ paths:
     get:
       tags: [Student app]
       operationId: getMyAssignedText
-      summary: A reading text the caller was assigned
-      description: Only if an assignment points at it → else `403`.
+      summary: A reading text the caller may read
+      description: |
+        Only if an assignment points at it, **or** a passage component in a lesson the
+        caller can open (the lesson access rule) uses it → else `403`. Lesson passages
+        carry only a `textId`, so the student app fetches the text here.
       responses:
         "200": { description: "The text", content: { application/json: { schema: { $ref: "#/components/schemas/ReadingText" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }

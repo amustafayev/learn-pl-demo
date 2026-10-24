@@ -19,9 +19,11 @@ import {
 import { LEVELS } from "../ui.jsx";
 import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useNav, saveComponentToBank, bankChildLabel, studentCourseId, activeStudents,
+  useStore, useToast, useNav, studentCourseId, activeStudents,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
+import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
+import { useSavedComponents, savedFromDetail } from "../features/savedComponents/index.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
 import { pathLabel } from "../libraryTree.js";
@@ -357,6 +359,8 @@ function toComponents(block, texts) {
 
 export default function BlockStudio() {
   const { state, dispatch, toast } = useStore();
+  const { texts, loading: textsLoading } = useReadingTexts();
+  const savedComponents = useSavedComponents();
   const { route, go } = useNav();
   const [mode, setMode] = useState("student");
   const [savedAs, setSavedAs] = useState({}); // component id → what was saved (see handleSaveComponent)
@@ -469,12 +473,14 @@ export default function BlockStudio() {
   // this lesson, which "enrolled but not assigned" students aren't (yet).
   const assignedToLesson = enrolled.filter((s) => (s.assignedLessons || []).includes(route.lessonId));
 
+  // Waits for the reading texts, so a starter passage gets the library's
+  // first text rather than none.
   useEffect(() => {
-    if (block && !block.content?.components) {
+    if (block && !block.content?.components && !textsLoading) {
       dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id,
-        patch: { content: toComponents(block, state.texts) } });
+        patch: { content: toComponents(block, texts) } });
     }
-  }, [block, route.courseId, route.lessonId, dispatch, state.texts]);
+  }, [block, route.courseId, route.lessonId, dispatch, texts, textsLoading]);
 
   // Selection made in one place shows up in the other: pick a row in the
   // list and the preview glides to that component; click a component in
@@ -547,7 +553,7 @@ export default function BlockStudio() {
       </div>
     );
   }
-  const content = block.content?.components ? block.content : toComponents(block, state.texts);
+  const content = block.content?.components ? block.content : toComponents(block, texts);
   const components = content.components;
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
 
@@ -626,7 +632,7 @@ export default function BlockStudio() {
   // it's dropped under the source, after anything already linked to it, and
   // shows nested there. A linked component can't be a source itself.
   const addLinked = (source, kind) => insertNew(
-    { ...defaultComponent(kind, state.texts), level: source.level, passageRefId: source.id,
+    { ...defaultComponent(kind, texts), level: source.level, passageRefId: source.id,
       ...(kind === "comprehension" ? { items: [{ q: "", options: ["", "", ""], answer: 0, why: "" }] } : {}) },
     `Added ${COMPONENT_META[kind].label} linked to this ${sourceNoun(source)}`,
     (list) => {
@@ -647,7 +653,7 @@ export default function BlockStudio() {
       const source = [...components.slice(0, at)].reverse().find(isSourceKind) || components.find(isSourceKind);
       if (source) return addLinked(source, kind);
     }
-    return insertNew(defaultComponent(kind, state.texts), `Added ${COMPONENT_META[kind].label}`);
+    return insertNew(defaultComponent(kind, texts), `Added ${COMPONENT_META[kind].label}`);
   };
 
   const duplicateComponent = async (i) => {
@@ -668,7 +674,7 @@ export default function BlockStudio() {
     const list = await flushOpenEditor();
     if (!list) return;
     const current = list.find((x) => x.id === c.id) || c;
-    const ok = await saveComponentToBank(dispatch, toast, current,
+    const ok = await savedComponents.save(current,
       `${block.title || BT.label} — ${COMPONENT_META[c.kind]?.label || c.kind}`, `${course.title} · Lesson ${lesson.n}`);
     if (ok) setSavedAs((m) => ({ ...m, [c.id]: JSON.stringify(current) }));
   };
@@ -1043,10 +1049,10 @@ export default function BlockStudio() {
           this block's suggestions. */}
       <ComponentPicker key={pickerKey} open={pickerOpen} onClose={() => { setInsertAt(null); setLinkTo(null); }}
         blockLabel={BT.label} suggested={(BT.components || []).filter((k) => COMPONENT_META[k])}
-        components={components} bank={linkSource ? [] : state.componentBank || []}
+        components={components} bank={linkSource ? [] : savedComponents.items}
         position={linkSource ? `Linked to ${COMPONENT_META[linkSource.kind].label}` : pickerPosition}
         hideKinds={linkSource ? SOURCE_KINDS : []}
-        onPickKind={addComponent} onPickSaved={(id) => insertSavedComponent(state.componentBank.find((b) => b.id === id))} />
+        onPickKind={addComponent} onPickSaved={(id) => insertSavedComponent(savedComponents.items.find((b) => b.id === id))} />
     </div>
   );
 }
@@ -1074,7 +1080,7 @@ export function ComponentPicker({ open, onClose, blockLabel, suggested: suggeste
   };
   const savedItem = (item) => {
     const M = COMPONENT_META[item.kind] || { label: item.kind, tone: "bg-neutral-100 text-neutral-600", icon: Layers };
-    const child = bankChildLabel(item);
+    const child = savedFromDetail(item);
     return { id: item.id, icon: M.icon, tone: M.tone, label: item.title, description: `${M.label}${child ? ` · ${child}` : ""}` };
   };
   const nav = [
@@ -1187,8 +1193,8 @@ function AddSlot({ active, onClick }) {
 // Renders a whole Block exactly as a learner sees it (all its components).
 // Shared by Block Studio's "As student" view and the live-lesson stage.
 export function BlockStudentView({ block }) {
-  const { state } = useStore();
-  const components = blockComponents(block, state.texts);
+  const { texts } = useReadingTexts();
+  const components = blockComponents(block, texts);
   if (!components.length) return <Card className="p-8 text-center text-neutral-500 text-sm">No components in this block yet.</Card>;
   return (
     <div className="divide-y divide-neutral-400">
@@ -1467,14 +1473,20 @@ function renderComponentStudent(component, source) {
 }
 
 function PassageComponent({ component }) {
-  const { state, toast } = useStore();
-  const text = state.texts.find((t) => t.id === component.textId) || state.texts[0];
+  const toast = useToast();
+  const { folders } = useReadingFolders();
+  // The linked text; while none is linked (or it's gone), the library's first.
+  const linked = useReadingText(component.textId);
+  const { texts, loading: listing } = useReadingTexts();
+  const fallback = useReadingText(!linked.loading && !linked.text ? texts[0]?.id : null);
+  const text = linked.text || fallback.text;
+  if (linked.loading || (!linked.text && (listing || fallback.loading))) return null;
   if (!text) return <Card className="p-6 text-neutral-600 text-sm">No reading text linked. Edit to choose one.</Card>;
   return (
     <Card className="p-6">
       <div className="mb-4">
         <div className="text-lg font-semibold text-neutral-950">{text.title}</div>
-        <div className="text-sm text-neutral-600">{pathLabel(state.textFolders, text.folderId, "name")} · {text.level} · {text.wordCount} words</div>
+        <div className="text-sm text-neutral-600">{pathLabel(folders, text.folderId, "name")} · {text.level} · {text.wordCount} words</div>
       </div>
       <Reader text={text} onSaveWord={() => toast("Word saved to the personal list")} />
     </Card>
@@ -2871,12 +2883,13 @@ function WordSearchEditor({ component, onChange }) {
 }
 
 function PassageEditor({ component, onChange }) {
-  const { state } = useStore();
+  const { texts } = useReadingTexts();
+  const { folders } = useReadingFolders();
   return (
     <div className="space-y-4">
       <Field label="Reading text (from Library)">
         <select className={inputCls} value={component.textId || ""} onChange={(e) => onChange({ textId: e.target.value })}>
-          {state.texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {pathLabel(state.textFolders, t.folderId, "name")} · {t.level}</option>)}
+          {texts.map((t) => <option key={t.id} value={t.id}>{t.title} · {pathLabel(folders, t.folderId, "name")} · {t.level}</option>)}
         </select>
       </Field>
     </div>
@@ -2999,11 +3012,11 @@ function QuizEditor({ component, onChange }) {
 const COMPREHENSION_MODES = [["multiple", "Multiple choice"], ["truefalse", "True / False"], ["matching", "Match texts"]];
 
 function ComprehensionEditor({ component, onChange, sources = [] }) {
-  const { state } = useStore();
+  const { texts } = useReadingTexts();
   const mode = component.mode || "multiple";
   const sourceTitle = (x) => (x.kind === "listening"
     ? `Listening — ${x.title || x.audioName || "untitled audio"}`
-    : x.kind === "passage" ? `Reading — ${state.texts.find((t) => t.id === x.textId)?.title || "untitled passage"}`
+    : x.kind === "passage" ? `Reading — ${texts.find((t) => t.id === x.textId)?.title || "untitled passage"}`
       : `Video — ${x.title || x.url || "untitled video"}`);
   const linkedFound = sources.find((x) => x.id === component.passageRefId);
   const fromAudio = linkedFound?.kind === "listening";

@@ -8,6 +8,8 @@ import { classDetailPath, classHomeworkPath, classHomeworkPostPath } from "../ro
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
 import { defaultComponent, ComponentPicker, ComponentEditor } from "./parts.jsx";
 import { describeAttachment, compLabel } from "../components/HomeworkAttachment.jsx";
+import { useReadingTexts } from "../features/readings/index.js";
+import { useSavedComponents } from "../features/savedComponents/index.js";
 
 /* =========================================================================
    The assignment composer — Google Classroom's "Create assignment" page, for
@@ -59,6 +61,8 @@ export default function HomeworkEdit() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { state, toast } = useStore();
+  const { texts } = useReadingTexts();
+  const { items: savedComponents } = useSavedComponents();
   const { saveDraft, publish, update } = useHomeworkActions();
   const cls = state.classes.find((c) => c.id === classId);
   const { post, loading } = useHomeworkPost(classId, homeworkId);
@@ -100,13 +104,13 @@ export default function HomeworkEdit() {
   // From the component picker (same dialog as adding a part to a block): a new
   // component opens its editor inline; a saved one comes in as its own copy.
   function addKind(kind) {
-    const c = defaultComponent(kind, state.texts);
+    const c = defaultComponent(kind, texts);
     const att = taskAttachment(c, compLabel(c), "Created here");
     setAttachments((x) => [...x, att]);
     setEditingKey(att.key); setPickerKey(null);
   }
   function addSaved(id) {
-    const item = (state.componentBank || []).find((b) => b.id === id);
+    const item = savedComponents.find((b) => b.id === id);
     if (!item) return;
     const c = { ...JSON.parse(JSON.stringify(item.data)), id: uid("c") };
     const att = taskAttachment(c, item.title || compLabel(c), "Saved components");
@@ -207,7 +211,7 @@ export default function HomeworkEdit() {
       </div>
       <ComponentPicker key={pickerKey ?? "closed"} open={pickerKey !== null} onClose={() => setPickerKey(null)}
         blockLabel="an assignment" suggested={[]} components={attachments.map((a) => a.content).filter((c) => c && c.kind)}
-        bank={state.componentBank || []} position={title.trim() ? `Attach to “${title.trim()}”` : "Attach to this assignment"}
+        bank={savedComponents} position={title.trim() ? `Attach to “${title.trim()}”` : "Attach to this assignment"}
         onPickKind={addKind} onPickSaved={addSaved} />
     </Page>
   );

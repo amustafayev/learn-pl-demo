@@ -8,6 +8,7 @@ import { BlockStudentView, blockComponents } from "@app/views/parts.jsx";
 import { useSeen } from "../session.jsx";
 import { courseOf, finishedLesson, lessonOf, lessonsOf, teacherName, toneText } from "../lib.js";
 import { useMyNotes } from "@app/features/notes/index.js";
+import { useReadingTexts } from "@app/features/readings/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
 // The lesson player. Opened from a class (/classes/:classId/lessons/:id) or
@@ -22,6 +23,7 @@ export default function LessonPage() {
   const { state, dispatch, toast } = useStore();
   const { seen, markSeen } = useSeen();
   const { notes: myNotes } = useMyNotes();
+  const { texts, loading: textsLoading } = useReadingTexts();
   const navigate = useNavigate();
   // Starter activities for a block the teacher never opened in Block Studio
   // (so it has no saved content) are made up fresh with new ids each time —
@@ -69,7 +71,10 @@ export default function LessonPage() {
   const blocks = lessonBlocks(lesson).map((b) => {
     if (b.content?.components) return b;
     const cached = starters.current[b.id];
-    if (!cached || cached.type !== b.type) starters.current[b.id] = { type: b.type, content: { components: blockComponents(b, state.texts) } };
+    // Made again once the reading texts arrive, so a starter passage gets one.
+    if (!cached || cached.type !== b.type || (!cached.ready && !textsLoading)) {
+      starters.current[b.id] = { type: b.type, ready: !textsLoading, content: { components: blockComponents(b, texts) } };
+    }
     return { ...b, content: starters.current[b.id].content };
   });
   const index = Math.max(0, blocks.findIndex((b) => b.id === params.get("step")));

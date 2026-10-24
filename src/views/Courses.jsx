@@ -8,7 +8,7 @@ import {
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import {
-  useStore, useNav, lessonBlocks, saveComponentToBank, activeClassCourse, classCourseProgress, courseAvgProgress,
+  useStore, useNav, lessonBlocks, activeClassCourse, classCourseProgress, courseAvgProgress,
   uid, discardH5PContent, teacherRoster,
 } from "../store.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -17,6 +17,8 @@ import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from ".
 import { classHomeworkNewPath } from "../router.jsx";
 import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/modals.jsx";
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
+import { useReadingTexts } from "../features/readings/index.js";
+import { useSavedComponents } from "../features/savedComponents/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -67,6 +69,8 @@ export function CoursesView() {
 export function CourseView() {
   const navigate = useNavigate();
   const { state, dispatch, toast } = useStore();
+  const { texts } = useReadingTexts();
+  const saved = useSavedComponents();
   const { route, go } = useNav();
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState("");
@@ -120,7 +124,7 @@ export function CourseView() {
   // same numbers. Search matches roll up: a matching component reveals its
   // block, a matching block reveals its lesson.
   const tree = lessons.map((l) => {
-    const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, state.texts) }));
+    const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, texts) }));
     const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
 
     let lessonMatch = !!q && l.title.toLowerCase().includes(q);
@@ -130,7 +134,7 @@ export function CourseView() {
       const blockHit = (b.title || BT.label).toLowerCase().includes(q) || BT.label.toLowerCase().includes(q);
       const compHit = b.components.some((c) => {
         const label = (COMPONENT_META[c.kind]?.label || c.kind).toLowerCase();
-        return label.includes(q) || componentPreview(c, state.texts).toLowerCase().includes(q);
+        return label.includes(q) || componentPreview(c, texts).toLowerCase().includes(q);
       });
       if (blockHit || compHit) { blockMatch[b.id] = true; lessonMatch = true; }
     });
@@ -336,11 +340,11 @@ export function CourseView() {
                                   <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${M.tone}`}><CI size={11} /></span>
                                   <button onClick={() => go({ lessonId: l.id, partId: b.id })} className="min-w-0 flex-1 text-left">
                                     <span className="text-xs text-neutral-600">{linkedPassage ? "↳ " : ""}{componentLabel(c, b.components)}</span>
-                                    <span className="text-[11px] text-neutral-500 ml-1.5">{componentPreview(c, state.texts)}</span>
+                                    <span className="text-[11px] text-neutral-500 ml-1.5">{componentPreview(c, texts)}</span>
                                   </button>
                                   {c.level && <Tag color="neutral">{c.level}</Tag>}
                                   <button title="Save component to library"
-                                    onClick={() => saveComponentToBank(dispatch, toast, c, `${b.title || BT.label} — ${M.label}`, `${course.title} · Lesson ${l.n}`)}
+                                    onClick={() => saved.save(c, `${b.title || BT.label} — ${M.label}`, `${course.title} · Lesson ${l.n}`)}
                                     className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-primary-600 p-1 transition-opacity shrink-0">
                                     <IconBookmarkPlus size={11} stroke={1.75} />
                                   </button>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
-  groupBankByParent, bankChildLabel, persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
+  persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
   studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
 } from "./db/mockDb.jsx";
 import { openSyncChannel, sharedChanged } from "./db/mockSync.js";
@@ -22,7 +22,7 @@ import { MOTION, cssMs } from "./motion.js";
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
 export {
-  lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel,
+  lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
   classMembers, studentClasses, activeStudents, teacherRoster, studentHistory, membershipPeriods, uid, h5pClient, saveMedia,
   studentView, signedOutView, canOpenLesson,
 };
@@ -43,15 +43,6 @@ export async function copyWithOwnH5P(toast, value) {
 // content of any H5P activity in it — nothing else references that content.
 export function discardH5PContent(toast, value) {
   deleteH5PContentIn(value).catch((err) => toast(`Couldn't delete the H5P content on the server: ${err.message}`, "err"));
-}
-
-// Save a single Component to Saved. Shared by Block Studio's editor and the course tree's leaf rows.
-export async function saveComponentToBank(dispatch, toast, component, title, from) {
-  const snapshot = await copyWithOwnH5P(toast, component);
-  if (!snapshot) return false;
-  dispatch({ type: "SAVE_COMPONENT_TO_BANK", component: snapshot, title, from });
-  toast(`“${title}” saved`);
-  return true;
 }
 
 // Hand one thing to one or more students (ASSIGN_WORK) — the student page's

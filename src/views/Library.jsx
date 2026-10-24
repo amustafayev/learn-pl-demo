@@ -7,7 +7,10 @@ import {
 import {
   Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
 } from "../design-system.jsx";
-import { useStore, discardH5PContent } from "../store.jsx";
+import { useToast } from "../store.jsx";
+import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
+import { useWordSets } from "../features/wordSets/index.js";
+import { useSavedComponents } from "../features/savedComponents/index.js";
 import { AddTextModal, AssignModal } from "../components/modals.jsx";
 import { Reader, RoleLegend, ColorSentence } from "./grammar.jsx";
 import { COMPONENT_META, ComponentStudent, COMPONENT_BANK_CATEGORIES, componentCategoryOf } from "./parts.jsx";
@@ -100,20 +103,21 @@ function ConfirmDelete({ target, detail, onCancel, onConfirm }) {
 const TONES = ["primary", "pending", "success", "info", "warning"];
 
 function ReadingList({ open }) {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const { folders, createFolder, renameFolder, deleteFolder } = useReadingFolders();
+  const { texts } = useReadingTexts();
   const [folded, setFolded] = useTreeFold();
   const [params, setParams] = useSearchParams();
   const [add, setAdd] = useState(false);
   const [own, setOwn] = useState(false);
   const [removing, setRemoving] = useState(null);
-  const folders = state.textFolders;
   const selected = folders.some((f) => f.id === params.get("folder")) ? params.get("folder") : null;
   const select = (id) => setParams(id ? { folder: id } : {}, { replace: true });
 
   // Texts in a folder and in every folder below it.
   const within = (id) => new Set([id, ...descendantsOf(folders, id).map((f) => f.id)]);
-  const textsIn = (id) => state.texts.filter((t) => within(id).has(t.folderId));
-  const shown = selected ? textsIn(selected) : state.texts;
+  const textsIn = (id) => texts.filter((t) => within(id).has(t.folderId));
+  const shown = selected ? textsIn(selected) : texts;
   const rootIndex = (id) => Math.max(0, kidsOf(folders, null).findIndex((r) => r.id === pathOf(folders, id)[0]?.id));
 
   return (
@@ -130,8 +134,7 @@ function ReadingList({ open }) {
       <div className={treeGrid(folded)}>
         <LibraryTree folded={folded} onFoldChange={setFolded} nodes={folders} labelKey="name" selectedId={selected} onSelect={select} rootLabel="All readings"
           countOf={(f) => textsIn(f.id).length} addLabel="New folder"
-          onAdd={(parentId, name) => dispatch({ type: "ADD_TEXT_FOLDER", parentId, name })}
-          onRename={(id, name) => dispatch({ type: "RENAME_TEXT_FOLDER", id, name })}
+          onAdd={createFolder} onRename={renameFolder}
           onDelete={(f) => setRemoving({ id: f.id, label: f.name })} />
         <div className="min-w-0">
           <SectionLabel right={<Button variant="primary" size="sm" onClick={() => setAdd(true)}><IconBookUpload size={14} stroke={1.75} /> Add text</Button>}>
@@ -159,20 +162,22 @@ function ReadingList({ open }) {
       <OwnTextModal open={own} onClose={() => setOwn(false)} />
       <ConfirmDelete target={removing} onCancel={() => setRemoving(null)}
         detail={removing ? `This also deletes the folders inside it and the ${textsIn(removing.id).length} reading(s) in them.` : ""}
-        onConfirm={() => { dispatch({ type: "DELETE_TEXT_FOLDER", id: removing.id }); if (selected === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
+        onConfirm={() => { deleteFolder(removing.id); if (selected === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
     </>
   );
 }
 
 function ReaderPanel({ textId, back }) {
-  const { state, toast } = useStore();
+  const toast = useToast();
   const [assign, setAssign] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
-  const text = state.texts.find((t) => t.id === textId);
+  const { text } = useReadingText(textId);
+  const { folders } = useReadingFolders();
+  if (!text) return null;
   return (
     <Page>
       <button onClick={back} className="text-sm text-neutral-500 hover:text-primary-600 inline-flex items-center gap-1 mb-4"><IconArrowLeft size={14} stroke={1.75} /> Library</button>
-      <PageHeader title={text.title} sub={`${pathLabel(state.textFolders, text.folderId, "name") || "No folder"} · ${text.level} · ${text.wordCount} words`}
+      <PageHeader title={text.title} sub={`${pathLabel(folders, text.folderId, "name") || "No folder"} · ${text.level} · ${text.wordCount} words`}
         right={<div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => toast("Vocabulary list exported (.csv)")}><IconDownload size={14} stroke={1.75} /> Export vocab</Button>
           <Button variant="primary" size="sm" onClick={() => setAssign(true)}><IconSend size={14} stroke={1.75} /> Assign</Button>
@@ -204,12 +209,13 @@ const WORD_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2"];
 // A word set is a folder: its own words, plus word sets inside it, nested to
 // any depth — IELTS → Linkers → Contrast → the words.
 function WordSetsList() {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const wordSets = useWordSets();
+  const { sets, createSet, updateSet, deleteSet } = wordSets;
   const [folded, setFolded] = useTreeFold();
   const [params, setParams] = useSearchParams();
   const [removing, setRemoving] = useState(null);
   const [assign, setAssign] = useState(false);
-  const sets = state.wordSets;
   const selectedId = sets.some((w) => w.id === params.get("set")) ? params.get("set") : null;
   const select = (id) => setParams(id ? { set: id } : {}, { replace: true });
   const node = sets.find((w) => w.id === selectedId) || null;
@@ -220,12 +226,12 @@ function WordSetsList() {
       <div className={treeGrid(folded)}>
         <LibraryTree folded={folded} onFoldChange={setFolded} nodes={sets} labelKey="title" selectedId={selectedId} onSelect={select} rootLabel="All word sets"
           countOf={(n) => total(n.id)} addLabel="New word set"
-          onAdd={(parentId, title) => dispatch({ type: "ADD_WORDSET", parentId, title })}
-          onRename={(id, title) => dispatch({ type: "UPDATE_WORDSET", id, patch: { title } })}
+          onAdd={(parentId, title) => createSet(parentId, title)}
+          onRename={(id, title) => updateSet(id, { title })}
           onDelete={(n) => setRemoving({ id: n.id, label: n.title })} />
         <div className="min-w-0">
           {node ? (
-            <WordSetPane key={node.id} node={node} path={pathLabel(sets, node.id)} below={total(node.id) - node.words.length} onAssign={() => setAssign(true)} />
+            <WordSetPane key={node.id} node={node} path={pathLabel(sets, node.id)} below={total(node.id) - node.words.length} onAssign={() => setAssign(true)} wordSets={wordSets} />
           ) : (
             <Card className="p-8 text-center text-sm text-neutral-600">
               <IconStack2 size={22} stroke={1.5} className="mx-auto mb-2 text-neutral-500" />
@@ -237,24 +243,23 @@ function WordSetsList() {
       {node && <AssignModal open={assign} onClose={() => setAssign(false)} item={{ kind: "wordSet", title: node.title, source: { wordSetId: node.id } }} />}
       <ConfirmDelete target={removing} onCancel={() => setRemoving(null)}
         detail={removing ? `This also deletes the word sets inside it — ${total(removing.id)} word(s) in all.` : ""}
-        onConfirm={() => { dispatch({ type: "DELETE_WORDSET", id: removing.id }); if (selectedId === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
+        onConfirm={() => { deleteSet(removing.id); if (selectedId === removing.id) select(null); toast(`“${removing.label}” deleted`); setRemoving(null); }} />
     </>
   );
 }
 
 // One word set: its path, level, and its own words — edited in place.
-function WordSetPane({ node, path, below, onAssign }) {
-  const { dispatch } = useStore();
+function WordSetPane({ node, path, below, onAssign, wordSets }) {
   const [draft, setDraft] = useState({ term: "", az: "", def: "" });
   const add = () => {
     if (!draft.term.trim()) return;
-    dispatch({ type: "ADD_WORD", setId: node.id, word: draft });
+    wordSets.addWord(node.id, draft);
     setDraft({ term: "", az: "", def: "" });
   };
-  const edit = (index, field, value) => {
-    if (value.trim() === (node.words[index][field] || "")) return;
+  const edit = (word, field, value) => {
+    if (value.trim() === (word[field] || "")) return;
     if (field === "term" && !value.trim()) return;
-    dispatch({ type: "UPDATE_WORD", setId: node.id, index, patch: { [field]: value.trim() } });
+    wordSets.updateWord(node.id, word.id, { [field]: value.trim() });
   };
   const cell = "h-9 w-full rounded-lg border border-transparent bg-transparent px-2 text-sm text-neutral-900 outline-none hover:border-neutral-400 focus:border-primary-500 focus:bg-surface";
   return (
@@ -265,7 +270,7 @@ function WordSetPane({ node, path, below, onAssign }) {
           <div className="truncate text-xs text-neutral-600">{path} · {node.words.length} word{node.words.length === 1 ? "" : "s"}{below > 0 ? ` here, ${below} in word sets inside` : ""}</div>
         </div>
         <div className="flex items-center gap-2">
-          <select value={node.level || ""} aria-label="Level" onChange={(e) => dispatch({ type: "UPDATE_WORDSET", id: node.id, patch: { level: e.target.value } })}
+          <select value={node.level || ""} aria-label="Level" onChange={(e) => wordSets.updateSet(node.id, { level: e.target.value })}
             className="h-9 rounded-lg border border-neutral-400 bg-surface px-2 text-sm font-semibold text-neutral-800 outline-none focus:border-primary-500">
             {WORD_LEVELS.map((l) => <option key={l} value={l}>{l ? `Level ${l}` : "No level"}</option>)}
           </select>
@@ -276,12 +281,12 @@ function WordSetPane({ node, path, below, onAssign }) {
         <div className="hidden sm:grid grid-cols-[1fr_1fr_2fr_2rem] gap-2 px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
           <span>Word</span><span>Azerbaijani</span><span>Meaning</span><span />
         </div>
-        {node.words.map((w, i) => (
-          <div key={`${node.id}-${i}-${w.term}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_2rem] items-center gap-2">
-            <input className={`${cell} font-semibold`} defaultValue={w.term} aria-label="Word" onBlur={(e) => edit(i, "term", e.target.value)} />
-            <input className={cell} defaultValue={w.az} aria-label="Azerbaijani" onBlur={(e) => edit(i, "az", e.target.value)} />
-            <input className={cell} defaultValue={w.def} aria-label="Meaning" onBlur={(e) => edit(i, "def", e.target.value)} />
-            <button type="button" title="Delete word" aria-label="Delete word" onClick={() => dispatch({ type: "DELETE_WORD", setId: node.id, index: i })}
+        {node.words.map((w) => (
+          <div key={`${node.id}-${w.id}-${w.term}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_2rem] items-center gap-2">
+            <input className={`${cell} font-semibold`} defaultValue={w.term} aria-label="Word" onBlur={(e) => edit(w, "term", e.target.value)} />
+            <input className={cell} defaultValue={w.az} aria-label="Azerbaijani" onBlur={(e) => edit(w, "az", e.target.value)} />
+            <input className={cell} defaultValue={w.def} aria-label="Meaning" onBlur={(e) => edit(w, "def", e.target.value)} />
+            <button type="button" title="Delete word" aria-label="Delete word" onClick={() => wordSets.deleteWord(node.id, w.id)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-warning-50 hover:text-warning-600"><IconTrash size={15} stroke={1.75} /></button>
           </div>
         ))}
@@ -336,13 +341,12 @@ function OwnTextModal({ open, onClose }) {
 /* --------------------------- component library (bank) --------------------------- */
 
 function MyComponents() {
-  const { state, dispatch, toast } = useStore();
+  const saved = useSavedComponents();
   const [open, setOpen] = useState(null); // the saved component being previewed
-  const components = state.componentBank || [];
+  const components = saved.items;
 
   const componentCard = (item) => (
-    <SavedComponentCard key={item.id} item={item} onOpen={() => setOpen(item)}
-      onDelete={() => { discardH5PContent(toast, item); dispatch({ type: "REMOVE_COMPONENT_FROM_BANK", bankId: item.id }); toast(`“${item.title}” removed from Saved`); }} />
+    <SavedComponentCard key={item.id} item={item} onOpen={() => setOpen(item)} onDelete={() => saved.remove(item)} />
   );
 
   return (
