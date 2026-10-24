@@ -17,6 +17,7 @@ import { useStore, useNav, studentCourseId } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { useRoster, useStudent, useStudentActions } from "../features/students/index.js";
 import { useClasses, useAttendance } from "../features/classes/index.js";
+import { useWorkActions } from "../features/assignments/index.js";
 import { StudentAssignModal, assignmentLook } from "../components/StudentAssignModal.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -231,8 +232,8 @@ export function StudentDetail() {
 // bought and how far they are in it, and how to reach them. Nothing here is
 // a made-up metric.
 function Profile({ s, h, onSeeHistory, onAssign }) {
-  const { dispatch } = useStore();
   const toast = useToast();
+  const { withdraw: withdrawWork } = useWorkActions();
   const { roster } = useRoster();
   const { classes } = useClasses();
   const { addToClass, removeMember } = useStudentActions();
@@ -249,10 +250,9 @@ function Profile({ s, h, onSeeHistory, onAssign }) {
   const recent = h.lessons.slice(0, 5);
   // Open work first, then what's done; withdrawn work lives in the history.
   const work = [...h.assignments.filter((a) => a.status === "assigned"), ...h.assignments.filter((a) => a.status === "done")];
-  const withdraw = (a) => {
-    dispatch({ type: "WITHDRAW_ASSIGNMENT", assignmentId: a.id });
-    toast(`Took back “${a.title}” from ${first}`);
-  };
+  const withdraw = (a) => withdrawWork(a.id).then(
+    () => toast(`Took back “${a.title}” from ${first}`),
+    (err) => toast(err.description || "Couldn't take the work back", "err"));
 
   const failed = (err) => toast(err.description || "Couldn't change their classes", "err");
   const remove = () => {

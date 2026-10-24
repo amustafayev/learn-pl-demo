@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { IconSend, IconArrowLeft } from "@tabler/icons-react";
 import { Modal, Button, Card, PillTabs, LibraryPickList } from "../design-system.jsx";
-import { useStore, assignWork } from "../store.jsx";
+import { useStudentWork, useWorkActions } from "../features/assignments/index.js";
 import { blockMeta } from "../data.jsx";
 import { timeAgo } from "../format.js";
 import { pathOf, pathLabel, subtreeWords } from "../libraryTree.js";
@@ -32,7 +32,8 @@ export function assignmentLook(a) {
 }
 
 export function StudentAssignModal({ open, onClose, student }) {
-  const { state, dispatch, toast } = useStore();
+  const { assignments } = useStudentWork(student?.id);
+  const { assign } = useWorkActions();
   const [tab, setTab] = useState("words");
   const [preview, setPreview] = useState(null); // { kind, component }
   const [busy, setBusy] = useState(false);
@@ -45,13 +46,13 @@ export function StudentAssignModal({ open, onClose, student }) {
 
   // What this student already has, so the lists can say so (assigning twice
   // is allowed — a second go at the same word set is a normal thing to do).
-  const given = state.assignments.filter((a) => a.studentId === student.id && a.status !== "withdrawn");
+  const given = assignments.filter((a) => a.status !== "withdrawn");
   const givenNote = (a) => (a ? ` · ${a.status === "done" ? "done" : "assigned"} ${timeAgo(a.status === "done" ? a.completedAt : a.assignedAt)}` : "");
 
   async function give(item) {
     if (busy) return;
     setBusy(true);
-    const ok = await assignWork(dispatch, toast, [student.id], item, first);
+    const ok = await assign([student.id], item, first);
     setBusy(false);
     if (ok) close();
   }

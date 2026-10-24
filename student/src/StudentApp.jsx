@@ -19,7 +19,8 @@ import LessonPage from "./views/LessonPage.jsx";
 import Notes from "./views/Notes.jsx";
 import { Catalog, CoursePage } from "./views/Courses.jsx";
 import JoinClass from "./views/JoinClass.jsx";
-import { WorkList, WorkPage, openWork } from "./views/Work.jsx";
+import { WorkList, WorkPage } from "./views/Work.jsx";
+import { useMyWork } from "@app/features/assignments/index.js";
 
 /* =========================================================================
    The student app — its own package (student/), served at /student/, on
@@ -110,7 +111,8 @@ function Sidebar({ pathname, onSignOut }) {
   const [theme, setTheme] = useTheme();
   const unseen = notes.filter((n) => !seen.has(n.id)).length;
   // A count on the items with something waiting: new notes, open work.
-  const counts = { "/notes": unseen, "/work": openWork(state).length };
+  const { open: openWork } = useMyWork();
+  const counts = { "/notes": unseen, "/work": openWork.length };
   const classes = myClasses(state);
   const label = (text) => <span className="hidden sm:inline">{text}</span>;
   return (
@@ -193,12 +195,13 @@ function TopBar({ pathname }) {
 function useLiveUpdates() {
   const { state, toast, caughtUp } = useStore();
   const { notes: myNotes, loading: notesLoading } = useMyNotes();
+  const { work: myWork, stale: workStale } = useMyWork();
   const before = useRef(null);
   useEffect(() => {
-    if (!caughtUp || notesLoading) return;
+    if (!caughtUp || notesLoading || workStale) return;
     const now = {
       notes: new Set(myNotes.map((n) => n.id)),
-      work: new Set((state.assignments || []).map((a) => a.id)),
+      work: new Set(myWork.map((a) => a.id)),
       classes: new Set(myClasses(state).map((c) => c.id)),
       shared: new Set(myClasses(state).flatMap((c) => c.courses.flatMap((x) => (x.releasedLessonIds || []).map((l) => `${c.id}:${x.courseId}:${l}`)))),
       bought: new Set(state.purchases.filter((p) => p.status === "paid").map((p) => p.courseId)),
@@ -212,8 +215,8 @@ function useLiveUpdates() {
       const cls = state.classes.find((c) => c.id === notes[0].classId);
       toast(`New note from ${teacherName(state, cls?.teacherId)}: “${notes[0].text.length > 60 ? `${notes[0].text.slice(0, 57)}…` : notes[0].text}”`);
     } else if (notes.length > 1) toast(`${notes.length} new notes from your teacher`);
-    const work = (state.assignments || []).filter((a) => !prev.work.has(a.id) && a.status === "assigned");
-    if (work.length === 1) toast(`New work from ${teacherName(state, work[0].teacherId)}: “${work[0].title}”`);
+    const work = myWork.filter((a) => !prev.work.has(a.id) && a.status === "assigned");
+    if (work.length === 1) toast(`New work from ${work[0].teacher?.name || "your teacher"}: “${work[0].title}”`);
     else if (work.length > 1) toast(`${work.length} new pieces of work from your teacher`);
     fresh("classes").forEach((id) => toast(`You're in ${state.classes.find((c) => c.id === id)?.name} now`));
     const joinedNow = new Set(fresh("classes"));
@@ -223,5 +226,5 @@ function useLiveUpdates() {
       if (lesson) toast(`Lesson ${lesson.n} is open in ${state.classes.find((c) => c.id === classId)?.name}`);
     });
     fresh("bought").forEach((id) => toast(`Payment confirmed — ${courseOf(state, id)?.title} is yours`));
-  }, [state, toast, caughtUp, myNotes, notesLoading]);
+  }, [state, toast, caughtUp, myNotes, notesLoading, myWork, workStale]);
 }

@@ -45,20 +45,6 @@ export function discardH5PContent(toast, value) {
   deleteH5PContentIn(value).catch((err) => toast(`Couldn't delete the H5P content on the server: ${err.message}`, "err"));
 }
 
-// Hand one thing to one or more students (ASSIGN_WORK) — the student page's
-// Assign dialog and the Library's Assign button confirm the same way. A
-// block or task is snapshotted first with its own H5P content, like saving
-// to My Blocks, so the student keeps exactly what they were given.
-// `item` = { kind, title, blockType?, componentKind?, source?, content? }.
-// Resolves false if the H5P copy failed (the teacher was already told).
-export async function assignWork(dispatch, toast, studentIds, item, toWhom) {
-  const content = item.content ? await copyWithOwnH5P(toast, item.content) : null;
-  if (item.content && !content) return false;
-  dispatch({ type: "ASSIGN_WORK", studentIds, item: { ...item, content } });
-  toast(`Assigned “${item.title}” to ${toWhom}`);
-  return true;
-}
-
 const StoreCtx = createContext(null);
 
 // Keeps this tab's mock db in step with the other open tabs (the teacher

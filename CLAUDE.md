@@ -122,6 +122,11 @@ Converted so far:
   app's sign-in page (`useSignIn`). The student app remounts everything
   below its sign-in gate when the session changes, so no screen outlives
   the student it was showing.
+- **assignments** — work handed to one student outside the class's
+  lessons: assigning it (`useWorkActions().assign` copies H5P content
+  first, then toasts), taking it back, a student's work (`useStudentWork`),
+  and the student app's My work (`useMyWork`: open / done, each with its
+  teacher's name, and finishing it).
 - **sales** — a course sold on its own: confirming or declining a purchase
   (`useSalesActions`, in the request rows and a course's Customers), and
   for the student app the catalog (`useCatalog`: each course with its
@@ -170,7 +175,7 @@ around each app, `useToast()`), per tab, never stored or synced.
 Class homework already follows the same pattern from before
 (`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
 `src/features/` when it's next touched. Everything else still reads the mock
-through `useStore()` and is converted feature by feature: assigned work, the student's own learning,
+through `useStore()` and is converted feature by feature: the student's own learning,
 media, the seed-only analytics pages.
 
 ## Tests

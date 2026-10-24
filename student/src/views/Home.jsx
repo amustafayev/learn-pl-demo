@@ -10,7 +10,8 @@ import { boughtCourses, classOf, courseOf, finishedLesson, firstName, lessonsOf,
 import { useMyNotes } from "@app/features/notes/index.js";
 import { useMe } from "@app/features/account/index.js";
 import NoteItem from "../components/NoteItem.jsx";
-import { WorkRow, openWork } from "./Work.jsx";
+import { WorkRow } from "./Work.jsx";
+import { useMyWork } from "@app/features/assignments/index.js";
 
 // The student's start page: anything waiting on them (an invite) or on
 // their teacher (a join request, a payment to confirm), their classes with
@@ -27,7 +28,7 @@ export default function Home() {
   const paying = state.purchases.filter((p) => p.status === "requested");
   const bought = boughtCourses(state);
   const latest = notes.slice(0, 3);
-  const work = openWork(state);
+  const { open: work } = useMyWork();
 
   const accept = (inv) => {
     dispatch({ type: "ACCEPT_INVITATION", invitationId: inv.id, studentId: me.id });

@@ -2,10 +2,10 @@ import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
 import { pathLabel } from "../libraryTree.js";
-import { useStore, assignWork } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts } from "../features/readings/index.js";
 import { useRoster } from "../features/students/index.js";
+import { useWorkActions } from "../features/assignments/index.js";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
@@ -295,14 +295,15 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} })
 // once — one `assignments` row each (ASSIGN_WORK). `item` is the same shape
 // the student page's Assign dialog sends: { kind, title, source }.
 export function AssignModal({ open, onClose, item, presetStudentId }) {
-  const { dispatch, toast } = useStore();
+  const toast = useToast();
   const { roster } = useRoster();
+  const { assign: assignWork } = useWorkActions();
   const [sel, setSel] = useState(presetStudentId ? [presetStudentId] : []);
   React.useEffect(() => { if (open) setSel(presetStudentId ? [presetStudentId] : []); }, [open, presetStudentId]);
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   async function assign() {
     if (!sel.length) return toast("Pick at least one student", "err");
-    if (await assignWork(dispatch, toast, sel, item, `${sel.length} student${sel.length > 1 ? "s" : ""}`)) onClose();
+    if (await assignWork(sel, item, `${sel.length} student${sel.length > 1 ? "s" : ""}`)) onClose();
   }
   return (
     <Modal open={open} onClose={onClose} title="Assign to students" sub={`${ASSIGNMENT_KIND_LABEL[item.kind] || "Item"}: ${item.title}`}
