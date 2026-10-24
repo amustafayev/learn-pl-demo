@@ -1040,6 +1040,8 @@ paths:
       tags: [Joining]
       operationId: listInvitations
       summary: A class's email invitations
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, accepted, revoked] }, description: "`pending` is what the Invite dialog lists." }
       responses:
         "200": { description: "Invitations", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Invitation" } } } } }
     post:
@@ -1165,7 +1167,9 @@ paths:
       tags: [Students]
       operationId: getStudent
       summary: A student's own record (name, email, level, goal)
-      description: Only through a relationship → otherwise `404` (never reveal that the student exists).
+      description: |
+        Only through a relationship → otherwise `404` (never reveal that the student
+        exists). Also says whether this teacher has blocked them (`blocked`).
       responses:
         "200": { description: "The student", content: { application/json: { schema: { $ref: "#/components/schemas/Student" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2135,8 +2139,13 @@ components:
       properties:
         active:
           type: array
-          description: Students in one of the teacher's classes right now.
-          items: { $ref: "#/components/schemas/Student" }
+          description: Students in one of the teacher's classes right now, each with those classes.
+          items:
+            allOf:
+              - $ref: "#/components/schemas/Student"
+              - type: object
+                properties:
+                  classes: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string }, courseId: { type: string, nullable: true, description: The course that class is on now. } } } }
         requests:
           type: array
           description: Newest first. A class join request or a purchase request.

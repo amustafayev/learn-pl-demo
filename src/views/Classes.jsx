@@ -4,7 +4,7 @@ import { IconClock, IconClipboardCheck,
   IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool, IconCopy, IconRefresh, IconMail, IconInbox,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
-import { useStore, useNav, classMembers, teacherRoster } from "../store.jsx";
+import { useNav } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -14,6 +14,7 @@ import { classHomeworkPath } from "../router.jsx";
 import ScheduleEditor from "../components/ScheduleEditor.jsx";
 import { useCourses } from "../features/courses/index.js";
 import { useClasses, useClass, useClassActions, activeCourseOf, progressFor } from "../features/classes/index.js";
+import { useRoster, useClassMembers, useInvitations, useStudentActions, rosterStudents } from "../features/students/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -45,8 +46,8 @@ export default function Classes() {
 }
 
 function ClassesView() {
-  const { state } = useStore();
   const toast = useToast();
+  const { roster: everyone } = useRoster();
   const { courses } = useCourses();
   const { classes, createClass: create } = useClasses();
   const navigate = useNavigate();
@@ -95,8 +96,8 @@ function ClassesView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {classes.map((cls) => {
-          const roster = classMembers(state, cls.id).map((m) => m.student);
-          const requests = classMembers(state, cls.id, "requested").length;
+          const roster = everyone.active.filter((s) => s.classes.some((c) => c.id === cls.id));
+          const requests = everyone.requests.filter((r) => r.kind === "class" && r.class.id === cls.id).length;
           const active = activeCourseOf(cls);
           const course = courses.find((c) => c.id === active?.courseId);
           const p = active ? active.progress : null;
@@ -135,9 +136,12 @@ function ClassDetailRoute() {
 }
 
 function ClassDetailView({ classId }) {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const { courses } = useCourses();
   const { cls, updateSchedule, assignCourse: assign } = useClass(classId);
+  const { members } = useClassMembers(classId);
+  const { roster: everyone } = useRoster();
+  const { addToClass, removeMember } = useStudentActions();
   const { go } = useNav();
   const navigate = useNavigate();
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -157,16 +161,16 @@ function ClassDetailView({ classId }) {
 
   // Active members; the "+" picker offers the teacher's other students
   // (other classes, former students, course customers) — never anyone else.
-  const members = classMembers(state, cls.id);
   const roster = members.map((m) => m.student);
-  const others = state.students.filter((s) => !roster.some((r) => r.id === s.id));
-  const requests = teacherRoster(state).requests.filter((r) => r.kind === "class" && r.cls.id === cls.id);
+  const others = rosterStudents(everyone).filter((s) => !roster.some((r) => r.id === s.id));
+  const requests = everyone.requests.filter((r) => r.kind === "class" && r.class.id === cls.id);
   // A class takes one course for now — only offered while it has none.
   const unassignedCourses = cls.courses.length ? [] : courses;
 
+  const failed = (err) => toast(err.description || "Couldn't change the class's members", "err");
   function removeStudent(s) {
-    dispatch({ type: "REMOVE_CLASS_MEMBER", classId: cls.id, studentId: s.id });
-    toast(`${s.name.split(" ")[0]} removed from ${cls.name}`);
+    const membership = members.find((m) => m.studentId === s.id);
+    if (membership) removeMember(membership.id).then(() => toast(`${s.name.split(" ")[0]} removed from ${cls.name}`), failed);
     setConfirmRemove(null);
   }
   function assignCourse(courseId) {
@@ -298,7 +302,7 @@ function ClassDetailView({ classId }) {
                     <div className="space-y-1.5">
                       {others.map((s) => (
                         <button key={s.id}
-                          onClick={() => { dispatch({ type: "ADD_CLASS_MEMBER", classId: cls.id, studentId: s.id }); toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`); setEnrollOpen(false); }}
+                          onClick={() => { addToClass(cls.id, s.id).then(() => toast(`${s.name.split(" ")[0]} enrolled in ${cls.name}`), failed); setEnrollOpen(false); }}
                           className={`w-full inline-flex items-center gap-2 rounded-lg bg-surface border border-neutral-200 hover:border-primary-400 p-2 text-sm ${PRESS}`}>
                           <Avatar name={s.name} color={avatarColorFor(s.id)} size="xs" />
                           <span className="font-medium text-neutral-900 flex-1 text-left truncate">{s.name}</span>
@@ -387,20 +391,20 @@ function ClassDetailView({ classId }) {
 // and email invites (the teacher picks the person, so accepting one admits
 // them straight away). The student side of both lives in the student app.
 function InviteStudentsPanel({ cls }) {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const { setJoining, newJoinLink } = useClassActions(cls.id);
+  const { invitations: pending, invite: sendInvite, revoke } = useInvitations(cls.id);
   const failed = (err) => toast(err.description || "Couldn't change the class link", "err");
   const [email, setEmail] = useState("");
   const link = joinLink(cls.joinToken);
-  const pending = state.invitations.filter((i) => i.classId === cls.id && i.status === "pending");
   const copy = async (text, what) => {
     try { await navigator.clipboard.writeText(text); toast(`${what} copied`); } catch { toast(`Couldn't copy — select it and copy by hand`); }
   };
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const invite = () => {
     if (!validEmail) return;
-    dispatch({ type: "CREATE_INVITATION", classId: cls.id, email });
-    toast(`Invite sent to ${email.trim()}`);
+    const to = email.trim();
+    sendInvite(email).then(() => toast(`Invite sent to ${to}`), (err) => toast(err.description || "Couldn't send the invite", "err"));
     setEmail("");
   };
   return (
@@ -440,7 +444,7 @@ function InviteStudentsPanel({ cls }) {
                 <IconMail size={15} stroke={1.75} className="shrink-0 text-neutral-600" />
                 <span className="min-w-0 flex-1 truncate text-neutral-900">{i.name ? `${i.name} · ` : ""}{i.email}</span>
                 <span className="shrink-0 text-xs text-neutral-600" title={`Expires ${shortDate(i.expiresAt)}`}>sent {timeAgo(i.createdAt)}</span>
-                <button type="button" onClick={() => { dispatch({ type: "REVOKE_INVITATION", invitationId: i.id }); toast(`Invite to ${i.email} withdrawn`); }}
+                <button type="button" onClick={() => revoke(i.id).then(() => toast(`Invite to ${i.email} withdrawn`), (err) => toast(err.description || "Couldn't withdraw the invite", "err"))}
                   className="shrink-0 text-xs font-semibold text-neutral-600 hover:text-warning-600">Withdraw</button>
               </div>
             ))}

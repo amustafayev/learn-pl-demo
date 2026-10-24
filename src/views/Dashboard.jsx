@@ -4,19 +4,21 @@ import {
   IconUsers, IconChartBar, IconVocabulary, IconUserPlus, IconCheck, IconX,
 } from "@tabler/icons-react";
 import { Page, SectionLabel, Card, Button, Avatar, Tag, StatCard } from "../design-system.jsx";
-import { useStore, useNav, activeStudents, teacherRoster } from "../store.jsx";
+import { useNav } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
+import { useRoster, useStudentActions } from "../features/students/index.js";
 import { timeAgo } from "../format.js";
 import UpcomingCalendar from "../components/UpcomingCalendar.jsx";
 
 export default function Dashboard() {
-  const { state } = useStore();
   const { go } = useNav();
+  const { roster } = useRoster();
 
-  const students = activeStudents(state);
+  const students = roster.active;
   const active = students.filter((s) => s.status !== "not started").length;
   const atRisk = students.filter((s) => s.atRisk);
   // students asking to join one of this teacher's classes (purchase requests live on the Students page)
-  const joinRequests = teacherRoster(state).requests.filter((r) => r.kind === "class");
+  const joinRequests = roster.requests.filter((r) => r.kind === "class");
   // A course has no completion of its own (see Courses.jsx) — this is a
   // teacher-facing "how's my roster doing" number, so it averages students'
   // own progress, not a static per-course field.
@@ -63,13 +65,13 @@ export default function Dashboard() {
 // One student asking to join a class: who, which class, when — Accept or Decline
 // right here. Same two reducer actions as the Students page's request rows.
 function JoinRequestRow({ request }) {
-  const { dispatch, toast } = useStore();
-  const { student, cls, membership } = request;
+  const toast = useToast();
+  const { decideRequest } = useStudentActions();
+  const { student, class: cls, membership } = request;
   const first = student.name.split(" ")[0];
-  const decide = (status) => {
-    dispatch({ type: "DECIDE_MEMBERSHIP", membershipId: membership.id, status });
-    toast(status === "active" ? `${first} joined ${cls.name}` : `Declined ${first}'s request`);
-  };
+  const decide = (status) => decideRequest(membership.id, status).then(
+    () => toast(status === "active" ? `${first} joined ${cls.name}` : `Declined ${first}'s request`),
+    (err) => toast(err.description || "Couldn't answer the request", "err"));
   return (
     <div className="p-3.5">
       <div className="flex items-center gap-2.5">

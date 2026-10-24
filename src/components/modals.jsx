@@ -2,9 +2,10 @@ import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
 import { pathLabel } from "../libraryTree.js";
-import { useStore, activeStudents, assignWork } from "../store.jsx";
+import { useStore, assignWork } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts } from "../features/readings/index.js";
+import { useRoster } from "../features/students/index.js";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 
 // A course's "accent" is really just one of the five design tokens under a
@@ -294,7 +295,8 @@ export function AddBlockModal({ open, onClose, onPick, types, usedCounts = {} })
 // once — one `assignments` row each (ASSIGN_WORK). `item` is the same shape
 // the student page's Assign dialog sends: { kind, title, source }.
 export function AssignModal({ open, onClose, item, presetStudentId }) {
-  const { state, dispatch, toast } = useStore();
+  const { dispatch, toast } = useStore();
+  const { roster } = useRoster();
   const [sel, setSel] = useState(presetStudentId ? [presetStudentId] : []);
   React.useEffect(() => { if (open) setSel(presetStudentId ? [presetStudentId] : []); }, [open, presetStudentId]);
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -305,7 +307,7 @@ export function AssignModal({ open, onClose, item, presetStudentId }) {
   return (
     <Modal open={open} onClose={onClose} title="Assign to students" sub={`${ASSIGNMENT_KIND_LABEL[item.kind] || "Item"}: ${item.title}`}
       footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={assign}>Assign{sel.length ? ` (${sel.length})` : ""}</Button></>}>
-      <StudentCheckList students={activeStudents(state)} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
+      <StudentCheckList students={roster.active} isSelected={(s) => sel.includes(s.id)} onToggle={(s) => toggle(s.id)}
         metaFor={(s) => `${s.level} · ${s.status}`} />
     </Modal>
   );

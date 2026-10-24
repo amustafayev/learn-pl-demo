@@ -2,39 +2,43 @@ import React from "react";
 import { IconCheck, IconX, IconBan, IconCash } from "@tabler/icons-react";
 import { Avatar, Button, Tag } from "../design-system.jsx";
 import { useStore } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
+import { useStudentActions } from "../features/students/index.js";
 import { timeAgo, shortDate } from "../format.js";
 
 // One request waiting for the teacher — either a student asking to join a
 // class with its link/code, or a student asking to buy a course they paid
-// for outside the app. Rows come from teacherRoster(state).requests.
+// for outside the app. Rows come from useRoster().roster.requests.
 // `showClass={false}` inside a class's own page, where "which class" is
 // already obvious.
 export function RequestRow({ request, showClass = true }) {
-  const { dispatch, toast } = useStore();
+  const { dispatch } = useStore();
+  const toast = useToast();
+  const { decideRequest, block: blockStudent } = useStudentActions();
   const { student, kind } = request;
   const first = student.name.split(" ")[0];
+  const failed = (err) => toast(err.description || "Couldn't answer the request", "err");
 
   const accept = () => {
     if (kind === "class") {
-      dispatch({ type: "DECIDE_MEMBERSHIP", membershipId: request.membership.id, status: "active" });
-      toast(`${first} joined ${request.cls.name}`);
+      decideRequest(request.membership.id, "active").then(() => toast(`${first} joined ${request.class.name}`), failed);
     } else {
       dispatch({ type: "DECIDE_PURCHASE", purchaseId: request.purchase.id, status: "paid" });
       toast(`${first} can now take ${request.course.title}`);
     }
   };
   const decline = () => {
-    if (kind === "class") dispatch({ type: "DECIDE_MEMBERSHIP", membershipId: request.membership.id, status: "declined" });
-    else dispatch({ type: "DECIDE_PURCHASE", purchaseId: request.purchase.id, status: "declined" });
-    toast(`Declined ${first}'s request`);
+    if (kind === "class") decideRequest(request.membership.id, "declined").then(() => toast(`Declined ${first}'s request`), failed);
+    else {
+      dispatch({ type: "DECIDE_PURCHASE", purchaseId: request.purchase.id, status: "declined" });
+      toast(`Declined ${first}'s request`);
+    }
   };
-  const block = () => {
-    dispatch({ type: "BLOCK_STUDENT", studentId: student.id });
-    toast(`${first} is blocked — they can't send you requests. Unblock them from Students › Former.`);
-  };
+  const block = () => blockStudent(student.id).then(
+    () => toast(`${first} is blocked — they can't send you requests. Unblock them from Students › Former.`), failed);
 
   const what = kind === "class"
-    ? <>Wants to join {showClass ? <b className="text-neutral-950">{request.cls.name}</b> : "this class"} · via class link</>
+    ? <>Wants to join {showClass ? <b className="text-neutral-950">{request.class.name}</b> : "this class"} · via class link</>
     : <>Wants to buy <b className="text-neutral-950">{request.course.title}</b> · {request.purchase.amount} {request.purchase.currency}, paid outside the app</>;
   const message = kind === "class" ? request.membership.message : request.purchase.message;
 

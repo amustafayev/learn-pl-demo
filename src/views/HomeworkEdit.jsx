@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { IconPlus, IconX, IconPaperclip, IconClipboardText, IconPencil, IconChevronUp } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, Card, Button, Field, TextField, TextArea, Select } from "../design-system.jsx";
-import { useStore, classMembers, uid } from "../store.jsx";
+import { uid } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { useHomeworkActions, useHomeworkPost } from "../homework.jsx";
 import { classDetailPath, classHomeworkPath, classHomeworkPostPath } from "../router.jsx";
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
@@ -12,6 +13,7 @@ import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
 import { useCourse } from "../features/courses/index.js";
 import { useClass, activeCourseOf } from "../features/classes/index.js";
+import { useClassMembers } from "../features/students/index.js";
 
 /* =========================================================================
    The assignment composer — Google Classroom's "Create assignment" page, for
@@ -62,11 +64,12 @@ export default function HomeworkEdit() {
   const { classId, homeworkId } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { state, toast } = useStore();
+  const toast = useToast();
   const { texts } = useReadingTexts();
   const { items: savedComponents } = useSavedComponents();
   const { saveDraft, publish, update } = useHomeworkActions();
   const { cls } = useClass(classId);
+  const { members } = useClassMembers(classId);
   const { post, loading } = useHomeworkPost(classId, homeworkId);
 
   const [title, setTitle] = useState("");
@@ -99,7 +102,6 @@ export default function HomeworkEdit() {
   const locked = new Set(posted ? (post.attachments || []).map(keyOf) : []); // already given to students
 
   if (!cls) return null;
-  const members = classMembers(state, cls.id);
   const patchContent = (a, patch) => setAttachments((list) => list.map((x) => (x !== a ? x : {
     ...x, content: { ...x.content, ...patch }, title: patch.title !== undefined ? patch.title || x.title : x.title,
   })));

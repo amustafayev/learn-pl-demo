@@ -4,9 +4,10 @@ import {
   IconHome2, IconLayoutGrid, IconSchool, IconBooks, IconCertificate, IconUsers, IconSparkles, IconBrain,
   IconSettings2, IconHelpCircle, IconSun, IconMoon, IconLogout, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
-import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
+import { StoreProvider } from "./store.jsx";
 import { ToastProvider } from "./toasts.jsx";
 import { useMe } from "./features/account/index.js";
+import { useRoster } from "./features/students/index.js";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
 import { Page, NavItem, AccountMenu, AccountMenuItem, AccountMenuDivider, SegmentedToggle, ComingSoon, CountBadge } from "./design-system.jsx";
@@ -99,8 +100,8 @@ function Sidebar({ pathname, collapsed, onToggleCollapse }) {
   // Waiting join/purchase requests, so the teacher sees them from any page.
   // Carried inside the label (not NavItem's `count`) so it hides with the
   // label in the icon-only rail instead of overflowing it.
-  const { state } = useStore();
-  const pending = { students: teacherRoster(state).requests.length };
+  const { roster } = useRoster();
+  const pending = { students: roster.requests.length };
   return (
     // A width transition, deliberately, despite the app's own "never
     // animate width" rule (see CLAUDE.md's Motion section): that rule is

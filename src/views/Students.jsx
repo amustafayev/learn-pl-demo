@@ -13,7 +13,10 @@ import {
   Page, Breadcrumbs, PageHeader, SectionLabel, ProgressBar, Card, Button, Tag, Avatar, Alert, StatCard,
   Field, TextField, TextArea, Modal, PillTabs, Select, MenuButton,
 } from "../design-system.jsx";
-import { useStore, useNav, studentCourseId, studentClasses, teacherRoster, studentHistory } from "../store.jsx";
+import { useStore, useNav, studentCourseId } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
+import { useRoster, useStudent, useStudentActions } from "../features/students/index.js";
+import { useClasses, useAttendance } from "../features/classes/index.js";
 import { StudentAssignModal, assignmentLook } from "../components/StudentAssignModal.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
@@ -33,15 +36,16 @@ const SOURCE_LABEL = { code: "class link", invite: "email invite", teacher: "add
 /* ------------------------------- roster ------------------------------- */
 
 // Only students this teacher has a relationship with ever reach this page
-// (the store is already scoped — see teacherView in db/mockDb.jsx), split
-// by what that relationship is. See "Students, classes & access" in CLAUDE.md.
+// (the API is scoped to the teacher — see useRoster), split by what that
+// relationship is. See "Students, classes & access" in CLAUDE.md.
 const TABS = ["active", "requests", "former", "customers"];
 
 export function StudentsView() {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const { addToClass } = useStudentActions();
   const { route, go } = useNav();
   const [q, setQ] = useState("");
-  const roster = teacherRoster(state);
+  const { roster } = useRoster();
   const tab = TABS.includes(route.filter) ? route.filter : "active";
   const setTab = (t) => go({ filter: t === "active" ? undefined : t });
   const needle = q.trim().toLowerCase();
@@ -88,7 +92,7 @@ export function StudentsView() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5 font-medium text-neutral-950">
                   <span className="truncate">{s.name}</span>
-                  {studentClasses(state, s.id).map((c) => <Tag key={c.id} color="neutral">{c.name}</Tag>)}
+                  {s.classes.map((c) => <Tag key={c.id} color="neutral">{c.name}</Tag>)}
                 </div>
                 <div className="text-sm text-neutral-600 truncate">{s.email}</div>
               </div>
@@ -100,7 +104,7 @@ export function StudentsView() {
 
           {tab === "former" && lists.former.map(({ student: s, ended, blocked }) => {
             const last = [...ended].sort((a, b) => (a.endedAt < b.endedAt ? 1 : -1))[0];
-            const lastClass = state.classes.find((c) => c.id === last?.classId);
+            const lastClass = last?.class;
             return (
               <div key={s.id} className="flex flex-wrap items-center gap-3 py-3.5">
                 <button type="button" onClick={() => openStudent(s)} className="flex min-w-[12rem] flex-1 items-center gap-3 text-left">
@@ -113,7 +117,7 @@ export function StudentsView() {
                   </div>
                 </button>
                 {lastClass && !blocked && (
-                  <Button size="sm" variant="outline" onClick={() => { dispatch({ type: "ADD_CLASS_MEMBER", classId: lastClass.id, studentId: s.id }); toast(`${s.name.split(" ")[0]} is back in ${lastClass.name}`); }}>
+                  <Button size="sm" variant="outline" onClick={() => addToClass(lastClass.id, s.id).then(() => toast(`${s.name.split(" ")[0]} is back in ${lastClass.name}`), (err) => toast(err.description || "Couldn't add them back", "err"))}>
                     <IconPlus size={15} stroke={1.75} /> Add back to {lastClass.name}
                   </Button>
                 )}
@@ -151,12 +155,14 @@ export function StudentsView() {
 }
 
 function BlockToggle({ student, blocked }) {
-  const { dispatch, toast } = useStore();
+  const toast = useToast();
+  const { block, unblock } = useStudentActions();
   const first = student.name.split(" ")[0];
+  const failed = (err) => toast(err.description || "Couldn't change the block", "err");
   return blocked ? (
-    <Button size="sm" variant="light" onClick={() => { dispatch({ type: "UNBLOCK_STUDENT", studentId: student.id }); toast(`${first} can send you requests again`); }}>Unblock</Button>
+    <Button size="sm" variant="light" onClick={() => unblock(student.id).then(() => toast(`${first} can send you requests again`), failed)}>Unblock</Button>
   ) : (
-    <button type="button" onClick={() => { dispatch({ type: "BLOCK_STUDENT", studentId: student.id }); toast(`${first} is blocked — they can't send you requests`); }}
+    <button type="button" onClick={() => block(student.id).then(() => toast(`${first} is blocked — they can't send you requests`), failed)}
       className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-neutral-600 hover:bg-warning-50 hover:text-warning-600">
       <IconBan size={15} stroke={1.75} /> Block
     </button>
@@ -169,15 +175,14 @@ function BlockToggle({ student, blocked }) {
 // managed with router hooks directly rather than the shared useNav() shim —
 // same "decoupled sub-navigation" pattern as Library's own routes.
 export function StudentDetail() {
-  const { state } = useStore();
   const { route, go } = useNav();
   const { section = "profile" } = useParams();
   const navigate = useNavigate();
   const [assign, setAssign] = useState(false);
-  const s = state.students.find((x) => x.id === route.studentId);
-  if (!s) return null;
+  const { student: s, history: h } = useStudent(route.studentId);
+  if (!s || !h) return null;
 
-  const active = studentClasses(state, s.id);
+  const active = h.classes.filter((c) => c.active).map((c) => c.class);
   const tabs = [["profile", "Profile"], ["history", "Lesson history"], ["notes", "Lesson notes"],
     ...(SHOW_STUDENT_ANALYTICS ? [["overview", "Overview"], ["words", "Words"], ["activity", "Activity"], ["insights", "AI Insights"], ["path", "Learning path"]] : [])];
   const current = tabs.some(([id]) => id === section) ? section : "profile";
@@ -206,8 +211,8 @@ export function StudentDetail() {
         ))}
       </div>
 
-      {current === "profile" && <Profile s={s} onSeeHistory={() => navigate(`/students/${s.id}/history`)} onAssign={active.length ? () => setAssign(true) : null} />}
-      {current === "history" && <History s={s} />}
+      {current === "profile" && <Profile s={s} h={h} onSeeHistory={() => navigate(`/students/${s.id}/history`)} onAssign={active.length ? () => setAssign(true) : null} />}
+      {current === "history" && <History s={s} h={h} />}
       {current === "notes" && <Notes s={s} />}
       {current === "overview" && <Overview s={s} />}
       {current === "words" && <Words s={s} />}
@@ -225,8 +230,12 @@ export function StudentDetail() {
 // is on now, the lessons they had in it — the lessons themselves, what they
 // bought and how far they are in it, and how to reach them. Nothing here is
 // a made-up metric.
-function Profile({ s, onSeeHistory, onAssign }) {
-  const { state, dispatch, toast } = useStore();
+function Profile({ s, h, onSeeHistory, onAssign }) {
+  const { dispatch } = useStore();
+  const toast = useToast();
+  const { roster } = useRoster();
+  const { classes } = useClasses();
+  const { addToClass, removeMember } = useStudentActions();
   const { go } = useNav();
   const [removing, setRemoving] = useState(null); // class pending removal
   const lastRemoving = useRef(null);
@@ -234,10 +243,9 @@ function Profile({ s, onSeeHistory, onAssign }) {
   const shownRemoving = removing || lastRemoving.current;
   const [addTo, setAddTo] = useState("");
   const first = s.name.split(" ")[0];
-  const h = studentHistory(state, s.id);
-  const requests = teacherRoster(state).requests.filter((r) => r.student.id === s.id);
-  const addable = state.classes.filter((c) => !h.classes.some((x) => x.active && x.cls.id === c.id));
-  const blocked = state.blocks.some((b) => b.studentId === s.id);
+  const requests = roster.requests.filter((r) => r.student.id === s.id);
+  const addable = classes.filter((c) => !h.classes.some((x) => x.active && x.class.id === c.id));
+  const blocked = s.blocked;
   const recent = h.lessons.slice(0, 5);
   // Open work first, then what's done; withdrawn work lives in the history.
   const work = [...h.assignments.filter((a) => a.status === "assigned"), ...h.assignments.filter((a) => a.status === "done")];
@@ -246,16 +254,16 @@ function Profile({ s, onSeeHistory, onAssign }) {
     toast(`Took back “${a.title}” from ${first}`);
   };
 
+  const failed = (err) => toast(err.description || "Couldn't change their classes", "err");
   const remove = () => {
-    dispatch({ type: "REMOVE_CLASS_MEMBER", classId: removing.id, studentId: s.id });
-    toast(`${first} removed from ${removing.name}`);
+    const { name, membershipId } = removing;
+    removeMember(membershipId).then(() => toast(`${first} removed from ${name}`), failed);
     setRemoving(null);
   };
   const add = () => {
-    const cls = state.classes.find((c) => c.id === addTo);
+    const cls = classes.find((c) => c.id === addTo);
     if (!cls) return;
-    dispatch({ type: "ADD_CLASS_MEMBER", classId: cls.id, studentId: s.id });
-    toast(`${first} added to ${cls.name}`);
+    addToClass(cls.id, s.id).then(() => toast(`${first} added to ${cls.name}`), failed);
     setAddTo("");
   };
 
@@ -283,8 +291,8 @@ function Profile({ s, onSeeHistory, onAssign }) {
               {h.classes.map((c) => (
                 <div key={c.membership.id} className="flex items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <button type="button" onClick={() => go({ tab: "classes", classId: c.cls.id })}
-                      className={`font-medium hover:text-primary-600 ${c.active ? "text-neutral-950" : "text-neutral-700"}`}>{c.cls.name}</button>
+                    <button type="button" onClick={() => go({ tab: "classes", classId: c.class.id })}
+                      className={`font-medium hover:text-primary-600 ${c.active ? "text-neutral-950" : "text-neutral-700"}`}>{c.class.name}</button>
                     <div className="text-sm text-neutral-600">
                       {stints(c.periods)}{c.active && c.membership.source ? ` · via ${SOURCE_LABEL[c.membership.source] || c.membership.source}` : ""}
                     </div>
@@ -302,7 +310,7 @@ function Profile({ s, onSeeHistory, onAssign }) {
                   </div>
                   <Tag color={c.active ? "success" : "neutral"}>{c.active ? "Active" : "Former"}</Tag>
                   {c.active && (
-                    <button type="button" onClick={() => setRemoving(c.cls)} title={`Remove from ${c.cls.name}`} aria-label={`Remove ${s.name} from ${c.cls.name}`}
+                    <button type="button" onClick={() => setRemoving({ name: c.class.name, membershipId: c.membership.id })} title={`Remove from ${c.class.name}`} aria-label={`Remove ${s.name} from ${c.class.name}`}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-warning-50 hover:text-warning-600"><IconUserMinus size={17} stroke={1.75} /></button>
                   )}
                 </div>
@@ -432,7 +440,7 @@ function LessonRow({ item, when = "date", action }) {
   const { go } = useNav();
   const self = item.kind === "self-paced";
   const Icon = self ? IconDeviceLaptop : IconChalkboard;
-  const open = () => item.course && item.lesson && go({ tab: "courses", courseId: item.course.id, lessonId: item.lesson.id, classId: self ? undefined : item.cls.id });
+  const open = () => item.course && item.lesson && go({ tab: "courses", courseId: item.course.id, lessonId: item.lesson.id, classId: self ? undefined : item.class.id });
   return (
     // wraps: on a phone the tag/date/action drop under the title instead of
     // squeezing it
@@ -445,7 +453,7 @@ function LessonRow({ item, when = "date", action }) {
           {item.lesson ? `Lesson ${item.lesson.n} · ${item.lesson.title}` : "A lesson that was since deleted"}
         </button>
         <div className="text-sm text-neutral-600 truncate">
-          {item.course?.title} · {self ? "on their own" : item.cls.name}
+          {item.course?.title} · {self ? "on their own" : item.class.name}
           {when === "ago" && <> · <span title={shortDate(item.at)}>{timeAgo(item.at)}</span></>}
         </div>
       </div>
@@ -493,10 +501,10 @@ function AssignmentRow({ a, onWithdraw }) {
 function MilestoneRow({ item }) {
   const a = item.assignment;
   const text = item.kind === "bought" ? <>Bought <b className="text-neutral-800">{item.course?.title}</b> · {item.purchase.amount} {item.purchase.currency}</>
-    : item.kind === "joined" ? <>{item.again ? "Back in" : "Joined"} <b className="text-neutral-800">{item.cls.name}</b></>
+    : item.kind === "joined" ? <>{item.again ? "Back in" : "Joined"} <b className="text-neutral-800">{item.class.name}</b></>
     : item.kind === "assigned" ? <>Assigned <b className="text-neutral-800">{a.title}</b> · {assignmentLook(a).label}{a.status === "withdrawn" ? " · taken back" : ""}</>
     : item.kind === "finished" ? <>Finished <b className="text-neutral-800">{a.title}</b></>
-    : <>{item.reason === "left" ? "Left" : "Removed from"} <b className="text-neutral-800">{item.cls.name}</b></>;
+    : <>{item.reason === "left" ? "Left" : "Removed from"} <b className="text-neutral-800">{item.class.name}</b></>;
   const Icon = { bought: IconShoppingBag, joined: IconDoorEnter, assigned: IconSend, finished: IconCircleCheck }[item.kind] || IconDoorExit;
   return (
     <div className="flex items-center gap-3 py-2.5 text-sm text-neutral-600">
@@ -510,14 +518,14 @@ function MilestoneRow({ item }) {
 // Everything a student has had with this teacher, newest first, by month:
 // lessons taught to their class (mark one missed here), lessons finished on
 // their own, and the joined/left/bought moments between them.
-function History({ s }) {
-  const { state, dispatch, toast } = useStore();
+function History({ s, h }) {
+  const toast = useToast();
+  const { setAttendance } = useAttendance();
   const [show, setShow] = useState("all");
-  const h = studentHistory(state, s.id);
   const first = s.name.split(" ")[0];
   const options = [
     { id: "all", label: "Everything" },
-    ...h.classes.map((c) => ({ id: `class:${c.cls.id}`, label: c.cls.name, count: c.lessons.length })),
+    ...h.classes.map((c) => ({ id: `class:${c.class.id}`, label: c.class.name, count: c.lessons.length })),
     ...h.purchases.map((p) => ({ id: `course:${p.course?.id}`, label: `${p.course?.title} · self-paced`, count: p.lessons.length })),
     { id: "missed", label: "Missed lessons", count: h.totals.missed },
     ...(h.assignments.length ? [{ id: "work", label: "Assigned work", count: h.assignments.length }] : []),
@@ -527,7 +535,7 @@ function History({ s }) {
   const items = h.timeline.filter((x) => kind === "all"
     || (kind === "missed" && x.absent)
     || (kind === "work" && (x.kind === "assigned" || x.kind === "finished"))
-    || (kind === "class" && x.cls?.id === id && x.kind !== "self-paced")
+    || (kind === "class" && x.class?.id === id && x.kind !== "self-paced")
     || (kind === "course" && (x.kind === "self-paced" || x.kind === "bought") && x.course?.id === id));
   const months = [];
   for (const x of items) {
@@ -535,10 +543,9 @@ function History({ s }) {
     if (months.at(-1)?.month !== m) months.push({ month: m, items: [] });
     months.at(-1).items.push(x);
   }
-  const mark = (item, status) => {
-    dispatch({ type: "SET_ATTENDANCE", taughtLessonId: item.taughtLesson.id, studentId: s.id, status });
-    toast(status === "absent" ? `Marked ${first} as missing Lesson ${item.lesson?.n}` : `Marked ${first} as at Lesson ${item.lesson?.n}`);
-  };
+  const mark = (item, status) => setAttendance(item.taughtLesson.id, s.id, status).then(
+    () => toast(status === "absent" ? `Marked ${first} as missing Lesson ${item.lesson?.n}` : `Marked ${first} as at Lesson ${item.lesson?.n}`),
+    (err) => toast(err.description || "Couldn't change attendance", "err"));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

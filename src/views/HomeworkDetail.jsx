@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { IconPencil, IconTrash, IconClipboardText } from "@tabler/icons-react";
 import { Page, Breadcrumbs, Card, Button, Tag, Avatar, PillTabs, Modal } from "../design-system.jsx";
-import { useStore } from "../store.jsx";
 import { useHomeworkPost, useHomeworkActions } from "../homework.jsx";
 import { classDetailPath, classHomeworkPath, classHomeworkEditPath } from "../router.jsx";
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
@@ -10,6 +9,7 @@ import { describeAttachment } from "../components/HomeworkAttachment.jsx";
 import { shortDate, timeAgo } from "../format.js";
 import { useCourse } from "../features/courses/index.js";
 import { useClass } from "../features/classes/index.js";
+import { useStudentNames } from "../features/students/index.js";
 
 /* =========================================================================
    One assignment, the way Google Classroom shows it: the title and when it
@@ -38,18 +38,18 @@ function Tile({ n, label, tone }) {
 export default function HomeworkDetail() {
   const { classId, homeworkId } = useParams();
   const navigate = useNavigate();
-  const { state } = useStore();
   const { remove } = useHomeworkActions();
   const [tab, setTab] = useState("work");
   const [confirm, setConfirm] = useState(false);
   const { cls } = useClass(classId);
+  const { nameOf: nameFor } = useStudentNames();
   const { post, loading } = useHomeworkPost(classId, homeworkId);
   const { lessons } = useCourse(post?.courseId);
   if (!cls || loading) return null;
   if (!post) return <Navigate to={classHomeworkPath(classId)} replace />;
 
   const topic = post.lessonId && lessons.find((l) => l.id === post.lessonId);
-  const nameOf = (id) => state.students.find((s) => s.id === id)?.name || "Student";
+  const nameOf = (id) => nameFor(id) || "Student";
   const rows = [...post.students].sort((a, b) => STATUS[a.status].order - STATUS[b.status].order || nameOf(a.studentId).localeCompare(nameOf(b.studentId)));
   const del = async () => { await remove(cls.id, post); navigate(classHomeworkPath(cls.id)); };
 

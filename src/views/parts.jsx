@@ -19,7 +19,7 @@ import {
 import { LEVELS } from "../ui.jsx";
 import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useNav, studentCourseId, activeStudents,
+  useNav,
   uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
@@ -27,6 +27,7 @@ import { useReadingFolders, useReadingTexts, useReadingText } from "../features/
 import { useSavedComponents, savedFromDetail } from "../features/savedComponents/index.js";
 import { useLesson } from "../features/courses/index.js";
 import { useClass } from "../features/classes/index.js";
+import { useRoster, useStudentNames } from "../features/students/index.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
 import { pathLabel } from "../libraryTree.js";
@@ -361,12 +362,13 @@ function toComponents(block, texts) {
 /* ============================== studio shell ============================== */
 
 export default function BlockStudio() {
-  const { state, toast } = useStore();
+  const toast = useToast();
   const { texts, loading: textsLoading } = useReadingTexts();
   const savedComponents = useSavedComponents();
   const { route, go } = useNav();
   const { course, lesson, loading: lessonLoading, updateBlock } = useLesson(route.courseId, route.lessonId);
   const { cls: teachingClass } = useClass(route.classId);
+  const { roster } = useRoster();
   const [mode, setMode] = useState("student");
   const [savedAs, setSavedAs] = useState({}); // component id → what was saved (see handleSaveComponent)
   // Where the next component goes: null = picker closed, otherwise the
@@ -469,7 +471,9 @@ export default function BlockStudio() {
     return () => { scroller.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
   }, [mode, stuckOffset]);
   const block = lesson?.blocks.find((p) => p.id === route.partId) || null;
-  const enrolled = activeStudents(state).filter((s) => studentCourseId(state, s) === course?.id);
+  // Students whose class is on this course (a student's course is the one
+  // their first class with a course is on).
+  const enrolled = roster.active.filter((s) => s.classes.find((c) => c.courseId)?.courseId === course?.id);
   // Group work picks from students actually assigned to THIS lesson, not
   // the whole course roster — group members should be the people doing
   // this lesson, which "enrolled but not assigned" students aren't (yet).
@@ -1547,7 +1551,7 @@ function FlashcardsComponent({ component }) {
 }
 
 function MatchComponent({ component }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const mode = component.mode || "az";
   const pairs = (component.pairs || []).slice(0, 5);
   if (mode === "theme") return <ThemeGroup pairs={pairs} />;
@@ -1809,7 +1813,7 @@ function TrueFalseQ({ item, n }) {
 // passage (or the line from the audio) that answers it, over the same
 // MatchGrid as vocabulary Match.
 function ComprehensionMatch({ pairs, fromAudio }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const rows = (pairs || []).filter((p) => p.left && p.right).slice(0, 6).map((p, i) => ({ id: i, left: p.left, right: p.right }));
   return fromAudio
     ? <MatchGrid rows={rows} leftLabel="Statement" rightLabel="From the audio" instructions="Pick a statement, then what you heard that answers it." onDone={() => toast("Matched — great listening! 🎉")} />
@@ -2276,11 +2280,11 @@ function PeerTaskComponent({ component }) {
 }
 
 function InfoGapTask({ component }) {
-  const { state } = useStore();
+  const { nameOf } = useStudentNames();
   const roles = component.roles?.length ? component.roles : [{ studentId: null, prompt: "" }, { studentId: null, prompt: "" }];
   const [view, setView] = useState(0);
   const role = roles[Math.min(view, roles.length - 1)];
-  const nameFor = (r) => state.students.find((s) => s.id === r?.studentId)?.name || "Unassigned role";
+  const nameFor = (r) => nameOf(r?.studentId) || "Unassigned role";
   return (
     <div className="">
       <Alert tone="info" icon={IconUsers} title={`Info-gap — split across ${roles.length} student${roles.length === 1 ? "" : "s"}`}>{component.situation}</Alert>
@@ -2303,7 +2307,7 @@ function InfoGapTask({ component }) {
 // live multiplayer backend here, so each round is simulated (weighted-random
 // per team) for preview — the point is the format, not a real connection.
 function TeamQuizRace({ component }) {
-  const { state } = useStore();
+  const { nameOf } = useStudentNames();
   const teams = component.teams?.length ? component.teams : [{ id: "a", name: "Team A", studentIds: [] }, { id: "b", name: "Team B", studentIds: [] }];
   const items = component.items || [];
   const [gameState, setGameState] = useState("idle"); // idle | playing | revealed | done
@@ -2311,7 +2315,7 @@ function TeamQuizRace({ component }) {
   const [scores, setScores] = useState({});
   const [roundResult, setRoundResult] = useState(null);
 
-  const memberNames = (t) => (t.studentIds || []).map((id) => state.students.find((s) => s.id === id)?.name.split(" ")[0]).filter(Boolean).join(", ");
+  const memberNames = (t) => (t.studentIds || []).map((id) => nameOf(id)?.split(" ")[0]).filter(Boolean).join(", ");
 
   function start() { setScores(Object.fromEntries(teams.map((t) => [t.id, 0]))); setQi(0); setGameState("playing"); }
   function revealRound() {
@@ -3198,7 +3202,7 @@ function AudioFilePicker({ label, onFile, busy, compact = false, accept = "audio
 }
 
 function ListeningEditor({ component, onChange }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState("");
   // The upload resolves after an await — by then the editor may have
@@ -3528,7 +3532,7 @@ const DOC_FILE_KIND = (file) => {
 };
 
 function DocumentEditor({ component, onChange }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const latest = useRef(onChange);
   useEffect(() => { latest.current = onChange; });
