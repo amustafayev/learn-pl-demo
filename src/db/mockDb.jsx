@@ -435,7 +435,6 @@ export function studentView(db, studentId) {
     texts: db.texts,
     textFolders: db.textFolders,
     wordSets: db.wordSets,
-    toasts: db.toasts,
   };
 }
 
@@ -452,7 +451,7 @@ export function signedOutView(db) {
     if (bought) return `Bought ${db.courses.find((c) => c.id === bought.courseId)?.title || "a course"}`;
     return "No class yet";
   };
-  return { me: null, accounts: db.students.map((s) => ({ id: s.id, name: s.name, email: s.email, hint: hint(s) })), toasts: db.toasts };
+  return { me: null, accounts: db.students.map((s) => ({ id: s.id, name: s.name, email: s.email, hint: hint(s) })) };
 }
 
 // Create-or-update the one notes document for a lesson. A document with no
@@ -493,7 +492,6 @@ export function createInitialState() {
     componentBank: savedComponentBank(),
     teacher: clone(TEACHER),
     teacherProfiles: clone(TEACHER_PROFILES),
-    toasts: [],
   };
 }
 
@@ -1123,13 +1121,9 @@ export function reducer(state, action) {
       return { ...state, teacher: { ...state.teacher, twoFactorEnabled: action.enabled } };
     // Another open tab (the teacher app or the student app) changed the data:
     // take its copy, the way a client applies a server push (see
-    // db/mockSync.js). Toasts are this tab's own and stay.
+    // db/mockSync.js).
     case "SYNC_STATE":
-      return { ...state, ...action.db, toasts: state.toasts };
-    case "PUSH_TOAST":
-      return { ...state, toasts: [...state.toasts, { id: action.id, text: action.text, tone: action.tone || "ok" }] };
-    case "DISMISS_TOAST":
-      return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) };
+      return { ...state, ...action.db };
     default:
       return state;
   }

@@ -5,9 +5,10 @@ import {
   IconSettings2, IconHelpCircle, IconSun, IconMoon, IconLogout, IconChevronLeft, IconChevronRight,
 } from "@tabler/icons-react";
 import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
+import { ToastProvider } from "./toasts.jsx";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
-import { Page, NavItem, AccountMenu, AccountMenuItem, AccountMenuDivider, SegmentedToggle, ComingSoon, ToastHost, CountBadge } from "./design-system.jsx";
+import { Page, NavItem, AccountMenu, AccountMenuItem, AccountMenuDivider, SegmentedToggle, ComingSoon, CountBadge } from "./design-system.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import { CoursesView, CourseView, LessonBuilderView } from "./views/Courses.jsx";
@@ -36,13 +37,15 @@ const NAV = [
 export default function App() {
   return (
     <BrowserRouter>
-      <StoreProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/*" element={<AppShell />} />
-        </Routes>
-      </StoreProvider>
+      <ToastProvider>
+        <StoreProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/*" element={<AppShell />} />
+          </Routes>
+        </StoreProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }
@@ -50,7 +53,6 @@ export default function App() {
 const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 function AppShell() {
-  const { state, dispatch } = useStore();
   const { pathname } = useLocation();
   // Manual override on top of the existing responsive w-16/w-64 breakpoint —
   // a teacher on a real desktop screen may still want the icon-only rail
@@ -82,7 +84,6 @@ function AppShell() {
           </ErrorBoundary>
         </div>
       </main>
-      <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
     </div>
   );
 }

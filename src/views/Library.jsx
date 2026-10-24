@@ -7,7 +7,7 @@ import {
 import {
   Page, PageHeader, Card, CourseCard, Button, Tag, SectionLabel, Alert, Modal, Field, TextArea, ComingSoon,
 } from "../design-system.jsx";
-import { useToast } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
 import { useWordSets } from "../features/wordSets/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";

@@ -19,9 +19,10 @@ import {
 import { LEVELS } from "../ui.jsx";
 import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
-  useStore, useToast, useNav, studentCourseId, activeStudents,
+  useStore, useNav, studentCourseId, activeStudents,
   lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
 import { useSavedComponents, savedFromDetail } from "../features/savedComponents/index.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";

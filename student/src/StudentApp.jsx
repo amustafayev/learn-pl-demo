@@ -5,7 +5,8 @@ import {
 } from "@tabler/icons-react";
 import { StoreProvider, useStore, studentView, signedOutView } from "@app/store.jsx";
 import { useTheme } from "@app/theme.js";
-import { Avatar, CountBadge, NavItem, NavSectionLabel, SegmentedToggle, ToastHost } from "@app/design-system.jsx";
+import { Avatar, CountBadge, NavItem, NavSectionLabel, SegmentedToggle } from "@app/design-system.jsx";
+import { ToastProvider } from "@app/toasts.jsx";
 import { ErrorBoundary } from "@app/components/ErrorBoundary.jsx";
 import { useMyNotes } from "@app/features/notes/index.js";
 import { SeenProvider, useSeen, useStudentSession } from "./session.jsx";
@@ -33,23 +34,20 @@ export default function StudentApp() {
   const scope = useMemo(() => (studentId ? (db) => studentView(db, studentId) : signedOutView), [studentId]);
   return (
     <BrowserRouter basename="/student">
-      <StoreProvider scope={scope} keepComponentBank={false}>
-        <Gate onSignIn={setStudentId} onSignOut={() => setStudentId(null)} />
-      </StoreProvider>
+      <ToastProvider>
+        <StoreProvider scope={scope} keepComponentBank={false}>
+          <Gate onSignIn={setStudentId} onSignOut={() => setStudentId(null)} />
+        </StoreProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }
 
 function Gate({ onSignIn, onSignOut }) {
-  const { state, dispatch } = useStore();
-  return (
-    <>
-      {state.me
-        ? <SeenProvider key={state.me.id} studentId={state.me.id}><Shell onSignOut={onSignOut} /></SeenProvider>
-        : <SignIn onSignIn={onSignIn} />}
-      <ToastHost toasts={state.toasts} onDismiss={(id) => dispatch({ type: "DISMISS_TOAST", id })} />
-    </>
-  );
+  const { state } = useStore();
+  return state.me
+    ? <SeenProvider key={state.me.id} studentId={state.me.id}><Shell onSignOut={onSignOut} /></SeenProvider>
+    : <SignIn onSignIn={onSignIn} />;
 }
 
 const NAV = [

@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 import { useStore, copyWithOwnH5P, discardH5PContent } from "../../store.jsx";
+import { useToast } from "../../toasts.jsx";
 import { useLoad } from "../../useLoad.js";
 import { createMockSavedComponentsClient } from "./client.js";
 
@@ -10,7 +11,8 @@ import { createMockSavedComponentsClient } from "./client.js";
 // Which client answers, and when to ask again (see notes/hooks.js). For the
 // real backend, build createHttpSavedComponentsClient(api) here.
 function useSavedComponentsSource() {
-  const { state, dispatch, toast } = useStore();
+  const { state, dispatch } = useStore();
+  const toast = useToast();
   const latest = useRef(state);
   latest.current = state;
   const client = useMemo(() => createMockSavedComponentsClient({ getState: () => latest.current, dispatch }), [dispatch]);

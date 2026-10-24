@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, useState } from "react";
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
   persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
@@ -7,7 +7,7 @@ import {
 import { openSyncChannel, sharedChanged } from "./db/mockSync.js";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
-import { MOTION, cssMs } from "./motion.js";
+import { useToast } from "./toasts.jsx";
 
 /* =========================================================================
    React binding on top of the mock "database" (src/db/mockDb.jsx). This
@@ -144,16 +144,9 @@ export function StoreProvider({ children, scope = teacherView, keepComponentBank
     return () => clearInterval(id);
   }, []);
 
-  const toast = useCallback((text, tone) => {
-    const id = uid("toast");
-    dispatch({ type: "PUSH_TOAST", id, text, tone });
-    // How long a toast stays up is a timing setting like any other, so it
-    // lives in `index.css` with the rest of them and is read back here.
-    // `cssMs` (not `motionMs`) on purpose: a reduced-motion preference must
-    // not cut short how long someone has to read it.
-    setTimeout(() => dispatch({ type: "DISMISS_TOAST", id }), cssMs(MOTION.toastLife));
-    return id;
-  }, []);
+  // Toasts are the app's UI, not data (src/toasts.jsx); passed on here for
+  // screens that still take everything from useStore().
+  const toast = useToast();
 
   return <StoreCtx.Provider value={{ state, dispatch, toast, uid, caughtUp }}>{children}</StoreCtx.Provider>;
 }
@@ -163,9 +156,6 @@ export function useStore() {
   if (!ctx) throw new Error("useStore must be used inside <StoreProvider>");
   return ctx;
 }
-
-// Just the toast, for code that shows messages but reads no app data.
-export const useToast = () => useStore().toast;
 
 /* -------- navigation (single route object shared across views) -------- */
 

@@ -16,8 +16,9 @@
    ========================================================================= */
 
 const CHANNEL = "lucid.mock-server";
-// Per-tab UI state that never leaves the tab.
-const LOCAL_ONLY = new Set(["toasts"]);
+// Per-tab state that never leaves the tab (none since toasts moved to
+// src/toasts.jsx; kept as the place to name one).
+const LOCAL_ONLY = new Set();
 
 export const sharedPart = (db) => Object.fromEntries(Object.entries(db).filter(([k]) => !LOCAL_ONLY.has(k)));
 

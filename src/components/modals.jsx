@@ -2,7 +2,8 @@ import React, { useState, useRef } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { Modal, Field, TextField, Select, Button, StudentCheckList, CategoryPicker } from "../design-system.jsx";
 import { pathLabel } from "../libraryTree.js";
-import { useStore, useToast, activeStudents, assignWork } from "../store.jsx";
+import { useStore, activeStudents, assignWork } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts } from "../features/readings/index.js";
 import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL } from "../data.jsx";
 

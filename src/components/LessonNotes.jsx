@@ -6,7 +6,7 @@ import {
   IconMaximize, IconMinimize, IconBrandGoogle,
 } from "@tabler/icons-react";
 import { Button, Tag, TextField } from "../design-system.jsx";
-import { useToast } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { useLessonNotes, googleDocsConfigured, docEmbedUrl } from "../features/notes/index.js";
 import { isGoogleDocUrl } from "../richText.js";
 
