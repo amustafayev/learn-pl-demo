@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { useStore } from "../../store.jsx";
+import { useMockSource } from "../../db/useMockSource.js";
 import { useLoad } from "../../useLoad.js";
 import { createMockNotesClient } from "./client.js";
 import { googleDocs } from "./googleDocs.js";
@@ -13,13 +13,8 @@ import { googleDocs } from "./googleDocs.js";
 // real backend, build createHttpNotesClient(api) here instead and drive
 // `revision` from its push (GET /events: notes.updated).
 function useNotesSource() {
-  const { state, dispatch } = useStore();
-  const latest = useRef(state);
-  latest.current = state;
-  const client = useMemo(() => createMockNotesClient({ getState: () => latest.current, dispatch }), [dispatch]);
-  // A token that changes whenever the mock's notes (or the class names on
-  // them) do.
-  const revision = useMemo(() => [state.lessonNotes, state.classNotes, state.classes], [state.lessonNotes, state.classNotes, state.classes]);
+  const { source, revision } = useMockSource((s) => [s.lessonNotes, s.classNotes, s.classes]);
+  const client = useMemo(() => createMockNotesClient(source), [source]);
   return { client, revision };
 }
 

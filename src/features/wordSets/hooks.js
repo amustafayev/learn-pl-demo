@@ -1,5 +1,5 @@
-import { useMemo, useRef } from "react";
-import { useStore } from "../../store.jsx";
+import { useMemo } from "react";
+import { useMockSource } from "../../db/useMockSource.js";
 import { useLoad } from "../../useLoad.js";
 import { createMockWordSetsClient } from "./client.js";
 
@@ -10,11 +10,8 @@ import { createMockWordSetsClient } from "./client.js";
 // real backend, build createHttpWordSetsClient(api, { audience }) here —
 // "student" in the student app.
 function useWordSetsSource() {
-  const { state, dispatch } = useStore();
-  const latest = useRef(state);
-  latest.current = state;
-  const client = useMemo(() => createMockWordSetsClient({ getState: () => latest.current, dispatch }), [dispatch]);
-  const revision = useMemo(() => [state.wordSets], [state.wordSets]);
+  const { source, revision } = useMockSource((s) => [s.wordSets]);
+  const client = useMemo(() => createMockWordSetsClient(source), [source]);
   return { client, revision };
 }
 

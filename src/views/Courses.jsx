@@ -19,6 +19,7 @@ import { NewCourseModal, NewLessonModal, AddBlockModal } from "../components/mod
 import { COMPONENT_META, blockComponents, componentLabel, componentPreview, linkedSource } from "./parts.jsx";
 import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
+import { useMe } from "../features/account/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -28,6 +29,7 @@ const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", r
 
 export function CoursesView() {
   const { state } = useStore();
+  const { me } = useMe();
   const { go } = useNav();
   const [modal, setModal] = useState(false);
   return (
@@ -42,7 +44,7 @@ export function CoursesView() {
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
             <CourseCard key={c.id} icon={IconBook2} tone={tone} title={c.title}
-              creatorLabel="Designed by" creatorName={state.teacher.name} creatorColor="dark"
+              creatorLabel="Designed by" creatorName={me?.name || ""} creatorColor="dark"
               category={`${LESSON_TEMPLATES[c.templateId]?.label || "General English"} template`}
               stats={[{ icon: IconUsers, value: `${classCount} class${classCount === 1 ? "" : "es"}` }, { icon: IconSchool, value: `${count} lesson${count === 1 ? "" : "s"}` }]}
               progressPct={courseAvgProgress(state, c.id)} onViewDetail={() => go({ courseId: c.id })} />

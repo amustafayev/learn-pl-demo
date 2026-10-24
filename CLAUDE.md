@@ -81,7 +81,15 @@ src/features/<name>/
               createHttp…Client (the docs/openapi.yaml calls, on db/apiClient.js)
   hooks.js    what screens call; picks the client and re-asks when data changes
   index.js    the feature's public API — the only file outside the folder may import
+  client.test.js   see **Tests**
 ```
+
+A mock client runs on `useMockSource(pick)` (`src/db/useMockSource.js`):
+`getState()` is the signed-in user's slice of the mock db, `dispatch` writes
+it, and `waitFor(test)` lets a write return what it created (the real API
+just returns it). `pick` names the slices whose change makes the hooks ask
+again. Mock clients may also call the mock db's own selectors
+(`db/mockDb.jsx`); both go when the mock does.
 
 - **Screens never touch the mock** for a converted feature: no `useStore()`
   state, no reducer actions, no mock selectors. They call the feature's
@@ -109,6 +117,11 @@ src/features/<name>/
   screens don't change.
 
 Converted so far:
+- **account** — who's signed in (`useMe`: both top bars, the login
+  greeting, "Designed by", Settings → Profile and Security) and the student
+  app's sign-in page (`useSignIn`). The student app remounts everything
+  below its sign-in gate when the session changes, so no screen outlives
+  the student it was showing.
 - **notes** — the teacher's notes panel, the student app's notes
   everywhere, and Google Docs.
 - **readings** — reading texts and their folders: Library → Reading, Add
@@ -119,6 +132,9 @@ Converted so far:
   its place in the set).
 - **savedComponents** — Library → Saved, saving from Block Studio and the
   course tree (`save` copies the H5P content first), inserting a saved one.
+
+Toasts aren't a feature but the app's UI: `src/toasts.jsx` (`ToastProvider`
+around each app, `useToast()`), per tab, never stored or synced.
 
 Class homework already follows the same pattern from before
 (`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into

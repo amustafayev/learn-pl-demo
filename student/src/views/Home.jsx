@@ -8,6 +8,7 @@ import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { boughtCourses, classOf, courseOf, finishedLesson, firstName, lessonsOf, myClasses, teacherName, toneOf } from "../lib.js";
 import { useMyNotes } from "@app/features/notes/index.js";
+import { useMe } from "@app/features/account/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 import { WorkRow, openWork } from "./Work.jsx";
 
@@ -19,7 +20,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { seen } = useSeen();
   const { notes } = useMyNotes();
-  const me = state.me;
+  const { me } = useMe();
   const classes = myClasses(state);
   const invites = state.invitations.filter((i) => i.status === "pending" && i.expiresAt > new Date().toISOString());
   const waiting = state.memberships.filter((m) => m.status === "requested");
@@ -33,6 +34,7 @@ export default function Home() {
     toast(`You're in ${classOf(state, inv.classId)?.name || "the class"}`);
   };
 
+  if (!me) return null;
   return (
     <Page>
       <PageHeader kicker="Student" title={`Welcome, ${firstName(me.name)}!`}

@@ -6,7 +6,8 @@ import {
 import {
   Page, TabBar, NavItem, SectionLabel, Field, TextField, PasswordField, Button, Switch, Modal, ComingSoon, ImagePlaceholder,
 } from "../design-system.jsx";
-import { useStore } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
+import { useMe } from "../features/account/index.js";
 
 /* =========================================================================
    Settings — the Learniv kit's Setting sheet. Owns its own nested routing
@@ -107,22 +108,28 @@ function SettingRow({ title, desc, action }) {
 }
 
 function ProfilePanel() {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const { me, updateProfile } = useMe();
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
-    const [f, ...rest] = state.teacher.name.split(" ");
+    if (!me) return;
+    const [f, ...rest] = me.name.split(" ");
     setFirst(f || ""); setLast(rest.join(" "));
-    setEmail(state.teacher.email); setPhone(state.teacher.phone || "");
+    setEmail(me.email); setPhone(me.phone || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.teacher.name, state.teacher.email, state.teacher.phone]);
+  }, [me?.name, me?.email, me?.phone]);
 
-  function save() {
-    dispatch({ type: "UPDATE_TEACHER_PROFILE", patch: { name: `${first} ${last}`.trim(), email, phone } });
-    toast("Profile updated");
+  async function save() {
+    try {
+      await updateProfile({ name: `${first} ${last}`.trim(), email, phone });
+      toast("Profile updated");
+    } catch (err) {
+      toast(err.description || "Couldn't update the profile", "err");
+    }
   }
 
   return (
@@ -146,7 +153,8 @@ function ProfilePanel() {
 }
 
 function SecurityPanel() {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
+  const { me, setTwoFactor } = useMe();
   const [pwOpen, setPwOpen] = useState(false);
 
   return (
@@ -156,8 +164,10 @@ function SecurityPanel() {
         action={<Button variant="outline" size="sm" onClick={() => setPwOpen(true)}>Change</Button>} />
       <SettingRow title="Two-Factor Authentication"
         desc="Enhance security with Two-Factor Authentication (2FA). It requires your password and a code sent to your mobile."
-        action={<Switch checked={state.teacher.twoFactorEnabled}
-          onChange={(v) => { dispatch({ type: "SET_TEACHER_2FA", enabled: v }); toast(v ? "Two-factor authentication enabled" : "Two-factor authentication disabled"); }} />} />
+        action={<Switch checked={!!me?.twoFactorEnabled}
+          onChange={(v) => setTwoFactor(v)
+            .then(() => toast(v ? "Two-factor authentication enabled" : "Two-factor authentication disabled"))
+            .catch((err) => toast(err.description || "Couldn't change two-factor authentication", "err"))} />} />
       <SettingRow title="Login Activity"
         desc="Stay informed about your account's security. Monitor login attempts and check your history."
         action={
@@ -176,7 +186,7 @@ function SecurityPanel() {
 }
 
 function ChangePasswordModal({ open, onClose }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -200,7 +210,8 @@ function ChangePasswordModal({ open, onClose }) {
 }
 
 function LinkedAccountPanel() {
-  const { state, toast } = useStore();
+  const toast = useToast();
+  const { me } = useMe();
   return (
     <div>
       <div className="flex items-start justify-between gap-6 mb-6">
@@ -212,7 +223,7 @@ function LinkedAccountPanel() {
       </div>
       <SectionLabel>Status</SectionLabel>
       <div className="divide-y divide-neutral-100">
-        {state.teacher.linkedAccounts.map((acc) => (
+        {(me?.linkedAccounts || []).map((acc) => (
           <div key={acc.id} className="flex items-center justify-between py-3.5">
             <div>
               <div className="font-semibold text-sm text-neutral-950">{acc.label}</div>

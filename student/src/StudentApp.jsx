@@ -9,6 +9,7 @@ import { Avatar, CountBadge, NavItem, NavSectionLabel, SegmentedToggle } from "@
 import { ToastProvider } from "@app/toasts.jsx";
 import { ErrorBoundary } from "@app/components/ErrorBoundary.jsx";
 import { useMyNotes } from "@app/features/notes/index.js";
+import { useMe, useSignIn } from "@app/features/account/index.js";
 import { SeenProvider, useSeen, useStudentSession } from "./session.jsx";
 import { courseOf, lessonOf, myClasses, teacherName } from "./lib.js";
 import SignIn from "./views/SignIn.jsx";
@@ -36,7 +37,9 @@ export default function StudentApp() {
     <BrowserRouter basename="/student">
       <ToastProvider>
         <StoreProvider scope={scope} keepComponentBank={false}>
-          <Gate onSignIn={setStudentId} onSignOut={() => setStudentId(null)} />
+          {/* A new session starts every screen afresh, so none outlives the
+              student it was showing. */}
+          <Gate key={studentId || "signed-out"} onSignIn={setStudentId} onSignOut={() => setStudentId(null)} />
         </StoreProvider>
       </ToastProvider>
     </BrowserRouter>
@@ -44,9 +47,12 @@ export default function StudentApp() {
 }
 
 function Gate({ onSignIn, onSignOut }) {
-  const { state } = useStore();
-  return state.me
-    ? <SeenProvider key={state.me.id} studentId={state.me.id}><Shell onSignOut={onSignOut} /></SeenProvider>
+  const { me, loading } = useMe();
+  const { logout } = useSignIn();
+  const signOut = () => { logout(); onSignOut(); };
+  if (loading) return null;
+  return me
+    ? <SeenProvider key={me.id} studentId={me.id}><Shell onSignOut={signOut} /></SeenProvider>
     : <SignIn onSignIn={onSignIn} />;
 }
 
@@ -149,7 +155,7 @@ function Sidebar({ pathname, onSignOut }) {
 }
 
 function TopBar({ pathname }) {
-  const { state } = useStore();
+  const { me } = useMe();
   const { seen } = useSeen();
   const navigate = useNavigate();
   const section = pathname.split("/")[1];
@@ -165,10 +171,10 @@ function TopBar({ pathname }) {
           <IconBell size={18} stroke={1.75} />{unseen && <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-warning-500" />}
         </button>
         <div className="hidden sm:flex items-center gap-2.5 pl-3">
-          <Avatar name={state.me.name} color="primary" size="sm" />
+          <Avatar name={me?.name || ""} color="primary" size="sm" />
           <div className="leading-none">
-            <div className="text-sm font-semibold text-neutral-950">{state.me.name}</div>
-            <div className="text-[11px] text-neutral-500 mt-0.5">{state.me.email}</div>
+            <div className="text-sm font-semibold text-neutral-950">{me?.name}</div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">{me?.email}</div>
           </div>
         </div>
       </div>

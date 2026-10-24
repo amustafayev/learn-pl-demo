@@ -6,6 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { StoreProvider, useStore, teacherRoster } from "./store.jsx";
 import { ToastProvider } from "./toasts.jsx";
+import { useMe } from "./features/account/index.js";
 import { Bridge, TAB_PATH, tabForPath } from "./router.jsx";
 import { useTheme } from "./theme.js";
 import { Page, NavItem, AccountMenu, AccountMenuItem, AccountMenuDivider, SegmentedToggle, ComingSoon, CountBadge } from "./design-system.jsx";
@@ -149,7 +150,7 @@ const LIGHT_DARK_OPTIONS = [
 ];
 
 function TopBar({ pathname }) {
-  const { state } = useStore();
+  const { me } = useMe();
   const navigate = useNavigate();
   const [theme, setTheme] = useTheme();
   const titles = {
@@ -160,7 +161,7 @@ function TopBar({ pathname }) {
     <div className="h-16 bg-neutral-50/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{titles[tabForPath(pathname)]}</div>
       <div className="flex items-center gap-3 shrink-0">
-        <AccountMenu name={state.teacher.name} email={state.teacher.email}>
+        <AccountMenu name={me?.name || ""} email={me?.email || ""}>
           <AccountMenuItem icon={IconSettings2} onClick={() => navigate("/settings/account/profile")}>Setting</AccountMenuItem>
           <AccountMenuItem icon={IconHelpCircle} onClick={() => navigate("/help")}>Help &amp; Support</AccountMenuItem>
           <div className="px-1.5 py-1.5"><SegmentedToggle value={theme} options={LIGHT_DARK_OPTIONS} onChange={setTheme} /></div>

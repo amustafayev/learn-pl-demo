@@ -1,5 +1,5 @@
-import { useMemo, useRef } from "react";
-import { useStore } from "../../store.jsx";
+import { useMemo } from "react";
+import { useMockSource } from "../../db/useMockSource.js";
 import { useLoad } from "../../useLoad.js";
 import { createMockReadingsClient } from "./client.js";
 
@@ -10,11 +10,8 @@ import { createMockReadingsClient } from "./client.js";
 // real backend, build createHttpReadingsClient(api, { audience }) here —
 // "student" in the student app.
 function useReadingsSource() {
-  const { state, dispatch } = useStore();
-  const latest = useRef(state);
-  latest.current = state;
-  const client = useMemo(() => createMockReadingsClient({ getState: () => latest.current, dispatch }), [dispatch]);
-  const revision = useMemo(() => [state.texts, state.textFolders], [state.texts, state.textFolders]);
+  const { source, revision } = useMockSource((s) => [s.texts, s.textFolders]);
+  const client = useMemo(() => createMockReadingsClient(source), [source]);
   return { client, revision };
 }
 

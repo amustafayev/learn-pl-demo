@@ -7,9 +7,11 @@
      expect(calls).toEqual([{ method: "GET", path: "/me/notes" }]);
 
    An answer may be a value, a function of the request body, or an
-   ApiError to reject with. A request with no answer resolves undefined. */
+   ApiError to reject with. A request with no answer resolves undefined.
+   token() is the auth token the client last set (setAuthToken). */
 export function recordingApi(responses = {}) {
   const calls = [];
+  let token = null;
   const send = (method) => async (path, body) => {
     calls.push(body === undefined ? { method, path } : { method, path, body });
     const answer = responses[`${method} ${path}`];
@@ -18,6 +20,11 @@ export function recordingApi(responses = {}) {
   };
   return {
     calls,
-    api: { get: send("GET"), post: send("POST"), put: send("PUT"), patch: send("PATCH"), delete: send("DELETE") },
+    token: () => token,
+    api: {
+      get: send("GET"), post: send("POST"), put: send("PUT"), patch: send("PATCH"), delete: send("DELETE"),
+      setAuthToken: (next) => { token = next; },
+      clearAuthToken: () => { token = null; },
+    },
   };
 }

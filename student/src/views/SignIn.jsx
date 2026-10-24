@@ -1,17 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { IconChevronRight } from "@tabler/icons-react";
 import { Avatar, Button, Field, PasswordField, TextField } from "@app/design-system.jsx";
-import { useStore } from "@app/store.jsx";
+import { useSignIn } from "@app/features/account/index.js";
 import { AuthShell } from "@app/views/Auth.jsx";
 
-// Log in or sign up, on the teacher app's own Auth sheet. There's no real
-// auth to check a password against (see CLAUDE.md), so an email that
-// matches a student account signs in; the demo accounts below sign in with
-// one click. Opened from a class link (/join/CODE), it says so, and the
-// join page is waiting right after.
+// What the account client's refusals say on this page.
+const REFUSED = {
+  invalid_credentials: "No student account with that email — sign up instead?",
+  email_taken: "There's already an account with that email — log in instead.",
+};
+
+// Log in or sign up, on the teacher app's own Auth sheet. The mock has no
+// password to check (see CLAUDE.md), so an email that matches a student
+// account signs in; the demo accounts below sign in with one click. Opened
+// from a class link (/join/CODE), it says so, and the join page is waiting
+// right after.
 export default function SignIn({ onSignIn }) {
-  const { state, dispatch } = useStore();
+  const { accounts, login, register } = useSignIn();
   const { pathname } = useLocation();
   const joining = /^\/join\/[A-Za-z0-9]+/.test(pathname);
   const [mode, setMode] = useState("login"); // login | signup
@@ -19,28 +25,16 @@ export default function SignIn({ onSignIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [registering, setRegistering] = useState(null); // email just signed up with
-  const accounts = state.accounts || [];
-  const byEmail = (e) => accounts.find((a) => (a.email || "").toLowerCase() === e.trim().toLowerCase());
 
-  // A new account exists once the reducer has added it — then sign in.
-  useEffect(() => {
-    const account = registering && byEmail(registering);
-    if (account) onSignIn(account.id);
-  });
-
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
     if (!email.trim() || !password.trim() || (mode === "signup" && !name.trim())) { setError("Fill in every field."); return; }
-    if (mode === "login") {
-      const account = byEmail(email);
-      if (!account) { setError("No student account with that email — sign up instead?"); return; }
-      onSignIn(account.id);
-      return;
+    try {
+      const { user } = mode === "login" ? await login(email, password) : await register(name, email, password);
+      onSignIn(user.id);
+    } catch (err) {
+      setError(REFUSED[err.code] || err.description || "Something went wrong — try again.");
     }
-    if (byEmail(email)) { setError("There's already an account with that email — log in instead."); return; }
-    dispatch({ type: "REGISTER_STUDENT", name, email });
-    setRegistering(email);
   }
 
   const switchMode = (m) => { setMode(m); setError(""); };

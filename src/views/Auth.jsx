@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IconBrandApple, IconBrandFacebook, IconBrandGoogle, IconSparkles } from "@tabler/icons-react";
 import { Field, TextField, PasswordField, Button, SocialButton, ImagePlaceholder } from "../design-system.jsx";
-import { useStore } from "../store.jsx";
+import { useMe } from "../features/account/index.js";
 
 /* =========================================================================
    Login / Sign up — the Learniv kit's Auth sheet: a left image panel (just a
@@ -45,11 +45,11 @@ const SOCIALS = [
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { state } = useStore();
+  const { me } = useMe();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
-  const firstName = state.teacher.name.split(" ")[0];
+  const firstName = (me?.name || "").split(" ")[0];
 
   function submit(e) {
     e.preventDefault();
