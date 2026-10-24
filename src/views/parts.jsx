@@ -20,11 +20,12 @@ import { LEVELS } from "../ui.jsx";
 import { Alert, Badge, Button, SegmentedToggle, CategoryPicker, CategoryPickerGrid, RailItem, NavItem, Card, CountBadge, Field, HeaderCard, HeaderCardSection, Modal, SearchField, Select, StepNav, SpeakButton, Tag, TextField, TextArea, QuestionList, QuestionItem, ChoiceOption, QuestionFooter, MessageBubble, ChatPanel, SegmentedBar, Switch, PRESS, inputCls } from "../design-system.jsx";
 import {
   useStore, useNav, studentCourseId, activeStudents,
-  lessonBlocks, uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
+  uid, copyWithOwnH5P, discardH5PContent, saveMedia, useMediaSrc,
 } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
 import { useSavedComponents, savedFromDetail } from "../features/savedComponents/index.js";
+import { useLesson } from "../features/courses/index.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
 import { pathLabel } from "../libraryTree.js";
@@ -359,10 +360,11 @@ function toComponents(block, texts) {
 /* ============================== studio shell ============================== */
 
 export default function BlockStudio() {
-  const { state, dispatch, toast } = useStore();
+  const { state, toast } = useStore();
   const { texts, loading: textsLoading } = useReadingTexts();
   const savedComponents = useSavedComponents();
   const { route, go } = useNav();
+  const { course, lesson, loading: lessonLoading, updateBlock } = useLesson(route.courseId, route.lessonId);
   const [mode, setMode] = useState("student");
   const [savedAs, setSavedAs] = useState({}); // component id → what was saved (see handleSaveComponent)
   // Where the next component goes: null = picker closed, otherwise the
@@ -464,9 +466,7 @@ export default function BlockStudio() {
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => { scroller.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
   }, [mode, stuckOffset]);
-  const course = state.courses.find((c) => c.id === route.courseId);
-  const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
-  const block = lessonBlocks(lesson).find((p) => p.id === route.partId);
+  const block = lesson?.blocks.find((p) => p.id === route.partId) || null;
   const teachingClass = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
   const enrolled = activeStudents(state).filter((s) => studentCourseId(state, s) === course?.id);
   // Group work picks from students actually assigned to THIS lesson, not
@@ -477,11 +477,8 @@ export default function BlockStudio() {
   // Waits for the reading texts, so a starter passage gets the library's
   // first text rather than none.
   useEffect(() => {
-    if (block && !block.content?.components && !textsLoading) {
-      dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id,
-        patch: { content: toComponents(block, texts) } });
-    }
-  }, [block, route.courseId, route.lessonId, dispatch, texts, textsLoading]);
+    if (block && !block.content?.components && !textsLoading) updateBlock(block.id, { content: toComponents(block, texts) });
+  }, [block, updateBlock, texts, textsLoading]);
 
   // Selection made in one place shows up in the other: pick a row in the
   // list and the preview glides to that component; click a component in
@@ -541,6 +538,7 @@ export default function BlockStudio() {
     return () => window.removeEventListener("keydown", onKey);
   }, [insertAt, selectedId]);
 
+  if (lessonLoading) return null;
   if (!block) {
     // Blocks added during a session only live in memory, so their URLs stop
     // resolving after a reload — say so instead of rendering a blank page.
@@ -559,7 +557,7 @@ export default function BlockStudio() {
   const BT = BLOCK_TYPES[block.type]; const I = BT.icon;
 
   const setComponents = (next) =>
-    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: block.id, patch: { content: { ...content, components: next } } });
+    updateBlock(block.id, { content: { ...content, components: next } }).catch((err) => toast(err.description || "Couldn't save the block", "err"));
   const updateComponent = (i, patch) => setComponents(components.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   // Saves the open H5P editor's pending work before anything closes or
@@ -700,7 +698,7 @@ export default function BlockStudio() {
     setActiveStepId(id);
     document.getElementById(`step-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  const blocks = lessonBlocks(lesson);
+  const blocks = lesson.blocks;
   const blockIndex = blocks.findIndex((b) => b.id === block.id);
   // One level for every activity? Then say it once in the header instead
   // of repeating the same chip on each step (student view only — the

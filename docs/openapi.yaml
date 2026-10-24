@@ -250,9 +250,14 @@ paths:
       tags: [Lessons & blocks]
       operationId: listLessons
       summary: Lessons of a course, in order
-      description: Authoring view (teacher). Blocks are returned in full by the single-lesson read; here only a summary.
+      description: |
+        Authoring view (teacher). By default a summary per lesson; with
+        `include=blocks`, full `Lesson` objects with every block and component —
+        what the course tree needs, since it shows and searches them all at once.
+      parameters:
+        - { name: include, in: query, required: false, schema: { type: string, enum: [blocks] } }
       responses:
-        "200": { description: "Lessons", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/LessonSummary" } } } } }
+        "200": { description: "Lessons (`LessonSummary`, or `Lesson` with `include=blocks`)", content: { application/json: { schema: { type: array, items: { oneOf: [{ $ref: "#/components/schemas/LessonSummary" }, { $ref: "#/components/schemas/Lesson" }] } } } } }
     post:
       tags: [Lessons & blocks]
       operationId: createLesson

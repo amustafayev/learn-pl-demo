@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   IconPlus, IconChevronRight, IconChevronDown, IconArrowUp, IconArrowDown, IconTrash, IconPencil,
@@ -7,10 +7,8 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
-import {
-  useStore, useNav, lessonBlocks, activeClassCourse, classCourseProgress, courseAvgProgress,
-  uid, discardH5PContent, teacherRoster,
-} from "../store.jsx";
+import { useStore, useNav, activeClassCourse, classCourseProgress, courseAvgProgress, teacherRoster } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar, { ShareLessonButton } from "../components/ClassLessonBar.jsx";
 import { BLOCK_TYPES, LESSON_TEMPLATES, CLASS_COURSE_STATUS, blockMeta } from "../data.jsx";
@@ -20,6 +18,7 @@ import { COMPONENT_META, blockComponents, componentLabel, componentPreview, link
 import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
 import { useMe } from "../features/account/index.js";
+import { useCourses, useCourse, useLesson } from "../features/courses/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -30,6 +29,7 @@ const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", r
 export function CoursesView() {
   const { state } = useStore();
   const { me } = useMe();
+  const { courses, createCourse } = useCourses();
   const { go } = useNav();
   const [modal, setModal] = useState(false);
   return (
@@ -38,8 +38,8 @@ export function CoursesView() {
         sub="Build the lesson pathway — rosters and progress live in Classes"
         right={<Button variant="primary" onClick={() => setModal(true)}><IconPlus size={16} stroke={1.75} /> New course</Button>} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {state.courses.map((c) => {
-          const count = (state.lessons[c.id] || []).length;
+        {courses.map((c) => {
+          const count = c.lessonCount;
           const classCount = state.classes.filter((cls) => activeClassCourse(cls)?.courseId === c.id).length;
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
@@ -51,7 +51,7 @@ export function CoursesView() {
           );
         })}
       </div>
-      <NewCourseModal open={modal} onClose={() => setModal(false)} />
+      <NewCourseModal open={modal} onClose={() => setModal(false)} onCreate={createCourse} />
     </Page>
   );
 }
@@ -74,14 +74,12 @@ export function CourseView() {
   const { texts } = useReadingTexts();
   const saved = useSavedComponents();
   const { route, go } = useNav();
+  const { course, lessons, createLesson, updateSale } = useCourse(route.courseId);
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
   const [expandedBlocks, setExpandedBlocks] = useState({});
   const [statusFilter, setStatusFilter] = useState("all");
-
-  const course = state.courses.find((c) => c.id === route.courseId);
-  const lessons = state.lessons[route.courseId] || [];
 
   // Viewed "as" a specific class (?classId=) — its progress replaces the
   // course's own authored lock/current/progress fields below. Absent this,
@@ -89,17 +87,6 @@ export function CourseView() {
   const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
   const progress = cls && course ? classCourseProgress(state, cls, course.id) : null;
   const classCourse = progress?.entry || null;
-
-  // Hydrate every lesson's shorthand `parts` into a real `built` array with
-  // stable ids as soon as the tree needs to show them — without this, a
-  // lesson never opened in the builder gets fresh synthetic block ids on
-  // every render, which breaks the tree's own expand/collapse state.
-  useEffect(() => {
-    lessons.forEach((l) => {
-      if (!l.built || !l.built.length) dispatch({ type: "ENSURE_BUILT", courseId: route.courseId, lessonId: l.id });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.courseId, lessons.length]);
 
   if (!course) return null;
 
@@ -126,7 +113,7 @@ export function CourseView() {
   // same numbers. Search matches roll up: a matching component reveals its
   // block, a matching block reveals its lesson.
   const tree = lessons.map((l) => {
-    const blocks = lessonBlocks(l).map((b) => ({ ...b, components: blockComponents(b, texts) }));
+    const blocks = l.blocks.map((b) => ({ ...b, components: blockComponents(b, texts) }));
     const totalComponents = blocks.reduce((n, b) => n + b.components.length, 0);
 
     let lessonMatch = !!q && l.title.toLowerCase().includes(q);
@@ -183,7 +170,7 @@ export function CourseView() {
 
       {/* The plain course page (no class) is the course as a product you
           can also sell on its own. */}
-      {!cls && <CourseSalesCard course={course} />}
+      {!cls && <CourseSalesCard course={course} onUpdateSale={updateSale} />}
 
       {/* Only viewed through a class (?classId=) — a course has no progress
           of its own, so the plain course page shows none at all. */}
@@ -374,7 +361,7 @@ export function CourseView() {
         </div>
       </Card>
 
-      <NewLessonModal open={modal} onClose={() => setModal(false)} courseId={route.courseId} onCreated={(lessonId) => go({ lessonId })} />
+      <NewLessonModal open={modal} onClose={() => setModal(false)} onCreate={createLesson} onCreated={(lessonId) => go({ lessonId })} />
     </Page>
   );
 }
@@ -383,34 +370,29 @@ export function CourseView() {
    Structured Lesson Pathway View: Passage -> Words -> Videos -> Listenings -> Grammar -> Practice Grammar -> Homework */
 
 export function LessonBuilderView() {
-  const { state, dispatch, toast } = useStore();
+  const { state } = useStore();
+  const toast = useToast();
   const { route, go } = useNav();
+  const { course, lesson, addBlock: addLessonBlock, updateBlock, removeBlock, moveBlock } = useLesson(route.courseId, route.lessonId);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
 
-  const course = state.courses.find((c) => c.id === route.courseId);
-  const lesson = (state.lessons[route.courseId] || []).find((l) => l.id === route.lessonId);
   const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
 
-  useEffect(() => {
-    dispatch({ type: "ENSURE_BUILT", courseId: route.courseId, lessonId: route.lessonId });
-  }, [route.courseId, route.lessonId, dispatch]);
-
   if (!lesson || !course) return null;
-  const blocks = lesson.built || [];
+  const blocks = lesson.blocks;
 
   const availableTypes = LESSON_TEMPLATES[course.templateId]?.blockTypes || LESSON_TEMPLATES.general.blockTypes;
   const usedCounts = blocks.reduce((acc, b) => ({ ...acc, [b.type]: (acc[b.type] || 0) + 1 }), {});
 
+  const failed = (err) => toast(err.description || "Couldn't change the lesson", "err");
   function addBlock(type) {
     const BT = BLOCK_TYPES[type];
-    dispatch({ type: "ADD_PART", courseId: route.courseId, lessonId: route.lessonId,
-      part: { id: uid("p"), type, title: BT.label, meta: "—" } });
-    toast(`Added ${BT.label} step`);
+    addLessonBlock({ type, title: BT.label }).then(() => toast(`Added ${BT.label} step`), failed);
   }
   function saveTitle(b) {
-    dispatch({ type: "UPDATE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, patch: { title: draft } });
+    updateBlock(b.id, { title: draft }).catch(failed);
     setEditing(null);
   }
   return (
@@ -471,9 +453,9 @@ export function LessonBuilderView() {
                   {!cls && (
                     <div className="flex items-center gap-1 text-neutral-400">
                       <button title="Rename" onClick={() => { setEditing(b.id); setDraft(b.title || BT.label); }} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100"><IconPencil size={14} stroke={1.75} /></button>
-                      <button title="Move up" disabled={i === 0} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: -1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
-                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => dispatch({ type: "MOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id, dir: 1 })} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
-                      <button title="Remove" onClick={() => { discardH5PContent(toast, b); dispatch({ type: "REMOVE_PART", courseId: route.courseId, lessonId: route.lessonId, partId: b.id }); toast("Step removed"); }} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
+                      <button title="Move up" disabled={i === 0} onClick={() => moveBlock(b.id, "up").catch(failed)} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowUp size={14} stroke={1.75} /></button>
+                      <button title="Move down" disabled={i === blocks.length - 1} onClick={() => moveBlock(b.id, "down").catch(failed)} className="hover:text-neutral-700 p-1.5 rounded hover:bg-neutral-100 disabled:opacity-30"><IconArrowDown size={14} stroke={1.75} /></button>
+                      <button title="Remove" onClick={() => removeBlock(b).then(() => toast("Step removed"), failed)} className="hover:text-warning-600 p-1.5 rounded hover:bg-neutral-100"><IconTrash size={14} stroke={1.75} /></button>
                     </div>
                   )}
                 </div>
@@ -501,7 +483,7 @@ export function LessonBuilderView() {
 // in CLAUDE.md): whether it's for sale, what it costs, and who bought it.
 // Separate from teaching it to a class — buyers get every lesson and go at
 // their own pace; nobody has to accept them.
-function CourseSalesCard({ course }) {
+function CourseSalesCard({ course, onUpdateSale }) {
   const { state } = useStore();
   const [editing, setEditing] = useState(false);
   const [viewing, setViewing] = useState(false);
@@ -533,7 +515,7 @@ function CourseSalesCard({ course }) {
         {(sale.forSale || customers.length > 0) && <Button size="sm" variant={requests.length ? "primary" : "outline"} onClick={() => setViewing(true)}>Customers{requests.length ? ` · ${requests.length}` : ""}</Button>}
         <Button size="sm" variant={sale.forSale ? "light" : "primary"} onClick={() => setEditing(true)}>{sale.forSale ? "Sale settings" : "Put on sale"}</Button>
       </div>
-      <SaleSettingsModal key={editing ? "open" : "closed"} open={editing} onClose={() => setEditing(false)} course={course} />
+      <SaleSettingsModal key={editing ? "open" : "closed"} open={editing} onClose={() => setEditing(false)} course={course} onSave={onUpdateSale} />
       <Modal open={viewing} onClose={() => setViewing(false)} wide icon={IconShoppingBag} title="Customers" sub={course.title}>
         {requests.length > 0 && (
           <div className="mb-4">
@@ -560,15 +542,19 @@ function CourseSalesCard({ course }) {
 
 const CURRENCIES = ["AZN", "USD", "EUR"];
 
-function SaleSettingsModal({ open, onClose, course }) {
-  const { dispatch, toast } = useStore();
+function SaleSettingsModal({ open, onClose, course, onSave }) {
+  const toast = useToast();
   const [draft, setDraft] = useState(() => ({ forSale: false, price: 0, currency: "AZN", description: "", paymentNote: "", ...(course.sale || {}) }));
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
   const priceOk = !draft.forSale || Number(draft.price) > 0;
-  const save = () => {
-    dispatch({ type: "UPDATE_COURSE_SALE", courseId: course.id, sale: { ...draft, price: Number(draft.price) || 0 } });
-    toast(draft.forSale ? `${course.title} is for sale — ${Number(draft.price)} ${draft.currency}` : `${course.title} is no longer for sale — buyers keep their access`);
-    onClose();
+  const save = async () => {
+    try {
+      await onSave({ ...draft, price: Number(draft.price) || 0 });
+      toast(draft.forSale ? `${course.title} is for sale — ${Number(draft.price)} ${draft.currency}` : `${course.title} is no longer for sale — buyers keep their access`);
+      onClose();
+    } catch (err) {
+      toast(err.description || "Couldn't save the sale settings", "err");
+    }
   };
   return (
     <Modal open={open} onClose={onClose} icon={IconShoppingBag} title="Sell this course" sub={course.title}

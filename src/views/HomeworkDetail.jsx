@@ -8,6 +8,7 @@ import { classDetailPath, classHomeworkPath, classHomeworkEditPath } from "../ro
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
 import { describeAttachment } from "../components/HomeworkAttachment.jsx";
 import { shortDate, timeAgo } from "../format.js";
+import { useCourse } from "../features/courses/index.js";
 
 /* =========================================================================
    One assignment, the way Google Classroom shows it: the title and when it
@@ -42,10 +43,11 @@ export default function HomeworkDetail() {
   const [confirm, setConfirm] = useState(false);
   const cls = state.classes.find((c) => c.id === classId);
   const { post, loading } = useHomeworkPost(classId, homeworkId);
+  const { lessons } = useCourse(post?.courseId);
   if (!cls || loading) return null;
   if (!post) return <Navigate to={classHomeworkPath(classId)} replace />;
 
-  const topic = post.lessonId && (state.lessons[post.courseId] || []).find((l) => l.id === post.lessonId);
+  const topic = post.lessonId && lessons.find((l) => l.id === post.lessonId);
   const nameOf = (id) => state.students.find((s) => s.id === id)?.name || "Student";
   const rows = [...post.students].sort((a, b) => STATUS[a.status].order - STATUS[b.status].order || nameOf(a.studentId).localeCompare(nameOf(b.studentId)));
   const del = async () => { await remove(cls.id, post); navigate(classHomeworkPath(cls.id)); };

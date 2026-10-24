@@ -6,6 +6,7 @@ import { useStore } from "../store.jsx";
 import { useClassHomework } from "../homework.jsx";
 import { classDetailPath, classHomeworkNewPath, classHomeworkPostPath, classHomeworkEditPath } from "../router.jsx";
 import { shortDate } from "../format.js";
+import { useCourse } from "../features/courses/index.js";
 
 /* =========================================================================
    A class's Classwork (Google Classroom's tab of the same name): every
@@ -58,10 +59,13 @@ export default function Homework() {
   const { state } = useStore();
   const cls = state.classes.find((x) => x.id === classId);
   const { posts, loading } = useClassHomework(classId);
+  // A class takes one course (see CLAUDE.md), so its posts' topics are that
+  // course's lessons.
+  const { lessons } = useCourse(posts.find((p) => p.courseId)?.courseId);
   if (!cls) return null;
 
   const topicOf = (p) => {
-    const l = p.lessonId && (state.lessons[p.courseId] || []).find((x) => x.id === p.lessonId);
+    const l = p.lessonId && lessons.find((x) => x.id === p.lessonId);
     return l ? { key: l.id, n: l.n, label: `Lesson ${l.n} · ${l.title}` } : { key: "none", n: 0, label: "No topic" };
   };
   const groups = [];

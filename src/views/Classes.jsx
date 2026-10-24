@@ -11,6 +11,7 @@ import { CLASS_COURSE_STATUS, joinLink } from "../data.jsx";
 import { scheduleLabel, scheduleDays } from "../schedule.js";
 import { classHomeworkPath } from "../router.jsx";
 import ScheduleEditor from "../components/ScheduleEditor.jsx";
+import { useCourses } from "../features/courses/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -43,6 +44,7 @@ export default function Classes() {
 
 function ClassesView() {
   const { state, dispatch, toast } = useStore();
+  const { courses } = useCourses();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -71,7 +73,7 @@ function ClassesView() {
             <Field label="Course (optional — pick later)">
               <Select value={courseId} onChange={(e) => setCourseId(e.target.value)}>
                 <option value="">No course yet</option>
-                {state.courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </Select>
             </Field>
           </div>
@@ -88,7 +90,7 @@ function ClassesView() {
           const roster = classMembers(state, cls.id).map((m) => m.student);
           const requests = classMembers(state, cls.id, "requested").length;
           const active = activeClassCourse(cls);
-          const course = state.courses.find((c) => c.id === active?.courseId);
+          const course = courses.find((c) => c.id === active?.courseId);
           const p = active ? classCourseProgress(state, cls, active.courseId) : null;
           return (
             <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
@@ -126,6 +128,7 @@ function ClassDetailRoute() {
 
 function ClassDetailView({ classId }) {
   const { state, dispatch, toast } = useStore();
+  const { courses } = useCourses();
   const { go } = useNav();
   const navigate = useNavigate();
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -151,7 +154,7 @@ function ClassDetailView({ classId }) {
   const others = state.students.filter((s) => !roster.some((r) => r.id === s.id));
   const requests = teacherRoster(state).requests.filter((r) => r.kind === "class" && r.cls.id === cls.id);
   // A class takes one course for now — only offered while it has none.
-  const unassignedCourses = cls.courses.length ? [] : state.courses;
+  const unassignedCourses = cls.courses.length ? [] : courses;
 
   function removeStudent(s) {
     dispatch({ type: "REMOVE_CLASS_MEMBER", classId: cls.id, studentId: s.id });
@@ -160,7 +163,7 @@ function ClassDetailView({ classId }) {
   }
   function assignCourse(courseId) {
     dispatch({ type: "ASSIGN_CLASS_COURSE", classId: cls.id, courseId });
-    toast(`${state.courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`);
+    toast(`${courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`);
     setAssignOpen(false);
   }
 
@@ -207,7 +210,7 @@ function ClassDetailView({ classId }) {
           <div className="space-y-3">
             {/* Active course first — it's where the class left off. */}
             {[...cls.courses].sort((a, b) => (a.status === "in-progress" ? -1 : b.status === "in-progress" ? 1 : 0)).map((entry) => {
-              const course = state.courses.find((c) => c.id === entry.courseId);
+              const course = courses.find((c) => c.id === entry.courseId);
               if (!course) return null;
               const p = classCourseProgress(state, cls, course.id);
               const st = CLASS_COURSE_STATUS[entry.status] || CLASS_COURSE_STATUS["in-progress"];

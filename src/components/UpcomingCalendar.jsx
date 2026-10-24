@@ -5,6 +5,7 @@ import { Card } from "../design-system.jsx";
 import { useStore, activeClassCourse, classCourseProgress } from "../store.jsx";
 import { sessionsOnDay, clock } from "../schedule.js";
 import { classDetailPath } from "../router.jsx";
+import { useCourses } from "../features/courses/index.js";
 
 // A course's hue is authored as a Tailwind hue key — same mapping as Classes.jsx.
 const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", rose: "warning", sky: "info" };
@@ -27,6 +28,7 @@ const weekStart = (d) => addDays(d, -d.getDay()); // Sunday-first strip
 // day's session list. A busy day scrolls inside the list instead of growing.
 export default function UpcomingCalendar() {
   const { state } = useStore();
+  const { courses } = useCourses();
   const navigate = useNavigate();
   const today = useMemo(() => startOfDay(new Date()), []);
   const [selected, setSelected] = useState(today);
@@ -36,7 +38,7 @@ export default function UpcomingCalendar() {
     return state.classes
       .flatMap((cls) => {
         const active = activeClassCourse(cls);
-        const course = state.courses.find((c) => c.id === active?.courseId);
+        const course = courses.find((c) => c.id === active?.courseId);
         const p = active ? classCourseProgress(state, cls, active.courseId) : null;
         return sessionsOnDay(cls.schedule, date).map((s) => ({ ...s, cls, course, next: p?.next, done: s.end <= now }));
       })

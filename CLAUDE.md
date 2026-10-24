@@ -122,6 +122,15 @@ Converted so far:
   app's sign-in page (`useSignIn`). The student app remounts everything
   below its sign-in gate when the session changes, so no screen outlives
   the student it was showing.
+- **courses** — courses, lessons and their blocks: the Courses list, a
+  course's tree and sale settings, a lesson's steps, Block Studio, and the
+  course/lesson names other screens show (`useCourses`, `useCourse`,
+  `useLesson`). A lesson always comes with `blocks` (an unbuilt one gets
+  them from its block types, ids stable), so nothing writes on open any
+  more. `useLesson().updateBlock` shows an edit at once and lets the loaded
+  lesson take over once it shows it — typing into an editor never jumps.
+  The student app's lesson player still reads the mock (moves with the
+  student's learning).
 - **notes** — the teacher's notes panel, the student app's notes
   everywhere, and Google Docs.
 - **readings** — reading texts and their folders: Library → Reading, Add
@@ -139,8 +148,9 @@ around each app, `useToast()`), per tab, never stored or synced.
 Class homework already follows the same pattern from before
 (`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
 `src/features/` when it's next touched. Everything else still reads the mock
-through `useStore()` and is converted feature by feature: courses &
-lessons, classes, students & joining, sales, assigned work, account.
+through `useStore()` and is converted feature by feature: classes,
+students & joining, sales, assigned work, the student's own learning,
+media, the seed-only analytics pages.
 
 ## Tests
 

@@ -14,17 +14,21 @@ import { BLOCK_TYPES, BLOCK_CATEGORIES, HIGHLIGHT_COLORS, ASSIGNMENT_KIND_LABEL 
 const HUES = ["indigo", "emerald", "amber", "rose", "sky"];
 const HUE_SWATCH = { indigo: "bg-primary-500", emerald: "bg-success-500", amber: "bg-pending-500", rose: "bg-warning-500", sky: "bg-info-500" };
 
-/* Create a new course */
-export function NewCourseModal({ open, onClose }) {
-  const { dispatch, toast } = useStore();
+/* Create a new course. `onCreate(input)` makes it (useCourses().createCourse). */
+export function NewCourseModal({ open, onClose, onCreate }) {
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [level, setLevel] = useState("A2 → B1");
   const [hue, setHue] = useState("indigo");
-  function create() {
+  async function create() {
     if (!title.trim()) return toast("Give the course a title", "err");
-    dispatch({ type: "ADD_COURSE", title: title.trim(), level, hue, templateId: "general" });
-    toast("Course created");
-    setTitle(""); onClose();
+    try {
+      await onCreate({ title: title.trim(), level, hue, templateId: "general" });
+      toast("Course created");
+      setTitle(""); onClose();
+    } catch (err) {
+      toast(err.description || "Couldn't create the course", "err");
+    }
   }
   return (
     <Modal open={open} onClose={onClose} title="New course" sub="Group lessons into a pathway"
@@ -47,17 +51,21 @@ export function NewCourseModal({ open, onClose }) {
 
 /* Create a new lesson inside a course — jumps straight into its pathway
    builder on create (via onCreated) instead of leaving the teacher to find
-   the new lesson in the list and open it themselves. */
-export function NewLessonModal({ open, onClose, courseId, onCreated }) {
-  const { dispatch, toast, uid } = useStore();
+   the new lesson in the list and open it themselves. `onCreate(title)`
+   makes it (useCourse().createLesson) and resolves with the lesson. */
+export function NewLessonModal({ open, onClose, onCreate, onCreated }) {
+  const toast = useToast();
   const [title, setTitle] = useState("");
-  function create() {
+  async function create() {
     if (!title.trim()) return toast("Name the lesson", "err");
-    const id = uid("l");
-    dispatch({ type: "ADD_LESSON", courseId, title: title.trim(), id });
-    toast("Lesson added");
-    setTitle(""); onClose();
-    onCreated?.(id);
+    try {
+      const lesson = await onCreate(title.trim());
+      toast("Lesson added");
+      setTitle(""); onClose();
+      onCreated?.(lesson.id);
+    } catch (err) {
+      toast(err.description || "Couldn't add the lesson", "err");
+    }
   }
   return (
     <Modal open={open} onClose={onClose} title="New lesson" sub="You'll assemble its steps next"

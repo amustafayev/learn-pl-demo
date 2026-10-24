@@ -10,6 +10,7 @@ import { defaultComponent, ComponentPicker, ComponentEditor } from "./parts.jsx"
 import { describeAttachment, compLabel } from "../components/HomeworkAttachment.jsx";
 import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
+import { useCourse } from "../features/courses/index.js";
 
 /* =========================================================================
    The assignment composer — Google Classroom's "Create assignment" page, for
@@ -90,7 +91,7 @@ export default function HomeworkEdit() {
 
   const active = cls ? activeClassCourse(cls) : null;
   const courseId = active?.courseId || null;
-  const lessons = courseId ? state.lessons[courseId] || [] : [];
+  const { lessons } = useCourse(courseId);
   const lesson = lessons.find((l) => l.id === lessonId) || null;
   const posted = post?.status === "assigned";
   const keyOf = (a) => a.key || a.id;
