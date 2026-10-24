@@ -20,7 +20,8 @@ import { nullIfMissing } from "../../db/apiClient.js";
        listMine()                                 -> MyNote[]   newest first
    Note   = { id, courseId, lessonId, html, text, docUrl, docManaged,
               sentTo: [{ classId, className, at }], createdAt, updatedAt }
-   MyNote = { id, classId, courseId, lessonId, html, text, docUrl, sentAt, updatedAt }
+   MyNote = { id, classId, className, courseId, lessonId, lesson: { id, n, title },
+              open (the lesson is shared with that class), html, text, docUrl, sentAt, updatedAt }
    (docs/openapi.yaml: LessonNotes and MyNote.)
 
    Two implementations of that contract:
@@ -43,7 +44,16 @@ export function createMockNotesClient({ getState, dispatch }) {
     async send(courseId, lessonId, classId, sent) { dispatch({ type: "SEND_LESSON_NOTES", courseId, lessonId, classId, sent }); },
     // The mock names the send time `sharedAt`; the API calls it `sentAt`.
     async listMine() {
-      return (getState().classNotes || []).map(({ sharedAt, ...n }) => ({ ...n, sentAt: sharedAt }));
+      const s = getState();
+      return (s.classNotes || []).map(({ sharedAt, ...n }) => {
+        const lesson = (s.lessons?.[n.courseId] || []).find((l) => l.id === n.lessonId);
+        const entry = (s.classes || []).find((c) => c.id === n.classId)?.courses.find((x) => x.courseId === n.courseId);
+        return {
+          ...n, sentAt: sharedAt, className: className(s, n.classId),
+          lesson: lesson ? { id: lesson.id, n: lesson.n, title: lesson.title } : null,
+          open: !!lesson && (entry?.releasedLessonIds || []).includes(lesson.id),
+        };
+      });
     },
   };
 }

@@ -46,6 +46,23 @@ describe("sales — mock client", () => {
     await createMockSalesClient(db2).decidePurchase("pu_2", "declined");
     expect(purchaseOf(db2.raw().purchases, "s_murad", "ielts").status).toBe("declined");
   });
+
+  it("the catalog outlines each course's lessons — titles only", async () => {
+    const catalog = await createMockSalesClient(mockDb().as("s_rashad")).catalog();
+    const ielts = catalog.find((c) => c.id === "ielts");
+    expect(ielts.lessons.map((l) => l.n)).toEqual([1, 2]);
+    expect(Object.keys(ielts.lessons[0]).sort()).toEqual(["id", "n", "title"]);
+  });
+
+  it("a student's purchases, newest first, each naming its course and teacher", async () => {
+    const db = mockDb();
+    const zeynab = createMockSalesClient(db.as("s_zeynab"));
+    await zeynab.requestPurchase("ielts", "");
+    const purchases = await zeynab.myPurchases();
+    expect(purchases.map((p) => [p.course.title, p.teacher.name, p.status])).toEqual([
+      ["IELTS Speaking", "Maria Carey", "requested"], ["Everyday English", "Maria Carey", "paid"],
+    ]);
+  });
 });
 
 describe("sales — HTTP client (docs/openapi.yaml: Sales, Student app)", () => {

@@ -2,36 +2,34 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { IconCheck, IconAlertTriangle, IconSend, IconClock, IconCalendarTime, IconUsers, IconBook2 } from "@tabler/icons-react";
 import { Alert, Button, Card, Field, Page, PageHeader, TextArea } from "@app/design-system.jsx";
-import { useStore } from "@app/store.jsx";
 import { timeAgo } from "@app/format.js";
 import { scheduleLabel } from "@app/schedule.js";
-import { classOf, membershipIn, teacherName } from "../lib.js";
+import { useJoinPreview } from "@app/features/joining/index.js";
+import { useMyClasses } from "@app/features/learning/index.js";
+import { teacherName } from "../lib.js";
 
 // The page behind a class link (/join/:token) — what a teacher shares in a
 // group chat or on social media. It previews the class (teacher, schedule,
 // what it covers, lesson titles — never the lessons themselves), then the
 // student asks to join. It only ever sends a request; the teacher accepts it
-// (REQUEST_TO_JOIN) and the class shows up on Home.
+// and the class shows up on Home.
 export default function JoinClass() {
   const { token } = useParams();
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const [message, setMessage] = useState("");
+  const { preview, loading, requestToJoin } = useJoinPreview(token);
+  const { classes, loading: classesLoading } = useMyClasses();
 
-  const preview = token ? state.joinPreviews?.find((p) => p.token === token) : null;
-  const cls = preview ? classOf(state, preview.classId) : null;
-  const status = cls ? membershipIn(state, cls.id)?.status : null;
-  const waiting = state.memberships.filter((m) => m.status === "requested" && m.classId !== preview?.classId);
+  const status = preview ? classes.find((c) => c.id === preview.classId)?.membership?.status : null;
+  const waiting = classes.filter((c) => c.membership?.status === "requested" && c.id !== preview?.classId);
 
-  const waitingList = waiting.map((m) => {
-    const c = classOf(state, m.classId);
-    return (
-      <Alert key={m.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(state, c?.teacherId)} to accept you`}>
-        {c?.name} · asked {timeAgo(m.requestedAt)}.
-      </Alert>
-    );
-  });
+  const waitingList = waiting.map((c) => (
+    <Alert key={c.membership.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(c.teacher)} to accept you`}>
+      {c.name} · asked {timeAgo(c.membership.requestedAt)}.
+    </Alert>
+  ));
 
+  if (loading || classesLoading) return null;
   if (!preview) {
     return (
       <Page>
@@ -48,10 +46,10 @@ export default function JoinClass() {
     );
   }
 
-  const teacher = teacherName(state, preview.teacherId);
+  const teacher = teacherName(preview.teacher);
   const send = (e) => {
     e.preventDefault();
-    dispatch({ type: "REQUEST_TO_JOIN", token, studentId: state.me.id, message });
+    requestToJoin(message);
   };
 
   return (

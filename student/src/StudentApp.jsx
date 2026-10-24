@@ -3,15 +3,17 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import {
   IconHome2, IconNotes, IconLayoutGrid, IconUserPlus, IconSchool, IconLogout, IconSun, IconMoon, IconSparkles, IconBell, IconClipboardList,
 } from "@tabler/icons-react";
-import { StoreProvider, useStore, studentView, signedOutView } from "@app/store.jsx";
+import { StoreProvider, studentView, signedOutView } from "@app/store.jsx";
 import { useTheme } from "@app/theme.js";
 import { Avatar, CountBadge, NavItem, NavSectionLabel, SegmentedToggle } from "@app/design-system.jsx";
-import { ToastProvider } from "@app/toasts.jsx";
+import { ToastProvider, useToast } from "@app/toasts.jsx";
 import { ErrorBoundary } from "@app/components/ErrorBoundary.jsx";
 import { useMyNotes } from "@app/features/notes/index.js";
 import { useMe, useSignIn } from "@app/features/account/index.js";
+import { useMyClasses } from "@app/features/learning/index.js";
+import { useMyPurchases } from "@app/features/sales/index.js";
 import { SeenProvider, useSeen, useStudentSession } from "./session.jsx";
-import { courseOf, lessonOf, myClasses, teacherName } from "./lib.js";
+import { teacherName } from "./lib.js";
 import SignIn from "./views/SignIn.jsx";
 import Home from "./views/Home.jsx";
 import ClassPage from "./views/ClassPage.jsx";
@@ -24,11 +26,13 @@ import { useMyWork } from "@app/features/assignments/index.js";
 
 /* =========================================================================
    The student app — its own package (student/), served at /student/, on
-   the teacher app's design system and mock db (`@app/…` is src/). What a
-   student can see and open is decided by the data layer, not here:
-   studentView scopes the data like a student API would, canOpenLesson is
-   the access rule, notesSentToStudent says which notes reach them. See
-   "The student app" in CLAUDE.md.
+   the teacher app's design system and mock db (`@app/…` is src/). Screens
+   get their data only through the features' hooks (@app/features/…/index.js);
+   this file is where the mock is plugged in. What a student can see and
+   open is decided by the data layer, not here: studentView scopes the data
+   like a student API would, canOpenLesson is the access rule,
+   notesSentToStudent says which notes reach them. See "The student app" in
+   CLAUDE.md.
    ========================================================================= */
 
 export default function StudentApp() {
@@ -105,7 +109,6 @@ function Shell({ onSignOut }) {
 // student's classes get their own section, so any of them is one click away.
 function Sidebar({ pathname, onSignOut }) {
   const navigate = useNavigate();
-  const { state } = useStore();
   const { seen } = useSeen();
   const { notes } = useMyNotes();
   const [theme, setTheme] = useTheme();
@@ -113,7 +116,7 @@ function Sidebar({ pathname, onSignOut }) {
   // A count on the items with something waiting: new notes, open work.
   const { open: openWork } = useMyWork();
   const counts = { "/notes": unseen, "/work": openWork.length };
-  const classes = myClasses(state);
+  const { active: classes } = useMyClasses();
   const label = (text) => <span className="hidden sm:inline">{text}</span>;
   return (
     <aside className="w-16 sm:w-64 shrink-0 bg-neutral-50 flex flex-col h-screen sticky top-0 overflow-hidden">
@@ -189,22 +192,26 @@ function TopBar({ pathname }) {
 // a join request accepted, a lesson shared, a purchase confirmed. Nothing counts as new
 // until this tab has caught up with the others (a fresh tab starts from the
 // seed and then receives the real data — that isn't news); from then on it
-// compares against what was already there. Notes arrive through their own
-// door (features/notes), a moment after the data they come from, so nothing
-// is compared until they've caught up too.
+// compares against what was already there. Each list comes through its own
+// feature door, and each says `stale` until it reflects the latest data
+// (with the mock: also until this tab has caught up), so nothing is compared
+// until all of them have.
 function useLiveUpdates() {
-  const { state, toast, caughtUp } = useStore();
-  const { notes: myNotes, loading: notesLoading } = useMyNotes();
+  const toast = useToast();
+  const { notes: myNotes, stale: notesStale } = useMyNotes();
   const { work: myWork, stale: workStale } = useMyWork();
+  const { active: classes, stale: classesStale } = useMyClasses();
+  const { purchases, stale: purchasesStale } = useMyPurchases();
   const before = useRef(null);
   useEffect(() => {
-    if (!caughtUp || notesLoading || workStale) return;
+    if (notesStale || workStale || classesStale || purchasesStale) return;
+    const classById = (id) => classes.find((c) => c.id === id);
     const now = {
       notes: new Set(myNotes.map((n) => n.id)),
       work: new Set(myWork.map((a) => a.id)),
-      classes: new Set(myClasses(state).map((c) => c.id)),
-      shared: new Set(myClasses(state).flatMap((c) => c.courses.flatMap((x) => (x.releasedLessonIds || []).map((l) => `${c.id}:${x.courseId}:${l}`)))),
-      bought: new Set(state.purchases.filter((p) => p.status === "paid").map((p) => p.courseId)),
+      classes: new Set(classes.map((c) => c.id)),
+      shared: new Set(classes.flatMap((c) => c.courses.flatMap((x) => (x.releasedLessonIds || []).map((l) => `${c.id}:${x.courseId}:${l}`)))),
+      bought: new Set(purchases.filter((p) => p.status === "paid").map((p) => p.courseId)),
     };
     const prev = before.current;
     before.current = now;
@@ -212,19 +219,19 @@ function useLiveUpdates() {
     const fresh = (key) => [...now[key]].filter((x) => !prev[key].has(x));
     const notes = myNotes.filter((n) => !prev.notes.has(n.id));
     if (notes.length === 1) {
-      const cls = state.classes.find((c) => c.id === notes[0].classId);
-      toast(`New note from ${teacherName(state, cls?.teacherId)}: “${notes[0].text.length > 60 ? `${notes[0].text.slice(0, 57)}…` : notes[0].text}”`);
+      toast(`New note from ${teacherName(classById(notes[0].classId)?.teacher)}: “${notes[0].text.length > 60 ? `${notes[0].text.slice(0, 57)}…` : notes[0].text}”`);
     } else if (notes.length > 1) toast(`${notes.length} new notes from your teacher`);
     const work = myWork.filter((a) => !prev.work.has(a.id) && a.status === "assigned");
     if (work.length === 1) toast(`New work from ${work[0].teacher?.name || "your teacher"}: “${work[0].title}”`);
     else if (work.length > 1) toast(`${work.length} new pieces of work from your teacher`);
-    fresh("classes").forEach((id) => toast(`You're in ${state.classes.find((c) => c.id === id)?.name} now`));
+    fresh("classes").forEach((id) => toast(`You're in ${classById(id)?.name} now`));
     const joinedNow = new Set(fresh("classes"));
     fresh("shared").filter((k) => !joinedNow.has(k.split(":")[0])).forEach((k) => {
       const [classId, courseId, lessonId] = k.split(":");
-      const lesson = lessonOf(state, courseId, lessonId);
-      if (lesson) toast(`Lesson ${lesson.n} is open in ${state.classes.find((c) => c.id === classId)?.name}`);
+      const cls = classById(classId);
+      const lesson = cls?.courses.find((x) => x.courseId === courseId)?.progress?.lessons.find((l) => l.id === lessonId);
+      if (lesson) toast(`Lesson ${lesson.n} is open in ${cls.name}`);
     });
-    fresh("bought").forEach((id) => toast(`Payment confirmed — ${courseOf(state, id)?.title} is yours`));
-  }, [state, toast, caughtUp, myNotes, notesLoading, myWork, workStale]);
+    fresh("bought").forEach((id) => toast(`Payment confirmed — ${purchases.find((p) => p.courseId === id)?.course?.title} is yours`));
+  }, [toast, myNotes, notesStale, myWork, workStale, classes, classesStale, purchases, purchasesStale]);
 }

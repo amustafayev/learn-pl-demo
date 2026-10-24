@@ -10,9 +10,9 @@ import { createMockSalesClient } from "./client.js";
 // Which client answers, and when to ask again (see notes/hooks.js). For the
 // real backend, build createHttpSalesClient(api) here.
 function useSalesSource() {
-  const { source, revision } = useMockSource((s) => [s.purchases, s.courses, s.lessons]);
+  const { source, revision, synced } = useMockSource((s) => [s.purchases, s.courses, s.lessons, s.teachers]);
   const client = useMemo(() => createMockSalesClient(source), [source]);
-  return { client, revision };
+  return { client, revision, synced };
 }
 
 // Confirming or declining a purchase (teacher), and asking to buy (student).
@@ -32,10 +32,11 @@ export function useCatalog() {
   return { courses, loading };
 }
 
-// Student: every purchase of theirs.
+// Student: every purchase of theirs, newest first. `stale` is true until
+// the list reflects the latest data (for code comparing old and new lists).
 export function useMyPurchases() {
-  const { client, revision } = useSalesSource();
+  const { client, revision, synced } = useSalesSource();
   const { data, loading, stale } = useLoad(() => client.myPurchases(), "mine", revision);
   const purchases = useMemo(() => data || [], [data]);
-  return { purchases, loading, stale };
+  return { purchases, loading, stale: stale || !synced };
 }

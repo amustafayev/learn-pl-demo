@@ -11,9 +11,9 @@ import { createMockAssignmentsClient } from "./client.js";
 // Which client answers, and when to ask again (see notes/hooks.js). For the
 // real backend, build createHttpAssignmentsClient(api) here.
 function useAssignmentsSource() {
-  const { source, revision } = useMockSource((s) => [s.assignments]);
+  const { source, revision, synced } = useMockSource((s) => [s.assignments]);
   const client = useMemo(() => createMockAssignmentsClient(source), [source]);
-  return { client, revision };
+  return { client, revision, synced };
 }
 
 // Teacher: handing work out and taking it back.
@@ -47,7 +47,7 @@ export function useStudentWork(studentId) {
 // is true until the list reflects the latest data (for code comparing old
 // and new lists).
 export function useMyWork() {
-  const { client, revision } = useAssignmentsSource();
+  const { client, revision, synced } = useAssignmentsSource();
   const { data, loading, stale } = useLoad(() => client.mine(), "mine", revision);
   return useMemo(() => {
     const work = data || [];
@@ -56,8 +56,8 @@ export function useMyWork() {
       open: work.filter((a) => a.status === "assigned"),
       done: work.filter((a) => a.status === "done"),
       loading,
-      stale,
+      stale: stale || !synced,
       complete: (assignmentId) => client.complete(assignmentId),
     };
-  }, [data, loading, stale, client]);
+  }, [data, loading, stale, synced, client]);
 }

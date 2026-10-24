@@ -78,6 +78,18 @@ describe("notes — mock client", () => {
     const notes = await createMockNotesClient(db.as("s_rashad")).listMine();
     expect(notes.map((n) => n.sentAt)).toEqual([...notes.map((n) => n.sentAt)].sort().reverse());
   });
+
+  it("a student's note names its class and lesson, and opens the lesson only once it's shared with the class", async () => {
+    const db = mockDb();
+    const teacher = createMockNotesClient(db);
+    await teacher.save("it", "it5", "<p>Read ahead</p>");
+    await teacher.send("it", "it4", "cls_it_morning", true);
+    await teacher.send("it", "it5", "cls_it_morning", true);
+    const notes = await createMockNotesClient(db.as("s_rashad")).listMine();
+    const on = (lessonId) => notes.find((n) => n.lessonId === lessonId);
+    expect(on("it4")).toMatchObject({ className: "ITler — Morning", lesson: { id: "it4", n: 4, title: "Tense forms" }, open: true });
+    expect(on("it5")).toMatchObject({ lesson: { id: "it5", n: 5 }, open: false }); // it5 isn't shared yet
+  });
 });
 
 describe("notes — HTTP client (docs/openapi.yaml: Lesson notes, /me/notes)", () => {

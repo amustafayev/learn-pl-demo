@@ -18,11 +18,16 @@ import { useStore } from "../store.jsx";
                         real API simply returns. Rejects if it never does.
    revision             changes whenever one of the slices `pick` names
                         does — the hooks' cue to ask again, standing in for
-                        the server's push. */
+                        the server's push.
+   synced               false until this tab has caught up with the other
+                        open tabs: until then its data is the seed, not
+                        what the others see. Hooks that report `stale` fold
+                        it in, so nothing counts the seed as news. (A real
+                        API's first answer is already the latest.) */
 const WAIT_MS = 3000;
 
 export function useMockSource(pick) {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, caughtUp } = useStore();
   const latest = useRef(state);
   latest.current = state;
 
@@ -52,5 +57,5 @@ export function useMockSource(pick) {
   const last = useRef(picked);
   if (picked.length !== last.current.length || picked.some((x, i) => x !== last.current[i])) last.current = picked;
 
-  return { source, revision: last.current };
+  return { source, revision: last.current, synced: caughtUp };
 }

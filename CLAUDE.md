@@ -173,10 +173,21 @@ Toasts aren't a feature but the app's UI: `src/toasts.jsx` (`ToastProvider`
 around each app, `useToast()`), per tab, never stored or synced.
 
 - **homework** — class homework (Classwork): see **Class homework** below.
+- **learning** — the student's own side: their classes and where each is
+  (`useMyClasses`: the sidebar, Home, live updates), a class page
+  (`useMyClassPage`), the courses they can reach (`useMyCourses`), and the
+  lesson player through the access rule, with finishing it (`useMyLesson`).
+- **joining** — getting into a class, the student's side: a class link's
+  preview and Request to join (`useJoinPreview`), email invites and
+  accepting one (`useMyInvitations`). The teacher's side is `students`.
+- The student app's notes (`useMyNotes`: each with its class name, lesson
+  and whether it links) and its catalog, purchases and Request to buy
+  (`sales`) go through those features too. No screen in `student/src/`
+  touches the mock; `StudentApp.jsx` only plugs it in (`StoreProvider`
+  with `studentView`). `student/src/lib.js` holds display helpers only.
 
 Everything else still reads the mock through `useStore()` and is converted
-feature by feature: the student's own learning, media, the seed-only
-analytics pages.
+feature by feature: media, the seed-only analytics pages.
 
 ## Tests
 
@@ -782,9 +793,10 @@ It has no design or data of its own:
   After a change a tab broadcasts its data (`BroadcastChannel`), and the
   others take it (`SYNC_STATE`; toasts stay per tab). A tab that opens asks
   first, so it starts where the others are. `StoreProvider`'s `caughtUp` is
-  true once that first copy arrived, and the student app only toasts
-  changes ("New note from…", "You're in…", "Lesson 5 is open…", "Payment
-  confirmed…") after it. Apart from the component library and the lesson notes
+  true once that first copy arrived; `useMockSource` passes it on as
+  `synced`, and the student hooks report `stale` until then, so the
+  student app only toasts changes ("New note from…", "You're in…",
+  "Lesson 5 is open…", "Payment confirmed…") once every list is current. Apart from the component library and the lesson notes
   (`localStorage`), nothing is stored: close every tab and the seed
   comes back. A real backend's push replaces this file. When testing in a
   browser, use a fresh profile per run; leftover open tabs hand their data

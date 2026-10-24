@@ -1313,11 +1313,26 @@ paths:
       responses:
         "200": { description: "The caller's membership", content: { application/json: { schema: { $ref: "#/components/schemas/Membership" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
+  /join/{token}:
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Student app]
+      operationId: getJoinPreview
+      summary: What a class link shows before asking to join
+      description: |
+        Mirrors the mock's `joinPreviews` (no sign-in needed). Names and an outline
+        only — class name, teacher, schedule, how many students, its courses' lesson
+        numbers and titles; **never** lesson content, notes or other students. `404`
+        for an unknown or rotated token, or a class not taking requests (`joinOpen=false`).
+      responses:
+        "200": { description: "The preview", content: { application/json: { schema: { $ref: "#/components/schemas/JoinPreview" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
   /me/invitations:
     get:
       tags: [Student app]
       operationId: listMyInvitations
       summary: Pending invitations sent to the caller's email
+      description: Only `pending` and unexpired ones, each with its class's `teacher`.
       responses:
         "200": { description: "Invitations", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Invitation" } } } } }
   /invitations/{invitationId}/accept:
@@ -1587,9 +1602,22 @@ paths:
     get:
       tags: [Student app]
       operationId: listMyPurchases
-      summary: The caller's purchases
+      summary: The caller's purchases, newest first
+      description: Each with `course` (`{ id, title }`) and that course's `teacher`.
       responses:
-        "200": { description: "Purchases", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Purchase" } } } } }
+        "200":
+          description: Purchases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/Purchase"
+                    - type: object
+                      properties:
+                        course: { type: object, properties: { id: { type: string }, title: { type: string } } }
+                        teacher: { $ref: "#/components/schemas/TeacherRef" }
 
   # ───────────────────────────── Realtime ─────────────────────────────
   /events:
@@ -2102,6 +2130,7 @@ components:
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         expiresAt: { $ref: "#/components/schemas/Timestamp" }
         acceptedAt: { $ref: "#/components/schemas/Timestamp" }
+        teacher: { allOf: [{ $ref: "#/components/schemas/TeacherRef" }], description: "The class's teacher (GET /me/invitations only)." }
     StudentBlock:
       type: object
       properties:
@@ -2347,13 +2376,50 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
+    JoinPreview:
+      type: object
+      properties:
+        token: { type: string }
+        classId: { type: string }
+        name: { type: string }
+        teacher: { $ref: "#/components/schemas/TeacherRef" }
+        schedule: { type: array, items: { $ref: "#/components/schemas/ScheduleSlot" } }
+        studentCount: { type: integer }
+        courses:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              title: { type: string }
+              level: { type: string }
+              hue: { type: string }
+              lessons: { type: array, items: { type: object, properties: { n: { type: integer }, title: { type: string } } } }
     MyClass:
       allOf:
         - $ref: "#/components/schemas/Class"
         - type: object
           properties:
             teacher: { $ref: "#/components/schemas/TeacherRef" }
-            membership: { $ref: "#/components/schemas/Membership" }
+            membership: { allOf: [{ $ref: "#/components/schemas/Membership" }], nullable: true, description: "null for a class they're only invited to." }
+            courses: { type: array, items: { $ref: "#/components/schemas/MyClassCourse" }, description: "Empty unless the membership is active." }
+    MyClassCourse:
+      description: An active class's course entry as its student reads it.
+      allOf:
+        - $ref: "#/components/schemas/ClassCourse"
+        - type: object
+          properties:
+            course: { $ref: "#/components/schemas/Course" }
+            progress:
+              type: object
+              properties:
+                lessons: { type: array, items: { $ref: "#/components/schemas/LessonSummary" } }
+                taughtAt: { type: object, additionalProperties: { $ref: "#/components/schemas/Timestamp" }, description: "lessonId -> when it was last taught" }
+                taughtCount: { type: integer }
+                total: { type: integer }
+                pct: { type: integer }
+                allTaught: { type: boolean }
+                next: { allOf: [{ $ref: "#/components/schemas/LessonSummary" }], nullable: true }
     MyLessonRow:
       type: object
       properties:
@@ -2361,6 +2427,7 @@ components:
         open: { type: boolean, description: The access rule for this lesson. }
         taughtAt: { $ref: "#/components/schemas/Timestamp" }
         isNext: { type: boolean }
+        finished: { type: boolean, description: The caller finished it. }
         notesCount: { type: integer }
     MyClassPage:
       type: object
@@ -2374,6 +2441,9 @@ components:
               course: { $ref: "#/components/schemas/Course" }
               status: { type: string, enum: [in-progress, paused, done] }
               pct: { type: integer }
+              taughtCount: { type: integer }
+              total: { type: integer }
+              next: { allOf: [{ $ref: "#/components/schemas/LessonSummary" }], nullable: true }
               lessons: { type: array, items: { $ref: "#/components/schemas/MyLessonRow" } }
         notes: { type: array, items: { $ref: "#/components/schemas/MyNote" } }
     MyCourse:
@@ -2383,6 +2453,14 @@ components:
           properties:
             access: { type: string, enum: [class, purchase, both] }
             teacher: { $ref: "#/components/schemas/TeacherRef" }
+            lessons:
+              type: array
+              items:
+                allOf:
+                  - $ref: "#/components/schemas/LessonSummary"
+                  - type: object
+                    properties: { finished: { type: boolean } }
+            lessonCount: { type: integer }
             completedLessons: { type: integer }
     CatalogCourse:
       allOf:
@@ -2390,13 +2468,17 @@ components:
         - type: object
           properties:
             teacher: { $ref: "#/components/schemas/TeacherRef" }
-            purchase: { allOf: [{ $ref: "#/components/schemas/Purchase" }], nullable: true, description: "The caller's own purchase of it, if any." }
+            lessonCount: { type: integer }
+            lessons: { type: array, items: { $ref: "#/components/schemas/LessonSummary" }, description: "The outline — numbers and titles, never content." }
+            purchase: { allOf: [{ $ref: "#/components/schemas/Purchase" }], nullable: true, description: "The caller's latest purchase of it, if any." }
     MyLesson:
       allOf:
         - $ref: "#/components/schemas/Lesson"
         - type: object
           properties:
             course: { $ref: "#/components/schemas/Course" }
+            teacher: { $ref: "#/components/schemas/TeacherRef" }
+            finished: { type: boolean, description: The caller finished it. }
             classId: { type: string, nullable: true, description: "The class it is open through, if any." }
             notes: { type: array, items: { $ref: "#/components/schemas/MyNote" } }
     LessonCompletion:
@@ -2413,8 +2495,11 @@ components:
       properties:
         id: { type: string, description: "Stable per (note, class) — the client keys its \"seen\" badges on it." }
         classId: { type: string }
+        className: { type: string }
         courseId: { type: string }
         lessonId: { type: string }
+        lesson: { $ref: "#/components/schemas/LessonSummary" }
+        open: { type: boolean, description: "The lesson is shared with that class (the note links to it)." }
         html: { type: string }
         text: { type: string }
         docUrl: { type: string, nullable: true }

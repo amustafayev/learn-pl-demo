@@ -13,9 +13,9 @@ import { googleDocs } from "./googleDocs.js";
 // real backend, build createHttpNotesClient(api) here instead and drive
 // `revision` from its push (GET /events: notes.updated).
 function useNotesSource() {
-  const { source, revision } = useMockSource((s) => [s.lessonNotes, s.classNotes, s.classes]);
+  const { source, revision, synced } = useMockSource((s) => [s.lessonNotes, s.classNotes, s.classes, s.lessons, s.memberships, s.purchases]);
   const client = useMemo(() => createMockNotesClient(source), [source]);
-  return { client, revision };
+  return { client, revision, synced };
 }
 
 // Teacher: one lesson's notes and what can be done with them. `loading` is
@@ -54,12 +54,12 @@ export function useLessonNotes(courseId, lessonId) {
   return { note, loading, error, ...actions };
 }
 
-// Student: every note sent to them, newest first. `loading` is true until
+// Student: every note sent to them, newest first. `stale` is true until
 // the list reflects the latest data — on first load and briefly after each
 // change — so code that compares old and new lists waits for it.
 export function useMyNotes() {
-  const { client, revision } = useNotesSource();
-  const { data, stale } = useLoad(() => client.listMine(), "mine", revision);
+  const { client, revision, synced } = useNotesSource();
+  const { data, loading, stale } = useLoad(() => client.listMine(), "mine", revision);
   const notes = useMemo(() => data || [], [data]);
-  return { notes, loading: stale };
+  return { notes, loading, stale: stale || !synced };
 }

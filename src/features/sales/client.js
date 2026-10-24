@@ -10,9 +10,11 @@
        decidePurchase(purchaseId, status)  -> void   paid ("Mark paid & give access") | declined
      Student
        catalog()                           -> CatalogCourse[]   courses for sale, each with
-                                              `teacher: { id, name }`, `lessonCount` and
-                                              `purchase` (the caller's own, or null)
-       myPurchases()                       -> Purchase[]
+                                              `teacher: { id, name }`, `lessonCount`, its
+                                              outline `lessons: [{ id, n, title }]` and
+                                              `purchase` (the caller's latest, or null)
+       myPurchases()                       -> Purchase[]   newest first, each with
+                                              `course: { id, title }` and `teacher: { id, name }`
        requestPurchase(courseId, message)  -> void   a paid or pending one already there: nothing
    (docs/openapi.yaml: Sales, Student app.)
 
@@ -25,21 +27,29 @@
 const latestPurchase = (purchases, courseId) =>
   purchases.filter((p) => p.courseId === courseId).sort((a, b) => (a.requestedAt < b.requestedAt ? 1 : -1))[0] || null;
 
+const teacherRef = (state, id) => {
+  const t = (state.teachers || []).find((x) => x.id === id);
+  return t ? { id: t.id, name: t.name } : null;
+};
+
 // `source` is db/useMockSource.js's: getState, dispatch, waitFor.
 export function createMockSalesClient({ getState, dispatch }) {
   return {
     async decidePurchase(purchaseId, status) { dispatch({ type: "DECIDE_PURCHASE", purchaseId, status }); },
     async catalog() {
       const state = getState();
-      const teacherOf = (id) => (state.teachers || []).find((t) => t.id === id) || null;
-      return state.courses.filter((c) => c.sale?.forSale).map((c) => ({
-        ...c,
-        lessonCount: (state.lessons[c.id] || []).length,
-        teacher: teacherOf(c.teacherId) && { id: c.teacherId, name: teacherOf(c.teacherId).name },
-        purchase: latestPurchase(state.purchases || [], c.id),
-      }));
+      return state.courses.filter((c) => c.sale?.forSale).map((c) => {
+        const lessons = (state.lessons[c.id] || []).map((l) => ({ id: l.id, n: l.n, title: l.title }));
+        return { ...c, lessons, lessonCount: lessons.length, teacher: teacherRef(state, c.teacherId), purchase: latestPurchase(state.purchases || [], c.id) };
+      });
     },
-    async myPurchases() { return getState().purchases || []; },
+    async myPurchases() {
+      const state = getState();
+      return [...(state.purchases || [])].sort((a, b) => (a.requestedAt < b.requestedAt ? 1 : -1)).map((p) => {
+        const course = state.courses.find((c) => c.id === p.courseId);
+        return { ...p, course: course ? { id: course.id, title: course.title } : null, teacher: teacherRef(state, course?.teacherId) };
+      });
+    },
     async requestPurchase(courseId, message = "") {
       dispatch({ type: "REQUEST_PURCHASE", courseId, studentId: getState().me.id, message });
     },

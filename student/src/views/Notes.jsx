@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { IconFilter, IconNotes } from "@tabler/icons-react";
 import { Card, MenuButton, Page, PageHeader } from "@app/design-system.jsx";
-import { useStore } from "@app/store.jsx";
 import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
-import { capitalize, classOf } from "../lib.js";
+import { capitalize } from "../lib.js";
 import { useMyNotes } from "@app/features/notes/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
@@ -12,7 +11,6 @@ import NoteItem from "../components/NoteItem.jsx";
 // when it arrived — each one says which class and lesson it's about (and
 // opens that lesson). Filter to one class when they're in several.
 export default function Notes() {
-  const { state } = useStore();
   const { seen, markSeen } = useSeen();
   const { notes } = useMyNotes();
   const [classFilter, setClassFilter] = useState("all");
@@ -29,6 +27,7 @@ export default function Notes() {
   }, [unseenKey, markSeen]);
 
   const classIds = [...new Set(notes.map((n) => n.classId))];
+  const className = (id) => notes.find((n) => n.classId === id)?.className || "Class";
   const shown = notes.filter((n) => classFilter === "all" || n.classId === classFilter);
   // Group headings by when the note was sent: Today, Yesterday, 5 days ago…
   const groups = [];
@@ -43,10 +42,10 @@ export default function Notes() {
       <PageHeader title="Notes" sub="What your teacher sent your class — homework, what to review, reminders. Newest first."
         right={classIds.length > 1 && (
           <MenuButton icon={IconFilter} value={classFilter} onChange={setClassFilter} active={classFilter !== "all"}
-            label={classFilter === "all" ? "All classes" : classOf(state, classFilter)?.name}
+            label={classFilter === "all" ? "All classes" : className(classFilter)}
             options={[
               { id: "all", label: "All classes", count: notes.length },
-              ...classIds.map((id) => ({ id, label: classOf(state, id)?.name || "Class", count: notes.filter((n) => n.classId === id).length })),
+              ...classIds.map((id) => ({ id, label: className(id), count: notes.filter((n) => n.classId === id).length })),
             ]} />
         )} />
 

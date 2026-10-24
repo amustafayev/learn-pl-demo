@@ -2,13 +2,16 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { IconUserPlus, IconSchool, IconMail, IconClock, IconChevronRight, IconBook2, IconCircleCheck, IconNotes } from "@tabler/icons-react";
 import { Alert, Button, Card, ClassCard, CourseCard, PageHeader, Page, SectionLabel } from "@app/design-system.jsx";
-import { useStore, classCourseProgress, activeClassCourse } from "@app/store.jsx";
 import { scheduleLabel } from "@app/schedule.js";
 import { timeAgo } from "@app/format.js";
+import { useToast } from "@app/toasts.jsx";
 import { useSeen } from "../session.jsx";
-import { boughtCourses, classOf, courseOf, finishedLesson, firstName, lessonsOf, myClasses, teacherName, toneOf } from "../lib.js";
+import { finishedPct, firstName, teacherName, toneOf } from "../lib.js";
 import { useMyNotes } from "@app/features/notes/index.js";
 import { useMe } from "@app/features/account/index.js";
+import { useMyClasses, useMyCourses } from "@app/features/learning/index.js";
+import { useMyInvitations } from "@app/features/joining/index.js";
+import { useMyPurchases } from "@app/features/sales/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 import { WorkRow } from "./Work.jsx";
 import { useMyWork } from "@app/features/assignments/index.js";
@@ -17,22 +20,23 @@ import { useMyWork } from "@app/features/assignments/index.js";
 // their teacher (a join request, a payment to confirm), their classes with
 // where each one is, work to do, the latest notes, and courses they bought.
 export default function Home() {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const navigate = useNavigate();
   const { seen } = useSeen();
   const { notes } = useMyNotes();
   const { me } = useMe();
-  const classes = myClasses(state);
-  const invites = state.invitations.filter((i) => i.status === "pending" && i.expiresAt > new Date().toISOString());
-  const waiting = state.memberships.filter((m) => m.status === "requested");
-  const paying = state.purchases.filter((p) => p.status === "requested");
-  const bought = boughtCourses(state);
+  const { active: classes, waiting } = useMyClasses();
+  const { invitations: invites, accept: acceptInvitation } = useMyInvitations();
+  const { purchases } = useMyPurchases();
+  const { courses } = useMyCourses();
+  const paying = purchases.filter((p) => p.status === "requested");
+  const bought = courses.filter((c) => c.access !== "class");
   const latest = notes.slice(0, 3);
   const { open: work } = useMyWork();
 
-  const accept = (inv) => {
-    dispatch({ type: "ACCEPT_INVITATION", invitationId: inv.id, studentId: me.id });
-    toast(`You're in ${classOf(state, inv.classId)?.name || "the class"}`);
+  const accept = async (inv) => {
+    await acceptInvitation(inv.id);
+    toast(`You're in ${inv.class?.name || "the class"}`);
   };
 
   if (!me) return null;
@@ -44,32 +48,23 @@ export default function Home() {
 
       {(invites.length > 0 || waiting.length > 0 || paying.length > 0) && (
         <div className="space-y-3 mb-8">
-          {invites.map((inv) => {
-            const cls = classOf(state, inv.classId);
-            return (
-              <Alert key={inv.id} tone="info" icon={IconMail} title={`${teacherName(state, cls?.teacherId)} invited you to ${cls?.name || "a class"}`}
-                actionLabel="Accept invite" onAction={() => accept(inv)}>
-                Accepting puts you straight into the class.
-              </Alert>
-            );
-          })}
-          {waiting.map((m) => {
-            const cls = classOf(state, m.classId);
-            return (
-              <Alert key={m.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(state, cls?.teacherId)} to accept you`}>
-                {cls?.name} · asked {timeAgo(m.requestedAt)}. The class shows up here once you're in.
-              </Alert>
-            );
-          })}
-          {paying.map((p) => {
-            const course = courseOf(state, p.courseId);
-            return (
-              <Alert key={p.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(state, course?.teacherId)} to confirm your payment`}
-                actionLabel="View course" onAction={() => navigate(`/courses/${p.courseId}`)}>
-                {course?.title} · requested {timeAgo(p.requestedAt)}. Every lesson opens once it's confirmed.
-              </Alert>
-            );
-          })}
+          {invites.map((inv) => (
+            <Alert key={inv.id} tone="info" icon={IconMail} title={`${teacherName(inv.teacher)} invited you to ${inv.class?.name || "a class"}`}
+              actionLabel="Accept invite" onAction={() => accept(inv)}>
+              Accepting puts you straight into the class.
+            </Alert>
+          ))}
+          {waiting.map((cls) => (
+            <Alert key={cls.membership.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(cls.teacher)} to accept you`}>
+              {cls.name} · asked {timeAgo(cls.membership.requestedAt)}. The class shows up here once you're in.
+            </Alert>
+          ))}
+          {paying.map((p) => (
+            <Alert key={p.id} tone="pending" icon={IconClock} title={`Waiting for ${teacherName(p.teacher)} to confirm your payment`}
+              actionLabel="View course" onAction={() => navigate(`/courses/${p.courseId}`)}>
+              {p.course?.title} · requested {timeAgo(p.requestedAt)}. Every lesson opens once it's confirmed.
+            </Alert>
+          ))}
         </div>
       )}
 
@@ -77,15 +72,15 @@ export default function Home() {
       {classes.length ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {classes.map((cls) => {
-            const entry = activeClassCourse(cls);
-            const course = entry && courseOf(state, entry.courseId);
-            const p = course ? classCourseProgress(state, cls, course.id) : null;
-            const nextOpen = p?.next && p.released.has(p.next.id);
+            const entry = cls.courses.find((x) => x.status === "in-progress");
+            const course = entry?.course;
+            const p = course ? entry.progress : null;
+            const nextOpen = p?.next && (entry.releasedLessonIds || []).includes(p.next.id);
             return (
               <ClassCard key={cls.id} icon={IconSchool} tone={toneOf(course)} title={cls.name} scheduleLabel={scheduleLabel(cls.schedule)}
                 courseTitle={course ? course.title : "No course in progress"}
                 lessonLine={p?.next ? `${nextOpen ? "Next" : "Coming up"}: Lesson ${p.next.n} · ${p.next.title}` : p?.allTaught ? "Every lesson taught" : ""}
-                studentCountLabel={`with ${teacherName(state, cls.teacherId)}`}
+                studentCountLabel={`with ${teacherName(cls.teacher)}`}
                 progressLabel={p ? `${p.taughtCount} of ${p.total} lessons taught` : undefined}
                 progressPct={p ? p.pct : null} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
             );
@@ -135,18 +130,14 @@ export default function Home() {
         <>
           <SectionLabel>My courses</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bought.map((course) => {
-              const lessons = lessonsOf(state, course.id);
-              const done = lessons.filter((l) => finishedLesson(state, course.id, l.id)).length;
-              return (
-                <CourseCard key={course.id} icon={IconBook2} tone={toneOf(course)} title={course.title}
-                  creatorLabel="Teacher" creatorName={teacherName(state, course.teacherId)}
-                  category={`${course.level} · self-paced`}
-                  stats={[{ icon: IconBook2, value: `${lessons.length} lessons` }, { icon: IconCircleCheck, value: `${done} finished` }]}
-                  progressPct={lessons.length ? Math.round((done / lessons.length) * 100) : 0}
-                  onViewDetail={() => navigate(`/courses/${course.id}`)} />
-              );
-            })}
+            {bought.map((course) => (
+              <CourseCard key={course.id} icon={IconBook2} tone={toneOf(course)} title={course.title}
+                creatorLabel="Teacher" creatorName={teacherName(course.teacher)}
+                category={`${course.level} · self-paced`}
+                stats={[{ icon: IconBook2, value: `${course.lessonCount} lessons` }, { icon: IconCircleCheck, value: `${course.completedLessons} finished` }]}
+                progressPct={finishedPct(course.completedLessons, course.lessonCount)}
+                onViewDetail={() => navigate(`/courses/${course.id}`)} />
+            ))}
           </div>
         </>
       )}

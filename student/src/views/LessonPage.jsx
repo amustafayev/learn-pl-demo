@@ -2,25 +2,26 @@ import React, { useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { IconArrowLeft, IconArrowRight, IconCircleCheck, IconLock, IconNotes } from "@tabler/icons-react";
 import { Breadcrumbs, Button, Card, HeaderCard, HeaderCardSection, Page, StepNav, Tag } from "@app/design-system.jsx";
-import { useStore, canOpenLesson, lessonBlocks } from "@app/store.jsx";
 import { blockMeta } from "@app/data.jsx";
 import { BlockStudentView, blockComponents } from "@app/views/parts.jsx";
+import { useToast } from "@app/toasts.jsx";
 import { useSeen } from "../session.jsx";
-import { courseOf, finishedLesson, lessonOf, lessonsOf, teacherName, toneText } from "../lib.js";
+import { teacherName, toneText } from "../lib.js";
 import { useMyNotes } from "@app/features/notes/index.js";
 import { useReadingTexts } from "@app/features/readings/index.js";
+import { useMyClassPage, useMyLesson } from "@app/features/learning/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
 // The lesson player. Opened from a class (/classes/:classId/lessons/:id) or
 // a bought course (/courses/:courseId/lessons/:id) — either way it opens
-// only what canOpenLesson allows. The teacher's notes for this lesson sit on
-// top; the lesson's blocks play one step at a time, in the same card as
-// Block Studio's "As student" view; the last step finishes the lesson
-// (COMPLETE_LESSON).
+// only what the access rule allows (features/learning's myLesson). The
+// teacher's notes for this lesson sit on top; the lesson's blocks play one
+// step at a time, in the same card as Block Studio's "As student" view; the
+// last step finishes the lesson.
 export default function LessonPage() {
   const { classId, courseId: routeCourseId, lessonId } = useParams();
   const [params, setParams] = useSearchParams();
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const { seen, markSeen } = useSeen();
   const { notes: myNotes } = useMyNotes();
   const { texts, loading: textsLoading } = useReadingTexts();
@@ -30,12 +31,16 @@ export default function LessonPage() {
   // kept here so a student's answers survive a re-render or a sync push.
   const starters = useRef({});
 
-  const cls = classId ? state.classes.find((c) => c.id === classId) : null;
+  const { page: classPage, loading: classLoading } = useMyClassPage(classId);
+  const cls = classPage?.class || null;
   // A class lesson belongs to whichever of the class's courses has it.
-  const courseId = routeCourseId || cls?.courses.find((x) => lessonsOf(state, x.courseId).some((l) => l.id === lessonId))?.courseId;
-  const course = courseOf(state, courseId);
-  const lesson = course ? lessonOf(state, course.id, lessonId) : null;
-  const allowed = !!lesson && canOpenLesson(state, state.me.id, course.id, lesson.id);
+  const inClass = classPage?.courses.find((c) => c.lessons.some((row) => row.lesson.id === lessonId));
+  const courseId = routeCourseId || inClass?.course.id;
+  const { result, loading: lessonLoading, complete } = useMyLesson(courseId, lessonId);
+  const course = result?.course || inClass?.course || null;
+  // Locked, the API may not say which lesson it is; the class page does.
+  const lesson = result?.lesson || inClass?.lessons.find((row) => row.lesson.id === lessonId)?.lesson || null;
+  const allowed = !!result?.open;
   const notes = cls && lesson ? myNotes.filter((n) => n.classId === cls.id && n.lessonId === lesson.id) : [];
   const noteIds = notes.map((n) => n.id).join(",");
 
@@ -52,6 +57,7 @@ export default function LessonPage() {
     { label: lesson ? `Lesson ${lesson.n}` : "Lesson" },
   ];
 
+  if ((classId && classLoading) || lessonLoading) return null;
   if (!allowed) {
     return (
       <Page>
@@ -60,7 +66,7 @@ export default function LessonPage() {
           <span className="w-12 h-12 rounded-lg bg-neutral-200 text-neutral-700 flex items-center justify-center mx-auto mb-4"><IconLock size={22} stroke={1.75} /></span>
           <div className="font-bold text-lg mb-1.5 text-neutral-950">{lesson ? `Lesson ${lesson.n} isn't shared yet` : "This lesson isn't available"}</div>
           <p className="text-sm text-neutral-600 mb-5">
-            {lesson ? `${teacherName(state, cls?.teacherId || course?.teacherId)} shares each lesson with the class when it's time — it opens here then.` : "It may have been removed, or it's not part of your classes or courses."}
+            {lesson ? `${teacherName(cls?.teacher || result?.teacher)} shares each lesson with the class when it's time — it opens here then.` : "It may have been removed, or it's not part of your classes or courses."}
           </p>
           <Button variant="outline" onClick={() => navigate(back.to)}><IconArrowLeft size={16} stroke={1.75} /> Back to {back.label}</Button>
         </Card>
@@ -68,7 +74,7 @@ export default function LessonPage() {
     );
   }
 
-  const blocks = lessonBlocks(lesson).map((b) => {
+  const blocks = lesson.blocks.map((b) => {
     if (b.content?.components) return b;
     const cached = starters.current[b.id];
     // Made again once the reading texts arrive, so a starter passage gets one.
@@ -80,12 +86,12 @@ export default function LessonPage() {
   const index = Math.max(0, blocks.findIndex((b) => b.id === params.get("step")));
   const block = blocks[index];
   const go = (i) => { setParams({ step: blocks[i].id }); document.querySelector("main")?.scrollTo({ top: 0 }); };
-  const finished = finishedLesson(state, course.id, lesson.id);
+  const { finished } = result;
   const last = index === blocks.length - 1;
-  const teacher = teacherName(state, cls?.teacherId || course.teacherId);
+  const teacher = teacherName(cls?.teacher || result.teacher);
 
-  const finish = () => {
-    dispatch({ type: "COMPLETE_LESSON", studentId: state.me.id, courseId: course.id, lessonId: lesson.id });
+  const finish = async () => {
+    await complete();
     toast(`Lesson ${lesson.n} finished — nice work!`);
   };
 
