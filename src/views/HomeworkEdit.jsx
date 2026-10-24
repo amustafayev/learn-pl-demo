@@ -4,7 +4,7 @@ import { IconPlus, IconX, IconPaperclip, IconClipboardText, IconPencil, IconChev
 import { Page, Breadcrumbs, PageHeader, Card, Button, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { uid } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
-import { useHomeworkActions, useHomeworkPost } from "../homework.jsx";
+import { useHomeworkActions, useHomeworkPost } from "../features/homework/index.js";
 import { classDetailPath, classHomeworkPath, classHomeworkPostPath } from "../router.jsx";
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
 import { defaultComponent, ComponentPicker, ComponentEditor } from "./parts.jsx";

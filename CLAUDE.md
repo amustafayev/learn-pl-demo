@@ -172,11 +172,11 @@ Converted so far:
 Toasts aren't a feature but the app's UI: `src/toasts.jsx` (`ToastProvider`
 around each app, `useToast()`), per tab, never stored or synced.
 
-Class homework already follows the same pattern from before
-(`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
-`src/features/` when it's next touched. Everything else still reads the mock
-through `useStore()` and is converted feature by feature: the student's own learning,
-media, the seed-only analytics pages.
+- **homework** — class homework (Classwork): see **Class homework** below.
+
+Everything else still reads the mock through `useStore()` and is converted
+feature by feature: the student's own learning, media, the seed-only
+analytics pages.
 
 ## Tests
 
@@ -639,14 +639,14 @@ date) — see `homeworkStats`.
   `components/HomeworkAttachment.jsx` (`describeAttachment`) words each one —
   what it is, where from, and a block's components — for the composer and the
   assignment page. Already-attached picker rows say "✓ Attached".
-- **One door:** the pages use only `src/homework.jsx`
+- **One door:** the pages use only `src/features/homework`
   (`useClassHomework`, `useHomeworkPost`, `useHomeworkActions`).
-- **The mock backend:** `db/homeworkClient.js` holds the contract
+- **The mock backend:** its `client.js` holds the contract
   (`list` / `get` / `saveDraft` / `publish` / `update` / `remove`), the mock
   client over the reducer (`SAVE_HOMEWORK`, `PUBLISH_HOMEWORK`,
   `UPDATE_HOMEWORK`, `DELETE_HOMEWORK`, `RELEASE_SCHEDULED_HOMEWORK`) and an
   HTTP client for `/classes/{classId}/homework…` (docs/openapi.yaml). To go
-  live, build the HTTP one in `homework.jsx`'s `useHomeworkClient`. The mock
+  live, build the HTTP one in its `hooks.js`. The mock
   has no server clock, so pages nudge `RELEASE_SCHEDULED_HOMEWORK` on open and
   every 30 seconds; a real server posts scheduled assignments itself.
 - Delete takes back rows still `assigned` and leaves `done` ones as history;

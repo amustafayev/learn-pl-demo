@@ -9,9 +9,9 @@
    student the teacher sees Turned in / Assigned / Missing (not turned in
    after the due date). Individual-student assigning is not part of this yet.
 
-   The UI only talks to the client below — never to reducer actions or
-   `state.assignments` — so moving to a real backend means swapping which
-   client `homework.jsx` builds, nothing else.
+   The UI only talks to the client below, through ./hooks.js — never to
+   reducer actions or `state.assignments` — so moving to a real backend
+   means swapping which client hooks.js builds, nothing else.
 
    Contract (every method resolves; failures reject with an ApiError):
      list(classId)                      -> Post[]     newest first, with stats

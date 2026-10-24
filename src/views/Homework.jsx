@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { IconPlus, IconClipboardText, IconClipboardCheck } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, Card, Button, Tag } from "../design-system.jsx";
-import { useClassHomework } from "../homework.jsx";
+import { useClassHomework } from "../features/homework/index.js";
 import { classDetailPath, classHomeworkNewPath, classHomeworkPostPath, classHomeworkEditPath } from "../router.jsx";
 import { shortDate } from "../format.js";
 import { useCourse } from "../features/courses/index.js";

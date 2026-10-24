@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { IconPencil, IconTrash, IconClipboardText } from "@tabler/icons-react";
 import { Page, Breadcrumbs, Card, Button, Tag, Avatar, PillTabs, Modal } from "../design-system.jsx";
-import { useHomeworkPost, useHomeworkActions } from "../homework.jsx";
+import { useHomeworkPost, useHomeworkActions } from "../features/homework/index.js";
 import { classDetailPath, classHomeworkPath, classHomeworkEditPath } from "../router.jsx";
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
 import { describeAttachment } from "../components/HomeworkAttachment.jsx";
