@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { IconSchool, IconCircleCheck, IconArrowRight, IconFlag, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Button, Tag, Modal } from "../design-system.jsx";
-import { useStore, useNav, classCourseProgress, markLessonTaught } from "../store.jsx";
+import { useNav } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
+import { useClassActions, progressFor } from "../features/classes/index.js";
 import { timeAgo, shortDate } from "../format.js";
 import { nextAutoShareLabel } from "../schedule.js";
 
@@ -16,14 +18,30 @@ const STATE_STYLE = {
   done: { tile: "bg-success-50 text-success-600", tag: "success", label: "Course completed" },
 };
 
+// Finishing a lesson taught to a class: logged as taught (which also shares
+// it and moves "next up" on), then a toast saying what comes next.
+function useFinishLesson(cls, course, lesson, lessons) {
+  const toast = useToast();
+  const { markTaught } = useClassActions(cls.id);
+  return () => markTaught(course.id, lesson.id).then(() => {
+    const next = lessons[lessons.findIndex((l) => l.id === lesson.id) + 1] || null;
+    toast(next
+      ? `Lesson ${lesson.n} marked as taught for ${cls.name} — next up: Lesson ${next.n}`
+      : `Lesson ${lesson.n} marked as taught for ${cls.name} — that was the last lesson`);
+  }, (err) => toast(err.description || "Couldn't mark the lesson as taught", "err"));
+}
+
 // Share / hide one lesson for one class — asks first, since sharing opens the
 // lesson to every active student in the class and hiding takes it away.
 export function ShareLessonButton({ cls, course, lesson, shared }) {
-  const { dispatch, toast } = useStore();
+  const toast = useToast();
+  const { setShared } = useClassActions(cls.id);
   const [asking, setAsking] = useState(false);
   const confirm = () => {
-    dispatch({ type: "SET_LESSON_RELEASED", classId: cls.id, courseId: course.id, lessonId: lesson.id, released: !shared });
-    toast(!shared ? `Lesson ${lesson.n} shared with ${cls.name}` : `Lesson ${lesson.n} hidden from ${cls.name}'s students`);
+    setShared(course.id, lesson.id, !shared).then(
+      () => toast(!shared ? `Lesson ${lesson.n} shared with ${cls.name}` : `Lesson ${lesson.n} hidden from ${cls.name}'s students`),
+      (err) => toast(err.description || "Couldn't change who can see the lesson", "err"),
+    );
     setAsking(false);
   };
   return (
@@ -49,9 +67,11 @@ export function ShareLessonButton({ cls, course, lesson, shared }) {
 }
 
 export default function ClassLessonBar({ cls, course, lesson, className = "" }) {
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const { go } = useNav();
-  const p = classCourseProgress(state, cls, course.id);
+  const { setNextLesson } = useClassActions(cls.id);
+  const p = progressFor(cls, course.id);
+  const markTaught = useFinishLesson(cls, course, lesson, p?.lessons || []);
 
   if (!p) {
     return (
@@ -76,7 +96,6 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
     done: `${p.taughtCount} of ${p.total} lessons taught.${taughtOn ? ` This one ${timeAgo(taughtOn)}.` : ""}`,
   }[kind];
 
-  const markTaught = () => markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: p.lessons });
   // Can the class's students open this lesson? (Marking it taught shares it.)
   const shared = p.released.has(lesson.id);
   // The class's next lesson opens on its own before a session — say when, or
@@ -109,7 +128,7 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
               </Button>
             )}
             {kind === "later" && (
-              <Button size="sm" variant="light" onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: lesson.id }); toast(`${cls.name} is now on Lesson ${lesson.n}`); }}>
+              <Button size="sm" variant="light" onClick={() => setNextLesson(course.id, lesson.id).then(() => toast(`${cls.name} is now on Lesson ${lesson.n}`), (err) => toast(err.description || "Couldn't change next up", "err"))}>
                 <IconFlag size={15} stroke={1.75} /> Set as next up
               </Button>
             )}
@@ -129,11 +148,10 @@ export default function ClassLessonBar({ cls, course, lesson, className = "" }) 
 // "next up" moved on. Nothing fires by itself: opening a lesson to prepare
 // it must not count as teaching it.
 export function FinishLessonCard({ cls, course, lesson, className = "" }) {
-  const { state, dispatch, toast } = useStore();
-  const p = classCourseProgress(state, cls, course.id);
+  const p = progressFor(cls, course.id);
+  const finish = useFinishLesson(cls, course, lesson, p?.lessons || []);
   if (!p || p.entry.status === "done") return null;
   const taughtOn = p.taughtAt[lesson.id];
-  const finish = () => markLessonTaught(dispatch, toast, { cls, courseId: course.id, lesson, lessons: p.lessons });
   return (
     <div className={`flex flex-wrap items-center gap-3 rounded-[14px] border border-neutral-400 bg-surface p-4 ${className}`}>
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${taughtOn ? "bg-success-50 text-success-600" : "bg-primary-50 text-primary-600"}`}>

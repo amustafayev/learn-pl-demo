@@ -742,6 +742,8 @@ paths:
       tags: [Classes]
       operationId: listClasses
       summary: The teacher's classes
+      parameters:
+        - { name: include, in: query, required: false, schema: { type: string, enum: [progress] }, description: "Each course entry also carries its `progress` (ClassCourseProgress) — what the class cards, the calendar and the course list show for every class at once." }
       responses:
         "200": { description: "Classes", content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Class" } } } } }
     post:
@@ -772,6 +774,8 @@ paths:
       tags: [Classes]
       operationId: getClass
       summary: One class (teacher)
+      parameters:
+        - { name: include, in: query, required: false, schema: { type: string, enum: [progress] }, description: "Each course entry also carries its `progress` (ClassCourseProgress) — what the class cards, the calendar and the course list show for every class at once." }
       responses:
         "200": { description: "The class", content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2005,6 +2009,7 @@ components:
         currentLessonId: { type: string, nullable: true, description: '"Next up".' }
         releasedLessonIds: { type: array, items: { type: string }, description: Lessons the class's students can open. }
         heldLessonIds: { type: array, items: { type: string }, description: Lessons the teacher hid — the auto-share job must not reopen them. }
+        progress: { allOf: [{ $ref: "#/components/schemas/ClassCourseProgress" }], description: "Only with `include=progress`." }
     Class:
       type: object
       required: [id, teacherId, name]

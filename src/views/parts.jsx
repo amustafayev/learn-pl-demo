@@ -26,6 +26,7 @@ import { useToast } from "../toasts.jsx";
 import { useReadingFolders, useReadingTexts, useReadingText } from "../features/readings/index.js";
 import { useSavedComponents, savedFromDetail } from "../features/savedComponents/index.js";
 import { useLesson } from "../features/courses/index.js";
+import { useClass } from "../features/classes/index.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import ClassLessonBar, { FinishLessonCard } from "../components/ClassLessonBar.jsx";
 import { pathLabel } from "../libraryTree.js";
@@ -365,6 +366,7 @@ export default function BlockStudio() {
   const savedComponents = useSavedComponents();
   const { route, go } = useNav();
   const { course, lesson, loading: lessonLoading, updateBlock } = useLesson(route.courseId, route.lessonId);
+  const { cls: teachingClass } = useClass(route.classId);
   const [mode, setMode] = useState("student");
   const [savedAs, setSavedAs] = useState({}); // component id → what was saved (see handleSaveComponent)
   // Where the next component goes: null = picker closed, otherwise the
@@ -467,7 +469,6 @@ export default function BlockStudio() {
     return () => { scroller.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
   }, [mode, stuckOffset]);
   const block = lesson?.blocks.find((p) => p.id === route.partId) || null;
-  const teachingClass = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
   const enrolled = activeStudents(state).filter((s) => studentCourseId(state, s) === course?.id);
   // Group work picks from students actually assigned to THIS lesson, not
   // the whole course roster — group members should be the people doing

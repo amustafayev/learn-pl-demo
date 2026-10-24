@@ -4,7 +4,8 @@ import { IconClock, IconClipboardCheck,
   IconPlus, IconChevronRight, IconUserPlus, IconUserMinus, IconX, IconCheck, IconUsers, IconSchool, IconCopy, IconRefresh, IconMail, IconInbox,
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, Card, Button, Badge, Tag, Avatar, Modal, Field, TextField, Select, SegmentedBar, ClassCard, Switch, PillTabs, PRESS, PRESS_FLAT } from "../design-system.jsx";
-import { useStore, useNav, activeClassCourse, classCourseProgress, classMembers, teacherRoster } from "../store.jsx";
+import { useStore, useNav, classMembers, teacherRoster } from "../store.jsx";
+import { useToast } from "../toasts.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import { CLASS_COURSE_STATUS, joinLink } from "../data.jsx";
@@ -12,6 +13,7 @@ import { scheduleLabel, scheduleDays } from "../schedule.js";
 import { classHomeworkPath } from "../router.jsx";
 import ScheduleEditor from "../components/ScheduleEditor.jsx";
 import { useCourses } from "../features/courses/index.js";
+import { useClasses, useClass, useClassActions, activeCourseOf, progressFor } from "../features/classes/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary, same as Courses.jsx.
@@ -43,19 +45,25 @@ export default function Classes() {
 }
 
 function ClassesView() {
-  const { state, dispatch, toast } = useStore();
+  const { state } = useStore();
+  const toast = useToast();
   const { courses } = useCourses();
+  const { classes, createClass: create } = useClasses();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [schedule, setSchedule] = useState([]);
   const [courseId, setCourseId] = useState("");
 
-  function createClass() {
+  async function createClass() {
     if (!name.trim()) return toast("Give the class a name", "err");
-    dispatch({ type: "ADD_CLASS", name: name.trim(), schedule, courseId: courseId || null });
-    toast(`“${name.trim()}” class created`);
-    setName(""); setSchedule([]); setCourseId(""); setCreating(false);
+    try {
+      await create({ name: name.trim(), schedule, courseId: courseId || null });
+      toast(`“${name.trim()}” class created`);
+      setName(""); setSchedule([]); setCourseId(""); setCreating(false);
+    } catch (err) {
+      toast(err.description || "Couldn't create the class", "err");
+    }
   }
 
   return (
@@ -86,12 +94,12 @@ function ClassesView() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {state.classes.map((cls) => {
+        {classes.map((cls) => {
           const roster = classMembers(state, cls.id).map((m) => m.student);
           const requests = classMembers(state, cls.id, "requested").length;
-          const active = activeClassCourse(cls);
+          const active = activeCourseOf(cls);
           const course = courses.find((c) => c.id === active?.courseId);
-          const p = active ? classCourseProgress(state, cls, active.courseId) : null;
+          const p = active ? active.progress : null;
           return (
             <ClassCard key={cls.id} icon={IconSchool} tone={course ? HUE_TO_TONE[course.hue] || "primary" : "primary"}
               title={cls.name} scheduleLabel={scheduleDays(cls.schedule)} scheduleTitle={scheduleLabel(cls.schedule)}
@@ -103,7 +111,7 @@ function ClassesView() {
               progressPct={p ? p.pct : null} onViewDetail={() => navigate(`/classes/${cls.id}`)} />
           );
         })}
-        {!state.classes.length && !creating && (
+        {!classes.length && !creating && (
           <Card className="p-8 text-center text-sm text-neutral-500 sm:col-span-2 lg:col-span-3">
             No classes yet — create one to enroll students and assign a course.
           </Card>
@@ -129,6 +137,7 @@ function ClassDetailRoute() {
 function ClassDetailView({ classId }) {
   const { state, dispatch, toast } = useStore();
   const { courses } = useCourses();
+  const { cls, updateSchedule, assignCourse: assign } = useClass(classId);
   const { go } = useNav();
   const navigate = useNavigate();
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -144,7 +153,6 @@ function ClassDetailView({ classId }) {
   if (confirmRemove) lastRemove.current = confirmRemove;
   const removing = confirmRemove || lastRemove.current;
 
-  const cls = state.classes.find((c) => c.id === classId);
   if (!cls) return null;
 
   // Active members; the "+" picker offers the teacher's other students
@@ -162,8 +170,10 @@ function ClassDetailView({ classId }) {
     setConfirmRemove(null);
   }
   function assignCourse(courseId) {
-    dispatch({ type: "ASSIGN_CLASS_COURSE", classId: cls.id, courseId });
-    toast(`${courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`);
+    assign(courseId).then(
+      () => toast(`${courses.find((c) => c.id === courseId)?.title} assigned to ${cls.name}`),
+      (err) => toast(err.description || "Couldn't assign the course", "err"),
+    );
     setAssignOpen(false);
   }
 
@@ -179,7 +189,7 @@ function ClassDetailView({ classId }) {
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} icon={IconClock} title="Class schedule" sub={cls.name}
         footer={<>
           <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancel</Button>
-          <Button onClick={() => { dispatch({ type: "UPDATE_CLASS_SCHEDULE", classId: cls.id, schedule: draftSchedule }); toast("Schedule updated"); setScheduleOpen(false); }}>Save schedule</Button>
+          <Button onClick={() => { updateSchedule(draftSchedule).then(() => toast("Schedule updated"), (err) => toast(err.description || "Couldn't update the schedule", "err")); setScheduleOpen(false); }}>Save schedule</Button>
         </>}>
         <ScheduleEditor value={draftSchedule} onChange={setDraftSchedule} />
         <p className="mt-4 text-xs text-neutral-600">The class's next lesson opens to its students 5 minutes before each session. You can hide it again from the lesson.</p>
@@ -212,7 +222,7 @@ function ClassDetailView({ classId }) {
             {[...cls.courses].sort((a, b) => (a.status === "in-progress" ? -1 : b.status === "in-progress" ? 1 : 0)).map((entry) => {
               const course = courses.find((c) => c.id === entry.courseId);
               if (!course) return null;
-              const p = classCourseProgress(state, cls, course.id);
+              const p = progressFor(cls, course.id);
               const st = CLASS_COURSE_STATUS[entry.status] || CLASS_COURSE_STATUS["in-progress"];
               const openCourse = () => go({ tab: "courses", courseId: course.id, classId: cls.id });
               return (
@@ -378,6 +388,8 @@ function ClassDetailView({ classId }) {
 // them straight away). The student side of both lives in the student app.
 function InviteStudentsPanel({ cls }) {
   const { state, dispatch, toast } = useStore();
+  const { setJoining, newJoinLink } = useClassActions(cls.id);
+  const failed = (err) => toast(err.description || "Couldn't change the class link", "err");
   const [email, setEmail] = useState("");
   const link = joinLink(cls.joinToken);
   const pending = state.invitations.filter((i) => i.classId === cls.id && i.status === "pending");
@@ -397,7 +409,7 @@ function InviteStudentsPanel({ cls }) {
         <div className="text-sm font-semibold text-neutral-950">Class link</div>
         <label className="flex items-center gap-2 text-sm text-neutral-700" title="When off, the link stops taking requests">
           Joining {cls.joinOpen ? "on" : "off"}
-          <Switch checked={cls.joinOpen} onChange={(v) => { dispatch({ type: "SET_CLASS_JOINING", classId: cls.id, joinOpen: v }); toast(v ? "The class link takes requests again" : "The class link is off — no new requests"); }} />
+          <Switch checked={cls.joinOpen} onChange={(v) => setJoining(v).then(() => toast(v ? "The class link takes requests again" : "The class link is off — no new requests"), failed)} />
         </label>
       </div>
 
@@ -408,7 +420,7 @@ function InviteStudentsPanel({ cls }) {
           <Button size="sm" variant="outline" iconOnly icon={IconCopy} onClick={() => copy(link, "Link")} disabled={!cls.joinOpen} title="Copy link" aria-label="Copy link" />
         </div>
         <div className="mt-2 flex items-center text-sm text-neutral-600">
-          <button type="button" onClick={() => { dispatch({ type: "REGENERATE_JOIN_TOKEN", classId: cls.id }); toast("New link — the old one no longer works"); }}
+          <button type="button" onClick={() => newJoinLink().then(() => toast("New link — the old one no longer works"), failed)}
             className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-600 hover:text-primary-700"><IconRefresh size={14} stroke={1.75} /> New link</button>
         </div>
         <p className="mt-2 text-xs text-neutral-600">{cls.joinOpen ? "Anyone with it can ask to join — you accept each request." : "Joining is off — the link doesn't take requests."}</p>

@@ -9,6 +9,7 @@ import { assignmentLook } from "../components/StudentAssignModal.jsx";
 import { describeAttachment } from "../components/HomeworkAttachment.jsx";
 import { shortDate, timeAgo } from "../format.js";
 import { useCourse } from "../features/courses/index.js";
+import { useClass } from "../features/classes/index.js";
 
 /* =========================================================================
    One assignment, the way Google Classroom shows it: the title and when it
@@ -41,7 +42,7 @@ export default function HomeworkDetail() {
   const { remove } = useHomeworkActions();
   const [tab, setTab] = useState("work");
   const [confirm, setConfirm] = useState(false);
-  const cls = state.classes.find((c) => c.id === classId);
+  const { cls } = useClass(classId);
   const { post, loading } = useHomeworkPost(classId, homeworkId);
   const { lessons } = useCourse(post?.courseId);
   if (!cls || loading) return null;

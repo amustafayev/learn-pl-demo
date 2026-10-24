@@ -2,11 +2,11 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { IconPlus, IconClipboardText, IconClipboardCheck } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, Card, Button, Tag } from "../design-system.jsx";
-import { useStore } from "../store.jsx";
 import { useClassHomework } from "../homework.jsx";
 import { classDetailPath, classHomeworkNewPath, classHomeworkPostPath, classHomeworkEditPath } from "../router.jsx";
 import { shortDate } from "../format.js";
 import { useCourse } from "../features/courses/index.js";
+import { useClass } from "../features/classes/index.js";
 
 /* =========================================================================
    A class's Classwork (Google Classroom's tab of the same name): every
@@ -56,8 +56,7 @@ function PostRow({ post, onOpen }) {
 export default function Homework() {
   const { classId } = useParams();
   const navigate = useNavigate();
-  const { state } = useStore();
-  const cls = state.classes.find((x) => x.id === classId);
+  const { cls } = useClass(classId);
   const { posts, loading } = useClassHomework(classId);
   // A class takes one course (see CLAUDE.md), so its posts' topics are that
   // course's lessons.

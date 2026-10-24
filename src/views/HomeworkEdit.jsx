@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { IconPlus, IconX, IconPaperclip, IconClipboardText, IconPencil, IconChevronUp } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, Card, Button, Field, TextField, TextArea, Select } from "../design-system.jsx";
-import { useStore, activeClassCourse, classMembers, uid } from "../store.jsx";
+import { useStore, classMembers, uid } from "../store.jsx";
 import { useHomeworkActions, useHomeworkPost } from "../homework.jsx";
 import { classDetailPath, classHomeworkPath, classHomeworkPostPath } from "../router.jsx";
 import { assignmentLook } from "../components/StudentAssignModal.jsx";
@@ -11,6 +11,7 @@ import { describeAttachment, compLabel } from "../components/HomeworkAttachment.
 import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
 import { useCourse } from "../features/courses/index.js";
+import { useClass, activeCourseOf } from "../features/classes/index.js";
 
 /* =========================================================================
    The assignment composer — Google Classroom's "Create assignment" page, for
@@ -65,7 +66,7 @@ export default function HomeworkEdit() {
   const { texts } = useReadingTexts();
   const { items: savedComponents } = useSavedComponents();
   const { saveDraft, publish, update } = useHomeworkActions();
-  const cls = state.classes.find((c) => c.id === classId);
+  const { cls } = useClass(classId);
   const { post, loading } = useHomeworkPost(classId, homeworkId);
 
   const [title, setTitle] = useState("");
@@ -89,7 +90,7 @@ export default function HomeworkEdit() {
     setLoaded(true);
   }, [homeworkId, loading, loaded, post]);
 
-  const active = cls ? activeClassCourse(cls) : null;
+  const active = cls ? activeCourseOf(cls) : null;
   const courseId = active?.courseId || null;
   const { lessons } = useCourse(courseId);
   const lesson = lessons.find((l) => l.id === lessonId) || null;

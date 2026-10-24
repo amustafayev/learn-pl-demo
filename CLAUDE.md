@@ -122,6 +122,13 @@ Converted so far:
   app's sign-in page (`useSignIn`). The student app remounts everything
   below its sign-in gate when the session changes, so no screen outlives
   the student it was showing.
+- **classes** — a class's schedule, link settings, course and progress,
+  shared lessons, lessons taught and attendance (`useClasses`, `useClass`,
+  `useClassActions` for components handed a class that only act on it,
+  `useAttendance`). Every class comes with each course's `progress`
+  (`progressFor(cls, courseId)`, `activeCourseOf`, `courseAvgProgress`).
+  Who is in a class is the students feature's (not moved yet). The
+  student app's class pages still read the mock.
 - **courses** — courses, lessons and their blocks: the Courses list, a
   course's tree and sale settings, a lesson's steps, Block Studio, and the
   course/lesson names other screens show (`useCourses`, `useCourse`,
@@ -148,8 +155,8 @@ around each app, `useToast()`), per tab, never stored or synced.
 Class homework already follows the same pattern from before
 (`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
 `src/features/` when it's next touched. Everything else still reads the mock
-through `useStore()` and is converted feature by feature: classes,
-students & joining, sales, assigned work, the student's own learning,
+through `useStore()` and is converted feature by feature: students &
+joining, sales, assigned work, the student's own learning,
 media, the seed-only analytics pages.
 
 ## Tests

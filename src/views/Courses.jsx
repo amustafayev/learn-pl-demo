@@ -7,7 +7,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
-import { useStore, useNav, activeClassCourse, classCourseProgress, courseAvgProgress, teacherRoster } from "../store.jsx";
+import { useStore, useNav, teacherRoster } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar, { ShareLessonButton } from "../components/ClassLessonBar.jsx";
@@ -19,6 +19,7 @@ import { useReadingTexts } from "../features/readings/index.js";
 import { useSavedComponents } from "../features/savedComponents/index.js";
 import { useMe } from "../features/account/index.js";
 import { useCourses, useCourse, useLesson } from "../features/courses/index.js";
+import { useClasses, useClass, activeCourseOf, progressFor, courseAvgProgress } from "../features/classes/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -27,9 +28,9 @@ const HUE_TO_TONE = { indigo: "primary", emerald: "success", amber: "pending", r
 /* ----------------------------- courses list ----------------------------- */
 
 export function CoursesView() {
-  const { state } = useStore();
   const { me } = useMe();
   const { courses, createCourse } = useCourses();
+  const { classes } = useClasses();
   const { go } = useNav();
   const [modal, setModal] = useState(false);
   return (
@@ -40,14 +41,14 @@ export function CoursesView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {courses.map((c) => {
           const count = c.lessonCount;
-          const classCount = state.classes.filter((cls) => activeClassCourse(cls)?.courseId === c.id).length;
+          const classCount = classes.filter((cls) => activeCourseOf(cls)?.courseId === c.id).length;
           const tone = HUE_TO_TONE[c.hue] || "primary";
           return (
             <CourseCard key={c.id} icon={IconBook2} tone={tone} title={c.title}
               creatorLabel="Designed by" creatorName={me?.name || ""} creatorColor="dark"
               category={`${LESSON_TEMPLATES[c.templateId]?.label || "General English"} template`}
               stats={[{ icon: IconUsers, value: `${classCount} class${classCount === 1 ? "" : "es"}` }, { icon: IconSchool, value: `${count} lesson${count === 1 ? "" : "s"}` }]}
-              progressPct={courseAvgProgress(state, c.id)} onViewDetail={() => go({ courseId: c.id })} />
+              progressPct={courseAvgProgress(classes, c.id)} onViewDetail={() => go({ courseId: c.id })} />
           );
         })}
       </div>
@@ -70,11 +71,12 @@ export function CoursesView() {
 
 export function CourseView() {
   const navigate = useNavigate();
-  const { state, dispatch, toast } = useStore();
+  const toast = useToast();
   const { texts } = useReadingTexts();
   const saved = useSavedComponents();
   const { route, go } = useNav();
   const { course, lessons, createLesson, updateSale } = useCourse(route.courseId);
+  const { cls, setCourseStatus, setNextLesson } = useClass(route.classId);
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedLessons, setExpandedLessons] = useState({});
@@ -84,12 +86,12 @@ export function CourseView() {
   // Viewed "as" a specific class (?classId=) — its progress replaces the
   // course's own authored lock/current/progress fields below. Absent this,
   // the tree shows the course's generic template state (no class taken it).
-  const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
-  const progress = cls && course ? classCourseProgress(state, cls, course.id) : null;
+  const progress = course ? progressFor(cls, course.id) : null;
   const classCourse = progress?.entry || null;
 
   if (!course) return null;
 
+  const failed = (err) => toast(err.description || "Couldn't change the class's course", "err");
   const q = query.trim().toLowerCase();
   const toggleLesson = (id) => setExpandedLessons((m) => ({ ...m, [id]: !m[id] }));
   const toggleBlock = (key) => setExpandedBlocks((m) => ({ ...m, [key]: !m[key] }));
@@ -157,9 +159,9 @@ export function CourseView() {
           {classCourse && (
             <Button variant="light" size="sm" onClick={() => {
               const next = classCourse.status === "in-progress" ? "done" : "in-progress";
-              dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: next });
-              toast(next === "done" ? `${course.title} marked completed for ${cls.name}`
-                : classCourse.status === "paused" ? `${course.title} resumed for ${cls.name}` : `${course.title} reopened for ${cls.name}`);
+              const said = next === "done" ? `${course.title} marked completed for ${cls.name}`
+                : classCourse.status === "paused" ? `${course.title} resumed for ${cls.name}` : `${course.title} reopened for ${cls.name}`;
+              setCourseStatus(course.id, next).then(() => toast(said), failed);
             }}>
               {classCourse.status === "in-progress" ? <><IconCircleCheck size={14} stroke={1.75} /> Mark as completed</>
                 : classCourse.status === "paused" ? <><IconPlayerPlay size={14} stroke={1.75} /> Resume course</> : "Reopen course"}
@@ -201,7 +203,7 @@ export function CourseView() {
               </Button>
             )}
             {progress.allTaught && classCourse.status !== "done" && (
-              <Button size="sm" variant="outline" className="sm:ml-auto" onClick={() => { dispatch({ type: "SET_CLASS_COURSE_STATUS", classId: cls.id, courseId: course.id, status: "done" }); toast(`${course.title} marked completed for ${cls.name}`); }}>
+              <Button size="sm" variant="outline" className="sm:ml-auto" onClick={() => setCourseStatus(course.id, "done").then(() => toast(`${course.title} marked completed for ${cls.name}`), failed)}>
                 <IconCircleCheck size={15} stroke={1.75} /> Mark course completed
               </Button>
             )}
@@ -287,7 +289,7 @@ export function CourseView() {
                       className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0"><IconClipboardCheck size={13} stroke={1.75} /> Assign</button>
                   )}
                   {classCourse && classCourse.status !== "done" && view.state !== "next" && (
-                    <button onClick={() => { dispatch({ type: "SET_CLASS_CURRENT_LESSON", classId: cls.id, courseId: course.id, lessonId: l.id }); toast(`${cls.name} is now on Lesson ${l.n}`); }}
+                    <button onClick={() => setNextLesson(course.id, l.id).then(() => toast(`${cls.name} is now on Lesson ${l.n}`), failed)}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 shrink-0"><IconFlag size={13} stroke={1.75} /> Set as next up</button>
                   )}
                   <Button variant="light" size="sm" onClick={() => go({ lessonId: l.id })} className="shrink-0">
@@ -370,15 +372,13 @@ export function CourseView() {
    Structured Lesson Pathway View: Passage -> Words -> Videos -> Listenings -> Grammar -> Practice Grammar -> Homework */
 
 export function LessonBuilderView() {
-  const { state } = useStore();
   const toast = useToast();
   const { route, go } = useNav();
   const { course, lesson, addBlock: addLessonBlock, updateBlock, removeBlock, moveBlock } = useLesson(route.courseId, route.lessonId);
+  const { cls } = useClass(route.classId);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
-
-  const cls = route.classId ? state.classes.find((c) => c.id === route.classId) : null;
 
   if (!lesson || !course) return null;
   const blocks = lesson.blocks;

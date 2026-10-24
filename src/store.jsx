@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, useState } from "react";
 import {
-  reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
+  reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classCourseProgress, studentCourseId,
   persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
   studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
 } from "./db/mockDb.jsx";
@@ -22,7 +22,7 @@ import { useToast } from "./toasts.jsx";
 // from "./store.jsx"` keeps working unchanged — the actual definitions live
 // in the db layer now, next to the state shape they describe.
 export {
-  lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
+  lessonBlocks, activeClassCourse, classCourseProgress, studentCourseId,
   classMembers, studentClasses, activeStudents, teacherRoster, studentHistory, membershipPeriods, uid, h5pClient, saveMedia,
   studentView, signedOutView, canOpenLesson,
 };
@@ -60,18 +60,6 @@ export async function assignWork(dispatch, toast, studentIds, item, toWhom) {
 }
 
 const StoreCtx = createContext(null);
-
-// "This lesson was taught to this class" — ending a live lesson, or "Mark
-// as taught" on a lesson opened from a class. The timestamp is taken here
-// (a real backend would stamp it server-side); the db layer logs it and
-// moves the class's "next up" on. Returns the lesson that's next up after
-// it (null once the course runs out), for the caller's own message.
-export function markLessonTaught(dispatch, toast, { cls, courseId, lesson, lessons }) {
-  dispatch({ type: "MARK_LESSON_TAUGHT", classId: cls.id, courseId, lessonId: lesson.id, taughtAt: new Date().toISOString() });
-  const next = lessons[lessons.findIndex((l) => l.id === lesson.id) + 1] || null;
-  toast(next ? `Lesson ${lesson.n} marked as taught for ${cls.name} — next up: Lesson ${next.n}` : `Lesson ${lesson.n} marked as taught for ${cls.name} — that was the last lesson`);
-  return next;
-}
 
 // Keeps this tab's mock db in step with the other open tabs (the teacher
 // app and the student app) — see db/mockSync.js. Returns whether this tab
