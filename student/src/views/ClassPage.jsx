@@ -9,6 +9,7 @@ import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { classCourses, courseOf, finishedLesson, membershipIn, teacherName } from "../lib.js";
 import LessonRow from "../components/LessonRow.jsx";
+import { useMyNotes } from "@app/features/notes/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
 // One of the student's classes: each course it's taking with its lessons
@@ -18,6 +19,7 @@ export default function ClassPage() {
   const { classId } = useParams();
   const { state } = useStore();
   const { seen } = useSeen();
+  const { notes: myNotes } = useMyNotes();
   const navigate = useNavigate();
   const cls = state.classes.find((c) => c.id === classId);
   const membership = membershipIn(state, classId);
@@ -48,7 +50,7 @@ export default function ClassPage() {
     );
   }
 
-  const notes = state.classNotes.filter((n) => n.classId === cls.id);
+  const notes = myNotes.filter((n) => n.classId === cls.id);
 
   return (
     <Page>
@@ -56,7 +58,7 @@ export default function ClassPage() {
       <PageHeader title={cls.name} sub={`with ${teacher} · ${scheduleLabel(cls.schedule)}`} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6 min-w-0">
-          {classCourses(cls).map((entry) => <ClassCourse key={entry.courseId} cls={cls} entry={entry} />)}
+          {classCourses(cls).map((entry) => <ClassCourse key={entry.courseId} cls={cls} entry={entry} notes={notes} />)}
           {!cls.courses.length && <Card className="p-8 text-center text-sm text-neutral-600">{teacher} hasn't started a course with this class yet.</Card>}
         </div>
         <div>
@@ -79,7 +81,7 @@ export default function ClassPage() {
 }
 
 // A course the class is taking: how far the class is, and its lessons.
-function ClassCourse({ cls, entry }) {
+function ClassCourse({ cls, entry, notes }) {
   const { state } = useStore();
   const navigate = useNavigate();
   const course = courseOf(state, entry.courseId);
@@ -88,7 +90,7 @@ function ClassCourse({ cls, entry }) {
   const st = CLASS_COURSE_STATUS[entry.status] || CLASS_COURSE_STATUS["in-progress"];
   const open = (lesson) => navigate(`/classes/${cls.id}/lessons/${lesson.id}`);
   const nextOpen = p.next && p.released.has(p.next.id);
-  const notesOn = (lessonId) => state.classNotes.filter((n) => n.classId === cls.id && n.lessonId === lessonId).length;
+  const notesOn = (lessonId) => notes.filter((n) => n.lessonId === lessonId).length;
   return (
     <Card className="overflow-hidden">
       <div className="p-5 border-b border-neutral-400">

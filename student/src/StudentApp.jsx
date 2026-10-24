@@ -7,6 +7,7 @@ import { StoreProvider, useStore, studentView, signedOutView } from "@app/store.
 import { useTheme } from "@app/theme.js";
 import { Avatar, CountBadge, NavItem, NavSectionLabel, SegmentedToggle, ToastHost } from "@app/design-system.jsx";
 import { ErrorBoundary } from "@app/components/ErrorBoundary.jsx";
+import { useMyNotes } from "@app/features/notes/index.js";
 import { SeenProvider, useSeen, useStudentSession } from "./session.jsx";
 import { courseOf, lessonOf, myClasses, teacherName } from "./lib.js";
 import SignIn from "./views/SignIn.jsx";
@@ -101,8 +102,9 @@ function Sidebar({ pathname, onSignOut }) {
   const navigate = useNavigate();
   const { state } = useStore();
   const { seen } = useSeen();
+  const { notes } = useMyNotes();
   const [theme, setTheme] = useTheme();
-  const unseen = state.classNotes.filter((n) => !seen.has(n.id)).length;
+  const unseen = notes.filter((n) => !seen.has(n.id)).length;
   // A count on the items with something waiting: new notes, open work.
   const counts = { "/notes": unseen, "/work": openWork(state).length };
   const classes = myClasses(state);
@@ -154,7 +156,8 @@ function TopBar({ pathname }) {
   const navigate = useNavigate();
   const section = pathname.split("/")[1];
   const title = { "": "Home", work: "My work", notes: "Notes", courses: "Courses", classes: "My classes", join: "Join a class" }[section] || "Home";
-  const unseen = state.classNotes.some((n) => !seen.has(n.id));
+  const { notes } = useMyNotes();
+  const unseen = notes.some((n) => !seen.has(n.id));
   return (
     <div className="h-16 bg-neutral-50/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 gap-4">
       <div className="text-lg font-bold text-neutral-950 shrink-0">{title}</div>
@@ -180,14 +183,17 @@ function TopBar({ pathname }) {
 // a join request accepted, a lesson shared, a purchase confirmed. Nothing counts as new
 // until this tab has caught up with the others (a fresh tab starts from the
 // seed and then receives the real data — that isn't news); from then on it
-// compares against what was already there.
+// compares against what was already there. Notes arrive through their own
+// door (features/notes), a moment after the data they come from, so nothing
+// is compared until they've caught up too.
 function useLiveUpdates() {
   const { state, toast, caughtUp } = useStore();
+  const { notes: myNotes, loading: notesLoading } = useMyNotes();
   const before = useRef(null);
   useEffect(() => {
-    if (!caughtUp) return;
+    if (!caughtUp || notesLoading) return;
     const now = {
-      notes: new Set(state.classNotes.map((n) => n.id)),
+      notes: new Set(myNotes.map((n) => n.id)),
       work: new Set((state.assignments || []).map((a) => a.id)),
       classes: new Set(myClasses(state).map((c) => c.id)),
       shared: new Set(myClasses(state).flatMap((c) => c.courses.flatMap((x) => (x.releasedLessonIds || []).map((l) => `${c.id}:${x.courseId}:${l}`)))),
@@ -197,7 +203,7 @@ function useLiveUpdates() {
     before.current = now;
     if (!prev) return;
     const fresh = (key) => [...now[key]].filter((x) => !prev[key].has(x));
-    const notes = state.classNotes.filter((n) => !prev.notes.has(n.id));
+    const notes = myNotes.filter((n) => !prev.notes.has(n.id));
     if (notes.length === 1) {
       const cls = state.classes.find((c) => c.id === notes[0].classId);
       toast(`New note from ${teacherName(state, cls?.teacherId)}: “${notes[0].text.length > 60 ? `${notes[0].text.slice(0, 57)}…` : notes[0].text}”`);
@@ -213,5 +219,5 @@ function useLiveUpdates() {
       if (lesson) toast(`Lesson ${lesson.n} is open in ${state.classes.find((c) => c.id === classId)?.name}`);
     });
     fresh("bought").forEach((id) => toast(`Payment confirmed — ${courseOf(state, id)?.title} is yours`));
-  }, [state, toast, caughtUp]);
+  }, [state, toast, caughtUp, myNotes, notesLoading]);
 }

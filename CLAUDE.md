@@ -21,6 +21,7 @@ your own version of it.
 | Icons | `@tabler/icons-react` — the exact icon set the kit itself credits (tablers.io) |
 | Font | **DM Sans**, loaded via Google Fonts `@import` in `index.css`, wired to Tailwind's `font-sans` |
 | Routing (real URLs, `react-router-dom`) | `src/router.jsx` (`Bridge`, `buildPath`, `mergeRoute`, `TAB_PATH`) + `<Routes>` tree in `src/english-platform-prototype.jsx` |
+| **Features** — the screens' only way to data, one folder per feature (see **Features** below) | `src/features/<name>/` — import only its `index.js` |
 | Mock "database" (persistence rules — the only layer to replace for a real backend) | `src/db/mockDb.jsx` (`reducer`, `createInitialState`) |
 | Uploaded media (Listening audio) — mock file storage | `src/db/mediaStore.js` (IndexedDB; reached via `store.jsx`'s `saveMedia` / `useMediaSrc`) |
 | Seed fixtures + static UI config (labels, templates, icons) | `src/data.jsx` |
@@ -66,6 +67,49 @@ in-app navigation. Two layers:
 Rule of thumb: does another page ever need to navigate straight to this
 state (e.g. a course id, a student id)? Use `useNav()`/`go()`. Is it purely
 "which tab of this page am I on"? Use the page's own router hooks.
+
+## Features
+
+The mock db is throwaway: it is deleted when the real backend lands, so
+don't spend effort on its internals. What stays is how screens reach data,
+and that goes through **features**, one folder per feature:
+
+```
+src/features/<name>/
+  client.js   the contract (what the feature can do), with two versions:
+              createMock…Client (on the mock db, used today) and
+              createHttp…Client (the docs/openapi.yaml calls, on db/apiClient.js)
+  hooks.js    what screens call; picks the client and re-asks when data changes
+  index.js    the feature's public API — the only file outside the folder may import
+```
+
+- **Screens never touch the mock** for a converted feature: no `useStore()`
+  state, no reducer actions, no mock selectors. They call the feature's
+  hooks. A screen that shows toasts but reads no data uses `useToast()`.
+- **Features never import each other.** A screen that needs two features
+  calls both features' hooks. A feature may import shared code (`store.jsx`
+  for the mock wiring, `db/apiClient.js`, `richText.js`, …).
+- Both rules are enforced by `.oxlintrc.json` (`no-restricted-imports`
+  overrides): `npm run lint` fails on a screen importing a feature's inner
+  file or a feature importing another feature.
+- **Contracts follow `docs/openapi.yaml`**, so the HTTP client passes
+  responses straight through. Where the mock's shape differs, the mock
+  client translates (notes: the mock's `sharedAt` is the API's `sentAt`).
+- **Hooks are async-ready** (`loading`, promises from every action), so the
+  real backend needs no screen changes. Backend day for a feature: build its
+  HTTP client in `hooks.js` instead of the mock one, and drive its refresh
+  from the server's push (`GET /events`).
+- **Schools/organizations later:** the active school will travel with the
+  login token in `apiClient` and the backend scopes by it; features and
+  screens don't change.
+
+Converted so far: **notes** (`src/features/notes/`: the teacher's notes
+panel, the student app's notes everywhere, and Google Docs). Class homework
+already follows the same pattern from before (`src/homework.jsx` +
+`src/db/homeworkClient.js`) and moves into `src/features/` when it's next
+touched. Everything else still reads the mock through `useStore()` and is
+converted feature by feature: library, courses & lessons, classes,
+students & joining, sales, assigned work, account.
 
 ## Data layer
 
@@ -525,14 +569,14 @@ date) — see `homeworkStats`.
     that class's active students, who see edits live. `sentTo` records which
     classes have it. Opened without a class, the notes are the teacher's
     own. Students get one row per (note, class) from `notesSentToStudent`,
-    which is what the student app still reads as `classNotes`;
+    which the student app reads through `useMyNotes()` (`src/features/notes/`);
   - a **Google Doc** per lesson (`docUrl`, `SET_LESSON_NOTES_DOC`; https
     `docs.google.com` / `drive.google.com` only). With a Google OAuth
     client ID in `VITE_GOOGLE_CLIENT_ID` (`.env.example`), one click signs
     the teacher in (Google's browser sign-in popup, no backend of ours),
     creates the doc in their Drive (scope `drive.file`: only files the app
     created) and opens it in the panel in an iframe, with an Expand button
-    for room. All of it lives in `src/db/googleDocs.js`, on `apiClient.js`;
+    for room. All of it lives in `src/features/notes/googleDocs.js`, on `apiClient.js`;
     the token is in memory only. A doc the app created is `docManaged`:
     sending the notes to a class sets it to "anyone with the link can read",
     and taking it back from the last class removes that. Without a client

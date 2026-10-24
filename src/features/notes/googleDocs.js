@@ -1,4 +1,4 @@
-import { ApiError, createApiClient } from "./apiClient.js";
+import { ApiError, createApiClient } from "../../db/apiClient.js";
 
 /* The Google Docs seam, built on the same client as the H5P server
    (apiClient.js). A class's lesson notes can live in a Google Doc the app

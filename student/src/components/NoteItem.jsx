@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IconNotes, IconExternalLink } from "@tabler/icons-react";
 import { Badge } from "@app/design-system.jsx";
-import { useStore, classCourseProgress, docEmbedUrl } from "@app/store.jsx";
+import { useStore, classCourseProgress } from "@app/store.jsx";
+import { docEmbedUrl } from "@app/features/notes/index.js";
 import { timeAgo, shortDate } from "@app/format.js";
 import { classOf, lessonOf } from "../lib.js";
 
@@ -53,7 +54,7 @@ export default function NoteItem({ note, showClass = true, showLesson = true, sh
               Lesson {lesson.n}: {lesson.title}
             </button>
           ) : <span>Lesson {lesson.n}: {lesson.title}</span>)}
-          {showTime && <span title={shortDate(note.sharedAt)}>Sent {timeAgo(note.sharedAt)}</span>}
+          {showTime && <span title={shortDate(note.sentAt)}>Sent {timeAgo(note.sentAt)}</span>}
         </div>
       </div>
     </div>

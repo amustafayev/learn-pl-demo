@@ -4,5 +4,25 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/views/**", "src/components/**", "src/*.jsx", "src/*.js", "student/src/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [{
+          "group": ["**/features/*/*", "!**/features/*/index.js"],
+          "message": "Import a feature only through its index.js (see \"Features\" in CLAUDE.md)."
+        }] }]
+      }
+    },
+    {
+      "files": ["src/features/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [{
+          "group": ["../*/*", "!../../**"],
+          "message": "A feature never imports another feature (see \"Features\" in CLAUDE.md)."
+        }] }]
+      }
+    }
+  ]
 }

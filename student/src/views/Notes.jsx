@@ -5,6 +5,7 @@ import { useStore } from "@app/store.jsx";
 import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { capitalize, classOf } from "../lib.js";
+import { useMyNotes } from "@app/features/notes/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
 // Every note the student's teachers have sent them, newest first, grouped by
@@ -13,11 +14,12 @@ import NoteItem from "../components/NoteItem.jsx";
 export default function Notes() {
   const { state } = useStore();
   const { seen, markSeen } = useSeen();
+  const { notes } = useMyNotes();
   const [classFilter, setClassFilter] = useState("all");
   // What was new when they opened this page (or arrived while it's open)
   // keeps its "New" badge until they leave, even once it counts as seen.
-  const [fresh, setFresh] = useState(() => new Set(state.classNotes.filter((n) => !seen.has(n.id)).map((n) => n.id)));
-  const unseen = state.classNotes.filter((n) => !seen.has(n.id)).map((n) => n.id);
+  const [fresh, setFresh] = useState(() => new Set(notes.filter((n) => !seen.has(n.id)).map((n) => n.id)));
+  const unseen = notes.filter((n) => !seen.has(n.id)).map((n) => n.id);
   const unseenKey = unseen.join(",");
   useEffect(() => {
     if (!unseenKey) return;
@@ -26,12 +28,12 @@ export default function Notes() {
     markSeen(ids);
   }, [unseenKey, markSeen]);
 
-  const classIds = [...new Set(state.classNotes.map((n) => n.classId))];
-  const shown = state.classNotes.filter((n) => classFilter === "all" || n.classId === classFilter);
+  const classIds = [...new Set(notes.map((n) => n.classId))];
+  const shown = notes.filter((n) => classFilter === "all" || n.classId === classFilter);
   // Group headings by when the note was sent: Today, Yesterday, 5 days ago…
   const groups = [];
   shown.forEach((n) => {
-    const label = capitalize(timeAgo(n.sharedAt));
+    const label = capitalize(timeAgo(n.sentAt));
     const g = groups.at(-1);
     if (g?.label === label) g.notes.push(n); else groups.push({ label, notes: [n] });
   });
@@ -43,8 +45,8 @@ export default function Notes() {
           <MenuButton icon={IconFilter} value={classFilter} onChange={setClassFilter} active={classFilter !== "all"}
             label={classFilter === "all" ? "All classes" : classOf(state, classFilter)?.name}
             options={[
-              { id: "all", label: "All classes", count: state.classNotes.length },
-              ...classIds.map((id) => ({ id, label: classOf(state, id)?.name || "Class", count: state.classNotes.filter((n) => n.classId === id).length })),
+              { id: "all", label: "All classes", count: notes.length },
+              ...classIds.map((id) => ({ id, label: classOf(state, id)?.name || "Class", count: notes.filter((n) => n.classId === id).length })),
             ]} />
         )} />
 

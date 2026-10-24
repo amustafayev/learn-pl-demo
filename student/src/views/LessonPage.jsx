@@ -7,6 +7,7 @@ import { blockMeta } from "@app/data.jsx";
 import { BlockStudentView, blockComponents } from "@app/views/parts.jsx";
 import { useSeen } from "../session.jsx";
 import { courseOf, finishedLesson, lessonOf, lessonsOf, teacherName, toneText } from "../lib.js";
+import { useMyNotes } from "@app/features/notes/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 
 // The lesson player. Opened from a class (/classes/:classId/lessons/:id) or
@@ -20,6 +21,7 @@ export default function LessonPage() {
   const [params, setParams] = useSearchParams();
   const { state, dispatch, toast } = useStore();
   const { seen, markSeen } = useSeen();
+  const { notes: myNotes } = useMyNotes();
   const navigate = useNavigate();
   // Starter activities for a block the teacher never opened in Block Studio
   // (so it has no saved content) are made up fresh with new ids each time —
@@ -32,7 +34,7 @@ export default function LessonPage() {
   const course = courseOf(state, courseId);
   const lesson = course ? lessonOf(state, course.id, lessonId) : null;
   const allowed = !!lesson && canOpenLesson(state, state.me.id, course.id, lesson.id);
-  const notes = cls && lesson ? state.classNotes.filter((n) => n.classId === cls.id && n.lessonId === lesson.id) : [];
+  const notes = cls && lesson ? myNotes.filter((n) => n.classId === cls.id && n.lessonId === lesson.id) : [];
   const noteIds = notes.map((n) => n.id).join(",");
 
   // Reading the lesson counts as seeing its notes — after this render, so

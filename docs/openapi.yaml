@@ -1974,6 +1974,7 @@ components:
             type: object
             properties:
               classId: { type: string }
+              className: { type: string, description: "The class's name, so the notes panel can say where it was sent without loading classes." }
               at: { $ref: "#/components/schemas/Timestamp" }
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         updatedAt: { $ref: "#/components/schemas/Timestamp" }

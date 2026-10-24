@@ -6,7 +6,8 @@ import {
   IconMaximize, IconMinimize, IconBrandGoogle,
 } from "@tabler/icons-react";
 import { Button, Tag, TextField } from "../design-system.jsx";
-import { useStore, lessonNoteFor, googleDocs, googleDocsConfigured, docEmbedUrl } from "../store.jsx";
+import { useToast } from "../store.jsx";
+import { useLessonNotes, googleDocsConfigured, docEmbedUrl } from "../features/notes/index.js";
 import { isGoogleDocUrl } from "../richText.js";
 
 /* =========================================================================
@@ -108,24 +109,23 @@ function RichEditor({ html, onSave }) {
 // The lesson's Google Doc. One click signs the teacher in to Google and
 // creates the doc in their Drive, then it opens right here in the panel.
 // Where Google isn't set up (no client ID), they can paste a link instead.
-function CreateDoc({ course, lesson }) {
-  const { dispatch, toast } = useStore();
+function CreateDoc({ course, lesson, notes }) {
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const connected = googleDocsConfigured();
-  const set = (docUrl, managed = false) => dispatch({ type: "SET_LESSON_NOTES_DOC", courseId: course.id, lessonId: lesson.id, docUrl, managed });
   const create = async () => {
     setBusy(true);
     try {
-      const doc = await googleDocs.createDoc(`${course.title} · Lesson ${lesson.n} notes`);
-      set(doc.url, true);
+      await notes.createGoogleDoc(`${course.title} · Lesson ${lesson.n} notes`);
     } catch (err) {
       toast(err.description || err.message || "Couldn't create the Google Doc", "err");
     } finally { setBusy(false); }
   };
   const paste = () => {
     if (!isGoogleDocUrl(draft.trim())) { toast("That doesn't look like a Google Docs link", "err"); return; }
-    set(draft.trim()); setDraft("");
+    notes.linkDoc(draft.trim()).catch((err) => toast(err.description || "Couldn't link the Google Doc", "err"));
+    setDraft("");
   };
   return (
     <div className="space-y-2 border-t border-neutral-400 px-5 py-4">
@@ -153,10 +153,10 @@ function CreateDoc({ course, lesson }) {
 
 // The linked Google Doc, open in the panel (Google's own editor), with the
 // few things to do with it.
-function GoogleDocFrame({ course, lesson, note, wide, onToggleWide }) {
-  const { dispatch, toast } = useStore();
+function GoogleDocFrame({ note, notes, wide, onToggleWide }) {
+  const toast = useToast();
   const src = docEmbedUrl(note.docUrl, { edit: true });
-  const unlink = () => dispatch({ type: "SET_LESSON_NOTES_DOC", courseId: course.id, lessonId: lesson.id, docUrl: "" });
+  const unlink = () => notes.unlinkDoc().catch((err) => toast(err.description || "Couldn't remove the link", "err"));
   const copy = async () => {
     try { await navigator.clipboard.writeText(note.docUrl); toast("Link copied"); } catch { toast("Couldn't copy — open the doc and copy its address", "err"); }
   };
@@ -183,20 +183,17 @@ function GoogleDocFrame({ course, lesson, note, wide, onToggleWide }) {
 }
 
 // The one sending control: this lesson's notes to the class it's open from.
-// A Google Doc the app created is opened up to "anyone with the link can
-// read" while any class has the notes (and closed when none does), so
-// students can open it.
-function SendNotes({ cls, course, lesson, note }) {
-  const { dispatch, toast } = useStore();
+// Sending also opens up the sharing of a Google Doc the app created, so
+// students can open it (see useLessonNotes' `send`).
+function SendNotes({ cls, note, notes }) {
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   if (!note) return null;
   const sent = note.sentTo.some((x) => x.classId === cls.id);
   const set = async (value) => {
     setBusy(true);
     try {
-      const stillSent = note.sentTo.some((x) => x.classId !== cls.id);
-      if (note.docUrl && note.docManaged && (value || !stillSent)) await googleDocs.setLinkSharing(note.docUrl, value);
-      dispatch({ type: "SEND_LESSON_NOTES", courseId: course.id, lessonId: lesson.id, classId: cls.id, sent: value });
+      await notes.send(cls.id, value);
       toast(value ? `Notes${note.docUrl ? " and Google Doc" : ""} sent to ${cls.name}` : `Notes taken back from ${cls.name}`);
     } catch (err) {
       toast(err.description || err.message || "Couldn't change the Google Doc's sharing", "err");
@@ -253,17 +250,18 @@ export function LessonNotesToggle({ lesson, size = "sm" }) {
 // `cls` is the class the lesson was opened from, if any — it's who "Send"
 // goes to.
 export function LessonNotesPanel({ cls, course, lesson }) {
-  const { state, dispatch } = useStore();
+  const toast = useToast();
   const { open, wide } = usePanel();
-  const note = lessonNoteFor(state, course.id, lesson.id);
+  const notes = useLessonNotes(course.id, lesson.id);
+  const { note } = notes;
 
   // Leaving the lesson page closes the panel and gives the room back.
   useEffect(() => () => setPanel({ open: false, wide: false }), []);
 
-  const save = (html) => dispatch({ type: "SAVE_LESSON_NOTES", courseId: course.id, lessonId: lesson.id, html });
+  const save = (html) => notes.save(html).catch((err) => toast(err.description || "Couldn't save the notes", "err"));
   if (!open || typeof document === "undefined") return null;
   const hasDoc = !!note?.docUrl;
-  const sentTo = (note?.sentTo || []).map((x) => state.classes.find((c) => c.id === x.classId)?.name).filter(Boolean);
+  const sentTo = (note?.sentTo || []).map((x) => x.className).filter(Boolean);
   return createPortal(
     <aside aria-label="Lesson notes" className={`fixed bottom-0 right-0 top-16 z-30 flex w-full flex-col border-l border-neutral-400 bg-surface ${wide ? "sm:w-[44rem]" : "sm:w-[22rem]"}`}>
       <div className="flex items-start justify-between gap-3 border-b border-neutral-400 px-5 py-4">
@@ -275,17 +273,20 @@ export function LessonNotesPanel({ cls, course, lesson }) {
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-950"><IconX size={18} stroke={1.75} /></button>
       </div>
 
-      {hasDoc ? (
-        <GoogleDocFrame course={course} lesson={lesson} note={note} wide={wide} onToggleWide={() => setPanel({ wide: !wide })} />
+      {/* The editor is seeded once when it mounts, so it waits for the notes. */}
+      {notes.loading ? (
+        <div className="min-h-0 flex-1" aria-busy="true" />
+      ) : hasDoc ? (
+        <GoogleDocFrame note={note} notes={notes} wide={wide} onToggleWide={() => setPanel({ wide: !wide })} />
       ) : (
         <>
           <RichEditor key={`${course.id}:${lesson.id}`} html={note?.html || ""} onSave={save} />
-          <CreateDoc course={course} lesson={lesson} />
+          <CreateDoc course={course} lesson={lesson} notes={notes} />
         </>
       )}
 
       <div className="space-y-2 border-t border-neutral-400 px-5 py-4">
-        {cls ? <SendNotes cls={cls} course={course} lesson={lesson} note={note} /> : null}
+        {cls ? <SendNotes cls={cls} note={note} notes={notes} /> : null}
         <p className="text-xs text-neutral-600">
           {cls
             ? `Only you see ${hasDoc ? "this document" : "these notes"} until you send ${hasDoc ? "it" : "them"} to ${cls.name}.`

@@ -7,6 +7,7 @@ import { scheduleLabel } from "@app/schedule.js";
 import { timeAgo } from "@app/format.js";
 import { useSeen } from "../session.jsx";
 import { boughtCourses, classOf, courseOf, finishedLesson, firstName, lessonsOf, myClasses, teacherName, toneOf } from "../lib.js";
+import { useMyNotes } from "@app/features/notes/index.js";
 import NoteItem from "../components/NoteItem.jsx";
 import { WorkRow, openWork } from "./Work.jsx";
 
@@ -17,13 +18,14 @@ export default function Home() {
   const { state, dispatch, toast } = useStore();
   const navigate = useNavigate();
   const { seen } = useSeen();
+  const { notes } = useMyNotes();
   const me = state.me;
   const classes = myClasses(state);
   const invites = state.invitations.filter((i) => i.status === "pending" && i.expiresAt > new Date().toISOString());
   const waiting = state.memberships.filter((m) => m.status === "requested");
   const paying = state.purchases.filter((p) => p.status === "requested");
   const bought = boughtCourses(state);
-  const latest = state.classNotes.slice(0, 3);
+  const latest = notes.slice(0, 3);
   const work = openWork(state);
 
   const accept = (inv) => {
@@ -108,7 +110,7 @@ export default function Home() {
         </>
       )}
 
-      <SectionLabel right={state.classNotes.length > 3 && (
+      <SectionLabel right={notes.length > 3 && (
         <button type="button" onClick={() => navigate("/notes")} className="inline-flex items-center gap-0.5 text-sm font-semibold text-primary-600 hover:text-primary-700">
           All notes <IconChevronRight size={15} stroke={1.75} />
         </button>

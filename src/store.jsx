@@ -2,11 +2,10 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 import {
   reducer, createInitialState, uid, lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress,
   groupBankByParent, bankChildLabel, persistComponentBank, persistLessonNotes, teacherView, classMembers, studentClasses, activeStudents, teacherRoster,
-  lessonNoteFor, studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
+  studentHistory, membershipPeriods, studentView, signedOutView, canOpenLesson,
 } from "./db/mockDb.jsx";
 import { openSyncChannel, sharedChanged } from "./db/mockSync.js";
 import { h5pClient, withOwnH5PCopies, deleteH5PContentIn } from "./db/h5pClient.js";
-import { googleDocs, googleDocsConfigured, docEmbedUrl } from "./db/googleDocs.js";
 import { saveMedia, loadMedia } from "./db/mediaStore.js";
 import { MOTION, cssMs } from "./motion.js";
 
@@ -24,7 +23,7 @@ import { MOTION, cssMs } from "./motion.js";
 // in the db layer now, next to the state shape they describe.
 export {
   lessonBlocks, activeClassCourse, classesOnCourse, classCourseProgress, studentCourseId, courseAvgProgress, groupBankByParent, bankChildLabel,
-  classMembers, studentClasses, activeStudents, teacherRoster, lessonNoteFor, studentHistory, membershipPeriods, uid, h5pClient, googleDocs, googleDocsConfigured, docEmbedUrl, saveMedia,
+  classMembers, studentClasses, activeStudents, teacherRoster, studentHistory, membershipPeriods, uid, h5pClient, saveMedia,
   studentView, signedOutView, canOpenLesson,
 };
 
@@ -173,6 +172,9 @@ export function useStore() {
   if (!ctx) throw new Error("useStore must be used inside <StoreProvider>");
   return ctx;
 }
+
+// Just the toast, for code that shows messages but reads no app data.
+export const useToast = () => useStore().toast;
 
 /* -------- navigation (single route object shared across views) -------- */
 
