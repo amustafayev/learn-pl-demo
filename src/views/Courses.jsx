@@ -7,7 +7,7 @@ import {
 } from "@tabler/icons-react";
 import { Page, Breadcrumbs, PageHeader, SectionLabel, SegmentedBar, Card, Button, Badge, Tag, CourseCard, SearchField, MenuButton, CountBadge, Modal, Switch, Field, TextField, TextArea, Select } from "../design-system.jsx";
 import { RequestRow } from "../components/StudentRequests.jsx";
-import { useStore, useNav, teacherRoster } from "../store.jsx";
+import { useNav } from "../store.jsx";
 import { useToast } from "../toasts.jsx";
 import { timeAgo, shortDate } from "../format.js";
 import ClassLessonBar, { ShareLessonButton } from "../components/ClassLessonBar.jsx";
@@ -20,6 +20,7 @@ import { useSavedComponents } from "../features/savedComponents/index.js";
 import { useMe } from "../features/account/index.js";
 import { useCourses, useCourse, useLesson } from "../features/courses/index.js";
 import { useClasses, useClass, activeCourseOf, progressFor, courseAvgProgress } from "../features/classes/index.js";
+import { useRoster } from "../features/students/index.js";
 
 // A course's hue is authored as a Tailwind indigo/emerald/etc. hue key —
 // map it onto the design-system's own tone vocabulary for the card band.
@@ -484,11 +485,10 @@ export function LessonBuilderView() {
 // Separate from teaching it to a class — buyers get every lesson and go at
 // their own pace; nobody has to accept them.
 function CourseSalesCard({ course, onUpdateSale }) {
-  const { state } = useStore();
   const [editing, setEditing] = useState(false);
   const [viewing, setViewing] = useState(false);
   const sale = course.sale || {};
-  const roster = teacherRoster(state);
+  const { roster } = useRoster();
   const customers = roster.customers.filter((c) => c.course?.id === course.id);
   const requests = roster.requests.filter((r) => r.kind === "purchase" && r.course?.id === course.id);
   return (

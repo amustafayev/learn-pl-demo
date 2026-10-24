@@ -122,6 +122,11 @@ Converted so far:
   app's sign-in page (`useSignIn`). The student app remounts everything
   below its sign-in gate when the session changes, so no screen outlives
   the student it was showing.
+- **sales** — a course sold on its own: confirming or declining a purchase
+  (`useSalesActions`, in the request rows and a course's Customers), and
+  for the student app the catalog (`useCatalog`: each course with its
+  teacher and the student's own purchase), `useMyPurchases` and "Request
+  to buy". Who bought what shows in the students roster.
 - **students** — the teacher's side of who they teach: the roster by
   relationship (`useRoster`, `rosterStudents`), one student and their
   history (`useStudent`), a class's members (`useClassMembers`) and invites
@@ -165,7 +170,7 @@ around each app, `useToast()`), per tab, never stored or synced.
 Class homework already follows the same pattern from before
 (`src/homework.jsx` + `src/db/homeworkClient.js`) and moves into
 `src/features/` when it's next touched. Everything else still reads the mock
-through `useStore()` and is converted feature by feature: sales, assigned work, the student's own learning,
+through `useStore()` and is converted feature by feature: assigned work, the student's own learning,
 media, the seed-only analytics pages.
 
 ## Tests
