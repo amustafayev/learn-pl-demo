@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test output (npm test, npm run test:e2e)
+test-results
+playwright-report
+blob-report
+.vitest

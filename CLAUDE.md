@@ -126,6 +126,62 @@ Class homework already follows the same pattern from before
 through `useStore()` and is converted feature by feature: courses &
 lessons, classes, students & joining, sales, assigned work, account.
 
+## Tests
+
+```
+npm test            unit tests (Vitest) — a couple of seconds, no browser
+npm run test:watch  the same, re-running on save
+npm run test:e2e    browser tests (Playwright) — drive both apps on the dev server
+npm run check       lint + unit tests + build + browser tests: run before committing
+```
+
+Two layers, each with one job:
+
+- **Unit tests** — `*.test.js` beside the code they test
+  (`src/features/notes/client.test.js`, `src/schedule.test.js`, …). Node
+  with a browser-like DOM (jsdom); no browser, no server.
+  - A feature's `client.test.js` has two halves:
+    - **mock client — the rules.** What the API must do: who receives a
+      sent note, what deleting a folder takes with it, which words a set
+      hands out. Run against the real seed and reducer through
+      `src/test/mockDb.js` (`mockDb()` is the teacher; `.as("s_rashad")` a
+      student, on the same db). They describe the backend's contract too:
+      when the mock is deleted, port them to the backend's tests.
+    - **HTTP client — the requests.** Method, path and body of every call,
+      and how errors read, through `src/test/recordingApi.js`. Each path
+      must match `docs/openapi.yaml`. These stay when the mock goes.
+  - Shared helpers that outlive the mock have their own: `libraryTree`,
+    `schedule`, `format`, `richText` (the notes sanitizer — a security
+    boundary, keep its tests strict).
+- **Browser tests** — `e2e/<feature>.spec.js`, one file per feature, each
+  test named for what a person does and sees. `e2e/fixtures.js` gives
+  `page` (a teacher tab), `studentPage` (a second tab in the same browser,
+  so both apps sync live), `signInAsStudent(page, name)` and `sidebar(page,
+  label)`. A test fails on any page or console error. Every test starts
+  from the seed in a fresh browser. `page.goto()` reloads the tab, which
+  restarts its mock db from the seed: navigate by clicking to keep what the
+  test did.
+
+Writing them:
+- Name the seed a file relies on in a comment at its top.
+- Assert what a person sees — text, roles, labels — never CSS classes.
+- No sleeps: Playwright's `expect` waits. Scope text to `page.locator("main")`
+  when a toast could show the same words.
+- Never assert a relative date ("4 weeks ago") — it changes as days pass.
+- A new test must be able to fail: break the code it covers once and watch
+  it go red.
+
+**Moving a feature behind its door** (see **Features**):
+1. Write `e2e/<feature>.spec.js` for what people do with it today, and get
+   it green on the current code — it's the regression net.
+2. Build `src/features/<name>/` (`client.js`, `hooks.js`, `index.js`) with
+   its `client.test.js`.
+3. Move the screens onto the hooks, then `npm run check`.
+
+Playwright is pinned (`@playwright/test` 1.63.0) because each version
+drives its own Chromium build; after upgrading it, run
+`npx playwright install chromium`.
+
 ## Data layer
 
 No backend — but the mock persistence is deliberately isolated behind one
@@ -1134,6 +1190,8 @@ bundle Vite already warns about, and nothing here needs it.
 
 ## Verification checklist for any UI change
 
+0. `npm run check` — lint, unit tests, build and browser tests in one go
+   (see **Tests**). Add or update tests for what you changed.
 1. `npx vite build` — must pass clean.
 2. `npx oxlint <changed files>` — exit 0 (pre-existing "Fast refresh" warnings
    on files that export a helper alongside a component are fine to ignore).
@@ -1145,5 +1203,6 @@ bundle Vite already warns about, and nothing here needs it.
    only showed up visually.
 4. Clean up: kill the dev server, remove any temp scripts, confirm
    `git status --short` shows no stray `package.json`/`package-lock.json` diff
-   if you only installed a temporary tool (e.g. `playwright-core` for
-   screenshotting) — uninstall it after.
+   if you only installed a temporary tool — uninstall it after. (Playwright
+   itself is a dev dependency now: write a browser test in `e2e/` rather
+   than a throwaway script.)

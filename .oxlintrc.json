@@ -16,6 +16,11 @@
       }
     },
     {
+      // Playwright's fixture callback is named `use`; it isn't React's hook.
+      "files": ["e2e/**"],
+      "rules": { "react/rules-of-hooks": "off" }
+    },
+    {
       "files": ["src/features/**"],
       "rules": {
         "no-restricted-imports": ["error", { "patterns": [{
